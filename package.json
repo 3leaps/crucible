@@ -1,6 +1,6 @@
 {
   "name": "@3leaps/crucible",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "description": "Lightweight standards and specifications for 3leaps open source projects",
   "type": "module",
