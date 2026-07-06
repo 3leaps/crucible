@@ -1,0 +1,38 @@
+# Planning files (local only, never commit)
+.plans/
+
+# Agent local overrides
+AGENTS.local.md
+.claude/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+
+# Bootstrap tools (installed via make bootstrap)
+bin/
+
+# Environment and secrets
+.env
+.env.local
+*.env
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# bun.lockb

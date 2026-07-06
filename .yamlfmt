@@ -1,0 +1,19 @@
+# yamlfmt configuration for 3leaps crucible
+# See: docs/repository/makefile-minimum.md
+
+formatter:
+  type: basic
+  indent: 2
+  line_ending: lf
+  # REQUIRED: match goneat's canonical inline-comment padding (2). yamlfmt's
+  # built-in default is 1; without this, a direct `yamlfmt` (e.g. `make fmt`)
+  # disagrees with `goneat assess` and you get a 2-vs-1-space flip-flop.
+  # See: goneat docs show appnotes/yaml-format-lint-alignment
+  pad_line_comments: 2
+  retain_line_breaks_single: true
+
+exclude:
+  - node_modules/**
+  - .git/**
+  - bin/**
+  - .plans/**

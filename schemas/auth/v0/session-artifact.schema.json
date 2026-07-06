@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.3leaps.dev/auth/v0/session-artifact.schema.json",
+  "title": "Auth Session Artifact",
+  "description": "Non-secret, inspectable metadata about an acquired auth session. The decoupling contract between credential acquirers (which emit a conforming artifact) and inspectors (which validate and parse it). MUST NOT contain token values, secrets, signatures, or identifiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "expires_at", "tokens"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "MAJOR.MINOR of this contract. Minor = additive/optional fields only; major = required-field add/rename/remove or semantic change.",
+      "examples": ["0.1"]
+    },
+    "emitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the emitter produced this artifact (RFC 3339 / ISO 8601)."
+    },
+    "emitter": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Provenance of the tool that produced the artifact.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Emitter tool name (e.g. an acquirer tool). Not a secret."
+        },
+        "version": {
+          "type": "string",
+          "description": "Emitter tool version."
+        }
+      }
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Weakest OBSERVABLE-link expiry across the tokens. Null if no observable layer has a known expiry. Excludes 'unmeasured' layers, which are present but never participate in the weakest-link computation."
+    },
+    "tokens": {
+      "type": "array",
+      "description": "Per-layer, value-stripped metadata for each token/credential in the session.",
+      "items": { "$ref": "#/$defs/token" }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "additionalProperties:false is the structural 'no value fields' invariant: an emitter that adds value/SecretAccessKey/SessionToken/raw-JWT produces a NON-CONFORMING artifact. Consumers reject it loudly and never normalize it. Permanent across all schema versions.",
+      "required": ["kind", "expiry_basis"],
+      "properties": {
+        "kind": {
+          "description": "Token category. 'unmeasured' is first-class for off-disk, browser-held upstream-IdP sessions; it is not 'healthy' and is excluded from the weakest-link.",
+          "enum": ["sso-access", "client-reg", "role-cred", "jwt", "bearer", "unmeasured"]
+        },
+        "source": {
+          "enum": ["aws-sso-cache", "aws-sts-cache", "session-file", "upstream-idp"],
+          "description": "Provenance category, NOT a secret or identifier. Closed enum (not free text), so 'no identifier in the artifact' stays structural for source too — same hardening as dropping `label`. New sources extend via a minor bump."
+        },
+        "expires_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Observable expiry for this layer; null if unknown or unmeasured."
+        },
+        "expiry_basis": {
+          "description": "How expires_at was determined. 'unmeasured' indicates no observable expiry exists for this layer.",
+          "enum": ["metadata", "jwt-exp", "unmeasured"]
+        },
+        "claims": { "$ref": "#/$defs/jwtClaims" }
+      },
+      "allOf": [
+        {
+          "$comment": "Coherence: an 'unmeasured' layer is unmeasured in BOTH kind and expiry_basis and has no observable expiry. kind=unmeasured => expiry_basis=unmeasured and expires_at=null.",
+          "if": { "required": ["kind"], "properties": { "kind": { "const": "unmeasured" } } },
+          "then": {
+            "properties": {
+              "expiry_basis": { "const": "unmeasured" },
+              "expires_at": { "type": "null" }
+            }
+          }
+        },
+        {
+          "$comment": "Inverse coupling: expiry_basis=unmeasured => kind=unmeasured and expires_at=null. Stops a measured kind from claiming an unmeasured basis or carrying a stray timestamp.",
+          "if": {
+            "required": ["expiry_basis"],
+            "properties": { "expiry_basis": { "const": "unmeasured" } }
+          },
+          "then": {
+            "properties": { "kind": { "const": "unmeasured" }, "expires_at": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "jwtClaims": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Decoded JWT PAYLOAD claims, non-PII subset only. No signature, no verification key. sub/email and other PII redacted or omitted by default.",
+      "properties": {
+        "iss": { "type": "string" },
+        "aud": { "type": ["string", "array"], "items": { "type": "string" } },
+        "exp": { "type": "integer" },
+        "iat": { "type": "integer" },
+        "nbf": { "type": "integer" }
+      }
+    }
+  }
+}

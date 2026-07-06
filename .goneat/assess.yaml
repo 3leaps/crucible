@@ -1,0 +1,66 @@
+# .goneat/assess.yaml
+# 3leaps Crucible - Standards Repository
+#
+# Run format:  goneat assess --categories format --fix
+# Run lint:    goneat assess --categories lint
+# Run both:    goneat assess --categories format,lint
+# Run all:     goneat assess
+#
+# See: docs/repository/makefile-minimum.md
+
+version: 1
+
+lint:
+  yamllint:
+    enabled: true
+    strict: false
+    paths:
+      - "**/*.yml"
+      - "**/*.yaml"
+    ignore:
+      - ".git/**"
+      - "node_modules/**"
+      - ".plans/**"
+
+  github_actions:
+    actionlint:
+      enabled: true
+      paths:
+        - ".github/workflows/**/*.yml"
+        - ".github/workflows/**/*.yaml"
+      ignore:
+        - ".git/**"
+        - ".plans/**"
+
+  shell:
+    paths: ["**/*.sh", "scripts/**/*"]
+    ignore:
+      - ".git/**"
+      - "node_modules/**"
+      - ".plans/**"
+    shfmt:
+      enabled: true
+      fix: false
+      args: ["-i", "4", "-ci"]
+    shellcheck:
+      enabled: false
+
+  make:
+    checkmake:
+      enabled: true
+      config:
+        # Target body length - 75 lines accommodates bootstrap (73 lines)
+        # and other complex targets in this standards repository
+        max_body_length: 75
+        min_phony_targets:
+          - all
+          - clean
+          - help
+          - check
+          - fmt
+          - lint
+    paths:
+      - "**/Makefile"
+    ignore:
+      - ".git/**"
+      - ".plans/**"

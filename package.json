@@ -1,0 +1,21 @@
+{
+  "name": "@3leaps/crucible",
+  "version": "0.1.17",
+  "private": true,
+  "description": "Lightweight standards and specifications for 3leaps open source projects",
+  "type": "module",
+  "scripts": {
+    "fmt": "prettier --write '**/*.md' '**/*.json' --ignore-path .gitignore",
+    "fmt:check": "prettier --check '**/*.md' '**/*.json' --ignore-path .gitignore",
+    "lint": "yamllint -c .yamllint ."
+  },
+  "devDependencies": {
+    "prettier": "^3.4.0"
+  },
+  "keywords": ["3leaps", "standards", "specifications", "ssot"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/3leaps/crucible"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

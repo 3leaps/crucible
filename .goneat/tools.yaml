@@ -1,0 +1,215 @@
+# goneat Tools Configuration for 3leaps Crucible
+#
+# This file defines external tools required for crucible development.
+# Tools are installed via `make bootstrap` which uses the trust chain:
+#   curl → sfetch → goneat → tools defined here
+#
+# Scopes:
+#   foundation - Core tools for formatting, linting, and DX
+#   all        - All tools from all scopes
+#
+# Usage:
+#   goneat doctor tools --scope foundation --install
+#   goneat doctor tools --verify
+#
+# See: docs/repository/makefile-minimum.md
+
+scopes:
+  all:
+    description: All tools from all scopes
+    tools:
+      - bun
+      - ripgrep
+      - jq
+      - yq
+      - prettier
+      - yamlfmt
+      - yamllint
+      - shfmt
+      - shellcheck
+      - checkmake
+      - actionlint
+  foundation:
+    description: Core tools for formatting, linting, and DX
+    tools:
+      - bun
+      - ripgrep
+      - jq
+      - yq
+      - prettier
+      - yamlfmt
+      - yamllint
+      - shfmt
+      - shellcheck
+      - checkmake
+      - actionlint
+
+tools:
+  bun:
+    name: bun
+    description: Fast JavaScript runtime and package manager - required for 3leaps development
+    kind: system
+    detect_command: bun --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - curl
+      windows:
+        - scoop
+
+  ripgrep:
+    name: ripgrep
+    description: Fast text search - used by goneat
+    kind: system
+    detect_command: rg --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
+        - winget
+
+  jq:
+    name: jq
+    description: JSON processor - used in scripts and CI
+    kind: system
+    detect_command: jq --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
+        - winget
+
+  yq:
+    name: yq
+    description: YAML processor
+    kind: system
+    detect_command: yq --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
+        - winget
+
+  prettier:
+    name: prettier
+    description: Code formatter for markdown and JSON
+    kind: node
+    detect_command: prettier --version
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - bun
+        - npm
+
+  yamlfmt:
+    name: yamlfmt
+    description: YAML formatter
+    kind: go
+    detect_command: yamlfmt --version
+    install_package: github.com/google/yamlfmt/cmd/yamlfmt@latest
+    version_args:
+      - --version
+    check_args:
+      - --help
+    installer_priority:
+      all:
+        - go-install
+
+  yamllint:
+    name: yamllint
+    description: YAML linter
+    kind: system
+    detect_command: yamllint --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
+
+  shfmt:
+    name: shfmt
+    description: Shell script formatter
+    kind: go
+    detect_command: shfmt --version
+    install_package: mvdan.cc/sh/v3/cmd/shfmt@latest
+    version_args:
+      - --version
+    installer_priority:
+      all:
+        - go-install
+
+  shellcheck:
+    name: shellcheck
+    description: Shell script linter (GPL - verify only)
+    kind: system
+    detect_command: shellcheck --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
+
+  checkmake:
+    name: checkmake
+    description: Makefile linter
+    kind: go
+    detect_command: checkmake --version
+    install_package: github.com/mrtazz/checkmake/cmd/checkmake@latest
+    version_args:
+      - --version
+    installer_priority:
+      all:
+        - go-install
+
+  actionlint:
+    name: actionlint
+    description: GitHub Actions workflow linter
+    kind: go
+    detect_command: actionlint --version
+    install_package: github.com/rhysd/actionlint/cmd/actionlint@latest
+    version_args:
+      - --version
+    installer_priority:
+      all:
+        - go-install

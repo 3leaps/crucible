@@ -1,0 +1,8 @@
+[maxbodylength]
+# 80 for v0.1.0 - bootstrap/tools are intentionally large
+# TODO: v0.2.0 - refactor to scripts/ and reduce to 25
+maxBodyLength = 80
+
+[minphony]
+# Required phony targets for 3leaps standards
+minPhonyTargets = all,clean,help,check,fmt,lint

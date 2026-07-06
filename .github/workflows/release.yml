@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.3.1
+      # Use UID 1001 to match GitHub-hosted runner workspace ownership.
+      options: --user 1001
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          yamlfmt --version
+          yamllint --version
+          prettier --version
+          jq --version
+          yq --version
+          rg --version
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify VERSION file matches tag
+        run: |
+          file_version=$(cat VERSION)
+          tag_version="${{ steps.version.outputs.version }}"
+          if [ "$file_version" != "$tag_version" ]; then
+            echo "VERSION file ($file_version) does not match tag ($tag_version)"
+            exit 1
+          fi
+          echo "VERSION file matches tag: $tag_version"
+
+      - name: Verify release notes exist
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          if [ ! -f "docs/releases/v${version}.md" ]; then
+            echo "Missing release notes: docs/releases/v${version}.md"
+            exit 1
+          fi
+          echo "Release notes found: docs/releases/v${version}.md"
+
+      - name: Verify CHANGELOG entry exists
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          if ! grep -q "## \[${version}\]" CHANGELOG.md; then
+            echo "Missing CHANGELOG entry for version ${version}"
+            exit 1
+          fi
+          echo "CHANGELOG entry found for ${version}"
+
+      - name: Run quality checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          make check
+
+      - name: Verify no uncommitted changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git diff --exit-code || (echo "Unexpected changes detected" && exit 1)
+
+  create-release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if prerelease
+        id: prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          if [[ "$version" == *alpha* ]] || [[ "$version" == *beta* ]] || [[ "$version" == *rc* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.version.outputs.version }}"
+          body_path: "docs/releases/v${{ steps.version.outputs.version }}.md"
+          # Posture: draft -> sign -> undraft (signing/publish is separate process)
+          draft: true
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}

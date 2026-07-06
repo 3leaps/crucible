@@ -1,0 +1,32 @@
+{
+  "schema_version": "0.1",
+  "emitted_at": "2026-06-16T12:00:00Z",
+  "emitter": { "name": "example-acquirer", "version": "0.1.2" },
+  "expires_at": "2026-06-16T14:00:00Z",
+  "tokens": [
+    {
+      "kind": "sso-access",
+      "source": "aws-sso-cache",
+      "expires_at": "2026-06-16T20:00:00Z",
+      "expiry_basis": "metadata"
+    },
+    {
+      "kind": "client-reg",
+      "source": "aws-sso-cache",
+      "expires_at": "2026-09-14T18:00:00Z",
+      "expiry_basis": "metadata"
+    },
+    {
+      "kind": "role-cred",
+      "source": "aws-sts-cache",
+      "expires_at": "2026-06-16T14:00:00Z",
+      "expiry_basis": "metadata"
+    },
+    {
+      "kind": "unmeasured",
+      "source": "upstream-idp",
+      "expires_at": null,
+      "expiry_basis": "unmeasured"
+    }
+  ]
+}
