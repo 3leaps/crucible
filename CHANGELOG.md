@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-07-06
+
+A companion-contract release: add the portable process-run/v0 contract for
+observing and steering local long-running processes.
+
+### Added
+
+- **Portable Process Run Contract (proposed).** Add the `process-run/v0`
+  standard, JSON Schema family (`process-card`, `process-event`,
+  `control-exchange`), `contract.json` entry manifest, README, and golden
+  examples — a source-neutral contract for observing and steering local
+  long-running processes via an append-only NDJSON event stream and a
+  token-gated local control channel, at a deliberately minimal complexity floor.
+- **ADR-0006: process-run contract.** Ratify `process-run/v0` as a proposed
+  companion to `data-artifact/v0` (Standard + ratifying ADR vehicle), with the
+  Proposed → Accepted gate set on a downstream conforming implementation.
+
+### Changed
+
+- **Validation coverage.** `make check` now validates the process-run
+  examples — `process-card`, control exchange, and per-line NDJSON events — plus
+  the process-run contract manifest.
+
+### Build
+
+- Version 0.1.17 → 0.1.18; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.17] - 2026-07-06
 
 A baseline release: tighten the portable data artifact contract, align
@@ -530,5 +558,6 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.17...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/3leaps/crucible/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/3leaps/crucible/releases/tag/v0.1.17
