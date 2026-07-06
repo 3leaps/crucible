@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:process-run/v0/control-exchange.schema.json",
+  "title": "Control Exchange",
+  "description": "Structural schema companion for contract: process-run/v0. One request or response line of the control channel (line-delimited JSON over a local socket). Token verification (constant-time compare against the invocation key) and unknown-verb rejection are enforced by the serving process; malformed or schema-invalid requests fail closed.",
+  "oneOf": [{ "$ref": "#/$defs/request" }, { "$ref": "#/$defs/response" }],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "verb"],
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The invocation key (lock-and-key). Presented on every request; there is no session state."
+        },
+        "verb": {
+          "anyOf": [
+            { "enum": ["describe", "status", "stop"] },
+            { "type": "string", "pattern": "^x-[a-z0-9][a-z0-9-]*$" }
+          ]
+        },
+        "args": {
+          "type": "object",
+          "description": "Verb arguments. Core: stop takes {\"mode\": \"graceful\"|\"force\"} (default graceful)."
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional client correlation id, echoed on the response."
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "result": {
+          "description": "Present when ok=true. Verb-specific: describe returns the card; status returns a status snapshot (see $defs.statusSnapshot for the recommended shape)."
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present when ok=false. 'unauthorized' is the required error for a failed token check — indistinguishable for wrong-token vs unknown-token."
+        },
+        "request_id": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": false } } },
+          "then": { "required": ["error"] }
+        }
+      ]
+    },
+    "statusSnapshot": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["run_id", "state"],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["running", "stopping", "done"] },
+        "pid": { "type": "integer", "minimum": 1 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "done": { "type": "number", "minimum": 0 },
+            "total": { "type": "number", "minimum": 0 }
+          }
+        }
+      },
+      "description": "Recommended result shape for the status verb (additional producer fields allowed)."
+    }
+  }
+}

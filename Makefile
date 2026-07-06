@@ -288,10 +288,32 @@ lint-config: ## Validate config data files against schemas
 			echo "    Validating $$f..."; \
 			goneat validate data --schema-file schemas/coverage-attestation/v0/coverage-attestation.schema.json --data "$$f" || exit 1; \
 		done; \
+		for f in schemas/process-run/v0/examples/process-card.example.json; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f..."; \
+			goneat validate data --schema-file schemas/process-run/v0/process-card.schema.json --data "$$f" || exit 1; \
+		done; \
+		for f in schemas/process-run/v0/examples/control-*.example.json; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f..."; \
+			goneat validate data --schema-file schemas/process-run/v0/control-exchange.schema.json --data "$$f" || exit 1; \
+		done; \
+		for f in schemas/process-run/v0/examples/*.ndjson; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f (per line)..."; \
+			tmpd=$$(mktemp -d); tmp="$$tmpd/event.json"; \
+			while IFS= read -r line; do \
+				[ -n "$$line" ] || continue; \
+				printf '%s\n' "$$line" > "$$tmp"; \
+				goneat validate data --schema-file schemas/process-run/v0/process-event.schema.json --data "$$tmp" || { rm -rf "$$tmpd"; exit 1; }; \
+			done < "$$f"; \
+			rm -rf "$$tmpd"; \
+		done; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/data-artifact/v0/contract.json \
-			schemas/coverage-attestation/v0/contract.json || exit 1; \
+			schemas/coverage-attestation/v0/contract.json \
+			schemas/process-run/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
 	fi

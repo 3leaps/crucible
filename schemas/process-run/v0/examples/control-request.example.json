@@ -1,0 +1,6 @@
+{
+  "token": "example-invocation-key-not-a-real-secret",
+  "verb": "stop",
+  "args": { "mode": "graceful" },
+  "request_id": "req-01"
+}

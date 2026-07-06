@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "result": { "stopping": true, "mode": "graceful" },
+  "request_id": "req-01"
+}
