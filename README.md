@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.18](https://img.shields.io/badge/version-0.1.18-blue)
+![Version: 0.1.19](https://img.shields.io/badge/version-0.1.19-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -95,12 +95,16 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   └── logging-baseline.md  # Logging levels, streams, format
 │   ├── sop/                   # Standard operating procedures (mandatory)
 │   │   └── stream-output.md   # stdout/stderr discipline for CLI tools
-│   └── standards/             # Classification standards (7 dimensions)
+│   └── standards/             # Classification + portable contracts
 ├── schemas/                   # JSON schemas for validation
 │   ├── agentic/v0/            # Role prompt schema
 │   ├── ailink/v0/             # AILink prompt/response schemas
+│   ├── auth/v0/               # Session artifact schema
 │   ├── classifiers/v0/        # Classifier dimension meta-schemas
-│   └── foundation/v0/         # Lifecycle phases, release phases, types
+│   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
+│   ├── data-artifact/v0/      # Portable data artifact contract
+│   ├── foundation/v0/         # Lifecycle phases, release phases, types
+│   └── process-run/v0/        # Local process telemetry/control (proposed)
 └── scripts/                   # Release and automation scripts
 ```
 

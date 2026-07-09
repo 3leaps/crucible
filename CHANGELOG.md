@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-07-09
+
+A contract-alignment release: loosen two over-constraints in `data-artifact/v0`
+so the schema matches existing normative prose.
+
+### Changed
+
+- **Fully-withheld field catalogs.** A field catalog may set `fields` to an
+  empty array when `withheld_field_count` is present and at least 1. Empty
+  `fields` without a positive count fails closed. Non-empty catalogs are
+  unchanged. Prose clarifies the fully-withheld semantic, total-count rules for
+  `withheld_field_count` vs `withheld_fields`, and a Validation Requirements
+  bullet under default-deny.
+- **Optional grain field catalog ref.** `field_catalog_ref` is no longer
+  required on every grain. Queryable or renderable grains still require a field
+  catalog via Validation Requirements; raw archival grains may omit the ref.
+
+### Added
+
+- **Schema fixtures.** Golden descriptors for a fully-withheld catalog and a
+  catalog-less raw archival grain.
+
+### Build
+
+- Version 0.1.18 → 0.1.19; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.18] - 2026-07-06
 
 A companion-contract release: add the portable process-run/v0 contract for
@@ -558,6 +585,7 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.18...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/3leaps/crucible/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/3leaps/crucible/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/3leaps/crucible/releases/tag/v0.1.17

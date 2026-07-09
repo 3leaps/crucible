@@ -18,3 +18,7 @@ to that manifest, verify its `capability`, and load the relative `entry_schema`.
 Resolution fails closed when the manifest is missing, the capability does not
 match, or the entry schema is missing. Direct `$id` lookup remains valid for
 schema-aware tooling, but it is not the contract-entry mechanism.
+
+Golden descriptors in [`examples/`](examples/) exercise common shapes, including
+fully-withheld field catalogs (`fields: []` with a positive
+`withheld_field_count`) and raw archival grains that omit `field_catalog_ref`.

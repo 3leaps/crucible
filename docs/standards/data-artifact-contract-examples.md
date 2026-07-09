@@ -4,7 +4,7 @@ description: "Source-neutral stress cases and adoption preview template for the 
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-07-02"
+lastUpdated: "2026-07-09"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
@@ -21,12 +21,19 @@ These examples are review evidence for
 [Portable Data Artifact Contract](data-artifact-contract.md). They are
 source-neutral and intentionally synthetic.
 
-The schema fixture
-`schemas/data-artifact/v0/examples/profile-extension.descriptor.json`
-demonstrates profile-qualified extension values for grain `kind`,
-representation `role`, and representation `format`. Base vocabulary values stay
-closed; extension values carry a `/` so validators can distinguish an intentional
-profile term from a typo.
+Schema fixtures under `schemas/data-artifact/v0/examples/` include:
+
+- `profile-extension.descriptor.json` — profile-qualified extension values for
+  grain `kind`, representation `role`, and representation `format`. Base
+  vocabulary values stay closed; extension values carry a `/` so validators can
+  distinguish an intentional profile term from a typo.
+- `fully-withheld-catalog.descriptor.json` — a field catalog with `fields: []`
+  and a positive `withheld_field_count` (fully withheld under default-deny).
+- `raw-archival-no-catalog.descriptor.json` — a raw archival grain that omits
+  `field_catalog_ref` because it is not meant to be rendered or queried.
+
+An empty `fields` array without a positive `withheld_field_count` MUST fail
+closed at structural validation.
 
 ## Producer Adoption Preview Template
 
