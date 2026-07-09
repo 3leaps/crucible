@@ -4,7 +4,7 @@ description: "Source-neutral contract for produced data artifacts, representatio
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-07-03"
+lastUpdated: "2026-07-09"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
@@ -171,18 +171,22 @@ item means independent of how it is stored.
 
 Recommended fields:
 
-| Field                | Meaning                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `id`                 | Stable within the artifact.                                                                            |
-| `kind`               | `record_stream`, `object_index`, `aggregation`, `reference_table`, `projection`, or profile extension. |
-| `record_kind`        | Producer/profile vocabulary for the logical row or item.                                               |
-| `row_count`          | Semantic count when known.                                                                             |
-| `primary_keys`       | Optional field names. Sensitivity still comes from the field catalog.                                  |
-| `semantic_order`     | Optional semantic ordering promise, independent of physical order.                                     |
-| `field_catalog_ref`  | Required for queryable or renderable grains.                                                           |
-| `provenance_ref`     | Optional grain-specific provenance link.                                                               |
-| `accounting_ref`     | Optional grain-specific accounting link.                                                               |
-| `disclosure_control` | Reserved slot for aggregate disclosure controls.                                                       |
+| Field                | Meaning                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | Stable within the artifact.                                                                                                 |
+| `kind`               | `record_stream`, `object_index`, `aggregation`, `reference_table`, `projection`, or profile extension.                      |
+| `record_kind`        | Producer/profile vocabulary for the logical row or item.                                                                    |
+| `row_count`          | Semantic count when known.                                                                                                  |
+| `primary_keys`       | Optional field names. Sensitivity still comes from the field catalog.                                                       |
+| `semantic_order`     | Optional semantic ordering promise, independent of physical order.                                                          |
+| `field_catalog_ref`  | Required for queryable or renderable grains; optional for raw archival grains that are not meant to be rendered or queried. |
+| `provenance_ref`     | Optional grain-specific provenance link.                                                                                    |
+| `accounting_ref`     | Optional grain-specific accounting link.                                                                                    |
+| `disclosure_control` | Reserved slot for aggregate disclosure controls.                                                                            |
+
+Raw archival grains that are not queryable or renderable MAY omit
+`field_catalog_ref`. Queryable or renderable grains MUST still link a field
+catalog (see Field Catalog and Validation Requirements).
 
 The base contract MUST NOT require source-file fields, document record numbers,
 or source-document order. Those are producer-profile promises when applicable.
@@ -283,6 +287,17 @@ Required responsibilities:
 The catalog itself is export-classed content. A producer profile MUST be able to
 withhold source expressions, descriptions, split metadata, and other metadata
 keys independently from data columns.
+
+When every source-structure field name is sensitive, a catalog MAY set
+`fields` to an empty array and declare only a positive `withheld_field_count`.
+That shape means the catalog is **fully withheld** under default-deny — it is
+not an "empty grain" and does not claim zero fields of content.
+
+`withheld_field_count` is the **total** number of withheld fields, including any
+names listed in `withheld_fields`. When both are present, `withheld_field_count`
+MUST be greater than or equal to the length of `withheld_fields`. That
+consistency check is a validator/prose requirement; the structural schema does
+not encode the count-versus-list arithmetic.
 
 ### Provenance And Accounting Links
 
@@ -436,8 +451,10 @@ These are export-classed content, not neutral structure:
 - value-profile diagnostics;
 - provenance and accounting links.
 
-When the existence or name of a withheld field is sensitive, a representation
-must be able to disclose only a withheld count, not the field name.
+When the existence or name of a withheld field is sensitive, a representation or
+field catalog must be able to disclose only a withheld count, not the field
+name. A field catalog with `fields: []` and `withheld_field_count >= 1` is the
+fully-withheld form of that posture.
 
 Shard and partition ids MUST be opaque when boundaries are based on restricted,
 linkage, or source-structure fields. Token-to-boundary mappings resolve out of
@@ -548,6 +565,14 @@ A validator MUST check:
 - descriptor has `capabilities` containing the host-less
   `contract: data-artifact/v0` token;
 - queryable/renderable grains and representations have field catalogs;
+- raw archival grains that are not queryable or renderable MAY omit
+  `field_catalog_ref`;
+- a field catalog with empty `fields` MUST declare
+  `withheld_field_count >= 1` and MUST be treated as fully withheld under
+  default-deny (not as an empty grain);
+- when both `withheld_field_count` and `withheld_fields` are present,
+  `withheld_field_count` MUST be greater than or equal to the length of
+  `withheld_fields`;
 - grain counts and representation counts are consistent where declared;
 - lifecycle state is compatible with export/read intent;
 - protection refs are opaque and present when needed;

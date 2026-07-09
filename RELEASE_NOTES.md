@@ -8,6 +8,34 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.19 (2026-07-09)
+
+**Data artifact contract alignment: fully-withheld catalogs and optional grain catalogs.**
+
+### Highlights
+
+- **Fully-withheld field catalogs** — `fields: []` is valid when
+  `withheld_field_count >= 1`, matching the protection model that already
+  allows disclosing only a withheld count when field names are sensitive
+- **Optional grain catalog refs** — raw archival grains that are not queryable
+  or renderable may omit `field_catalog_ref`; queryable/renderable enforcement
+  stays in Validation Requirements
+- **Golden fixtures** — positive descriptors for both shapes; empty fields
+  without a positive count fail closed
+
+### Changes
+
+| Area          | Change                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------- |
+| **Standards** | Align field-catalog and grain catalog prose with fully-withheld and archival-optional semantics |
+| **Schemas**   | Loosen `data-artifact/v0` constraints for empty catalogs and optional grain `field_catalog_ref` |
+| **Examples**  | Add fully-withheld and raw-archival golden descriptors                                          |
+| **Build**     | Version 0.1.18 → 0.1.19; package metadata, README badge, and changelog links are synced         |
+
+**Full release notes**: [docs/releases/v0.1.19.md](docs/releases/v0.1.19.md)
+
+---
+
 ## v0.1.18 (2026-07-06)
 
 **Companion contract for local process telemetry and control.**
