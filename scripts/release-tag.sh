@@ -208,13 +208,13 @@ main() {
     # Warn (do not fail) so the mismatch is caught before the tag is pushed.
     if [ -n "${key_id}" ]; then
         local tagger_actual key_uid_emails
-        tagger_actual="$(git cat-file -p "refs/tags/$tag" \
-            | sed -n 's/^tagger .*<\(.*\)>.*/\1/p' | head -1)"
-        key_uid_emails="$(gpg --list-keys --with-colons "${key_id}" 2>/dev/null \
-            | awk -F: '$1=="uid"{print $10}' \
-            | sed -n 's/.*<\(.*\)>.*/\1/p')"
-        if [ -n "${tagger_actual}" ] && \
-           ! printf '%s\n' "${key_uid_emails}" | grep -qxF "${tagger_actual}"; then
+        tagger_actual="$(git cat-file -p "refs/tags/$tag" |
+            sed -n 's/^tagger .*<\(.*\)>.*/\1/p' | head -1)"
+        key_uid_emails="$(gpg --list-keys --with-colons "${key_id}" 2>/dev/null |
+            awk -F: '$1=="uid"{print $10}' |
+            sed -n 's/.*<\(.*\)>.*/\1/p')"
+        if [ -n "${tagger_actual}" ] &&
+            ! printf '%s\n' "${key_uid_emails}" | grep -qxF "${tagger_actual}"; then
             echo "warning: tagger email '${tagger_actual}' matches no UID on signing key '${key_id}'" >&2
             echo "         GitHub will likely show this tag as Unverified." >&2
             echo "         set THREELEAPS_CRUCIBLE_TAGGER_EMAIL to a UID email on that key" >&2

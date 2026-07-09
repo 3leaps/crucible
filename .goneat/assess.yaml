@@ -32,6 +32,9 @@ lint:
         - ".git/**"
         - ".plans/**"
 
+  # Shell is assessed under lint (check-only). Apply path is `make fmt`
+  # (shfmt -i 4 -ci -w scripts/*.sh). Keep args in sync with Makefile fmt
+  # and .editorconfig [*.sh].
   shell:
     paths: ["**/*.sh", "scripts/**/*"]
     ignore:
