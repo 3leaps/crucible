@@ -215,7 +215,7 @@ check: fmt lint ## Run all quality checks
 test: ## Run test suite (placeholder for standards repo)
 	@echo "No tests configured (standards repository)"
 
-fmt: ## Format code (prettier for md/json, yamlfmt for yaml)
+fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 	@echo "Formatting..."
 	@# Format markdown and JSON with prettier (prefer bun-installed)
 	@if [ -x "./node_modules/.bin/prettier" ]; then \
@@ -233,6 +233,15 @@ fmt: ## Format code (prettier for md/json, yamlfmt for yaml)
 		yamlfmt . 2>/dev/null || true; \
 	else \
 		echo "[!!] yamlfmt not found, skipping YAML formatting"; \
+	fi
+	@# Format shell scripts with shfmt.
+	@# Args must match .goneat/assess.yaml lint.shell.shfmt.args and .editorconfig [*.sh]
+	@# (goneat checks shell under the lint category; make fmt is the apply path).
+	@if command -v shfmt >/dev/null 2>&1; then \
+		echo "[..] Formatting shell scripts (shfmt -i 4 -ci)..."; \
+		shfmt -i 4 -ci -w scripts/*.sh; \
+	else \
+		echo "[!!] shfmt not found, skipping shell formatting"; \
 	fi
 	@echo "[ok] Formatting complete"
 
