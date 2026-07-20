@@ -8,6 +8,45 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.20 (2026-07-19)
+
+**Governance records: dependency-graph integrity, and the release process that publishes them.**
+
+### Highlights
+
+- **EPR-0001 (proposed)** — this lane's first Engineering Principle Record:
+  every artifact built from a resolved dependency graph ships that graph
+  pinned in-repo, enforced at build, continuously audited, and held at parity
+  across all distribution surfaces of the same release. Obligations are fixed;
+  tooling is deliberately left to adopting repositories
+- **PDR-0004 (accepted)** — the signed tag authorizes publication. Signing
+  creates the tag and the push triggers the workflow, so the tag is already
+  signed when CI runs; a draft awaiting a signature guarded a condition that
+  could not occur
+- **Releases publish from CI** — the workflow asserts a verified tag signature,
+  binds authorization to the exact annotated tag object, then publishes
+  directly, setting `Latest` explicitly for stable versions; prereleases
+  publish as prereleases and do not take `Latest`
+- **Unverified tags fail closed** — no release is created, making an
+  unpublished release a failure signal rather than a normal waiting state
+- **Version-tag policy is executable** — release tagging and publication verify
+  the live ruleset protects `refs/tags/v*` with only the
+  organization-administrator bypass; workflow actions are pinned to immutable
+  commits
+
+### Changes
+
+| Area           | Change                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| **Governance** | Add EPR-0001 (proposed) and PDR-0004 (accepted); `EPR` listed in active use; index completed  |
+| **CI**         | Release workflow verifies the exact tag object, publishes non-draft, pins third-party actions |
+| **Process**    | Checklist, tagging, and publication verify the live version-tag ruleset                       |
+| **Build**      | Version 0.1.19 → 0.1.20; package metadata, README badge, and changelog links are synced       |
+
+**Full release notes**: [docs/releases/v0.1.20.md](docs/releases/v0.1.20.md)
+
+---
+
 ## v0.1.19 (2026-07-09)
 
 **Data artifact contract alignment: fully-withheld catalogs and optional grain catalogs.**
@@ -66,41 +105,6 @@ For detailed release content, see [docs/releases/](docs/releases/).
 | **Build**      | Version 0.1.17 → 0.1.18; package metadata, README badge, and changelog links are synced   |
 
 **Full release notes**: [docs/releases/v0.1.18.md](docs/releases/v0.1.18.md)
-
----
-
-## v0.1.17 (2026-07-06)
-
-**Baseline release, data artifact metadata hardening, and repository guidance alignment.**
-
-### Highlights
-
-- **Physical file metadata is content** — boundary-crossing columnar
-  representations must suppress, make opaque, or omit restricted-class
-  row-group/page statistics, page-index bounds, and membership-oracle structures
-  such as per-column Bloom filters
-- **Data artifact validator coverage** — validators now check physical metadata
-  suppression declarations for restricted-class columns in boundary-crossing
-  columnar representations
-- **Review-loop fold** — physical-file-metadata handling is folded into Metadata
-  Is Content; format-specific mechanics remain producer-profile details
-- **Reference producer citation** — examples intentionally cite
-  `fulmenhq/sumpter` as a public, non-normative reference producer
-- **Public repository guidance** — contributor-agent, AI attribution, and
-  repository docs are aligned for public standards use
-
-### Changes
-
-| Area           | Change                                                                                  |
-| -------------- | --------------------------------------------------------------------------------------- |
-| **Standards**  | Treat physical columnar metadata and membership-oracle structures as content            |
-| **Examples**   | Add deliberate `fulmenhq/sumpter` reference-producer citation                           |
-| **Validation** | Add validator coverage for physical metadata suppression in columnar representations    |
-| **Docs**       | Align repository-facing guidance for public standards use                               |
-| **Decisions**  | Retitle ADR-0002 around portable schema contract framing                                |
-| **Build**      | Version 0.1.16 → 0.1.17; package metadata, README badge, and changelog links are synced |
-
-**Full release notes**: [docs/releases/v0.1.17.md](docs/releases/v0.1.17.md)
 
 ---
 

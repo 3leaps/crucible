@@ -13,7 +13,7 @@
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
-.PHONY: release-tag release-verify-tag release-guard-tag-version sync-version-badge sync-changelog-links
+.PHONY: release-tag release-verify-tag release-guard-tag-version release-guard-tag-ruleset sync-version-badge sync-changelog-links
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -48,8 +48,8 @@ help: ## Show available targets
 	@echo "Required targets:"
 	@echo "  help            Show this help message"
 	@echo "  bootstrap       Install tools (sfetch -> goneat -> others)"
-	@echo "  check           Run all quality checks (fmt, lint)"
-	@echo "  test            Run test suite (placeholder)"
+	@echo "  check           Run all quality checks (fmt, lint, test)"
+	@echo "  test            Run release-control negative tests"
 	@echo "  fmt             Format code (prettier, yamlfmt)"
 	@echo "  lint            Run linting (yamllint, schema validation)"
 	@echo "  lint-schemas    Validate JSON Schema files against meta-schema"
@@ -70,6 +70,7 @@ help: ## Show available targets
 	@echo "  release-tag             Create signed git tag with safety checks"
 	@echo "  release-verify-tag      Verify signed tag signature"
 	@echo "  release-guard-tag-version  Verify tag matches VERSION file"
+	@echo "  release-guard-tag-ruleset Verify version-tag ruleset policy"
 	@echo "  sync-changelog-links    Sync CHANGELOG compare-link footers to VERSION"
 	@echo ""
 	@echo "Current version: $(VERSION)"
@@ -209,11 +210,11 @@ tools: ## Verify external tools are available
 # Quality Gates
 # -----------------------------------------------------------------------------
 
-check: fmt lint ## Run all quality checks
+check: fmt lint test ## Run all quality checks
 	@echo "[ok] All quality checks passed"
 
-test: ## Run test suite (placeholder for standards repo)
-	@echo "No tests configured (standards repository)"
+test: ## Run release-control negative tests
+	@./scripts/test-release-guard-tag-ruleset.sh
 
 fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 	@echo "Formatting..."
@@ -454,7 +455,7 @@ version-major: ## Bump major version (0.1.0 -> 1.0.0)
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
 
-release-tag: ## Create signed git tag with safety checks
+release-tag: release-guard-tag-ruleset ## Create signed git tag with safety checks
 	@./scripts/release-tag.sh
 
 release-verify-tag: ## Verify signed tag signature
@@ -462,6 +463,9 @@ release-verify-tag: ## Verify signed tag signature
 
 release-guard-tag-version: ## Verify tag matches VERSION file
 	@./scripts/release-guard-tag-version.sh
+
+release-guard-tag-ruleset: ## Verify version-tag ruleset policy
+	@./scripts/release-guard-tag-ruleset.sh
 
 sync-version-badge: ## Sync README badge to VERSION file
 	@./scripts/sync-version-badge.sh

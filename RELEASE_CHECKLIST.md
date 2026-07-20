@@ -32,6 +32,10 @@ Note: These are not secrets and typically aren't stored in encrypted env bundles
 - [ ] README version badge updated to match VERSION
 - [ ] All changes committed and pushed to main
 - [ ] CI passes on main branch
+- [ ] The live version-tag ruleset matches the publication policy:
+  ```bash
+  make release-guard-tag-ruleset
+  ```
 - [ ] Guard: ensure tag/version match:
   ```bash
   make release-guard-tag-version
@@ -62,6 +66,7 @@ make release-tag
 
 The script performs these safety checks before creating the tag:
 
+- Live `Tag Publish Protection` ruleset matches the required policy
 - Tag format validation (`vMAJOR.MINOR.PATCH`)
 - Clean working tree required
 - Must be on `main` branch (set `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1` to override)
@@ -91,11 +96,35 @@ git push origin v$(cat VERSION)
 
 ## Post-Release
 
-- [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
-- [ ] Verify release.yml workflow runs and creates GitHub Release
-- [ ] Spot-check release notes render correctly
+Pushing the signed tag is the last manual act. `release.yml` verifies the
+signature and publishes the release; see
+[PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md). Nothing below
+requires a click — these items confirm CI did its job.
 
-### Verify tag signature (optional)
+**Verify the release is published, not merely created.** A release object that
+exists but is still a draft is a failure, not a completed release: it is
+invisible to every consumer while the repository looks healthy.
+
+- [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
+- [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
+      job means publication was refused — investigate, do not publish by hand)
+- [ ] Verify the release is **published, not draft**, and — for a stable release
+      — carries the **Latest** flag:
+  ```bash
+  gh release view "v$(cat VERSION)" --json isDraft,isLatest,isPrerelease,url
+  ```
+  Expected for a stable release: `isDraft: false`, `isLatest: true`.
+  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, `isLatest: false`.
+- [ ] Verify the published release is reachable and its notes render correctly:
+      https://github.com/3leaps/crucible/releases/latest
+
+> If a release is sitting in draft, that is a defect in the publication path —
+> the fix is to repair the workflow, not to undraft it manually and move on.
+
+### Verify tag signature (optional manual check)
+
+CI already asserts this before publishing; these commands are for local
+diagnosis.
 
 **Local git** (most reliable):
 
@@ -118,9 +147,39 @@ gh api repos/3leaps/crucible/git/tags/$TAG_SHA --jq .verification
 
 Otherwise GitHub may show "Unverified" even though `git tag -v` succeeds locally.
 
+## Release-key rotation
+
+CI publishes only tags signed by a key in the committed pin file
+`docs/security/release-signing-keys.asc` (PDR-0004 §2). When the release key
+rotates:
+
+- [ ] Update `docs/security/release-signing-keys.asc` by reviewed PR **before**
+      pushing the first tag signed by the new key (a stale pin fails closed:
+      the release stays unpublished and `verify-signature` is red)
+- [ ] Upload the new public key to the maintainer GitHub account (keeps the
+      secondary account-linkage assertion and the Verified badge green)
+- [ ] Remove the retired key from the pin file once no in-flight tag depends
+      on it
+
+**Expiry is rotation you did not schedule.** A pinned key that passes its
+expiration date fails verification exactly as a missing pin does — the release
+stays unpublished and the job is red — but nothing prompts it first. Check the
+remaining life of the pinned material periodically, and refresh the pin before
+it lapses rather than after a release blocks:
+
+```bash
+gpg --show-keys docs/security/release-signing-keys.asc | grep -E "^(pub|sub)"
+```
+
+Each line ends with `[expires: YYYY-MM-DD]` where an expiry is set. The signing
+subkey — the one marked `[S]` — is what gates publication.
+
 ## Rollback
 
-If issues are discovered after release:
+Version tags are protected against deletion and update. Prefer a corrective
+release. If exceptional removal is required, an organization administrator must
+explicitly exercise the protected-tag bypass before running the remote-tag
+deletion below:
 
 ```bash
 # Delete remote tag
@@ -142,6 +201,7 @@ git revert <commit-hash>
 | `make release-tag`               | Create signed git tag with all safety checks  |
 | `make release-verify-tag`        | Verify an existing signed tag                 |
 | `make release-guard-tag-version` | Verify tag matches VERSION file (CI-friendly) |
+| `make release-guard-tag-ruleset` | Verify live version-tag publication policy    |
 
 ### Scripts
 
@@ -162,6 +222,15 @@ All scripts are in `scripts/` and can be run directly if needed.
 - Compares current git tag (or `THREELEAPS_CRUCIBLE_RELEASE_TAG` env var) against `VERSION` file
 - Use in CI with `THREELEAPS_CRUCIBLE_REQUIRE_TAG=1` to enforce tag presence
 - Exits 0 if match, exits 1 if mismatch
+
+**`scripts/release-guard-tag-ruleset.sh`** - Publication-boundary check:
+
+- Resolves `Tag Publish Protection` by name through the GitHub API
+- Requires an active repository ruleset covering only `refs/tags/v*`
+- Requires creation, update, deletion, and non-fast-forward protection
+- Requires the sole bypass to be organization administrators in `always` mode
+- Fails closed on missing, duplicate, malformed, or unexpected policy data
+- Requires authenticated `gh` access with permission to read repository rulesets
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
