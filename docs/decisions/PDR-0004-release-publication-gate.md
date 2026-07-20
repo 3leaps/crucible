@@ -3,7 +3,7 @@ id: "PDR-0004"
 title: "The signed tag authorizes publication; CI verifies and publishes"
 status: "accepted"
 date: "2026-07-17"
-last_updated: "2026-07-19"
+last_updated: "2026-07-20"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -110,6 +110,13 @@ publishes. The manual undraft step is eliminated.**
    gh api repos/3leaps/crucible/git/tags/$TAG_SHA --jq .verification
    ```
 
+   The verified authorization is the **annotated tag object**, not merely the
+   mutable ref name. CI records that object's SHA, uses the same SHA for both
+   signature assertions, carries it across the job boundary, and immediately
+   before publication requires `refs/tags/vX.Y.Z` to still resolve to that exact
+   object. A lightweight tag, a missing object identity, or a changed ref fails
+   closed.
+
 3. **Publish non-draft; set `Latest` explicitly.** A verified stable tag publishes
    with `draft: false` and is marked `Latest`. `Latest` is set explicitly rather
    than assumed — a previous release does not yield the flag on its own, which is
@@ -136,7 +143,19 @@ publishes. The manual undraft step is eliminated.**
    of this posture — without it, the write-access boundary and the publish
    boundary silently merge. (The pinned-key assertion in §2 bounds the damage —
    an unauthorized tag cannot publish — but tag-ref protection keeps the
-   unauthorized tag itself from existing.)
+   unauthorized tag itself from existing.) The repository's active version-tag
+   ruleset, named `Tag Publish Protection`, covers only `refs/tags/v*`, blocks
+   creation, update, deletion, and non-fast-forward changes, and grants its sole
+   always-on bypass to organization administrators.
+   `make release-guard-tag-ruleset` verifies that exact shape before
+   `make release-tag` proceeds, and CI repeats the guard before verifying the
+   release authorization. The bypass boundary and release-key custody boundary
+   are therefore both organization-level controls.
+
+8. **Publication dependencies are immutable.** Every third-party action in the
+   check and release workflows is referenced by a full commit SHA, with the
+   reviewed semantic version retained as a comment. A movable upstream action
+   tag cannot change the code that receives release write permission.
 
 ## Rationale
 
@@ -162,6 +181,9 @@ publishes. The manual undraft step is eliminated.**
   a correct answer without a human having remembered anything.
 - Publication latency drops from "whenever the maintainer returns" to CI duration.
 - The checklist can no longer certify a false-complete state.
+- Signature verification and publication remain bound to one annotated tag
+  object even if the ref is changed between jobs.
+- The tag-protection precondition is executable rather than documentary.
 
 **Negative / costs (accepted)**
 
@@ -193,6 +215,9 @@ publishes. The manual undraft step is eliminated.**
   explicit override rather than being the accidental default.
 - CI gains a dependency on GitHub's verification API. If it is unavailable the job
   fails closed (unpublished) — the safe direction, and the same state as today.
+- Local release tagging gains a read-only dependency on the GitHub rulesets API.
+  Missing access or an unavailable API blocks tagging until the policy can be
+  verified.
 
 ## Alternatives considered
 
@@ -219,3 +244,4 @@ publishes. The manual undraft step is eliminated.**
 | ---------- | ------------- | -------------------------------------------------------- | ---------- |
 | 2026-07-17 | → proposed    | Signed tag authorizes publication; CI verifies+publishes | cxotech    |
 | 2026-07-19 | → accepted    | Filed with its implementation; draft posture removed     | cxotech    |
+| 2026-07-20 | accepted      | Bind exact tag object; enforce ruleset and action pins   | secrev     |

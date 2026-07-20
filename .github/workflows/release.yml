@@ -17,7 +17,7 @@ jobs:
       options: --user 1001
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -96,22 +96,44 @@ jobs:
     # CLI, which that image does not carry.
     needs: verify
     runs-on: ubuntu-latest
+    outputs:
+      tag_object_sha: ${{ steps.verify_tag.outputs.tag_object_sha }}
     steps:
       - name: Checkout (pinned release keys + tag object)
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify tag is signed by the pinned release key
+      - name: Verify version-tag publication policy
         env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release-guard-tag-ruleset.sh
+      - name: Verify tag is signed by the pinned release key
+        id: verify_tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          export GNUPGHOME="$(mktemp -d)"
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
           gpg --batch --import docs/security/release-signing-keys.asc
+          tag_ref=$(gh api "repos/${REPO}/git/ref/tags/${TAG}")
+          tag_type=$(jq -r '.object.type // empty' <<<"${tag_ref}")
+          tag_object_sha=$(jq -r '.object.sha // empty' <<<"${tag_ref}")
+          if [ "${tag_type}" != "tag" ] || ! [[ "${tag_object_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Tag ${TAG} is not an annotated tag with a valid object SHA"
+            exit 1
+          fi
           # Ensure the annotated tag object is present locally. A lightweight
           # tag has no object to verify and fails here — intended.
           git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          local_tag_object_sha=$(git rev-parse "refs/tags/${TAG}^{tag}")
+          if [ "${local_tag_object_sha}" != "${tag_object_sha}" ]; then
+            echo "Tag ${TAG} changed while its authorization was being verified"
+            exit 1
+          fi
           # Exits nonzero unless the signature verifies against a key in the
           # isolated keyring, i.e. the committed pin file. VALIDSIG asserts a
           # full-fingerprint match rather than a short-id collision.
@@ -125,19 +147,24 @@ jobs:
           # a bare gpg --verify, which exits 0), so under `set -o pipefail` the
           # step already fails. The GOODSIG assertion is stated explicitly so
           # this step stands on its own rather than on that interaction.
-          git verify-tag --raw "${TAG}" 2>&1 | tee /tmp/verify-tag.out
+          git verify-tag --raw "${tag_object_sha}" 2>&1 | tee /tmp/verify-tag.out
           grep -q "^\[GNUPG:\] GOODSIG " /tmp/verify-tag.out
           grep -q "^\[GNUPG:\] VALIDSIG " /tmp/verify-tag.out
-          echo "Tag ${TAG} signed by pinned, unexpired release key"
+          echo "tag_object_sha=${tag_object_sha}" >> "${GITHUB_OUTPUT}"
+          echo "Tag ${TAG} object ${tag_object_sha} signed by pinned, unexpired release key"
       - name: Verify GitHub reports the tag verified
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
+          TAG_OBJECT_SHA: ${{ steps.verify_tag.outputs.tag_object_sha }}
         run: |
           set -euo pipefail
-          tag_sha=$(gh api "repos/${REPO}/git/ref/tags/${TAG}" --jq .object.sha)
-          verified=$(gh api "repos/${REPO}/git/tags/${tag_sha}" --jq .verification.verified)
+          if ! [[ "${TAG_OBJECT_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Verified tag object SHA is missing or malformed"
+            exit 1
+          fi
+          verified=$(gh api "repos/${REPO}/git/tags/${TAG_OBJECT_SHA}" --jq .verification.verified)
           if [ "$verified" != "true" ]; then
             echo "Tag ${TAG} is not a verified signed tag (verification.verified=${verified})"
             echo "Publication is not authorized. No release will be created."
@@ -152,7 +179,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -173,9 +200,31 @@ jobs:
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Reassert verified tag object before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.verify-signature.outputs.tag_object_sha }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${EXPECTED_TAG_OBJECT_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Verified tag object SHA is missing or malformed"
+            exit 1
+          fi
+          tag_ref=$(gh api "repos/${REPO}/git/ref/tags/${TAG}")
+          current_tag_type=$(jq -r '.object.type // empty' <<<"${tag_ref}")
+          current_tag_object_sha=$(jq -r '.object.sha // empty' <<<"${tag_ref}")
+          if [ "${current_tag_type}" != "tag" ] || [ "${current_tag_object_sha}" != "${EXPECTED_TAG_OBJECT_SHA}" ]; then
+            echo "Tag ${TAG} no longer resolves to the verified annotated tag object"
+            exit 1
+          fi
+          echo "Tag ${TAG} still resolves to verified object ${EXPECTED_TAG_OBJECT_SHA}"
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
+          tag_name: ${{ github.ref_name }}
           name: "v${{ steps.version.outputs.version }}"
           body_path: "docs/releases/v${{ steps.version.outputs.version }}.md"
           # Posture: the signed tag authorizes publication; CI verifies and

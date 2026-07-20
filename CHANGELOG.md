@@ -43,6 +43,16 @@ describe.
   and GitHub must independently report it verified. Recognition alone holds for
   any key on the tagger's account, which would reduce publication authority to
   tag-push rights plus a self-uploaded key.
+- **Publication is bound to one annotated tag object.** CI carries the verified
+  tag-object SHA across the job boundary and reasserts the version-tag ref still
+  resolves to it immediately before release creation. Lightweight tags, missing
+  object identities, and changed refs fail closed.
+- **Version-tag protection is executable.** `make release-tag` and the release
+  workflow verify the live `Tag Publish Protection` ruleset covers only
+  `refs/tags/v*`, applies the four mutation protections, and has only the
+  organization-administrator bypass.
+- **Third-party workflow actions are immutable.** Check and release actions use
+  full commit SHAs, retaining semantic versions as comments.
 - **Unverified tags fail closed.** If the signature is absent, is made by an
   unpinned key, or cannot be verified, the workflow fails and no release is
   created. A draft or missing release is now a failure signal rather than a

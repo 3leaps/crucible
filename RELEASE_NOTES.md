@@ -24,19 +24,24 @@ For detailed release content, see [docs/releases/](docs/releases/).
   signed when CI runs; a draft awaiting a signature guarded a condition that
   could not occur
 - **Releases publish from CI** — the workflow asserts a verified tag signature,
-  then publishes directly, setting `Latest` explicitly for stable versions;
-  prereleases publish as prereleases and do not take `Latest`
+  binds authorization to the exact annotated tag object, then publishes
+  directly, setting `Latest` explicitly for stable versions; prereleases
+  publish as prereleases and do not take `Latest`
 - **Unverified tags fail closed** — no release is created, making an
   unpublished release a failure signal rather than a normal waiting state
+- **Version-tag policy is executable** — release tagging and publication verify
+  the live ruleset protects `refs/tags/v*` with only the
+  organization-administrator bypass; workflow actions are pinned to immutable
+  commits
 
 ### Changes
 
-| Area           | Change                                                                                       |
-| -------------- | -------------------------------------------------------------------------------------------- |
-| **Governance** | Add EPR-0001 (proposed) and PDR-0004 (accepted); `EPR` listed in active use; index completed |
-| **CI**         | Release workflow verifies tag signature, publishes non-draft, sets `Latest` explicitly       |
-| **Process**    | Release checklist post-release verifies published state rather than object creation          |
-| **Build**      | Version 0.1.19 → 0.1.20; package metadata, README badge, and changelog links are synced      |
+| Area           | Change                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| **Governance** | Add EPR-0001 (proposed) and PDR-0004 (accepted); `EPR` listed in active use; index completed  |
+| **CI**         | Release workflow verifies the exact tag object, publishes non-draft, pins third-party actions |
+| **Process**    | Checklist, tagging, and publication verify the live version-tag ruleset                       |
+| **Build**      | Version 0.1.19 → 0.1.20; package metadata, README badge, and changelog links are synced       |
 
 **Full release notes**: [docs/releases/v0.1.20.md](docs/releases/v0.1.20.md)
 

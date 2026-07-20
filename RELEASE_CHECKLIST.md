@@ -32,6 +32,10 @@ Note: These are not secrets and typically aren't stored in encrypted env bundles
 - [ ] README version badge updated to match VERSION
 - [ ] All changes committed and pushed to main
 - [ ] CI passes on main branch
+- [ ] The live version-tag ruleset matches the publication policy:
+  ```bash
+  make release-guard-tag-ruleset
+  ```
 - [ ] Guard: ensure tag/version match:
   ```bash
   make release-guard-tag-version
@@ -62,6 +66,7 @@ make release-tag
 
 The script performs these safety checks before creating the tag:
 
+- Live `Tag Publish Protection` ruleset matches the required policy
 - Tag format validation (`vMAJOR.MINOR.PATCH`)
 - Clean working tree required
 - Must be on `main` branch (set `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1` to override)
@@ -171,7 +176,10 @@ subkey — the one marked `[S]` — is what gates publication.
 
 ## Rollback
 
-If issues are discovered after release:
+Version tags are protected against deletion and update. Prefer a corrective
+release. If exceptional removal is required, an organization administrator must
+explicitly exercise the protected-tag bypass before running the remote-tag
+deletion below:
 
 ```bash
 # Delete remote tag
@@ -193,6 +201,7 @@ git revert <commit-hash>
 | `make release-tag`               | Create signed git tag with all safety checks  |
 | `make release-verify-tag`        | Verify an existing signed tag                 |
 | `make release-guard-tag-version` | Verify tag matches VERSION file (CI-friendly) |
+| `make release-guard-tag-ruleset` | Verify live version-tag publication policy    |
 
 ### Scripts
 
@@ -213,6 +222,15 @@ All scripts are in `scripts/` and can be run directly if needed.
 - Compares current git tag (or `THREELEAPS_CRUCIBLE_RELEASE_TAG` env var) against `VERSION` file
 - Use in CI with `THREELEAPS_CRUCIBLE_REQUIRE_TAG=1` to enforce tag presence
 - Exits 0 if match, exits 1 if mismatch
+
+**`scripts/release-guard-tag-ruleset.sh`** - Publication-boundary check:
+
+- Resolves `Tag Publish Protection` by name through the GitHub API
+- Requires an active repository ruleset covering only `refs/tags/v*`
+- Requires creation, update, deletion, and non-fast-forward protection
+- Requires the sole bypass to be organization administrators in `always` mode
+- Fails closed on missing, duplicate, malformed, or unexpected policy data
+- Requires authenticated `gh` access with permission to read repository rulesets
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
