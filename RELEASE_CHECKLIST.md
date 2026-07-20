@@ -142,6 +142,33 @@ gh api repos/3leaps/crucible/git/tags/$TAG_SHA --jq .verification
 
 Otherwise GitHub may show "Unverified" even though `git tag -v` succeeds locally.
 
+## Release-key rotation
+
+CI publishes only tags signed by a key in the committed pin file
+`docs/security/release-signing-keys.asc` (PDR-0004 §2). When the release key
+rotates:
+
+- [ ] Update `docs/security/release-signing-keys.asc` by reviewed PR **before**
+      pushing the first tag signed by the new key (a stale pin fails closed:
+      the release stays unpublished and `verify-signature` is red)
+- [ ] Upload the new public key to the maintainer GitHub account (keeps the
+      secondary account-linkage assertion and the Verified badge green)
+- [ ] Remove the retired key from the pin file once no in-flight tag depends
+      on it
+
+**Expiry is rotation you did not schedule.** A pinned key that passes its
+expiration date fails verification exactly as a missing pin does — the release
+stays unpublished and the job is red — but nothing prompts it first. Check the
+remaining life of the pinned material periodically, and refresh the pin before
+it lapses rather than after a release blocks:
+
+```bash
+gpg --show-keys docs/security/release-signing-keys.asc | grep -E "^(pub|sub)"
+```
+
+Each line ends with `[expires: YYYY-MM-DD]` where an expiry is set. The signing
+subkey — the one marked `[S]` — is what gates publication.
+
 ## Rollback
 
 If issues are discovered after release:

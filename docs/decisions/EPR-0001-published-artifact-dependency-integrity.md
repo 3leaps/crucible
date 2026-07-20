@@ -100,18 +100,37 @@ prevent.
 
 ### 3. Audit
 
-Every pinned graph is gated for known advisories **on every change**, across
-**all** pinned surfaces, not only the primary one. An accepted residual risk is
-recorded as a dated, revisit-conditioned security decision record — never a
-silent ignore. An unaudited secondary surface is a supply-chain path that no one
-is watching.
+Every pinned graph is gated for known advisories **on every change and on a
+schedule** (cadence per-repo), across **all** pinned surfaces, not only the
+primary one. Change-triggered scanning alone has a blind spot this obligation
+exists to close: advisories arrive against unchanged pins, and a repository
+that is quiet for a quarter is otherwise never re-scanned. An accepted residual
+risk is recorded as a dated, revisit-conditioned security decision record —
+never a silent ignore. An unaudited secondary surface is a supply-chain path
+that no one is watching.
 
 ### 4. Parity
 
 When one release ships the same core through multiple surfaces, the
-**security-critical shared components** MUST resolve to **identical versions
-across every surface's pin**. Divergence is a **build failure**, not a warning.
-"One core, many bindings" means one graph.
+**security-critical shared components** MUST resolve to **identical upstream
+source versions across every surface's pin**. Divergence is a **build
+failure**, not a warning. "One core, many bindings" means one graph.
+
+Two load-bearing qualifiers:
+
+- **The parity set is a declared, reviewed artifact.** "Security-critical" is a
+  judgment, but parity is a machine gate, and a machine gate needs a
+  machine-readable input. Each adopting repository commits an explicit parity
+  manifest — the list of shared components the check asserts over — and changes
+  to that manifest are reviewed like the pins themselves. Without the declared
+  set, the check either asserts over the full graph (impossible across
+  platforms, whose surfaces legitimately differ in transitive dependencies) or
+  over an ad-hoc subset (a blind spot that looks like coverage).
+- **"Identical upstream source versions", not identical version strings.** The
+  same upstream component may appear at different packaging granularity per
+  surface (a crate, an FFI prebuild, a vendored copy); the parity claim is
+  about the resolved upstream source, which is the thing whose divergence the
+  hazard describes.
 
 ## Consequences
 
@@ -141,6 +160,14 @@ Mechanics are a **per-repo** concern — a process record, runbook, or task. Thi
 EPR fixes the **obligations, not the tooling**: which locked-mode flag, which
 advisory scanner, and how the parity assertion is expressed are all local
 choices, and are expected to change over time without disturbing this record.
+
+One checking requirement is itself an obligation: conformance is demonstrated
+with a **negative control** — the adopter shows the locked build _fails_ when
+the pin is violated (a deliberately stale lockfile, a deliberately divergent
+parity entry), not merely that the enforcing flag is present in CI
+configuration. An enforcement mechanism that has never been seen to fail is
+configured, not proven — the gap between the two is exactly the
+false-evidence class obligation 2 exists to close.
 
 ## Adoption & propagation
 

@@ -83,21 +83,48 @@ jobs:
     # asserts the signature before anything is published; failure here means no
     # release object is created at all.
     #
+    # Two assertions, both required:
+    #   1. The tag is signed by the PINNED release key committed at
+    #      docs/security/release-signing-keys.asc — verified in an isolated
+    #      keyring built only from that file. GitHub's verified flag alone
+    #      accepts any key on the tagger's account; the pin is what makes the
+    #      signature an authorization rather than an attribution.
+    #   2. GitHub independently reports the tag verified (key registered to a
+    #      maintainer account with a matching verified email).
+    #
     # Runs outside the tools-runner container: the assertion needs the GitHub
     # CLI, which that image does not carry.
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - name: Verify tag signature
+      - name: Checkout (pinned release keys + tag object)
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify tag is signed by the pinned release key
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$(mktemp -d)"
+          gpg --batch --import docs/security/release-signing-keys.asc
+          # Ensure the annotated tag object is present locally. A lightweight
+          # tag has no object to verify and fails here — intended.
+          git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          # Exits nonzero unless the signature is GOOD from a key in the
+          # isolated keyring, i.e. the committed pin file. VALIDSIG asserts a
+          # full-fingerprint match rather than a short-id collision.
+          git verify-tag --raw "${TAG}" 2>&1 | tee /tmp/verify-tag.out
+          grep -q "^\[GNUPG:\] VALIDSIG " /tmp/verify-tag.out
+          echo "Tag ${TAG} signed by pinned release key"
+      - name: Verify GitHub reports the tag verified
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # A lightweight tag resolves to a commit rather than a tag object, so
-          # the tag-object lookup below fails and the release is never created.
-          # Failing closed on an unsigned tag is the intended behaviour.
           tag_sha=$(gh api "repos/${REPO}/git/ref/tags/${TAG}" --jq .object.sha)
           verified=$(gh api "repos/${REPO}/git/tags/${tag_sha}" --jq .verification.verified)
           if [ "$verified" != "true" ]; then

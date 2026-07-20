@@ -89,10 +89,21 @@ publishes. The manual undraft step is eliminated.**
    and merged through a PR. Nothing is reviewed at undraft time that was not
    reviewed earlier.
 
-2. **CI verifies the signature before publishing.** `release.yml` resolves the
-   tag object and asserts GitHub reports `verification.verified == true`. The
-   checklist **already documents this exact call**, labelled "CI-friendly" — it
-   was written for this purpose and never wired in:
+2. **CI verifies the signature against the pinned release key before
+   publishing.** Once the signature carries publication authority, _whose_
+   signature matters more than _whether GitHub recognizes one_:
+   `verification.verified == true` holds for a signature by **any** GPG key
+   uploaded to the tagger's account, so on its own it reduces the publication
+   gate to "anyone with tag-push rights and a self-uploaded key" — a compromised
+   account mints publishable releases. Two assertions, both required:
+   - **Key identity (authoritative):** the tag verifies in an isolated keyring
+     built solely from the release keys committed at
+     `docs/security/release-signing-keys.asc`, with a full-fingerprint
+     `VALIDSIG` match. The pin file is reviewed like any other change; rotating
+     the release key requires a PR that updates it (see Consequences).
+   - **Account linkage (secondary):** GitHub reports the tag verified — the
+     checklist **already documents this exact call**, labelled "CI-friendly";
+     it was written for this purpose and never wired in:
 
    ```bash
    TAG_SHA=$(gh api repos/3leaps/crucible/git/ref/tags/vX.Y.Z --jq .object.sha)
@@ -118,6 +129,14 @@ publishes. The manual undraft step is eliminated.**
    release is non-draft, carries `Latest`, and is reachable — not merely that a
    Release object was created. The checklist stops being able to reach
    false-complete.
+
+7. **Precondition: version-tag refs are protected.** Publication authority now
+   flows through `refs/tags/v*`, but branch protection guards `main` only. A
+   ruleset restricting who may create or update version tags is a precondition
+   of this posture — without it, the write-access boundary and the publish
+   boundary silently merge. (The pinned-key assertion in §2 bounds the damage —
+   an unauthorized tag cannot publish — but tag-ref protection keeps the
+   unauthorized tag itself from existing.)
 
 ## Rationale
 
@@ -151,7 +170,25 @@ publishes. The manual undraft step is eliminated.**
   buffer. This is accepted deliberately: pushing a signed tag is already the point
   of no return for the _tag_, which is the un-editable public artifact; the
   release object is the lesser exposure. A change of mind after tag push is a
-  rollback, and the checklist already documents that path.
+  rollback, and the checklist already documents that path. **Staging, when
+  genuinely wanted, is the prerelease channel:** an rc tag publishes as
+  `prerelease: true` without `Latest` (§4). That is the sanctioned buffer — do
+  not re-introduce drafts to get one.
+- **Key rotation gains a step.** The pinned key file
+  (`docs/security/release-signing-keys.asc`) must be updated — by reviewed PR,
+  before the first tag signed by the new key — whenever the release key rotates.
+  A forgotten pin update fails closed (the release stays unpublished and the job
+  is red), which is the correct direction, but rotation choreography must
+  include the pin or the first post-rotation release will block.
+- **Key _expiry_ is the same failure, and it arrives unprompted.** Rotation is
+  chosen; expiry is not. When the pinned signing key or subkey passes its
+  expiration date, verification yields an expired-signature result rather than a
+  valid one, and releases stop publishing until the pin is refreshed — with no
+  preceding action by anyone to prompt it. Adopting this posture therefore means
+  tracking the expiration dates of the pinned material as a release-path
+  dependency, not merely as a security-hygiene item. Refresh the pin ahead of
+  expiry; the fail-closed direction is correct, but an unplanned block is
+  avoidable.
 - If `Latest` should ever _not_ follow the newest stable tag, that now requires an
   explicit override rather than being the accidental default.
 - CI gains a dependency on GitHub's verification API. If it is unavailable the job

@@ -28,15 +28,28 @@ describe.
   signature guards a condition that cannot occur. The signed tag is now the
   authorization; CI verifies it and publishes.
 
+- **Pinned release signing key.** `docs/security/release-signing-keys.asc`
+  commits the public key permitted to authorize a release. Publication is gated
+  on it, so the key set is reviewed like any other change.
+
 ### Changed
 
 - **Releases publish from CI.** The release workflow asserts the tag carries a
   verified signature, then creates the release directly as published, setting
   the `Latest` flag explicitly for stable versions. Prereleases publish as
   prereleases and do not take `Latest`.
-- **Unverified tags fail closed.** If the signature is absent or cannot be
-  verified, the workflow fails and no release is created. A draft or missing
-  release is now a failure signal rather than a normal intermediate state.
+- **Signature verification asserts key identity, not just recognition.** The tag
+  must verify in an isolated keyring built solely from the committed pin file,
+  and GitHub must independently report it verified. Recognition alone holds for
+  any key on the tagger's account, which would reduce publication authority to
+  tag-push rights plus a self-uploaded key.
+- **Unverified tags fail closed.** If the signature is absent, is made by an
+  unpinned key, or cannot be verified, the workflow fails and no release is
+  created. A draft or missing release is now a failure signal rather than a
+  normal intermediate state.
+- **Release-key rotation is part of the release process.** The checklist wires
+  pin updates into rotation, and notes that key expiry blocks publication the
+  same way a stale pin does — without anything prompting it first.
 - **Release checklist verifies published state.** Post-release items confirm the
   release is non-draft, carries `Latest`, and is reachable — rather than only
   that a release object was created.
