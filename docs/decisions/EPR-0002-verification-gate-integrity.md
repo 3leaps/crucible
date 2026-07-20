@@ -122,7 +122,11 @@ established. **Manufacturing a value to stand in for missing evidence is the
 mechanism by which an unverified system reports as verified.**
 
 Producers are as bound as gates here: the substitution usually happens on the
-producing side, where it looks like defensive coding.
+producing side, where it looks like defensive coding. Where the hazard is
+producer-side substitution, the negative control that proves the gate MUST flow
+through the real producing path — driving the actual component to withhold the
+value — not feed the gate a pre-made absent value. A hand-fed absence proves the
+gate rejects absence, not that the producer surfaces it honestly.
 
 ### 3. A gate is proven by a negative control
 
@@ -133,7 +137,10 @@ failing is configured, not proven; the two are indistinguishable from a green ru
 
 _The self-check this reduces to, and the cheapest one available:_ **would this
 success fixture still pass against a deliberately broken build?** If yes, the
-fixture is documentation of intent, not coverage.
+fixture is documentation of intent, not coverage. And its dual: does the broken
+build fail **at this gate's assertion**, not before it? A mutation that trips a
+compile error, an earlier gate, or a panic upstream yields a green→red transition
+that never exercised the gate under test.
 
 ### 4. An exactness claim admits no undeclared exemption
 
@@ -146,6 +153,12 @@ scope are **declared in the contract** — named, with their shape and multiplic
 — never expressed as a shape-wide skip inside the check. Where a declared scope
 cannot be judged by the rule at hand, the gate refuses rather than silently
 applying a rule that does not describe it.
+
+Because the reconciliation runs in two directions, an exactness gate's
+Obligation 3 evidence is **one negative control per direction**: an undeclared
+element shown rejected, and a removed required element shown rejected. Obligation
+3's "at least one" is a floor — a single control here proves only one direction
+and leaves the other unexercised.
 
 ## Consequences
 
@@ -261,7 +274,8 @@ remains correct and unchanged; it becomes an instance rather than an exception.
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                                      | Updated By       |
-| ---------- | ------------- | ---------------------------------------------------------------------------- | ---------------- |
-| 2026-07-20 | → proposed    | Second EPR under ADR-0003; generalizes GP-2.2/2.4, EPR-0001, PDR-0004        | devlead, cxotech |
-| 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed | cxotech, entarch |
+| Date       | Status Change | Summary                                                                                                                       | Updated By       |
+| ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 2026-07-20 | → proposed    | Second EPR under ADR-0003; generalizes GP-2.2/2.4, EPR-0001, PDR-0004                                                         | devlead, cxotech |
+| 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed                                                  | cxotech, entarch |
+| 2026-07-20 | (refine)      | Sharpen negative-control evidence: per-direction for exactness gates, producer-path for absence, fail-at-assertion self-check | devlead, cxotech |
