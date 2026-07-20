@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-07-19
+
+A governance release: two decision records, and the release process they
+describe.
+
+### Added
+
+- **EPR-0001 (proposed): published artifacts carry an integral dependency
+  graph.** Every artifact built from a resolved dependency graph ships that
+  graph pinned in-repo, enforced at build, continuously audited, and held at
+  parity across all distribution surfaces of the same release. Four obligations,
+  surface- and language-agnostic; tooling is deliberately out of scope and left
+  to adopting repositories. This is the first Engineering Principle Record in
+  this lane. It graduates to accepted when a conforming reference
+  implementation lands.
+- **PDR-0004 (accepted): the signed tag authorizes publication.** Signing is what
+  creates the tag, and the push is what triggers the release workflow — so the
+  tag is already signed by the time CI runs. A draft release awaiting a
+  signature guards a condition that cannot occur. The signed tag is now the
+  authorization; CI verifies it and publishes.
+
+### Changed
+
+- **Releases publish from CI.** The release workflow asserts the tag carries a
+  verified signature, then creates the release directly as published, setting
+  the `Latest` flag explicitly for stable versions. Prereleases publish as
+  prereleases and do not take `Latest`.
+- **Unverified tags fail closed.** If the signature is absent or cannot be
+  verified, the workflow fails and no release is created. A draft or missing
+  release is now a failure signal rather than a normal intermediate state.
+- **Release checklist verifies published state.** Post-release items confirm the
+  release is non-draft, carries `Latest`, and is reachable — rather than only
+  that a release object was created.
+- **Decision-record index.** The `EPR` type is listed in active use, and the
+  index covers every record in the lane.
+
+### Build
+
+- Version 0.1.19 → 0.1.20; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.19] - 2026-07-09
 
 A contract-alignment release: loosen two over-constraints in `data-artifact/v0`
@@ -585,7 +626,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.19...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.20...HEAD
+[0.1.20]: https://github.com/3leaps/crucible/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/3leaps/crucible/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/3leaps/crucible/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/3leaps/crucible/releases/tag/v0.1.17

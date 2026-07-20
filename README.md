@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.19](https://img.shields.io/badge/version-0.1.19-blue)
+![Version: 0.1.20](https://img.shields.io/badge/version-0.1.20-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -81,7 +81,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   ├── python.md          # Python coding standards
 │   │   ├── rust.md            # Rust coding standards
 │   │   └── typescript.md      # TypeScript coding standards
-│   ├── decisions/             # ADR framework (architecture decision records)
+│   ├── decisions/             # Decision & governance records (ADR/PDR/EPR)
 │   ├── operations/
 │   │   ├── ci-baseline.md     # CI/CD patterns and gotchas
 │   │   └── upstream-sync-guide.md  # How to vendor crucible content

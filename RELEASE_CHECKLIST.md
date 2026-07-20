@@ -91,11 +91,35 @@ git push origin v$(cat VERSION)
 
 ## Post-Release
 
-- [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
-- [ ] Verify release.yml workflow runs and creates GitHub Release
-- [ ] Spot-check release notes render correctly
+Pushing the signed tag is the last manual act. `release.yml` verifies the
+signature and publishes the release; see
+[PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md). Nothing below
+requires a click — these items confirm CI did its job.
 
-### Verify tag signature (optional)
+**Verify the release is published, not merely created.** A release object that
+exists but is still a draft is a failure, not a completed release: it is
+invisible to every consumer while the repository looks healthy.
+
+- [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
+- [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
+      job means publication was refused — investigate, do not publish by hand)
+- [ ] Verify the release is **published, not draft**, and — for a stable release
+      — carries the **Latest** flag:
+  ```bash
+  gh release view "v$(cat VERSION)" --json isDraft,isLatest,isPrerelease,url
+  ```
+  Expected for a stable release: `isDraft: false`, `isLatest: true`.
+  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, `isLatest: false`.
+- [ ] Verify the published release is reachable and its notes render correctly:
+      https://github.com/3leaps/crucible/releases/latest
+
+> If a release is sitting in draft, that is a defect in the publication path —
+> the fix is to repair the workflow, not to undraft it manually and move on.
+
+### Verify tag signature (optional manual check)
+
+CI already asserts this before publishing; these commands are for local
+diagnosis.
 
 **Local git** (most reliable):
 

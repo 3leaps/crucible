@@ -78,8 +78,37 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git diff --exit-code || (echo "Unexpected changes detected" && exit 1)
 
-  create-release:
+  verify-signature:
+    # The signed tag is the publication authorization (PDR-0004). This job
+    # asserts the signature before anything is published; failure here means no
+    # release object is created at all.
+    #
+    # Runs outside the tools-runner container: the assertion needs the GitHub
+    # CLI, which that image does not carry.
     needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify tag signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # A lightweight tag resolves to a commit rather than a tag object, so
+          # the tag-object lookup below fails and the release is never created.
+          # Failing closed on an unsigned tag is the intended behaviour.
+          tag_sha=$(gh api "repos/${REPO}/git/ref/tags/${TAG}" --jq .object.sha)
+          verified=$(gh api "repos/${REPO}/git/tags/${tag_sha}" --jq .verification.verified)
+          if [ "$verified" != "true" ]; then
+            echo "Tag ${TAG} is not a verified signed tag (verification.verified=${verified})"
+            echo "Publication is not authorized. No release will be created."
+            exit 1
+          fi
+          echo "Tag ${TAG} signature verified; publication authorized"
+
+  create-release:
+    needs: [verify, verify-signature]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -111,6 +140,10 @@ jobs:
         with:
           name: "v${{ steps.version.outputs.version }}"
           body_path: "docs/releases/v${{ steps.version.outputs.version }}.md"
-          # Posture: draft -> sign -> undraft (signing/publish is separate process)
-          draft: true
+          # Posture: the signed tag authorizes publication; CI verifies and
+          # publishes (PDR-0004). A draft release is a failure state, not a step.
+          draft: false
           prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}
+          # Set explicitly: a prior release does not yield the flag on its own,
+          # and a prerelease must never take it.
+          make_latest: ${{ steps.prerelease.outputs.is_prerelease == 'false' }}
