@@ -54,3 +54,4 @@ Examples:
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                    | Role portfolio tiering: core, supplemental, deprecated             | accepted | 2026-06-29 |
 | [PDR-0004](PDR-0004-release-publication-gate.md)                  | The signed tag authorizes publication; CI verifies and publishes   | accepted | 2026-07-17 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)   | Published Artifacts Carry an Integral Dependency Graph             | proposed | 2026-07-17 |
+| [EPR-0002](EPR-0002-verification-gate-integrity.md)               | Gates Assert on Resolved State and Are Proven Able to Fail         | accepted | 2026-07-20 |
