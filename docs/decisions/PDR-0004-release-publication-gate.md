@@ -147,10 +147,11 @@ publishes. The manual undraft step is eliminated.**
    ruleset, named `Tag Publish Protection`, covers only `refs/tags/v*`, blocks
    creation, update, deletion, and non-fast-forward changes, and grants its sole
    always-on bypass to organization administrators.
-   `make release-guard-tag-ruleset` verifies that exact shape before
-   `make release-tag` proceeds, and CI repeats the guard before verifying the
-   release authorization. The bypass boundary and release-key custody boundary
-   are therefore both organization-level controls.
+   `make release-tag` performs the complete ruleset assertion and embeds the
+   canonical policy fingerprint in the signed annotated tag. CI validates the
+   read-only ruleset view and requires that signed fingerprint before
+   publication. The bypass boundary and release-key custody boundary remain
+   organization-level controls.
 
 8. **Publication dependencies are immutable.** Every third-party action in the
    check and release workflows is referenced by a full commit SHA, with the
@@ -184,6 +185,8 @@ publishes. The manual undraft step is eliminated.**
 - Signature verification and publication remain bound to one annotated tag
   object even if the ref is changed between jobs.
 - The tag-protection precondition is executable rather than documentary.
+- The complete pre-tag assertion is carried through publication as a signed
+  policy fingerprint.
 
 **Negative / costs (accepted)**
 
@@ -215,9 +218,10 @@ publishes. The manual undraft step is eliminated.**
   explicit override rather than being the accidental default.
 - CI gains a dependency on GitHub's verification API. If it is unavailable the job
   fails closed (unpublished) — the safe direction, and the same state as today.
-- Local release tagging gains a read-only dependency on the GitHub rulesets API.
-  Missing access or an unavailable API blocks tagging until the policy can be
-  verified.
+- Local release tagging requires GitHub ruleset access sufficient for complete
+  policy validation.
+- Tags created outside the release script do not carry the policy fingerprint
+  and fail publication even if their cryptographic signature is otherwise valid.
 
 ## Alternatives considered
 
@@ -245,3 +249,4 @@ publishes. The manual undraft step is eliminated.**
 | 2026-07-17 | → proposed    | Signed tag authorizes publication; CI verifies+publishes | cxotech    |
 | 2026-07-19 | → accepted    | Filed with its implementation; draft posture removed     | cxotech    |
 | 2026-07-20 | accepted      | Bind exact tag object; enforce ruleset and action pins   | secrev     |
+| 2026-07-20 | accepted      | Add signed policy attestation and read-only CI check     | secrev     |

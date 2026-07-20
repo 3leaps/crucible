@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-07-20
+
+Signed publication-policy attestation for the release path.
+
+### Changed
+
+- **Release tags carry a signed policy fingerprint.** `release-tag.sh` validates
+  the complete version-tag ruleset and embeds its canonical SHA-256 fingerprint
+  in the annotated tag before signing.
+- **Publication verifies the signed policy attestation.** Release CI validates
+  the read-only ruleset view and requires the policy fingerprint after pinned-key
+  signature verification.
+- **Release-control tests and documentation cover both validation modes and the
+  signed attestation.**
+
+### Build
+
+- Version 0.1.20 → 0.1.21; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.20] - 2026-07-19
 
 A governance release: two decision records, and the release process they
@@ -649,7 +669,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.20...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/3leaps/crucible/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/3leaps/crucible/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/3leaps/crucible/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/3leaps/crucible/compare/v0.1.17...v0.1.18

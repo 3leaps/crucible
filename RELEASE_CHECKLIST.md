@@ -32,7 +32,9 @@ Note: These are not secrets and typically aren't stored in encrypted env bundles
 - [ ] README version badge updated to match VERSION
 - [ ] All changes committed and pushed to main
 - [ ] CI passes on main branch
-- [ ] The live version-tag ruleset matches the publication policy:
+- [ ] The live version-tag ruleset matches the **full** publication policy,
+      including bypass actors (run with the maintainer credential used for
+      release administration):
   ```bash
   make release-guard-tag-ruleset
   ```
@@ -67,6 +69,7 @@ make release-tag
 The script performs these safety checks before creating the tag:
 
 - Live `Tag Publish Protection` ruleset matches the required policy
+- Canonical publication-policy fingerprint is embedded in the signed tag
 - Tag format validation (`vMAJOR.MINOR.PATCH`)
 - Clean working tree required
 - Must be on `main` branch (set `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1` to override)
@@ -86,6 +89,13 @@ Expected output includes:
 
 - `gpg: Signature made ...`
 - `gpg: Good signature from ...`
+
+The annotated tag must also carry the policy fingerprint produced by the full
+pre-tag guard:
+
+```bash
+git cat-file tag "v$(cat VERSION)" | grep '^Tag-Publish-Policy-SHA256: '
+```
 
 ### 4. Push
 
@@ -108,6 +118,8 @@ invisible to every consumer while the repository looks healthy.
 - [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
 - [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
       job means publication was refused — investigate, do not publish by hand)
+- [ ] Verify the workflow's read-only ruleset check and signed policy
+      attestation both passed.
 - [ ] Verify the release is **published, not draft**, and — for a stable release
       — carries the **Latest** flag:
   ```bash
@@ -213,9 +225,11 @@ All scripts are in `scripts/` and can be run directly if needed.
 2. Ensures working tree is clean (no uncommitted changes)
 3. Ensures on `main` branch (override with `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1`)
 4. Ensures tag doesn't already exist
-5. Verifies GPG signing key is available
-6. Creates signed annotated tag
-7. Automatically verifies signature after creation
+5. Validates the complete live ruleset, including bypass actors
+6. Embeds the canonical policy fingerprint in the tag message
+7. Verifies GPG signing key is available
+8. Creates signed annotated tag
+9. Automatically verifies signature after creation
 
 **`scripts/release-guard-tag-version.sh`** - Version consistency check:
 
@@ -228,9 +242,17 @@ All scripts are in `scripts/` and can be run directly if needed.
 - Resolves `Tag Publish Protection` by name through the GitHub API
 - Requires an active repository ruleset covering only `refs/tags/v*`
 - Requires creation, update, deletion, and non-fast-forward protection
-- Requires the sole bypass to be organization administrators in `always` mode
+- Default mode requires the sole bypass to be organization administrators in
+  `always` mode
+- `--print-attestation` performs the full check and emits the canonical policy
+  fingerprint for the signed tag
+- `--read-only` checks the read-only policy view; unavailable bypass data is
+  accepted, while unexpected visible actors still fail
+- `--verify-tag-attestation` requires the signed tag object to carry the exact
+  expected full-policy fingerprint
 - Fails closed on missing, duplicate, malformed, or unexpected policy data
-- Requires authenticated `gh` access with permission to read repository rulesets
+- Full mode requires authenticated `gh` access sufficient for complete ruleset
+  validation; read-only mode requires repository metadata access
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
