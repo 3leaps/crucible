@@ -144,10 +144,8 @@ main() {
         exit 1
     fi
 
-    # Validate the admin-visible ruleset shape and capture its canonical policy
-    # fingerprint. The fingerprint is embedded in the signed tag object so CI
-    # can verify the full-policy assertion even though GitHub redacts bypass
-    # actors from read-only API callers.
+    # Validate the complete ruleset and bind its canonical policy fingerprint
+    # into the signed tag object for publication verification.
     local policy_attestation
     policy_attestation="$(./scripts/release-guard-tag-ruleset.sh --print-attestation)"
     if ! [[ "${policy_attestation}" =~ ^Tag-Publish-Policy-SHA256:\ [0-9a-f]{64}$ ]]; then

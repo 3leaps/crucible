@@ -9,32 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.21] - 2026-07-20
 
-A corrective release for ruleset attestation under read-only release CI.
-
-### Fixed
-
-- **Ruleset bypass visibility no longer blocks publication.** GitHub omits
-  `bypass_actors` from ruleset API responses unless the caller can write the
-  ruleset. The standard read-only `GITHUB_TOKEN` therefore cannot repeat the
-  maintainer's complete pre-tag assertion. Release CI now validates the exact
-  ruleset fields visible to a read-only caller and fails on any unexpected
-  visible bypass actor, without treating deliberate redaction as policy drift.
+Signed publication-policy attestation for the release path.
 
 ### Changed
 
-- **Full-policy validation crosses the trust boundary inside the signed tag.**
-  `release-tag.sh` runs the complete admin-visible ruleset guard and embeds a
-  canonical SHA-256 policy fingerprint in the annotated tag message before
-  signing. CI requires that exact attestation after verifying the tag against
-  the pinned release key.
-- **Ruleset checks have explicit visibility modes.** The default guard remains
-  the complete maintainer-side assertion. `--read-only` checks the publication-
-  time API view; attestation commands produce and verify the signed handoff.
-- **Release-control negative tests cover API redaction and attestation.** Tests
-  accept omitted or empty bypass lists only in read-only mode, reject unexpected
-  visible actors, and reject missing or incorrect signed policy fingerprints.
-- **Release documentation describes the reusable three-part gate:** full
-  pre-tag assertion, signed policy attestation, and read-only CI assertion.
+- **Release tags carry a signed policy fingerprint.** `release-tag.sh` validates
+  the complete version-tag ruleset and embeds its canonical SHA-256 fingerprint
+  in the annotated tag before signing.
+- **Publication verifies the signed policy attestation.** Release CI validates
+  the read-only ruleset view and requires the policy fingerprint after pinned-key
+  signature verification.
+- **Release-control tests and documentation cover both validation modes and the
+  signed attestation.**
 
 ### Build
 

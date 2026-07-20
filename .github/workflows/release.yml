@@ -107,9 +107,8 @@ jobs:
       - name: Verify version-tag publication policy
         env:
           GH_TOKEN: ${{ github.token }}
-        # GitHub redacts bypass_actors from read-only API callers. The signed
-        # tag carries the full-policy attestation produced before tag creation;
-        # this step independently checks every field visible at publication.
+        # The complete pre-tag assertion is carried by the signed tag; this
+        # step checks the read-only policy view available at publication.
         run: ./scripts/release-guard-tag-ruleset.sh --read-only
       - name: Verify tag is signed by the pinned release key
         id: verify_tag

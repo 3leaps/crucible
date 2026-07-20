@@ -10,31 +10,26 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ## v0.1.21 (2026-07-20)
 
-**Signed full-policy handoff for read-only release CI.**
+**Signed publication-policy attestation.**
 
 ### Highlights
 
-- **Full pre-tag assertion remains authoritative** — the release script checks
-  the complete live version-tag ruleset, including the exact bypass actors,
-  before creating a tag
-- **Policy state rides inside the signed tag** — the annotated tag message
-  carries a canonical SHA-256 fingerprint of the expected full policy, covered
-  by the same pinned-key signature that authorizes publication
-- **CI checks what it can actually observe** — the standard read-only token
-  verifies every visible ruleset field and the signed full-policy fingerprint;
-  deliberate API redaction is no longer misclassified as policy drift
-- **No ruleset-write credential in CI** — publication does not gain authority to
-  mutate the control it is verifying merely to reveal bypass actors
+- **Complete pre-tag validation** — the release script checks the configured
+  version-tag policy before creating a tag
+- **Signed policy fingerprint** — annotated release tags carry the canonical
+  publication-policy fingerprint
+- **Publication verification** — CI checks the read-only policy view and the
+  signed fingerprint after pinned-key signature verification
 
 ### Changes
 
-| Area        | Change                                                                                          |
-| ----------- | ----------------------------------------------------------------------------------------------- |
-| **Release** | Add full/read-only ruleset modes and signed policy-attestation production and verification      |
-| **CI**      | Verify the read-only policy view plus the full-policy fingerprint after pinned-key verification |
-| **Tests**   | Cover redacted bypass lists, unexpected visible actors, and missing or wrong attestations       |
-| **Docs**    | Document the reusable three-part publication gate and API visibility boundary                   |
-| **Build**   | Version 0.1.20 → 0.1.21; package metadata, README badge, and changelog links are synced         |
+| Area        | Change                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------- |
+| **Release** | Add complete/read-only ruleset modes and signed policy-attestation handling             |
+| **CI**      | Verify the read-only policy view and signed fingerprint after pinned-key verification   |
+| **Tests**   | Cover validation modes and missing or incorrect attestations                            |
+| **Docs**    | Update the release gate decision and operator checklist                                 |
+| **Build**   | Version 0.1.20 → 0.1.21; package metadata, README badge, and changelog links are synced |
 
 **Full release notes**: [docs/releases/v0.1.21.md](docs/releases/v0.1.21.md)
 

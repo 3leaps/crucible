@@ -86,10 +86,8 @@ validate_ruleset_json() {
                 '.bypass_actors == [{"actor_id":null,"actor_type":"OrganizationAdmin","bypass_mode":"always"}]'
             ;;
         read-only)
-            # GitHub deliberately omits bypass_actors unless the API caller can
-            # write the ruleset. A standard GITHUB_TOKEN can therefore attest
-            # the public shape but cannot independently attest bypass actors.
-            # If actors are visible, they must still match the full policy.
+            # A read-only response may omit bypass actors. If actors are
+            # visible, they must still match the complete policy.
             assert_shape "contains unexpected visible bypass actors" \
                 '(.bypass_actors == null) or
                  (.bypass_actors == []) or
@@ -193,7 +191,7 @@ main() {
 
     if [ "${validation_mode}" = "read-only" ]; then
         echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the read-only publication-policy view"
-        echo "[--] bypass actors are proven by the signed full-policy attestation"
+        echo "[--] complete policy is carried by the signed tag attestation"
     else
         echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the full publication policy"
     fi

@@ -118,9 +118,8 @@ invisible to every consumer while the repository looks healthy.
 - [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
 - [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
       job means publication was refused — investigate, do not publish by hand)
-- [ ] Verify the workflow's read-only ruleset view and signed full-policy
-      attestation both passed. CI deliberately does not receive a credential
-      capable of editing rulesets merely to reveal bypass actors.
+- [ ] Verify the workflow's read-only ruleset check and signed policy
+      attestation both passed.
 - [ ] Verify the release is **published, not draft**, and — for a stable release
       — carries the **Latest** flag:
   ```bash
@@ -247,14 +246,13 @@ All scripts are in `scripts/` and can be run directly if needed.
   `always` mode
 - `--print-attestation` performs the full check and emits the canonical policy
   fingerprint for the signed tag
-- `--read-only` checks every field visible to the standard CI token; omitted or
-  empty bypass actors are treated as API redaction, while unexpected visible
-  actors still fail
+- `--read-only` checks the read-only policy view; unavailable bypass data is
+  accepted, while unexpected visible actors still fail
 - `--verify-tag-attestation` requires the signed tag object to carry the exact
   expected full-policy fingerprint
 - Fails closed on missing, duplicate, malformed, or unexpected policy data
-- Full mode requires authenticated `gh` access capable of viewing ruleset bypass
-  actors; read-only mode requires only public repository metadata access
+- Full mode requires authenticated `gh` access sufficient for complete ruleset
+  validation; read-only mode requires repository metadata access
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
