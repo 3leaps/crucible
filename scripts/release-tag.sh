@@ -6,7 +6,9 @@
 # - Clean working tree required
 # - Must be on main branch (overridable)
 # - Tag must not already exist
+# - Live tag publication ruleset matches the full expected policy
 # - GPG signing key availability
+# - Signed tag carries the validated publication-policy fingerprint
 # - Automatic signature verification after creation
 #
 # Environment variables:
@@ -142,6 +144,17 @@ main() {
         exit 1
     fi
 
+    # Validate the admin-visible ruleset shape and capture its canonical policy
+    # fingerprint. The fingerprint is embedded in the signed tag object so CI
+    # can verify the full-policy assertion even though GitHub redacts bypass
+    # actors from read-only API callers.
+    local policy_attestation
+    policy_attestation="$(./scripts/release-guard-tag-ruleset.sh --print-attestation)"
+    if ! [[ "${policy_attestation}" =~ ^Tag-Publish-Policy-SHA256:\ [0-9a-f]{64}$ ]]; then
+        echo "error: publication-policy attestation is missing or malformed" >&2
+        exit 1
+    fi
+
     # Set up GPG homedir if specified (THREELEAPS_CRUCIBLE_ takes precedence)
     local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-${CRUCIBLE_GPG_HOMEDIR:-}}"
 
@@ -177,7 +190,7 @@ main() {
     tag_err="$(mktemp)"
 
     if [ -n "${key_id}" ]; then
-        if ! git tag -s -a "$tag" -u "${key_id}" -m "Release $tag" 2>"${tag_err}"; then
+        if ! git tag -s -a "$tag" -u "${key_id}" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
             cat "${tag_err}" >&2
             if grep -qi "no secret key" "${tag_err}"; then
                 echo "hint: no secret key available for signing" >&2
@@ -187,7 +200,7 @@ main() {
             exit 1
         fi
     else
-        if ! git tag -s -a "$tag" -m "Release $tag" 2>"${tag_err}"; then
+        if ! git tag -s -a "$tag" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
             cat "${tag_err}" >&2
             if grep -qi "no secret key" "${tag_err}"; then
                 echo "hint: no secret key available for signing" >&2

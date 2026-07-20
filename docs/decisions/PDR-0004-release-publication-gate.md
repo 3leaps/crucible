@@ -147,10 +147,24 @@ publishes. The manual undraft step is eliminated.**
    ruleset, named `Tag Publish Protection`, covers only `refs/tags/v*`, blocks
    creation, update, deletion, and non-fast-forward changes, and grants its sole
    always-on bypass to organization administrators.
-   `make release-guard-tag-ruleset` verifies that exact shape before
-   `make release-tag` proceeds, and CI repeats the guard before verifying the
-   release authorization. The bypass boundary and release-key custody boundary
-   are therefore both organization-level controls.
+   The policy crosses the publication boundary in three explicit assertions:
+   - **Full pre-tag assertion.** `make release-tag` runs the complete ruleset
+     guard with the maintainer's release-administration credential, including
+     the exact bypass-actor list.
+   - **Signed handoff.** The guard canonicalizes the expected policy and embeds
+     its SHA-256 fingerprint in the annotated tag message. The tag signature
+     therefore covers both the release intent and the full-policy assertion.
+   - **Read-only publication assertion.** CI checks every ruleset field visible
+     to its standard read-only `GITHUB_TOKEN`, then requires the signed tag to
+     carry the exact full-policy fingerprint before publishing.
+
+   This split is necessary because GitHub deliberately omits `bypass_actors`
+   unless the API caller can write the ruleset. Giving release CI a ruleset-write
+   credential merely to reveal that field would enlarge both the secret boundary
+   and the mutation boundary. The CI assertion must be honest about what it can
+   observe; the signed tag carries the complete assertion it cannot repeat. The
+   bypass boundary and release-key custody boundary remain organization-level
+   controls.
 
 8. **Publication dependencies are immutable.** Every third-party action in the
    check and release workflows is referenced by a full commit SHA, with the
@@ -184,6 +198,8 @@ publishes. The manual undraft step is eliminated.**
 - Signature verification and publication remain bound to one annotated tag
   object even if the ref is changed between jobs.
 - The tag-protection precondition is executable rather than documentary.
+- A successful full-policy assertion is carried through publication as a signed
+  policy fingerprint without giving CI ruleset-write authority.
 
 **Negative / costs (accepted)**
 
@@ -215,9 +231,11 @@ publishes. The manual undraft step is eliminated.**
   explicit override rather than being the accidental default.
 - CI gains a dependency on GitHub's verification API. If it is unavailable the job
   fails closed (unpublished) — the safe direction, and the same state as today.
-- Local release tagging gains a read-only dependency on the GitHub rulesets API.
-  Missing access or an unavailable API blocks tagging until the policy can be
-  verified.
+- Local release tagging gains a dependency on the GitHub rulesets API and a
+  maintainer credential capable of viewing bypass actors. Missing access or an
+  unavailable API blocks tagging until the complete policy can be verified.
+- Tags created outside the release script do not carry the policy fingerprint
+  and fail publication even if their cryptographic signature is otherwise valid.
 
 ## Alternatives considered
 
@@ -231,10 +249,14 @@ publishes. The manual undraft step is eliminated.**
 - **Keep the draft; block the next release while a prior one is drafted.**
   Rejected for the same reason, and it detects the problem exactly one release
   too late.
+- **Give CI a ruleset-write credential.** Rejected. GitHub would reveal bypass
+  actors, but a publication job would gain authority to mutate the control it is
+  supposed to attest. The signed-handoff design preserves a read-only CI token.
 
 ## References
 
 - [RELEASE_CHECKLIST.md](../../RELEASE_CHECKLIST.md) — the checklist corrected by §6
+- [GitHub REST API: Get a repository ruleset](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset) — documents bypass-actor visibility for callers with ruleset write access
 - [ADR-0003: Decision & Governance Record Taxonomy](ADR-0003-decision-record-taxonomy.md) — defines PDR
 - [PDR-0002: Worktree per task](PDR-0002-worktree-per-task.md) — sibling process record
 
@@ -245,3 +267,4 @@ publishes. The manual undraft step is eliminated.**
 | 2026-07-17 | → proposed    | Signed tag authorizes publication; CI verifies+publishes | cxotech    |
 | 2026-07-19 | → accepted    | Filed with its implementation; draft posture removed     | cxotech    |
 | 2026-07-20 | accepted      | Bind exact tag object; enforce ruleset and action pins   | secrev     |
+| 2026-07-20 | accepted      | Carry full policy in tag; use honest read-only CI view   | secrev     |

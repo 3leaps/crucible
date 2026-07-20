@@ -107,7 +107,10 @@ jobs:
       - name: Verify version-tag publication policy
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./scripts/release-guard-tag-ruleset.sh
+        # GitHub redacts bypass_actors from read-only API callers. The signed
+        # tag carries the full-policy attestation produced before tag creation;
+        # this step independently checks every field visible at publication.
+        run: ./scripts/release-guard-tag-ruleset.sh --read-only
       - name: Verify tag is signed by the pinned release key
         id: verify_tag
         env:
@@ -150,6 +153,7 @@ jobs:
           git verify-tag --raw "${tag_object_sha}" 2>&1 | tee /tmp/verify-tag.out
           grep -q "^\[GNUPG:\] GOODSIG " /tmp/verify-tag.out
           grep -q "^\[GNUPG:\] VALIDSIG " /tmp/verify-tag.out
+          ./scripts/release-guard-tag-ruleset.sh --verify-tag-attestation "${tag_object_sha}"
           echo "tag_object_sha=${tag_object_sha}" >> "${GITHUB_OUTPUT}"
           echo "Tag ${TAG} object ${tag_object_sha} signed by pinned, unexpired release key"
       - name: Verify GitHub reports the tag verified

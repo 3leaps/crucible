@@ -455,7 +455,7 @@ version-major: ## Bump major version (0.1.0 -> 1.0.0)
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
 
-release-tag: release-guard-tag-ruleset ## Create signed git tag with safety checks
+release-tag: ## Create signed git tag with safety checks
 	@./scripts/release-tag.sh
 
 release-verify-tag: ## Verify signed tag signature

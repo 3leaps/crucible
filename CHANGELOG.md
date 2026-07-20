@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-07-20
+
+A corrective release for ruleset attestation under read-only release CI.
+
+### Fixed
+
+- **Ruleset bypass visibility no longer blocks publication.** GitHub omits
+  `bypass_actors` from ruleset API responses unless the caller can write the
+  ruleset. The standard read-only `GITHUB_TOKEN` therefore cannot repeat the
+  maintainer's complete pre-tag assertion. Release CI now validates the exact
+  ruleset fields visible to a read-only caller and fails on any unexpected
+  visible bypass actor, without treating deliberate redaction as policy drift.
+
+### Changed
+
+- **Full-policy validation crosses the trust boundary inside the signed tag.**
+  `release-tag.sh` runs the complete admin-visible ruleset guard and embeds a
+  canonical SHA-256 policy fingerprint in the annotated tag message before
+  signing. CI requires that exact attestation after verifying the tag against
+  the pinned release key.
+- **Ruleset checks have explicit visibility modes.** The default guard remains
+  the complete maintainer-side assertion. `--read-only` checks the publication-
+  time API view; attestation commands produce and verify the signed handoff.
+- **Release-control negative tests cover API redaction and attestation.** Tests
+  accept omitted or empty bypass lists only in read-only mode, reject unexpected
+  visible actors, and reject missing or incorrect signed policy fingerprints.
+- **Release documentation describes the reusable three-part gate:** full
+  pre-tag assertion, signed policy attestation, and read-only CI assertion.
+
+### Build
+
+- Version 0.1.20 → 0.1.21; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.20] - 2026-07-19
 
 A governance release: two decision records, and the release process they
@@ -649,7 +683,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.20...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/3leaps/crucible/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/3leaps/crucible/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/3leaps/crucible/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/3leaps/crucible/compare/v0.1.17...v0.1.18

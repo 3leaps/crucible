@@ -8,6 +8,38 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.21 (2026-07-20)
+
+**Signed full-policy handoff for read-only release CI.**
+
+### Highlights
+
+- **Full pre-tag assertion remains authoritative** — the release script checks
+  the complete live version-tag ruleset, including the exact bypass actors,
+  before creating a tag
+- **Policy state rides inside the signed tag** — the annotated tag message
+  carries a canonical SHA-256 fingerprint of the expected full policy, covered
+  by the same pinned-key signature that authorizes publication
+- **CI checks what it can actually observe** — the standard read-only token
+  verifies every visible ruleset field and the signed full-policy fingerprint;
+  deliberate API redaction is no longer misclassified as policy drift
+- **No ruleset-write credential in CI** — publication does not gain authority to
+  mutate the control it is verifying merely to reveal bypass actors
+
+### Changes
+
+| Area        | Change                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| **Release** | Add full/read-only ruleset modes and signed policy-attestation production and verification      |
+| **CI**      | Verify the read-only policy view plus the full-policy fingerprint after pinned-key verification |
+| **Tests**   | Cover redacted bypass lists, unexpected visible actors, and missing or wrong attestations       |
+| **Docs**    | Document the reusable three-part publication gate and API visibility boundary                   |
+| **Build**   | Version 0.1.20 → 0.1.21; package metadata, README badge, and changelog links are synced         |
+
+**Full release notes**: [docs/releases/v0.1.21.md](docs/releases/v0.1.21.md)
+
+---
+
 ## v0.1.20 (2026-07-19)
 
 **Governance records: dependency-graph integrity, and the release process that publishes them.**
@@ -72,39 +104,6 @@ For detailed release content, see [docs/releases/](docs/releases/).
 | **Build**     | Version 0.1.18 → 0.1.19; package metadata, README badge, and changelog links are synced         |
 
 **Full release notes**: [docs/releases/v0.1.19.md](docs/releases/v0.1.19.md)
-
----
-
-## v0.1.18 (2026-07-06)
-
-**Companion contract for local process telemetry and control.**
-
-### Highlights
-
-- **Process Run Contract (proposed)** — add `process-run/v0`, a source-neutral
-  contract for observing and steering local long-running processes: an
-  append-only NDJSON event stream and a token-gated local control channel, at a
-  deliberately minimal complexity floor (files and a local socket,
-  schema-versioned)
-- **Sibling to `data-artifact/v0`** — that contract governs _what was produced_;
-  this one governs _the producing process_, and terminal events bridge a run to
-  its output artifacts
-- **ADR-0006** — ratifies `process-run/v0` as a proposed companion contract;
-  graduates to accepted on a downstream conforming implementation
-- **Validation coverage** — `make check` now exercises the process-run schemas,
-  golden examples (including per-line NDJSON events), and the contract manifest
-
-### Changes
-
-| Area           | Change                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| **Standards**  | Add the `process-run/v0` local process telemetry and control contract (draft)             |
-| **Schemas**    | Add `process-run/v0` schema family, `contract.json` manifest, README, and golden examples |
-| **Decisions**  | Add ADR-0006 ratifying `process-run/v0` as a proposed companion contract                  |
-| **Validation** | `make check` now validates the process-run examples and contract manifest                 |
-| **Build**      | Version 0.1.17 → 0.1.18; package metadata, README badge, and changelog links are synced   |
-
-**Full release notes**: [docs/releases/v0.1.18.md](docs/releases/v0.1.18.md)
 
 ---
 
