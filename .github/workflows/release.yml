@@ -112,12 +112,23 @@ jobs:
           # Ensure the annotated tag object is present locally. A lightweight
           # tag has no object to verify and fails here — intended.
           git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
-          # Exits nonzero unless the signature is GOOD from a key in the
+          # Exits nonzero unless the signature verifies against a key in the
           # isolated keyring, i.e. the committed pin file. VALIDSIG asserts a
           # full-fingerprint match rather than a short-id collision.
+          #
+          # Both greps are required, and neither is redundant:
+          #   VALIDSIG - present for any cryptographically valid signature.
+          #   GOODSIG  - replaced by EXPKEYSIG once the signing key expires,
+          #              while VALIDSIG is still emitted. Checking VALIDSIG
+          #              alone would therefore accept an expired pinned key.
+          # git verify-tag itself also exits nonzero on an expired key (unlike
+          # a bare gpg --verify, which exits 0), so under `set -o pipefail` the
+          # step already fails. The GOODSIG assertion is stated explicitly so
+          # this step stands on its own rather than on that interaction.
           git verify-tag --raw "${TAG}" 2>&1 | tee /tmp/verify-tag.out
+          grep -q "^\[GNUPG:\] GOODSIG " /tmp/verify-tag.out
           grep -q "^\[GNUPG:\] VALIDSIG " /tmp/verify-tag.out
-          echo "Tag ${TAG} signed by pinned release key"
+          echo "Tag ${TAG} signed by pinned, unexpired release key"
       - name: Verify GitHub reports the tag verified
         env:
           GH_TOKEN: ${{ github.token }}
