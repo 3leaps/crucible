@@ -53,4 +53,4 @@ Examples:
 | [PDR-0002](PDR-0002-worktree-per-task.md)                         | One git worktree per concurrent task                               | accepted | 2026-06-29 |
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                    | Role portfolio tiering: core, supplemental, deprecated             | accepted | 2026-06-29 |
 | [PDR-0004](PDR-0004-release-publication-gate.md)                  | The signed tag authorizes publication; CI verifies and publishes   | accepted | 2026-07-17 |
-| [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)   | Published Artifacts Carry an Integral Dependency Graph             | proposed | 2026-07-17 |
+| [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)   | Published Artifacts Carry an Integral Dependency Graph             | accepted | 2026-07-22 |

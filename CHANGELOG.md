@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-07-22
+
+A governance release: graduate EPR-0001 to accepted.
+
+### Changed
+
+- **EPR-0001 graduates proposed → accepted.** The first conforming adopter has
+  landed pin/enforce/audit/parity work in a public reference implementation — pin,
+  enforce, and parity demonstrated by executable negative controls, and audit by
+  on-change and scheduled advisory scans, rather than merely asserted present. The
+  record gains a Reference implementation section linking
+  that public conformance work.
+
+### Build
+
+- Version 0.1.21 → 0.1.22; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.21] - 2026-07-20
 
 Signed publication-policy attestation for the release path.
@@ -669,7 +687,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.21...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/3leaps/crucible/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/3leaps/crucible/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/3leaps/crucible/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/3leaps/crucible/compare/v0.1.18...v0.1.19

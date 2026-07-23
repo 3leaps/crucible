@@ -1,9 +1,9 @@
 ---
 id: "EPR-0001"
 title: "Published artifacts carry a pinned, enforced, audited, parity-checked dependency graph"
-status: "proposed"
+status: "accepted"
 date: "2026-07-17"
-last_updated: "2026-07-17"
+last_updated: "2026-07-22"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -25,8 +25,12 @@ relates-to:
 
 ## Status
 
-**Proposed.** Inaugural Engineering Principle Record. Proposed by entarch;
-scoped, amended, and brought forward by cxotech.
+**Accepted.** Inaugural Engineering Principle Record. Proposed by entarch;
+scoped, amended, and brought forward by cxotech. Graduated to accepted once the
+first adopter landed conforming pin/enforce/audit/parity work — pin, enforce, and
+parity demonstrated by executable negative controls, audit by on-change and
+scheduled advisory scans (see
+[Reference implementation](#reference-implementation)).
 
 ## Context
 
@@ -182,8 +186,38 @@ illustrative and non-exhaustive**, offered to convey the shape rather than to
 bound the net: the principle attaches to any qualifying repository whether or not
 it appears here.
 
-A conforming reference implementation will be linked from this record once the
-first adopter's conformance work has landed.
+### Reference implementation
+
+`seclusor` is the first conforming adopter and serves as the reference
+implementation. It ships a shared cryptographic core through two published
+surfaces — a CLI binary and a native language addon — the exact "one core, many
+bindings" shape obligation 4 governs, and it discharges all four obligations:
+
+- **Pin** — each surface commits its resolved graph in-repo (a tracked lockfile
+  per surface, including the addon's own lock).
+- **Enforce** — the artifact builds consume the pins authoritatively
+  (locked-mode), with a guard proving no published-artifact build path can drop
+  the locked flag.
+- **Audit** — every pinned surface is scanned for advisories on change and on a
+  schedule.
+- **Parity** — a declared, reviewed parity manifest asserts the security-critical
+  shared components resolve to an identical upstream identity across both
+  surfaces; divergence fails the build.
+
+Per the checking obligation above, pin, enforce, and parity are each demonstrated
+by an **executable negative control** — the gate is shown to _fail_ on a violated
+or stale pin, a bypassing build path, and a divergent, absent, or undeclared
+parity entry — not merely asserted present in CI. Audit is demonstrated by
+on-change and scheduled advisory scans of every committed lockfile.
+
+Conformance work (public):
+
+- Merged PR — <https://github.com/3leaps/seclusor/pull/43>
+- Merge commit — <https://github.com/3leaps/seclusor/commit/d7b3c0cb44841520d0349e9562e1c84d822e2608>
+
+Mechanics (which locked-mode flag, which scanner, how the parity assertion is
+expressed) are the adopter's per-repo concern per "How it is checked" above and
+are expected to evolve without disturbing this record.
 
 ## Not this record (one principle per record)
 
@@ -231,6 +265,7 @@ its inaugural use.
 
 ## Revision History
 
-| Date       | Status Change | Summary                                             | Updated By |
-| ---------- | ------------- | --------------------------------------------------- | ---------- |
-| 2026-07-17 | → proposed    | Inaugural EPR; pin/enforce/audit/parity obligations | cxotech    |
+| Date       | Status Change | Summary                                                                                                                                | Updated By |
+| ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 2026-07-17 | → proposed    | Inaugural EPR; pin/enforce/audit/parity obligations                                                                                    | cxotech    |
+| 2026-07-22 | → accepted    | First adopter landed conforming work (pin/enforce/parity negative controls; audit by scheduled scans); reference implementation linked | entarch    |
