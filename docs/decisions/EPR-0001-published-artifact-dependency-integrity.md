@@ -27,8 +27,10 @@ relates-to:
 
 **Accepted.** Inaugural Engineering Principle Record. Proposed by entarch;
 scoped, amended, and brought forward by cxotech. Graduated to accepted once the
-first adopter landed conforming pin/enforce/audit/parity work with executable
-negative controls (see [Reference implementation](#reference-implementation)).
+first adopter landed conforming pin/enforce/audit/parity work — pin, enforce, and
+parity demonstrated by executable negative controls, audit by on-change and
+scheduled advisory scans (see
+[Reference implementation](#reference-implementation)).
 
 ## Context
 
@@ -202,10 +204,11 @@ bindings" shape obligation 4 governs, and it discharges all four obligations:
   shared components resolve to an identical upstream identity across both
   surfaces; divergence fails the build.
 
-Per the checking obligation above, each is demonstrated by an **executable
-negative control** — the gate is shown to _fail_ on a violated pin, a divergent
-parity entry, an undeclared-version dangling edge, and a bypassing build path —
-not merely asserted present in CI.
+Per the checking obligation above, pin, enforce, and parity are each demonstrated
+by an **executable negative control** — the gate is shown to _fail_ on a violated
+or stale pin, a bypassing build path, and a divergent, absent, or undeclared
+parity entry — not merely asserted present in CI. Audit is demonstrated by
+on-change and scheduled advisory scans of every committed lockfile.
 
 Conformance work (public):
 
@@ -262,7 +265,7 @@ its inaugural use.
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                                                                 | Updated By |
-| ---------- | ------------- | ------------------------------------------------------------------------------------------------------- | ---------- |
-| 2026-07-17 | → proposed    | Inaugural EPR; pin/enforce/audit/parity obligations                                                     | cxotech    |
-| 2026-07-22 | → accepted    | First adopter landed conforming work with executable negative controls; reference implementation linked | entarch    |
+| Date       | Status Change | Summary                                                                                                                                | Updated By |
+| ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 2026-07-17 | → proposed    | Inaugural EPR; pin/enforce/audit/parity obligations                                                                                    | cxotech    |
+| 2026-07-22 | → accepted    | First adopter landed conforming work (pin/enforce/parity negative controls; audit by scheduled scans); reference implementation linked | entarch    |

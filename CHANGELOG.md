@@ -14,9 +14,10 @@ A governance release: graduate EPR-0001 to accepted.
 ### Changed
 
 - **EPR-0001 graduates proposed → accepted.** The first conforming adopter has
-  landed pin/enforce/audit/parity work in a public reference implementation, each
-  obligation demonstrated by an executable negative control rather than merely
-  asserted present. The record gains a Reference implementation section linking
+  landed pin/enforce/audit/parity work in a public reference implementation — pin,
+  enforce, and parity demonstrated by executable negative controls, and audit by
+  on-change and scheduled advisory scans, rather than merely asserted present. The
+  record gains a Reference implementation section linking
   that public conformance work.
 
 ### Build
