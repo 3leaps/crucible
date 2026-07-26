@@ -3,7 +3,7 @@ id: "EPR-0002"
 title: "Gates assert on resolved state and are proven able to fail"
 status: "accepted"
 date: "2026-07-20"
-last_updated: "2026-07-20"
+last_updated: "2026-07-26"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -30,7 +30,9 @@ relates-to:
 devlead from conforming implementation work; scoped and brought forward by
 cxotech; ratified on entarch ecosystem-parity assent. A conforming reference
 implementation has landed (see _Adoption & propagation_), which is the condition
-under which the record graduates from proposed to accepted.
+under which the record graduates from proposed to accepted. That implementation
+carries a stated evidence boundary, recorded with the citation; the graduation
+rests on the coverage the boundary declares, not on coverage beyond it.
 
 ## Context
 
@@ -228,9 +230,17 @@ within its domain.
 **Reference implementation.** A conforming implementation has landed in the
 public [`gonimbus`](https://github.com/3leaps/gonimbus/pull/167) measurement
 harness: provenance-based assertions in place of input assertions, removal of a
-placeholder substitution at its source, mutation-pinned negative controls per
-gate, and a coverage check keyed on declared identity with an explicit refusal
-where its rule does not apply.
+placeholder substitution at its source, mutation-pinned negative controls for the
+gates it covers, and a coverage check keyed on declared identity with an explicit
+refusal where its rule does not apply.
+
+**Evidence boundary of that implementation.** Obligation 2 is discharged there
+for the gates whose absence control drives the real producing path. It is not
+discharged for the harness's own report-construction path, where the present
+controls exercise the gate from a constructed report rather than from the
+producer. Obligation 2 is therefore claimed per gate, not harness-wide. Stating
+the boundary rather than letting a citation imply uniform coverage is this
+record's fourth obligation applied to itself.
 
 ## Not this record (one principle per record)
 
@@ -279,3 +289,4 @@ remains correct and unchanged; it becomes an instance rather than an exception.
 | 2026-07-20 | → proposed    | Second EPR under ADR-0003; generalizes GP-2.2/2.4, EPR-0001, PDR-0004                                                         | devlead, cxotech |
 | 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed                                                  | cxotech, entarch |
 | 2026-07-20 | (refine)      | Sharpen negative-control evidence: per-direction for exactness gates, producer-path for absence, fail-at-assertion self-check | devlead, cxotech |
+| 2026-07-26 | (refine)      | State the reference implementation's evidence boundary: obligation 2 claimed per gate, not harness-wide                       | cxotech          |
