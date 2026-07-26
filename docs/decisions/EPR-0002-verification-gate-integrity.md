@@ -234,13 +234,35 @@ placeholder substitution at its source, mutation-pinned negative controls for th
 gates it covers, and a coverage check keyed on declared identity with an explicit
 refusal where its rule does not apply.
 
-**Evidence boundary of that implementation.** Obligation 2 is discharged there
-for the gates whose absence control drives the real producing path. It is not
-discharged for the harness's own report-construction path, where the present
-controls exercise the gate from a constructed report rather than from the
-producer. Obligation 2 is therefore claimed per gate, not harness-wide. Stating
-the boundary rather than letting a citation imply uniform coverage is this
-record's fourth obligation applied to itself.
+A [subsequent change](https://github.com/3leaps/gonimbus/pull/180) adds the
+producer-path negative control for that harness's memory-provenance gate. The
+control drives the real chain end to end — product record types, the product's
+own JSONL writer, the real parser, the real point-report builder, the real
+envelope validator — with no stub and no hand-built report. Its input withholds
+the memory tuple, which is the state a run emits when its ceiling was not
+memory-resolved rather than a contrived one, and it asserts that the builder
+reports the absence instead of substituting a placeholder label or invented
+arithmetic. The dual is proven rather than assumed: the parse succeeds and the
+rejection lands at the gate's own memory-provenance assertion, both halves held
+by mutations.
+
+**Evidence boundary of that implementation.** Obligation 2 is discharged for the
+**construction step** — the site where a point's product-reported telemetry is
+populated. It is not discharged for two adjacent surfaces, and the implementation
+records both: fields amended onto a row **after** the builder returns, where an
+injected substitution passes the suite green and is retained as an
+expected-undetected mutation; and synthesis in the **upstream parser**, a
+separate component the control asserts against but does not certify.
+
+The citable claim is therefore that the control drives the real producing path
+for this gate and proves the producer surfaces absence honestly — **not** that no
+placeholder can enter a report. Construction-uniqueness does not confer
+substitution-uniqueness, and the two are easy to conflate. The certification is
+specific to this gate: it does not generalize to the harness's other gates, and
+it does not displace the separate content-probe control, which remains a valid
+producer-path example for its own gate. Stating the boundary rather than letting
+a citation imply uniform coverage is this record's fourth obligation applied to
+itself.
 
 ## Not this record (one principle per record)
 
@@ -290,3 +312,4 @@ remains correct and unchanged; it becomes an instance rather than an exception.
 | 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed                                                  | cxotech, entarch |
 | 2026-07-20 | (refine)      | Sharpen negative-control evidence: per-direction for exactness gates, producer-path for absence, fail-at-assertion self-check | devlead, cxotech |
 | 2026-07-26 | (refine)      | State the reference implementation's evidence boundary: obligation 2 claimed per gate, not harness-wide                       | cxotech          |
+| 2026-07-26 | (refine)      | Cite the producer-path control for the harness memory-provenance gate; boundary narrows to the construction step              | cxotech, devlead |
