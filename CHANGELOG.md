@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-07-26
+
+A governance release: one Engineering Principle Record.
+
+### Added
+
+- **EPR-0002 (accepted): gates assert on resolved state and are proven able to
+  fail.** A gate whose green is relied upon MUST assert on the resolved state the
+  system actually reached, MUST treat absent evidence as a failure rather than
+  substituting a value for it, MUST be demonstrated capable of failing (a negative
+  control), and MUST NOT carry an exemption its stated coverage does not declare.
+  Generalizes the domain-scoped instances (data-pipeline GP-2.2/GP-2.4, EPR-0001,
+  PDR-0004) without superseding them.
+
+### Build
+
+- Version 0.1.22 → 0.1.23; `VERSION`, `package.json`, README version badge, and
+  CHANGELOG compare links synced.
+
 ## [0.1.22] - 2026-07-22
 
 A governance release: graduate EPR-0001 to accepted.
@@ -687,7 +706,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.22...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.23...HEAD
+[0.1.23]: https://github.com/3leaps/crucible/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/3leaps/crucible/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/3leaps/crucible/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/3leaps/crucible/compare/v0.1.19...v0.1.20
