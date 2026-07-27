@@ -3,7 +3,7 @@ id: "EPR-0002"
 title: "Gates assert on resolved state and are proven able to fail"
 status: "accepted"
 date: "2026-07-20"
-last_updated: "2026-07-26"
+last_updated: "2026-07-27"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -246,23 +246,45 @@ arithmetic. The dual is proven rather than assumed: the parse succeeds and the
 rejection lands at the gate's own memory-provenance assertion, both halves held
 by mutations.
 
-**Evidence boundary of that implementation.** Obligation 2 is discharged for the
-**construction step** — the site where a point's product-reported telemetry is
-populated. It is not discharged for two adjacent surfaces, and the implementation
-records both: fields amended onto a row **after** the builder returns, where an
-injected substitution passes the suite green and is retained as an
-expected-undetected mutation; and synthesis in the **upstream parser**, a
-separate component the control asserts against but does not certify.
+**Evidence boundary of that implementation — per obligation.** The graduation
+rests on the coverage stated here for each obligation, not on the reference
+implementation being uniformly conforming across the harness. Accounting each
+obligation separately — rather than letting a single "conforming reference
+implementation" citation imply uniform coverage — is this record's fourth
+obligation applied to itself.
 
-The citable claim is therefore that the control drives the real producing path
-for this gate and proves the producer surfaces absence honestly — **not** that no
-placeholder can enter a report. Construction-uniqueness does not confer
-substitution-uniqueness, and the two are easy to conflate. The certification is
-specific to this gate: it does not generalize to the harness's other gates, and
-it does not displace the separate content-probe control, which remains a valid
-producer-path example for its own gate. Stating the boundary rather than letting
-a citation imply uniform coverage is this record's fourth obligation applied to
-itself.
+- **Obligation 1 (assert on resolved state).** Discharged at implementation level:
+  the harness replaces input assertions with provenance-based assertions on the
+  resolved outcome, and the obligation-2 producer-path control exercises that
+  provenance path end to end. The record cites no control isolating obligation 1
+  on its own — that a supplied value which did not prevail cannot satisfy the
+  claim — so it is demonstrated by the construction it shares with obligation 2,
+  not certified independently.
+- **Obligation 2 (absence is a verdict).** Discharged **and certified** for the
+  **construction step** — the site where a point's product-reported telemetry is
+  populated — by the producer-path negative control driving the real chain end to
+  end. It is **not** discharged for two adjacent surfaces, and the implementation
+  records both: fields amended onto a row **after** the builder returns, where an
+  injected substitution passes the suite green and is retained as an
+  expected-undetected mutation; and synthesis in the **upstream parser**, a
+  separate component the control asserts against but does not certify. The citable
+  claim is that the control drives the real producing path for this gate and
+  proves the producer surfaces absence honestly — **not** that no placeholder can
+  enter a report; construction-uniqueness does not confer substitution-uniqueness,
+  and the two are easy to conflate.
+- **Obligation 3 (proven by a negative control).** Discharged by mutation-pinned
+  negative controls for the gates the harness covers. The certification is
+  specific to those gates: it does not generalize to the harness's other gates,
+  and it does not displace the separate content-probe control, which remains a
+  valid producer-path example for its own gate.
+- **Obligation 4 (no undeclared exemption).** The coverage check is implemented —
+  keyed on declared identity, refusing where its rule does not apply. Per this
+  record's own §4, an exactness gate's obligation-3 evidence is one control **per
+  direction**; the reference implementation is cited for the mechanism and the
+  refusal path, and the record does not here cite both the undeclared-element and
+  removed-required controls that certify the pair. The mechanism is demonstrated;
+  the two-direction certification is not yet stated, and its citation is the
+  natural next step for this record's own conformance.
 
 ## Not this record (one principle per record)
 
@@ -306,10 +328,11 @@ remains correct and unchanged; it becomes an instance rather than an exception.
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                                                                                       | Updated By       |
-| ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| 2026-07-20 | → proposed    | Second EPR under ADR-0003; generalizes GP-2.2/2.4, EPR-0001, PDR-0004                                                         | devlead, cxotech |
-| 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed                                                  | cxotech, entarch |
-| 2026-07-20 | (refine)      | Sharpen negative-control evidence: per-direction for exactness gates, producer-path for absence, fail-at-assertion self-check | devlead, cxotech |
-| 2026-07-26 | (refine)      | State the reference implementation's evidence boundary: obligation 2 claimed per gate, not harness-wide                       | cxotech          |
-| 2026-07-26 | (refine)      | Cite the producer-path control for the harness memory-provenance gate; boundary narrows to the construction step              | cxotech, devlead |
+| Date       | Status Change | Summary                                                                                                                                                                       | Updated By       |
+| ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 2026-07-20 | → proposed    | Second EPR under ADR-0003; generalizes GP-2.2/2.4, EPR-0001, PDR-0004                                                                                                         | devlead, cxotech |
+| 2026-07-20 | → accepted    | Ratified on entarch ecosystem-parity assent; reference implementation landed                                                                                                  | cxotech, entarch |
+| 2026-07-20 | (refine)      | Sharpen negative-control evidence: per-direction for exactness gates, producer-path for absence, fail-at-assertion self-check                                                 | devlead, cxotech |
+| 2026-07-26 | (refine)      | State the reference implementation's evidence boundary: obligation 2 claimed per gate, not harness-wide                                                                       | cxotech          |
+| 2026-07-26 | (refine)      | Cite the producer-path control for the harness memory-provenance gate; boundary narrows to the construction step                                                              | cxotech, devlead |
+| 2026-07-27 | (refine)      | Bound the reference-implementation claim per obligation (1-4), so the graduation citation no longer implies uniform whole-record conformance; obligation-2 boundary unchanged | entarch          |
