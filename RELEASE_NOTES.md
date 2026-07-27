@@ -8,6 +8,61 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.23 (2026-07-26)
+
+**A governance release: gate integrity as a durable principle.**
+
+### Highlights
+
+- **EPR-0002 (accepted)** — a gate whose green is relied upon must assert on the
+  resolved state the system reached, must treat absent evidence as a failure
+  rather than substituting a value for it, must be proven able to fail by an
+  executable negative control, and must carry no exemption its stated coverage
+  does not declare
+- **Generalizes without superseding** — the domain-scoped instances
+  (data-pipeline GP-2.2/GP-2.4, EPR-0001, PDR-0004) keep their scoping; where a
+  domain record states a sharper obligation, the domain record governs within its
+  domain
+- **Cited with its evidence boundary** — the reference implementation includes a
+  producer-path negative control for its memory-provenance gate, cited with what
+  that control does and does not cover
+
+### Changes
+
+| Area           | Change                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------- |
+| **Governance** | Add EPR-0002 (accepted); decisions index updated                                        |
+| **Build**      | Version 0.1.22 → 0.1.23; package metadata, README badge, and changelog links are synced |
+
+**Full release notes**: [docs/releases/v0.1.23.md](docs/releases/v0.1.23.md)
+
+---
+
+## v0.1.22 (2026-07-22)
+
+**A governance release: EPR-0001 graduates to accepted.**
+
+### Highlights
+
+- **EPR-0001: proposed → accepted** — the record's own graduation condition, a
+  conforming reference implementation, has been met in public
+- **Four obligations discharged** — pin, enforce, audit, and parity, across two
+  published surfaces of one shared cryptographic core
+- **Conformance by negative control** — pin, enforce, and parity are each
+  demonstrated by an executable control showing the gate fail; audit by
+  on-change and scheduled advisory scans rather than asserted present in CI
+
+### Changes
+
+| Area           | Change                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| **Governance** | EPR-0001 graduated proposed → accepted; Reference implementation section added; index updated |
+| **Build**      | Version 0.1.21 → 0.1.22; package metadata, README badge, and changelog links are synced       |
+
+**Full release notes**: [docs/releases/v0.1.22.md](docs/releases/v0.1.22.md)
+
+---
+
 ## v0.1.21 (2026-07-20)
 
 **Signed publication-policy attestation.**
