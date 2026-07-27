@@ -43,6 +43,24 @@ Note: These are not secrets and typically aren't stored in encrypted env bundles
   make release-guard-tag-version
   ```
 
+### Release surfaces
+
+The aggregated notes, the detailed note, and the changelog are hand-maintained
+and can each fall behind `VERSION` without any other check failing. This guard
+asserts they moved together, and runs as part of `make check`:
+
+```bash
+make release-guard-release-surfaces
+```
+
+It checks that `RELEASE_NOTES.md` leads with the current version, that
+`docs/releases/vX.Y.Z.md` exists, and that `CHANGELOG.md` carries the version's
+section, defines its compare link, and points `[unreleased]` at it.
+
+What stays a manual review: **which** entries `RELEASE_NOTES.md` retains, and the
+content of what is kept. The guard asserts the surface is current, not that its
+contents are right.
+
 ## Tagging (Signed Tag Required)
 
 ### 1. Set up GPG environment
@@ -208,12 +226,13 @@ git revert <commit-hash>
 
 ### Make Targets
 
-| Target                           | Purpose                                       |
-| -------------------------------- | --------------------------------------------- |
-| `make release-tag`               | Create signed git tag with all safety checks  |
-| `make release-verify-tag`        | Verify an existing signed tag                 |
-| `make release-guard-tag-version` | Verify tag matches VERSION file (CI-friendly) |
-| `make release-guard-tag-ruleset` | Verify live version-tag publication policy    |
+| Target                                | Purpose                                          |
+| ------------------------------------- | ------------------------------------------------ |
+| `make release-tag`                    | Create signed git tag with all safety checks     |
+| `make release-verify-tag`             | Verify an existing signed tag                    |
+| `make release-guard-tag-version`      | Verify tag matches VERSION file (CI-friendly)    |
+| `make release-guard-tag-ruleset`      | Verify live version-tag publication policy       |
+| `make release-guard-release-surfaces` | Verify release notes and changelog match VERSION |
 
 ### Scripts
 
