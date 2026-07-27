@@ -13,7 +13,7 @@
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
-.PHONY: release-tag release-verify-tag release-guard-tag-version release-guard-tag-ruleset sync-version-badge sync-changelog-links
+.PHONY: release-tag release-verify-tag release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -71,6 +71,7 @@ help: ## Show available targets
 	@echo "  release-verify-tag      Verify signed tag signature"
 	@echo "  release-guard-tag-version  Verify tag matches VERSION file"
 	@echo "  release-guard-tag-ruleset Verify version-tag ruleset policy"
+	@echo "  release-guard-release-surfaces Verify release notes and changelog match VERSION"
 	@echo "  sync-changelog-links    Sync CHANGELOG compare-link footers to VERSION"
 	@echo ""
 	@echo "Current version: $(VERSION)"
@@ -215,6 +216,8 @@ check: fmt lint test ## Run all quality checks
 
 test: ## Run release-control negative tests
 	@./scripts/test-release-guard-tag-ruleset.sh
+	@./scripts/test-release-guard-release-surfaces.sh
+	@./scripts/release-guard-release-surfaces.sh
 
 fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 	@echo "Formatting..."
@@ -466,6 +469,9 @@ release-guard-tag-version: ## Verify tag matches VERSION file
 
 release-guard-tag-ruleset: ## Verify version-tag ruleset policy
 	@./scripts/release-guard-tag-ruleset.sh
+
+release-guard-release-surfaces: ## Verify release notes and changelog match VERSION
+	@./scripts/release-guard-release-surfaces.sh
 
 sync-version-badge: ## Sync README badge to VERSION file
 	@./scripts/sync-version-badge.sh

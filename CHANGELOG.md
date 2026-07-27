@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Release-surface guard.** `make check` now asserts that the hand-maintained
+  release surfaces moved with `VERSION`: `RELEASE_NOTES.md` leads with the
+  current version, `docs/releases/vX.Y.Z.md` exists, and `CHANGELOG.md` carries
+  the version's section, defines its compare link, and points `[unreleased]` at
+  it. Ships with negative controls that pin each rejection to its own assertion.
+
 ## [0.1.23] - 2026-07-26
 
 A governance release: one Engineering Principle Record.
