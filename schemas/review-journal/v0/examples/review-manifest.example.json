@@ -1,0 +1,21 @@
+{
+  "capabilities": ["contract: review-journal/v0"],
+  "review_id": "example-widget-refactor-2026-07",
+  "target": {
+    "repo": "example/widget",
+    "ref": "feature/streaming-parser"
+  },
+  "created": "2026-07-23T13:00:00Z",
+  "seats": [
+    { "seat": "author" },
+    { "seat": "cxotech", "role_prompt": { "slug": "cxotech", "version": "1.0.0" } },
+    { "seat": "entarch", "role_prompt": { "slug": "entarch", "version": "1.0.0" } },
+    { "seat": "secrev", "role_prompt": { "slug": "secrev", "version": "1.1.0" } },
+    { "seat": "devrev", "role_prompt": { "slug": "devrev", "version": "1.1.0" } },
+    { "seat": "maintainer" }
+  ],
+  "ceiling": {
+    "sensitivity": "1-confidential",
+    "access_tier": "internal"
+  }
+}
