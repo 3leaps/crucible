@@ -54,6 +54,7 @@ Examples:
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                    | Role portfolio tiering: core, supplemental, deprecated             | accepted | 2026-06-29 |
 | [PDR-0004](PDR-0004-release-publication-gate.md)                  | The signed tag authorizes publication; CI verifies and publishes   | accepted | 2026-07-17 |
 | [PDR-0005](PDR-0005-adopt-fierce-collaboration-review.md)         | Adopt the fierce-collaboration multi-agent review process          | proposed | 2026-07-23 |
+| [PDR-0006](PDR-0006-shipping-charter.md)                          | Crucible ships no consumer-linked code                             | accepted | 2026-07-28 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)   | Published Artifacts Carry an Integral Dependency Graph             | accepted | 2026-07-22 |
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)               | Gates Assert on Resolved State and Are Proven Able to Fail         | accepted | 2026-07-20 |
 | [EPR-0003](EPR-0003-claim-integrity.md)                           | Durable Claims Assert on What Exists and Move When It Moves        | proposed | 2026-07-27 |
