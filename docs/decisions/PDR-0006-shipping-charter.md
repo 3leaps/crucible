@@ -1,7 +1,7 @@
 ---
 id: "PDR-0006"
 title: "Crucible ships no consumer-linked code"
-status: "proposed"
+status: "accepted"
 date: "2026-07-28"
 last_updated: "2026-07-28"
 deciders:
@@ -23,7 +23,7 @@ relates-to:
 
 ## Status
 
-**Proposed.** Records a charter that has governed this repository implicitly
+**Accepted.** Records a charter that has governed this repository implicitly
 since its creation and was never written down.
 
 ## Context
