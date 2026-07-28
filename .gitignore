@@ -11,6 +11,9 @@ node_modules/
 # Build artifacts
 dist/
 
+# Generated assessment output (goneat assess writes SBOM and vulnerability reports)
+/sbom/
+
 # Bootstrap tools (installed via make bootstrap)
 bin/
 

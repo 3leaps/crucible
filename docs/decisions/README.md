@@ -56,3 +56,4 @@ Examples:
 | [PDR-0005](PDR-0005-adopt-fierce-collaboration-review.md)         | Adopt the fierce-collaboration multi-agent review process          | proposed | 2026-07-23 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)   | Published Artifacts Carry an Integral Dependency Graph             | accepted | 2026-07-22 |
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)               | Gates Assert on Resolved State and Are Proven Able to Fail         | accepted | 2026-07-20 |
+| [EPR-0003](EPR-0003-claim-integrity.md)                           | Durable Claims Assert on What Exists and Move When It Moves        | proposed | 2026-07-27 |

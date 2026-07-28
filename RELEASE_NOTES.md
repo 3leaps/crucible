@@ -8,6 +8,28 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.24 (2026-07-28)
+
+**A process release: a multi-agent review standard, its adoption record, an
+optional review-journal contract, and one Engineering Principle Record on the
+integrity of durable claims.**
+
+- **Fierce-Collaboration Review standard** (0.4.0, draft) — review methodology
+  for AI-agent and human panels; seat composition, disposition vocabulary,
+  provenance anchors, optional machine-readable journal.
+- **PDR-0005** (proposed) — adopts the process; discloses accepted contract gaps
+  with an owner and closure trigger for each.
+- **`review-journal/v0`** — manifest and event schemas, examples, contract
+  manifest. Experimental stability.
+- **EPR-0003** (proposed) — a durable claim states no more than its mechanism
+  and evidence support, and co-moves with them.
+- **Release-surface guard** — `make check` asserts the hand-maintained release
+  surfaces moved with `VERSION`, with negative controls.
+
+See [docs/releases/v0.1.24.md](docs/releases/v0.1.24.md).
+
+---
+
 ## v0.1.23 (2026-07-26)
 
 **A governance release: gate integrity as a durable principle.**
