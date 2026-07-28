@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-07-28
+
 ### Added
 
+- **Fierce-Collaboration Review standard** (0.4.0, draft). A review methodology
+  for AI-agent and human panels that is adversarial in verification and
+  collaborative in goal. Covers seat composition, disposition vocabulary,
+  provenance anchor token forms, and an optional machine-readable journal with
+  sensitivity-tagged records.
+- **PDR-0005** (proposed): adopt the fierce-collaboration multi-agent review
+  process. Records accepted contract gaps with an owner and closure trigger for
+  each, disclosed on the contract surface itself.
+- **`review-journal/v0` contract.** Manifest and event schemas, examples, and a
+  contract manifest; examples validated in `lint-config`. Experimental
+  stability.
+- **EPR-0003** (proposed): durable claim integrity. A durable claim states no
+  more than its mechanism and its evidence support, and co-moves with them.
 - **Release-surface guard.** `make check` now asserts that the hand-maintained
   release surfaces moved with `VERSION`: `RELEASE_NOTES.md` leads with the
   current version, `docs/releases/vX.Y.Z.md` exists, and `CHANGELOG.md` carries
@@ -714,7 +729,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.23...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/3leaps/crucible/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/3leaps/crucible/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/3leaps/crucible/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/3leaps/crucible/compare/v0.1.20...v0.1.21
