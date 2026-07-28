@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:review-journal/v0/review-manifest.schema.json",
+  "title": "Review Manifest",
+  "description": "Entry manifest for contract: review-journal/v0 — the header of a review journal. Declares the review, its panel, and its classification ceiling. The ceiling is set by the org's cxotech agent or the maintainer (ROE) and bounds what evidence any journal entry may carry: an entry's classification must not exceed the ceiling.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capabilities", "review_id", "target", "created", "seats", "ceiling"],
+  "$defs": {
+    "sensitivity": {
+      "enum": [
+        "unknown",
+        "0-public",
+        "1-confidential",
+        "2-blinded",
+        "3-proprietary",
+        "4-personal",
+        "5-privileged",
+        "6-eyes-only"
+      ]
+    },
+    "access_tier": {
+      "enum": ["unknown", "public", "internal", "restricted", "privileged", "eyes-only"]
+    }
+  },
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact review-journal contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: review-journal/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "review_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this review."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What is under review.",
+      "required": ["repo", "ref"],
+      "properties": {
+        "repo": { "type": "string" },
+        "ref": { "type": "string", "description": "Branch, PR, or commit under review." }
+      }
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Journal creation time (RFC3339, UTC)."
+    },
+    "seats": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The panel roster. Each seat records the role prompt it ran under — the framing axis is the standard's primary hardening lever, so it is captured to make framing-vs-framing comparison possible.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seat"],
+        "properties": {
+          "seat": {
+            "description": "Role seat. Same constraint as the event seat — a roster cannot declare a seat no event can reference.",
+            "anyOf": [
+              {
+                "enum": [
+                  "author",
+                  "cxotech",
+                  "entarch",
+                  "secrev",
+                  "devrev",
+                  "devlead",
+                  "qa",
+                  "field",
+                  "maintainer"
+                ]
+              },
+              { "type": "string", "pattern": "^x-[a-z0-9-]+$" }
+            ]
+          },
+          "role_prompt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slug", "version"],
+            "description": "The named role prompt this seat ran under.",
+            "properties": {
+              "slug": { "type": "string" },
+              "version": { "type": "string" },
+              "digest": {
+                "type": "string",
+                "description": "Optional sha256 of the resolved prompt."
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "seat": { "not": { "enum": ["author", "maintainer"] } }
+              }
+            },
+            "then": { "required": ["role_prompt"] }
+          }
+        ]
+      }
+    },
+    "ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensitivity", "access_tier"],
+      "description": "The declared content-level ceiling. access_tier should be >= sensitivity.",
+      "properties": {
+        "sensitivity": { "$ref": "#/$defs/sensitivity" },
+        "access_tier": { "$ref": "#/$defs/access_tier" }
+      }
+    }
+  }
+}

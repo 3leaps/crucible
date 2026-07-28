@@ -322,11 +322,28 @@ lint-config: ## Validate config data files against schemas
 			done < "$$f"; \
 			rm -rf "$$tmpd"; \
 		done; \
+		for f in schemas/review-journal/v0/examples/review-manifest.example.json; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f..."; \
+			goneat validate data --schema-file schemas/review-journal/v0/review-manifest.schema.json --data "$$f" || exit 1; \
+		done; \
+		for f in schemas/review-journal/v0/examples/*.ndjson; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f (per line)..."; \
+			tmpd=$$(mktemp -d); tmp="$$tmpd/event.json"; \
+			while IFS= read -r line; do \
+				[ -n "$$line" ] || continue; \
+				printf '%s\n' "$$line" > "$$tmp"; \
+				goneat validate data --schema-file schemas/review-journal/v0/review-event.schema.json --data "$$tmp" || { rm -rf "$$tmpd"; exit 1; }; \
+			done < "$$f"; \
+			rm -rf "$$tmpd"; \
+		done; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/data-artifact/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
-			schemas/process-run/v0/contract.json || exit 1; \
+			schemas/process-run/v0/contract.json \
+			schemas/review-journal/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
 	fi

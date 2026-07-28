@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:review-journal/v0/review-event.schema.json",
+  "title": "Review Event",
+  "description": "One line of the append-only NDJSON review journal for contract: review-journal/v0. A single finding, verdict, remediation, or gate event emitted by a review seat. Every entry carries its own data classification so a record's sensitivity ceiling is enforceable per the ROE (see docs/standards/fierce-collaboration-review.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "round", "seat", "agent", "phase", "claim", "classification"],
+  "$defs": {
+    "sensitivity": {
+      "description": "Data sensitivity level (docs/standards/data-sensitivity-classification.md).",
+      "enum": [
+        "unknown",
+        "0-public",
+        "1-confidential",
+        "2-blinded",
+        "3-proprietary",
+        "4-personal",
+        "5-privileged",
+        "6-eyes-only"
+      ]
+    },
+    "access_tier": {
+      "description": "Distribution/access tier (docs/standards/access-tier-classification.md). Convention: access_tier >= sensitivity.",
+      "enum": ["unknown", "public", "internal", "restricted", "privileged", "eyes-only"]
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensitivity", "access_tier"],
+      "properties": {
+        "sensitivity": { "$ref": "#/$defs/sensitivity" },
+        "access_tier": { "$ref": "#/$defs/access_tier" }
+      }
+    }
+  },
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event time (RFC3339, UTC)."
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Review round. Findings persist across rounds until proven closed."
+    },
+    "seat": {
+      "description": "The role seat emitting the event. Core seats have contract semantics; x- seats are adopter-specific.",
+      "anyOf": [
+        {
+          "enum": [
+            "author",
+            "cxotech",
+            "entarch",
+            "secrev",
+            "devrev",
+            "devlead",
+            "qa",
+            "field",
+            "maintainer"
+          ]
+        },
+        { "type": "string", "pattern": "^x-[a-z0-9-]+$" }
+      ]
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "The reviewing agent's execution context — the axis panel-variance analysis compares over.",
+      "properties": {
+        "kind": { "enum": ["live", "subagent", "human"] },
+        "model": { "type": "string" },
+        "id": { "type": "string" }
+      }
+    },
+    "phase": {
+      "enum": ["finding", "verdict", "remediation", "gate"],
+      "description": "What kind of event this is."
+    },
+    "finding_id": {
+      "type": "string",
+      "description": "Stable, seat-namespaced finding identity, reused across rounds and never for a different defect. Recommended shape <SEAT>-<SCOPE>-R<round>-<n> (e.g. DR-CVG-S3-R6-1). Strongly recommended when phase is finding/verdict/remediation."
+    },
+    "target": {
+      "type": "string",
+      "description": "What the event is about — a file:line or an artifact."
+    },
+    "severity": {
+      "enum": ["P1", "P2", "P3"],
+      "description": "Finding severity. A P1 is a blocker until green on re-review."
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The finding/verdict/remediation/gate statement."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "description": "The proof carried with the claim. Absence of evidence is not permission to synthesize it.",
+      "properties": {
+        "kind": { "enum": ["repro", "test", "citation", "migration"] },
+        "ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verdict": {
+      "enum": ["confirmed", "refuted", "uncertain"],
+      "description": "Reviewer's verified conclusion — not an accepted fix report."
+    },
+    "remediation_ref": {
+      "type": "string",
+      "description": "Pointer to the remediation (PR/commit/test) offered by the implementing side."
+    },
+    "gate": {
+      "enum": ["align", "changes", "accepted", "blocker"],
+      "description": "Seat disposition at a gate."
+    },
+    "anchor": {
+      "type": "string",
+      "description": "Immutable provenance anchor. Where the branch is subject to rewrite (e.g. squash-before-finalize) or unpushed, prefer a content digest over a commit SHA, since the SHA does not survive the rewrite: 'sha256:<hex>' of one artifact's bytes, or 'git-tree:<object-format>:<oid>' covering a multi-artifact reviewed set (e.g. 'git-tree:sha1:2d3e...'). The object format is read from the repository rather than assumed, so the label names the algorithm that produced the value. A message ID anchors a live exchange."
+    },
+    "classification": { "$ref": "#/$defs/classification" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "phase": { "const": "finding" } } },
+      "then": {
+        "required": ["finding_id", "target", "severity", "evidence", "verdict", "anchor"]
+      }
+    },
+    {
+      "if": { "properties": { "phase": { "const": "verdict" } } },
+      "then": {
+        "required": ["finding_id", "evidence", "verdict", "anchor"]
+      }
+    },
+    {
+      "if": { "properties": { "phase": { "const": "remediation" } } },
+      "then": {
+        "required": ["finding_id", "evidence", "remediation_ref"]
+      }
+    },
+    {
+      "if": { "properties": { "phase": { "const": "gate" } } },
+      "then": { "required": ["evidence", "gate", "anchor"] }
+    }
+  ]
+}
