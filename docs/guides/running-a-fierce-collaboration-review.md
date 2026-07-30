@@ -5,7 +5,7 @@ author: "Claude Fable 5"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2026-07-29"
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 status: "draft"
 category: "guide"
 tags: ["review", "fierce-collaboration", "process", "agents", "how-to"]
@@ -61,26 +61,31 @@ security disposition (§1).
 One person convenes — usually the implementing lead or the seat that owns the
 gate. Before any evidence is exchanged, the record's header states:
 
-| Item                | What to write down                                                                                                                                                                                                                                                                                                                                            | Standard |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| **The claim**       | The exact statement the green will discharge, with scope and non-goals. Not "review this PR" — "this change provides bounded-memory traversal on the declared backends, at this head."                                                                                                                                                                        | §5       |
-| **The head**        | Commit SHA for a pushed, stable ref; content digest (`sha256:<hex>`) or git tree ID (`git-tree:<object-format>:<oid>`) where the branch will be squashed or rewritten. Read the object format from `git rev-parse --show-object-format`; never assume it.                                                                                                     | §7, §9.1 |
-| **The roster**      | The smallest seat set that covers the artifact's real risk surface (§3). Name each seat and its lens. An unused seat is ceremony.                                                                                                                                                                                                                             |
-| **The ceiling**     | The record's classification ceiling — a [`sensitivity`](../standards/data-sensitivity-classification.md) level plus an [`access_tier`](../standards/access-tier-classification.md) — and **who set it**: the org's cxotech seat or the maintainer, and never the author (§10). Cross-org panels: the maintainer sets it explicitly, before evidence is added. |
-| **The record home** | Where the alignment log lives (§9.1) and whether a journal is emitted alongside it (§9.2).                                                                                                                                                                                                                                                                    |
-| **Role prompts**    | Per seat: `{slug, version}` — plus a content digest if run comparability matters (§11, §12).                                                                                                                                                                                                                                                                  |
+| Item                | What to write down                                                                                                                                                                                                                                                                                                                                                           | Standard |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **The claim**       | The exact statement the green will discharge, with scope and non-goals. Not "review this PR" — "this change provides bounded-memory traversal on the declared backends, at this head."                                                                                                                                                                                       | §5       |
+| **The head**        | Commit SHA for a pushed, stable ref; content digest (`sha256:<hex>`) or git tree ID (`git-tree:<object-format>:<oid>`) where the branch will be squashed or rewritten. Read the object format from `git rev-parse --show-object-format`; never assume it.                                                                                                                    | §7, §9.1 |
+| **The roster**      | The smallest seat set that covers the artifact's real risk surface (§3). Name each seat and its lens. An unused seat is ceremony.                                                                                                                                                                                                                                            |
+| **The ceiling**     | The record's classification ceiling — a [`sensitivity`](../standards/data-sensitivity-classification.md) level plus an [`access_tier`](../standards/access-tier-classification.md) — and **who set it**: the org's cxotech seat or the maintainer, and never the author (§10). Cross-org panels: the maintainer sets it explicitly, before evidence is added.                |
+| **The gates**       | Per change: the **acceptance gate** (what must be true to land) and the **safe stop** (the safe partial state if it cannot) (§5). Where the review covers a multi-change arc or a partial release: the **arc owner** (default `cxotech`, §3) and the **release stopping points** that gate claims — a partial release must not advertise a capability it has not yet earned. |
+| **Merge authority** | The **human** who holds final merge authority (§3). This is a non-negotiable, not a roster preference: each implementation change remains human-gated, so a panel with no named human merge authority is not a conforming panel.                                                                                                                                             |
+| **The record home** | Where the alignment log lives (§9.1) and whether a journal is emitted alongside it (§9.2).                                                                                                                                                                                                                                                                                   |
+| **Role prompts**    | Per seat: `{slug, version}` — plus a content digest if run comparability matters (§11, §12).                                                                                                                                                                                                                                                                                 |
 
 Then **each seat posts an execution disclosure** before it does anything else:
 the seat it occupies, whether it runs live or as a sub-agent, and its reasoner
 and version — or an explicit _"not exposed by this harness"_. A seat that cannot
 name its reasoner says so; it does not invent one.
 
-Two checks close Step 0:
+Three checks close Step 0:
 
 1. **Author-≠-approver.** The author seat is named and approves nothing —
    including the ceiling. If the natural ceiling-setter is also the author, the
    maintainer sets or confirms it (§10).
-2. **Correlated priors.** Compare the disclosed reasoners. If every approving
+2. **Human merge authority is named.** A specific human holds final merge
+   authority for this review (§3) — declared here, exercised at Step 6. If no
+   human is named, the declaration is incomplete; do not proceed.
+3. **Correlated priors.** Compare the disclosed reasoners. If every approving
    seat shares one reasoner and version, that is a **bound on the green** and is
    written into the disposition now, not discovered later (§3). Pay particular
    attention to the implementer's reasoner: a reviewer who reasons like the
@@ -107,7 +112,10 @@ verify, not something to trust:
 
 - **The claim, restated** — level with what exists, not with what is planned
   (§8). If part of the work is aspiration, the brief says which part.
-- **Evidence per claim** — a `file:line`, a test, or a ruling (§4), each named.
+- **Evidence per claim** — a `file:line` citation to current code, a hermetic
+  or field test, or an explicit **"retired with migration"** ruling where a
+  capability is removed (§4) — those three forms and no broader ones, each
+  named.
   Evidence binds to the environment that produced it: a performance or
   platform claim states which environments are covered by **runtime**
   measurement and which by inference, because inference never discharges a
@@ -158,13 +166,13 @@ Per seat, the pass produces a post that:
 
 Findings go to the **register** — a table, not prose (§5). Each row:
 
-| Field                | Rule                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **ID**               | `<SEAT>-<SCOPE>-R<round>-<n>`. Stable across rounds; never reused for a different defect. **An ID is identity, never ordering**: which round is current comes from the record — the journal's required integer `round` field and the log's append order — not from sorting IDs. `R10` sorts lexically before `R2`, and no zero-padding convention is mandated, precisely so no one is tempted to rely on lexical sort. |
-| **Severity**         | P1: the relied-upon claim is false, unsafe, or unproven as stated — blocks. P2: real defect, must close or be explicitly deferred with owner + trigger before the final gate. P3: polish; tracked. (§7)                                                                                                                                                                                                                |
-| **Defect class**     | The class the finding belongs to, not only the instance observed. This is what makes convergence checkable later. (§7)                                                                                                                                                                                                                                                                                                 |
-| **Evidence**         | `file:line`, test, or reproduction — current, cited, re-derivable.                                                                                                                                                                                                                                                                                                                                                     |
-| **Required closure** | What must be true, and demonstrable, for this row to close. Name the evidence the closure must produce, not just the change.                                                                                                                                                                                                                                                                                           |
+| Field                | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ID**               | `<SEAT>-<SCOPE>-R<round>-<n>`. Stable across rounds; never reused for a different defect. **An ID is identity, never ordering**: which round is current comes from a declared round — the journal's required integer `round` field, and the disposition log's `Round` column — never from sorting IDs. An ID keeps the round it was created in, and append order gives event sequence, not round identity. `R10` sorts lexically before `R2`, and no zero-padding convention is mandated, precisely so no one is tempted to rely on lexical sort. |
+| **Severity**         | P1: the relied-upon claim is false, unsafe, or unproven as stated — blocks. P2: real defect. P3: polish. **A P2 or a P3 stays non-blocking only when the gate records why the relied-upon claim is unaffected, plus an owner and a closure trigger** — before the final gate, every non-blocking finding is either closed or deferred exactly that way; unlabeled deferral is not closure. (§7)                                                                                                                                                   |
+| **Defect class**     | The class the finding belongs to, not only the instance observed. This is what makes convergence checkable later. (§7)                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Evidence**         | `file:line`, test, or reproduction — current, cited, re-derivable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Required closure** | What must be true, and demonstrable, for this row to close. Name the evidence the closure must produce, not just the change.                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Findings are offered to improve the artifact (§2) — precise and unsparing about
 the evidence, and aimed at the work, never the author.
@@ -267,16 +275,29 @@ reviewer who filed the finding re-verifies it:
 
 ## Step 6 — Disposition and close-out
 
-- **The gate is a table** (§5): every P1 verified closed; every P2 closed or
-  explicitly deferred with a written reason the relied-upon claim is
-  unaffected, an owner, and a closure trigger. Unlabeled deferral is not
-  closure.
+- **The gate is a table** (§5): every P1 verified closed; every P2 **and every
+  P3** closed or explicitly deferred with a written reason the relied-upon
+  claim is unaffected, an owner, and a closure trigger. Unlabeled deferral is
+  not closure, at any severity.
+- **The declared gates are checked, not remembered** (§5): each change met its
+  acceptance gate or stopped at its declared safe stop; a partial release
+  advertises nothing it has not earned at its declared stopping points; and
+  where a compensating control landed ahead of a defect fix, the arc gate
+  records the sequencing rationale, the control's own review surface, an
+  owner, an expiry or removal trigger, and the defect fix it remains gated
+  on — absent that rationale, the fix lands first. Closing the arc on a
+  **permanent** control instead of a fix is a distinct terminal disposition
+  with its own conditions — take §5's durable-compensation path, never a
+  temporary control with a fictive expiry.
 - **The disposition is claim-scoped** (§5): `ACCEPTED` names the claim, the
   head, the scope and non-goals, and the evidence boundary. It is not a general
   correctness guarantee.
 - **State the panel's own bounds** in the disposition: reasoner homogeneity if
   it attached (§3), evidence withheld under the ceiling (§10), environments not
   exercised (§4).
+- **Merge is a human act.** The human named at Step 0 performs or explicitly
+  authorizes the merge (§3); an agent seat does not merge on the panel's green,
+  and a green with no human gate discharges nothing.
 - **Squash only after green.** Pre-merge squash is a pure-combine step after
   the register is green — never a substitute for round-by-round heads (§7).
   Verify the combine: the merged tree should be tree-identical to the accepted
@@ -315,22 +336,38 @@ reviewer who filed the finding re-verifies it:
 ```markdown
 # Review: <artifact> — <the claim this green will discharge>
 
-| Field        | Value                                                                  |
-| ------------ | ---------------------------------------------------------------------- | ------------ | ------------------------------- |
-| Claim        | <exact statement, with scope and non-goals>                            |
-| Head         | <sha                                                                   | sha256:<hex> | git-tree:<object-format>:<oid>> |
-| Ceiling      | sensitivity: <level> · access_tier: <tier> · set by: <non-author seat> |
-| Roster       | <seat: lens; seat: lens; …>                                            |
-| Role prompts | <seat: {slug, version[, digest]}; …>                                   |
-| Record home  | <path/channel> · journal: <yes/no>                                     |
+| Field           | Value                                                                  |
+| --------------- | ---------------------------------------------------------------------- |
+| Claim           | <exact statement, with scope and non-goals>                            |
+| Head            | <anchor>                                                               |
+| Ceiling         | sensitivity: <level> · access_tier: <tier> · set by: <non-author seat> |
+| Roster          | <seat: lens; seat: lens; …>                                            |
+| Merge authority | <named human>                                                          |
+| Role prompts    | <seat: {slug, version[, digest]}; …>                                   |
+| Record home     | <path/channel> · journal: <yes/no>                                     |
 ```
+
+`<anchor>` is one of the §9.1 token forms: a pushed commit SHA, `sha256:<hex>`
+of one artifact's bytes, `git-tree:<object-format>:<oid>` for a reviewed set,
+or a message ID for a live exchange.
+
+### Acceptance gates and safe stops
+
+```markdown
+| Change   | Acceptance gate     | Safe stop                             |
+| -------- | ------------------- | ------------------------------------- |
+| <change> | <what must be true> | <the safe partial state if it cannot> |
+```
+
+Multi-change arc or partial release: add `Arc owner: <seat>` and
+`Release stopping points: <what gates which claim>` beneath the table.
 
 ### Disposition table
 
 ```markdown
-| Date   | Seat   | Head     | Disposition                          | Notes             |
-| ------ | ------ | -------- | ------------------------------------ | ----------------- |
-| <date> | <seat> | <anchor> | ALIGN / ACCEPTED / CHANGES / BLOCKER | <bounds, caveats> |
+| Date   | Round   | Seat   | Head     | Disposition                          | Notes             |
+| ------ | ------- | ------ | -------- | ------------------------------------ | ----------------- |
+| <date> | <round> | <seat> | <anchor> | ALIGN / ACCEPTED / CHANGES / BLOCKER | <bounds, caveats> |
 ```
 
 ### Finding register

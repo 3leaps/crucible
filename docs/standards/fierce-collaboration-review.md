@@ -64,6 +64,10 @@ for throwaway or advisory reads, and use a mode-specific process when reviewer
 independence, evidence compartmentation, delayed disclosure, or proof-only
 verification is load-bearing.
 
+This document is normative. The step-by-step mechanics of actually running a
+review under it live in the non-normative run-book,
+[Running a Fierce-Collaboration Review](../guides/running-a-fierce-collaboration-review.md).
+
 ### 1.1 The review-nature axis (what this standard governs)
 
 Reviews differ in **nature**, along at least three independent dimensions:
