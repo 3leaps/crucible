@@ -33,6 +33,13 @@
       }
     },
     {
+      "seat": "maintainer",
+      "participant": {
+        "id": "p-maintainer",
+        "kind": "human"
+      }
+    },
+    {
       "seat": "devlead",
       "participant": {
         "id": "p-author",

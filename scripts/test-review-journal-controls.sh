@@ -17,6 +17,43 @@ set -eu
 
 base="schemas/review-journal/v0"
 
+# Structural distance between two JSON documents: added/removed/changed
+# scalars count 1 each; an added or removed subtree counts 1 at its root; a
+# list length change counts 1. The reject/baseline single-field-mutation
+# claim is asserted with this, not by prose.
+ndiff_jq='
+def ndiff(a; b):
+  if (a | type) != (b | type) then 1
+  elif (a | type) == "object" then
+    ((((a | keys) + (b | keys)) | unique)
+     | map(. as $k |
+         if ((a | has($k)) and (b | has($k))) then ndiff(a[$k]; b[$k])
+         else 1 end)
+     | add) // 0
+  elif (a | type) == "array" then
+    if (a | length) != (b | length) then 1
+    else ([range(0; a | length)] | map(. as $i | ndiff(a[$i]; b[$i])) | add) // 0
+    end
+  elif a == b then 0
+  else 1
+  end;
+'
+
+pair_distance() {
+    jq -n --slurpfile a "$1" --slurpfile b "$2" "$ndiff_jq ndiff(\$a; \$b)"
+}
+
+assert_pair_distance_one() {
+    # $1 = baseline path, $2 = reject path, $3 = extra distance already
+    # accumulated for multi-file sets (0 for single-file pairs)
+    pd=$(pair_distance "$1" "$2")
+    pd_total=$((pd + $3))
+    if [ "$pd_total" -ne 1 ]; then
+        echo "    [!!] reject/baseline pair differs in $pd_total fields, not exactly 1: $2" >&2
+        exit 1
+    fi
+}
+
 for f in "$base"/rejects/manifest/baseline-*.json; do
     [ -f "$f" ] || continue
     goneat validate data --schema-file "$base/review-manifest.schema.json" --data "$f" >/dev/null ||
@@ -78,5 +115,52 @@ for d in "$base"/rejects/set/reject-*; do
     fi
     echo "    [ok] rejected set: $d"
 done
+
+echo "    Pair-distance invariant (every reject differs from its baseline twin in exactly one field)..."
+for f in "$base"/rejects/manifest/reject-*.json "$base"/rejects/event/reject-*.json; do
+    [ -f "$f" ] || continue
+    twin="$(dirname "$f")/baseline-${f##*/reject-}"
+    [ -f "$twin" ] || {
+        echo "    [!!] reject has no baseline twin: $f" >&2
+        exit 1
+    }
+    assert_pair_distance_one "$twin" "$f" 0
+    echo "    [ok] pair distance 1: $f"
+done
+for d in "$base"/rejects/set/reject-*; do
+    [ -d "$d" ] || continue
+    twin="$(dirname "$d")/baseline-${d##*/reject-}"
+    [ -d "$twin" ] || {
+        echo "    [!!] set reject has no baseline twin: $d" >&2
+        exit 1
+    }
+    dm=$(pair_distance "$twin/manifest.json" "$d/manifest.json")
+    assert_pair_distance_one "$twin/events.ndjson" "$d/events.ndjson" "$dm"
+    echo "    [ok] pair distance 1: $d"
+done
+
+echo "    Set fixtures are schema-valid (a set reject fails only at the set gate)..."
+tmpd=$(mktemp -d)
+trap 'rm -rf "$tmpd"' EXIT
+for d in "$base"/rejects/set/reject-* "$base"/rejects/set/baseline-*; do
+    [ -d "$d" ] || continue
+    goneat validate data --schema-file "$base/review-manifest.schema.json" --data "$d/manifest.json" >/dev/null ||
+        {
+            echo "    [!!] set fixture manifest is not schema-valid: $d" >&2
+            exit 1
+        }
+    evn=0
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        evn=$((evn + 1))
+        printf '%s\n' "$line" >"$tmpd/event.json"
+        goneat validate data --schema-file "$base/review-event.schema.json" --data "$tmpd/event.json" >/dev/null ||
+            {
+                echo "    [!!] set fixture event $evn is not schema-valid: $d" >&2
+                exit 1
+            }
+    done <"$d/events.ndjson"
+done
+echo "    [ok] set fixtures schema-valid"
 
 echo "    [ok] review-journal negative-control battery passed"

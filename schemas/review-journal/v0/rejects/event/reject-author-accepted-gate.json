@@ -10,7 +10,7 @@
     }
   },
   "phase": "gate",
-  "claim": "Author process alignment at the gate.",
+  "claim": "Gate disposition used as a negative-control base.",
   "evidence": {
     "kind": "citation",
     "ref": "alignment-log finding register"

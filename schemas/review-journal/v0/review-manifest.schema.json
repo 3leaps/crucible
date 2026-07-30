@@ -70,7 +70,7 @@
     "seats": {
       "type": "array",
       "minItems": 1,
-      "description": "The panel roster. Each seat records the role prompt it ran under - the framing axis is the standard's primary hardening lever - and the participant occupying it, which is what joins events to prompt and reasoner for variance comparison. A roster of only author seats is not a panel: at least one non-author seat is required, because a declared panel with no approving seat at all would otherwise conform.",
+      "description": "The panel roster. Each seat records the role prompt it ran under - the framing axis is the standard's primary hardening lever - and the participant occupying it, which is what joins events to prompt and reasoner for variance comparison. A roster of only author seats is not a panel: at least one non-author seat is required, because a declared panel with no approving seat at all would otherwise conform. Seat names MUST be unique within the roster (v0 has no multi-occupant key, so a duplicated seat makes the event join ambiguous); JSON Schema cannot express that uniqueness, so it is enforced by the journal-set check. The maintainer seat's participant MUST be human - final merge authority is a human, per the standard's non-negotiable.",
       "contains": {
         "type": "object",
         "properties": { "seat": { "not": { "const": "author" } } },
@@ -121,7 +121,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["slug", "version", "digest"],
-            "description": "The named role prompt this seat ran under. digest is required for approving seats: a version pin carries semantic identity, not byte identity, so {slug, version} alone can name two materially different prompts - the digest is what proves which framing the seat actually ran under.",
+            "description": "The named role prompt this seat ran under. digest is required for approving AGENT review seats - every seat that must carry role_prompt at all: a version pin carries semantic identity, not byte identity, so {slug, version} alone can name two materially different prompts, and the digest proves which framing the seat actually ran under. The author and maintainer seats are outside this requirement by design: the author's prompt frames no approval, and the maintainer is the human merge authority, not a prompted review seat.",
             "properties": {
               "slug": { "type": "string" },
               "version": { "type": "string" },
@@ -141,6 +141,19 @@
               }
             },
             "then": { "required": ["role_prompt"] }
+          },
+          {
+            "if": {
+              "properties": { "seat": { "const": "maintainer" } },
+              "required": ["seat"]
+            },
+            "then": {
+              "properties": {
+                "participant": {
+                  "properties": { "kind": { "const": "human" } }
+                }
+              }
+            }
           }
         ]
       }
@@ -149,7 +162,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["sensitivity", "access_tier", "set_by"],
-      "description": "The declared content-level ceiling. The cross-enum floor access_tier >= sensitivity is enforced below per the minimum-access-tier-per-sensitivity table in docs/standards/access-tier-classification.md#relationship-to-sensitivity; 'unknown' is valid only as a pair. set_by names the seat that set the ceiling - a first-class field, never inferred from who posted first - and may not be the author seat (standard section 10); the person-level check (the setter's participant is not the author's participant) is a journal-set property.",
+      "description": "The declared content-level ceiling. The cross-enum floor access_tier >= sensitivity is enforced below per the minimum-access-tier-per-sensitivity table in docs/standards/access-tier-classification.md#relationship-to-sensitivity; 'unknown' is valid only as a pair. set_by names the seat that set the ceiling - a first-class field, never inferred from who posted first - and may not be the author seat (standard section 10). The journal-set check requires set_by to resolve to exactly one declared roster seat and verifies at the person level that the setter's participant is not an author participant; a setter that resolves to no participant is a failure, not a pass.",
       "properties": {
         "sensitivity": { "$ref": "#/$defs/sensitivity" },
         "access_tier": { "$ref": "#/$defs/access_tier" },

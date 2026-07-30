@@ -150,8 +150,8 @@
     "agent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind"],
-      "description": "The reviewing agent's execution context - the axis panel-variance analysis compares over. participant_ref joins the event to a participant declared in the manifest roster, which is what makes seat/prompt/reasoner variance machine-comparable.",
+      "required": ["kind", "participant_ref"],
+      "description": "The reviewing agent's execution context - the axis panel-variance analysis compares over. participant_ref joins the event to a participant declared in the manifest roster; the join is mandatory, because an event that cannot be joined to a participant cannot support the person-level author-does-not-approve check or any variance comparison.",
       "properties": {
         "kind": { "enum": ["live", "subagent", "human"] },
         "model": {
@@ -162,7 +162,7 @@
         "participant_ref": {
           "type": "string",
           "minLength": 1,
-          "description": "The participant.id declared for this seat in the manifest roster. Strongly recommended on every event; required for variance comparison to be possible."
+          "description": "The participant.id declared for this event's seat in the manifest roster. Required on every event; the journal-set check verifies it resolves to that seat's declared participant."
         },
         "reasoner": { "$ref": "#/$defs/reasoner" }
       }

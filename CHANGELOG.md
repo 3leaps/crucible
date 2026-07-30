@@ -23,9 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   classifications and the manifest ceiling (half-`unknown` pairs fail closed);
   anchor label integrity (`sha256:` and `git-tree:<object-format>:<oid>` forms
   constrained so a label never claims an algorithm it does not use); participant
-  identity on every roster seat with an event-side join
-  (`agent.participant_ref`) and a `reasoner` field that admits `not-exposed`;
-  required `role_prompt.digest` for approving seats; machine-readable finding
+  identity on every roster seat with a **mandatory** event-side join
+  (`agent.participant_ref` required; duplicate roster seats and unresolvable
+  ceiling setters fail the set check) and a `reasoner` field that admits
+  `not-exposed`; the maintainer seat's participant must be human;
+  required `role_prompt.digest` for approving agent review seats; machine-readable finding
   `lifecycle` (deferral requires owner + closure trigger) and `defect_class`;
   claim-scoped `gate_scope` on gate events; and author-does-not-approve at seat
   level in-schema plus person level via the journal-set check
@@ -33,8 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cross-stream ceiling and roster closure.
 - **Negative-control battery for `review-journal/v0`.** Every new enforcement is
   proven able to fail: reject fixtures under `schemas/review-journal/v0/rejects/`,
-  each paired with a single-field-corrected baseline twin so the rejection is
-  pinned to its intended gate by construction; asserted in `make check`.
+  each paired with a single-field-corrected baseline twin — an invariant the
+  battery asserts mechanically via structural JSON diff, alongside
+  schema-validity of set-level fixtures — so the rejection is pinned to its
+  intended gate by construction; asserted in `make check`.
 - **`review-journal/v0` examples** replaced with a redacted, fictionalized
   journal of a real panel, exercising the new fields including a `not-exposed`
   reasoner and a deferred finding with owner and trigger.

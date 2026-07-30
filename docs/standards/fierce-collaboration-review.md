@@ -169,10 +169,14 @@ own record), not a routine revision of this standard.
 implied.** `author-≠-approver` is mechanized on the contract surface:
 `review-journal/v0` rejects an `author` seat recording an `accepted` gate and a
 ceiling whose `set_by` is the author seat, refuses a roster with no non-author
-seat, and — via the participant join — the journal-set check refuses an accepted
-gate or ceiling set by the author's _participant_ through any seat. Each of
-those refusals is proven able to fail by the contract's reject fixtures.
-`human-merge-authority` remains **carried by process, not by mechanism**: a
+seat, and — via the mandatory, unambiguous participant join — the journal-set
+check refuses an accepted gate or ceiling set by the author's _participant_
+through any seat, failing closed where the join cannot be made (a missing
+`participant_ref`, a duplicated roster seat, a setter resolving to no
+participant). Each of those refusals is proven able to fail by the contract's
+reject fixtures. `human-merge-authority` remains **carried by process, not by
+mechanism** — though the roster now checkably requires the maintainer seat's
+participant to be human: a
 journal cannot prove who held merge authority, so v0 conformance is evidence for
 the first non-negotiable at the contract surface and is **not** evidence for the
 second. Status and bounds are recorded in PDR-0005. Three seats are **adopt-by-need,
@@ -475,7 +479,7 @@ mandated, but it is **best practice for relied-upon reviews**, because:
   and — crucially — **framing-vs-framing** variance can only be compared against
   a structured record. Because framing (§11) is the primary lever, the manifest
   records per seat the **role-prompt identity (`slug` + `version` + required
-  `digest` for approving seats)** and the **participant** occupying the seat
+  `digest` for approving agent review seats)** and the **participant** occupying the seat
   (identity, kind, and reasoner — with `not-exposed` admitted rather than
   invented); events join back via `agent.participant_ref`, so an event is
   machine-joinable to the participant, prompt, and reasoner that produced it.
@@ -617,7 +621,9 @@ leave it unmoved while the bytes differ. An adopter needing byte identity — fo
 run comparability under §9.2, or to prove which framing a seat actually ran
 under — pins a content digest alongside the version rather than relying on
 `{slug, version}` to be unique. `review-journal/v0` requires `role_prompt.digest`
-for approving seats, so within a journal that pairing is enforced by mechanism;
+for approving agent review seats (every seat required to carry a role prompt;
+the author and the human maintainer are outside it by design), so within a
+journal that pairing is enforced by mechanism;
 outside a journal it remains a process discipline.
 
 A repository tailors the seat roster and cadence to its needs; the

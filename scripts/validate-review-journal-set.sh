@@ -7,12 +7,16 @@
 #      ceiling on either dimension (sensitivity, access_tier). An event
 #      classified 'unknown' under a classified ceiling fails closed — it
 #      cannot be compared, so it cannot be admitted.
-#   2. Roster closure: every event's seat is declared in the roster, and every
-#      event participant_ref resolves to that seat's declared participant.
+#   2. Roster closure: seat names are unique in the roster (a duplicated seat
+#      makes the event join ambiguous and fails); every event's seat is
+#      declared in the roster; every event carries a participant_ref and it
+#      resolves to that seat's declared participant.
 #   3. Author-does-not-approve, at the person level: the participant occupying
 #      an author seat neither records an accepted gate (through any seat) nor
-#      sets the ceiling. The event schema enforces the seat-level rule; this
-#      check closes the person-level gap via the participant join.
+#      sets the ceiling. ceiling.set_by must resolve to exactly one declared
+#      roster participant - a setter with no resolvable participant is a
+#      failure, never a pass. The event schema enforces the seat-level rule;
+#      this check closes the person-level gap via the participant join.
 #
 # Exit 0 only when every property holds. Schema validation of each file is
 # goneat's job and is not repeated here.
@@ -76,6 +80,12 @@ ceiling_set_by=$(jq -r '.ceiling.set_by // ""' "$manifest_path")
 ceiling_sens_rank=$(sens_rank "$ceiling_sens")
 ceiling_tier_rank=$(tier_rank "$ceiling_tier")
 
+# Roster uniqueness: a duplicated seat name makes the event join ambiguous.
+duplicate_seats=$(jq -r '[.seats[].seat] | group_by(.) | map(select(length > 1) | .[0]) | join(" ")' "$manifest_path")
+if [ -n "$duplicate_seats" ]; then
+    fail "roster declares duplicate seat(s): $duplicate_seats - the event join is ambiguous"
+fi
+
 # Participants of author seats, and the participant behind each declared seat.
 author_participants=$(jq -r '[.seats[] | select(.seat == "author") | .participant.id] | join("\n")' "$manifest_path")
 
@@ -88,11 +98,19 @@ is_author_participant() {
     printf '%s\n' "$author_participants" | grep -Fxq "$1"
 }
 
-# Ceiling setter may not be the author's participant.
-if [ -n "$ceiling_set_by" ]; then
-    setter_participant=$(participant_for_seat "$ceiling_set_by")
-    if is_author_participant "$setter_participant"; then
-        fail "ceiling.set_by seat '$ceiling_set_by' is occupied by an author participant ('$setter_participant'): the ceiling-setter is not the author"
+# Ceiling setter must resolve to exactly one roster participant, and that
+# participant may not be an author participant. No resolution = failure.
+if [ -z "$ceiling_set_by" ]; then
+    fail "ceiling.set_by is missing - the ceiling-setter must be declared"
+else
+    setter_matches=$(jq -r --arg s "$ceiling_set_by" '[.seats[] | select(.seat == $s)] | length' "$manifest_path")
+    if [ "$setter_matches" -ne 1 ]; then
+        fail "ceiling.set_by seat '$ceiling_set_by' resolves to $setter_matches roster entries; it must resolve to exactly one"
+    else
+        setter_participant=$(participant_for_seat "$ceiling_set_by")
+        if is_author_participant "$setter_participant"; then
+            fail "ceiling.set_by seat '$ceiling_set_by' is occupied by an author participant ('$setter_participant'): the ceiling-setter is not the author"
+        fi
     fi
 fi
 
@@ -134,21 +152,22 @@ while IFS= read -r line; do
         fi
     fi
 
-    # 2. Roster closure.
+    # 2. Roster closure. The join is mandatory: an event with no
+    # participant_ref cannot support the person-level check and fails.
     seat_participant=$(participant_for_seat "$ev_seat")
     if [ -z "$seat_participant" ]; then
         fail "line $lineno: seat '$ev_seat' is not declared in the manifest roster"
     fi
-    if [ -n "$ev_pref" ] && [ -n "$seat_participant" ] && [ "$ev_pref" != "$seat_participant" ]; then
+    if [ -z "$ev_pref" ]; then
+        fail "line $lineno: event carries no agent.participant_ref - the participant join is mandatory"
+    elif [ -n "$seat_participant" ] && [ "$ev_pref" != "$seat_participant" ]; then
         fail "line $lineno: participant_ref '$ev_pref' does not match the roster participant '$seat_participant' for seat '$ev_seat'"
     fi
 
     # 3. Author-does-not-approve, person level.
-    if [ "$ev_gate" = "accepted" ]; then
-        gate_participant="$ev_pref"
-        [ -n "$gate_participant" ] || gate_participant="$seat_participant"
-        if is_author_participant "$gate_participant"; then
-            fail "line $lineno: accepted gate recorded by author participant '$gate_participant' (through seat '$ev_seat')"
+    if [ "$ev_gate" = "accepted" ] && [ -n "$ev_pref" ]; then
+        if is_author_participant "$ev_pref"; then
+            fail "line $lineno: accepted gate recorded by author participant '$ev_pref' (through seat '$ev_seat')"
         fi
     fi
 done <"$events_path"
