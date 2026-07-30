@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Running a Fierce-Collaboration Review guide** (`docs/guides/`). The
+  run-book companion to the review standard: executable steps from declaring a
+  review through disposition and close-out, a redacted worked example from a
+  real panel threaded through every step, common failure modes mapped to the
+  step that catches each, and copy-paste templates. Indexed from `docs/README.md`
+  and linked from the standard as its non-normative mechanics layer.
+
 ## [0.1.24] - 2026-07-28
 
 ### Added

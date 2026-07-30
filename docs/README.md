@@ -36,6 +36,14 @@ Operational guides for maintainers and implementers.
 - [ci-baseline.md](operations/ci-baseline.md) - CI/CD patterns and gotchas
 - [upstream-sync-guide.md](operations/upstream-sync-guide.md) - Vendoring crucible content
 
+### [Guides](guides/)
+
+Run-books and adoption guides — the mechanics companion to the standards.
+
+- [running-a-fierce-collaboration-review.md](guides/running-a-fierce-collaboration-review.md) - Executable steps for the fierce-collaboration review standard
+- [agentic-interface-adoption.md](guides/agentic-interface-adoption.md) - Adopting the role catalog and attribution baseline
+- [multi-org-github-cli-auth.md](guides/multi-org-github-cli-auth.md) - GitHub CLI auth across orgs
+
 ### [SOP](sop/)
 
 Standard operating procedures - mandatory policies.
