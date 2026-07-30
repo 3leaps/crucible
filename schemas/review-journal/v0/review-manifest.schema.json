@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:review-journal/v0/review-manifest.schema.json",
   "title": "Review Manifest",
-  "description": "Entry manifest for contract: review-journal/v0 — the header of a review journal. Declares the review, its panel, and its classification ceiling. The ceiling is set by the org's cxotech agent or the maintainer (ROE) and bounds what evidence any journal entry may carry: an entry's classification must not exceed the ceiling.",
+  "description": "Entry manifest for contract: review-journal/v0 - the header of a review journal. Declares the review, its panel, and its classification ceiling. The ceiling is set by the org's cxotech agent or the maintainer (ROE), is never set by the author, and bounds what evidence any journal entry may carry: an entry's classification must not exceed the ceiling (a journal-set property, checked across the manifest and event stream together).",
   "type": "object",
   "additionalProperties": false,
   "required": ["capabilities", "review_id", "target", "created", "seats", "ceiling"],
@@ -21,6 +21,21 @@
     },
     "access_tier": {
       "enum": ["unknown", "public", "internal", "restricted", "privileged", "eyes-only"]
+    },
+    "reasoner": {
+      "description": "The reasoner (model) behind a participant, or the literal string 'not-exposed'. The field MUST admit non-exposure: a harness that does not expose its reasoner records 'not-exposed' rather than inventing a value.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string" }
+          }
+        },
+        { "const": "not-exposed" }
+      ]
     }
   },
   "properties": {
@@ -55,14 +70,19 @@
     "seats": {
       "type": "array",
       "minItems": 1,
-      "description": "The panel roster. Each seat records the role prompt it ran under — the framing axis is the standard's primary hardening lever, so it is captured to make framing-vs-framing comparison possible.",
+      "description": "The panel roster. Each seat records the role prompt it ran under - the framing axis is the standard's primary hardening lever - and the participant occupying it, which is what joins events to prompt and reasoner for variance comparison. A roster of only author seats is not a panel: at least one non-author seat is required, because a declared panel with no approving seat at all would otherwise conform.",
+      "contains": {
+        "type": "object",
+        "properties": { "seat": { "not": { "const": "author" } } },
+        "required": ["seat"]
+      },
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["seat"],
+        "required": ["seat", "participant"],
         "properties": {
           "seat": {
-            "description": "Role seat. Same constraint as the event seat — a roster cannot declare a seat no event can reference.",
+            "description": "Role seat. Same constraint as the event seat - a roster cannot declare a seat no event can reference.",
             "anyOf": [
               {
                 "enum": [
@@ -80,17 +100,35 @@
               { "type": "string", "pattern": "^x-[a-z0-9-]+$" }
             ]
           },
+          "participant": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind"],
+            "description": "The participant occupying this seat. Events join to it via agent.participant_ref. One participant may occupy multiple seats; the join is what lets a checker prove the same participant does not both author and approve.",
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["agent", "human"] },
+              "reasoner": { "$ref": "#/$defs/reasoner" }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "kind": { "const": "agent" } } },
+                "then": { "required": ["reasoner"] }
+              }
+            ]
+          },
           "role_prompt": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["slug", "version"],
-            "description": "The named role prompt this seat ran under.",
+            "required": ["slug", "version", "digest"],
+            "description": "The named role prompt this seat ran under. digest is required for approving seats: a version pin carries semantic identity, not byte identity, so {slug, version} alone can name two materially different prompts - the digest is what proves which framing the seat actually ran under.",
             "properties": {
               "slug": { "type": "string" },
               "version": { "type": "string" },
               "digest": {
                 "type": "string",
-                "description": "Optional sha256 of the resolved prompt."
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "description": "sha256 of the resolved prompt bytes, prefixed so the label names the algorithm."
               }
             }
           }
@@ -110,12 +148,82 @@
     "ceiling": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sensitivity", "access_tier"],
-      "description": "The declared content-level ceiling. access_tier should be >= sensitivity.",
+      "required": ["sensitivity", "access_tier", "set_by"],
+      "description": "The declared content-level ceiling. The cross-enum floor access_tier >= sensitivity is enforced below per the minimum-access-tier-per-sensitivity table in docs/standards/access-tier-classification.md#relationship-to-sensitivity; 'unknown' is valid only as a pair. set_by names the seat that set the ceiling - a first-class field, never inferred from who posted first - and may not be the author seat (standard section 10); the person-level check (the setter's participant is not the author's participant) is a journal-set property.",
       "properties": {
         "sensitivity": { "$ref": "#/$defs/sensitivity" },
-        "access_tier": { "$ref": "#/$defs/access_tier" }
-      }
+        "access_tier": { "$ref": "#/$defs/access_tier" },
+        "set_by": {
+          "description": "The seat that set this ceiling. Never the author seat.",
+          "anyOf": [
+            {
+              "enum": [
+                "cxotech",
+                "entarch",
+                "secrev",
+                "devrev",
+                "devlead",
+                "qa",
+                "field",
+                "maintainer"
+              ]
+            },
+            { "type": "string", "pattern": "^x-[a-z0-9-]+$" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "sensitivity": { "const": "unknown" } } },
+          "then": { "properties": { "access_tier": { "const": "unknown" } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "0-public" } } },
+          "then": {
+            "properties": {
+              "access_tier": {
+                "enum": ["public", "internal", "restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "1-confidential" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["internal", "restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "2-blinded" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["internal", "restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "3-proprietary" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "4-personal" } } },
+          "then": { "properties": { "access_tier": { "enum": ["privileged", "eyes-only"] } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "5-privileged" } } },
+          "then": { "properties": { "access_tier": { "enum": ["privileged", "eyes-only"] } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "6-eyes-only" } } },
+          "then": { "properties": { "access_tier": { "const": "eyes-only" } } }
+        }
+      ]
     }
   }
 }

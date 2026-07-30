@@ -1,0 +1,28 @@
+{
+  "ts": "2026-07-28T09:12:00Z",
+  "round": 1,
+  "seat": "devrev",
+  "agent": {
+    "kind": "live",
+    "participant_ref": "p-devrev",
+    "reasoner": {
+      "name": "reasoner-family-b"
+    }
+  },
+  "phase": "finding",
+  "finding_id": "DR-EXAMPLE-R1-1",
+  "target": "src/example.go:42",
+  "severity": "P1",
+  "lifecycle": "opened",
+  "claim": "Example finding used as a negative-control base.",
+  "evidence": {
+    "kind": "citation",
+    "ref": "src/example.go:42"
+  },
+  "verdict": "confirmed",
+  "anchor": "git-tree:sha1:2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e",
+  "classification": {
+    "sensitivity": "1-confidential",
+    "access_tier": "internal"
+  }
+}

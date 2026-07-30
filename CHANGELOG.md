@@ -16,6 +16,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   step that catches each, and copy-paste templates. Indexed from `docs/README.md`
   and linked from the standard as its non-normative mechanics layer.
 
+### Changed
+
+- **`review-journal/v0` enforcement batch.** The contract now enforces what it
+  previously documented: in-schema `access_tier ≥ sensitivity` floors on entry
+  classifications and the manifest ceiling (half-`unknown` pairs fail closed);
+  anchor label integrity (`sha256:` and `git-tree:<object-format>:<oid>` forms
+  constrained so a label never claims an algorithm it does not use); participant
+  identity on every roster seat with an event-side join
+  (`agent.participant_ref`) and a `reasoner` field that admits `not-exposed`;
+  required `role_prompt.digest` for approving seats; machine-readable finding
+  `lifecycle` (deferral requires owner + closure trigger) and `defect_class`;
+  claim-scoped `gate_scope` on gate events; and author-does-not-approve at seat
+  level in-schema plus person level via the journal-set check
+  (`scripts/validate-review-journal-set.sh`), which also enforces the
+  cross-stream ceiling and roster closure.
+- **Negative-control battery for `review-journal/v0`.** Every new enforcement is
+  proven able to fail: reject fixtures under `schemas/review-journal/v0/rejects/`,
+  each paired with a single-field-corrected baseline twin so the rejection is
+  pinned to its intended gate by construction; asserted in `make check`.
+- **`review-journal/v0` examples** replaced with a redacted, fictionalized
+  journal of a real panel, exercising the new fields including a `not-exposed`
+  reasoner and a deferred finding with owner and trigger.
+- **Fierce-Collaboration Review standard** 0.4.1 → 0.5.0: enforcement
+  disclosures in §3, §9.2, §10, and §12 updated to match the mechanisms that now
+  exist; the variance-comparison claim moves from "join not possible" to "join
+  possible, conclusions not yet evidenced". PDR-0005's deferred-gap table
+  records seven of eight gaps closed; `human-merge-authority` remains open as
+  structural to the record.
+
 ## [0.1.24] - 2026-07-28
 
 ### Added

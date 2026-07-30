@@ -3,8 +3,8 @@ title: "Fierce Collaboration — Multi-Agent Review Process"
 description: "A review methodology for AI-agent and human panels that is adversarial in verification and collaborative in goal, so a relied-upon review's rigor does not depend on who ran it. Optional machine-readable journal, with sensitivity-tagged records."
 category: "standards"
 status: "draft"
-version: "0.4.1"
-lastUpdated: "2026-07-28"
+version: "0.5.0"
+lastUpdated: "2026-07-30"
 maintainer: "3leaps-core"
 reviewers: ["entarch", "secrev", "devrev", "cxotech"]
 approvers: ["3leapsdave"]
@@ -165,13 +165,17 @@ A repository adopts the seats it needs; **author-≠-approver** and
 principle-altitude review (they are EPR candidates should the durable core need its
 own record), not a routine revision of this standard.
 
-**Both are currently carried by process, not by mechanism.** Nothing in
-`review-journal/v0` prevents recording an `author` seat's own approving gate, and
-nothing checks that the seat setting a record's classification ceiling (§10) is not
-the author. Stating a non-negotiable at principle altitude and enforcing it nowhere
-is the gap this standard would call a finding in anything else, so it is disclosed
-here rather than left implied: **v0 conformance is not evidence that either
-non-negotiable was honoured.** Owner and closure trigger are recorded in PDR-0005. Three seats are **adopt-by-need,
+**Their enforcement differs, and the difference is disclosed rather than left
+implied.** `author-≠-approver` is mechanized on the contract surface:
+`review-journal/v0` rejects an `author` seat recording an `accepted` gate and a
+ceiling whose `set_by` is the author seat, refuses a roster with no non-author
+seat, and — via the participant join — the journal-set check refuses an accepted
+gate or ceiling set by the author's _participant_ through any seat. Each of
+those refusals is proven able to fail by the contract's reject fixtures.
+`human-merge-authority` remains **carried by process, not by mechanism**: a
+journal cannot prove who held merge authority, so v0 conformance is evidence for
+the first non-negotiable at the contract surface and is **not** evidence for the
+second. Status and bounds are recorded in PDR-0005. Three seats are **adopt-by-need,
 not default**: a dedicated `qa` seat (test-strategy design) earns its place only
 where field/dogfood validation does not already cover the risk; `releng` folds
 into `devlead` unless a repository's CI/CD load is heavy enough to warrant a
@@ -467,16 +471,17 @@ mandated, but it is **best practice for relied-upon reviews**, because:
   not discharged by being plausible, and this standard does not exempt its own
   claims. Evidencing it requires a journal emitted for a real multi-round panel
   and compared against that panel's prose record.
-- **It is intended to make the panel itself measurable.** Sub-agent-vs-live,
-  model-vs-model, and — crucially — **framing-vs-framing** variance can only be
-  compared against a structured record. Because framing (§11) is the primary lever,
-  the manifest records the **role-prompt identity (`slug` + `version`) per seat**,
-  so a review run under a tightened prompt is comparable to one that was not; the
-  event `agent` may record the reasoner and execution mode. Also **design intent**:
-  v0 records these raw fields but cannot yet **join** an event to the participant,
-  role prompt, and reasoner that produced it, so conformance is not evidence that
-  this comparison is machine-supportable. Owner and closure trigger are in
-  PDR-0005.
+- **It makes the panel itself measurable.** Sub-agent-vs-live, model-vs-model,
+  and — crucially — **framing-vs-framing** variance can only be compared against
+  a structured record. Because framing (§11) is the primary lever, the manifest
+  records per seat the **role-prompt identity (`slug` + `version` + required
+  `digest` for approving seats)** and the **participant** occupying the seat
+  (identity, kind, and reasoner — with `not-exposed` admitted rather than
+  invented); events join back via `agent.participant_ref`, so an event is
+  machine-joinable to the participant, prompt, and reasoner that produced it.
+  What remains design intent is the **conclusion**, not the join: no variance
+  analysis has yet been run over real journals, so the contract makes the
+  comparison possible and does not claim it has been informative.
 
 When emitted, a journal **MUST conform** to the `review-journal/v0` contract. See
 §10 for the classification each entry carries.
@@ -501,15 +506,17 @@ and enforceable, not left to judgment in the moment.
   (`public` … `eyes-only`). The constraint `access_tier ≥ sensitivity` is checked
   against the **minimum-access-tier-per-sensitivity table** in
   [access-tier-classification](access-tier-classification.md#relationship-to-sensitivity)
-  — the map that makes "X ≤ Y" objective rather than a gut call. Two enforcement
-  gaps are **deferred and disclosed** rather than left implied-closed: full
-  JSON-Schema **cross-enum** checking of `access_tier ≥ sensitivity`, and
-  **cross-stream** checking that the maximum entry classification does not exceed
-  the manifest ceiling. Each is recorded with an owner and a closure trigger in
-  **PDR-0005**, which travels with this standard, rather than in any panel's
-  working record. A journal that conforms to v0 is therefore **not** evidence that
-  either constraint has been enforced — per §4, the conformance claim is bounded to
-  what the contract actually checks.
+  — the map that makes "X ≤ Y" objective rather than a gut call. Both enforcement
+  gaps formerly deferred here are **closed**: the **cross-enum** floor is enforced
+  in-schema on every entry and on the ceiling (with half-`unknown` pairs failing
+  closed), and the **cross-stream** bound — no entry exceeding the manifest
+  ceiling — is enforced as a journal-set check, since it spans two files no
+  single-file schema can see. Each enforcement is proven able to fail by the
+  contract's reject fixtures (EPR-0002 obligation 3); closure status is recorded
+  in **PDR-0005**, which travels with this standard. Per §4 the conformance claim
+  stays bounded to what is actually checked: the set-level check runs where the
+  journal set is validated, and an adopter proves its own tooling against the
+  shipped reject fixtures.
 - **Every journal entry carries its own classification.** An entry's evidence
   classifies independently; the journal's ceiling is the max over its entries.
 - **Missing classification is a policy error** — set `unknown` until classified,
@@ -558,8 +565,8 @@ re-check** and is itself an append-logged event.
 
 **A ceiling is never lowered in place.** Since a journal's ceiling is defined as
 the maximum over its entries, lowering it below an existing entry produces a record
-inconsistent by this standard's own definition — and that inconsistency is caught
-only by the cross-stream check disclosed above as deferred. Publication at a lower
+inconsistent by this standard's own definition — and the cross-stream journal-set
+check refuses exactly that record. Publication at a lower
 tier therefore produces a **new, redacted artifact that cites the higher-tier
 record**, leaving the original ceiling intact. Ratifying a review whose working
 record sits above the tier of the artifact it ratifies is exactly this transition,
@@ -609,9 +616,9 @@ the fork.
 leave it unmoved while the bytes differ. An adopter needing byte identity — for
 run comparability under §9.2, or to prove which framing a seat actually ran
 under — pins a content digest alongside the version rather than relying on
-`{slug, version}` to be unique. Until `role_prompt.digest` is required (a
-disclosed gap in PDR-0005), that pairing is carried by process, not enforced by
-mechanism.
+`{slug, version}` to be unique. `review-journal/v0` requires `role_prompt.digest`
+for approving seats, so within a journal that pairing is enforced by mechanism;
+outside a journal it remains a process discipline.
 
 A repository tailors the seat roster and cadence to its needs; the
 principles (§2), the evidence bar (§4), author-≠-approver, human-merge-authority,

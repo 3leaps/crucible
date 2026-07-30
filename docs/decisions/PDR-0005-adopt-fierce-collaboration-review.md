@@ -129,28 +129,28 @@ knowingly, each with an owner and a closure trigger, and are disclosed on the
 contract surface itself so a downstream adopter reading a pinned reference can see
 them without access to any panel's working record.
 
-| Gap                                                                                                                                              | Owner   | Closure trigger                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
-| Cross-enum: `access_tier ≥ sensitivity` is a documented rule, not a schema check                                                                 | secrev  | Before v0 is described as enforcing it, or before promotion to a stable contract                |
-| Cross-stream: an event's classification is not checked against the manifest ceiling                                                              | secrev  | As above                                                                                        |
-| Anchor content is unconstrained — presence is required, well-formedness is not                                                                   | secrev  | As above                                                                                        |
-| Participant identity cannot be joined to role-prompt and reasoner, so variance is not machine-measurable                                         | cxotech | Before any claim that panel variance is machine-measurable is made without a caveat             |
-| Prompt identity is not integrity-bearing: `role_prompt.digest` is optional, so `{slug, version}` alone can name two materially different prompts | cxotech | With the participant-join work, or before any framing-comparison claim is made without a caveat |
-| `author-≠-approver` is stated at principle altitude and enforced by no mechanism on any surface                                                  | cxotech | Before v0 is described as carrying the non-negotiable, or at draft→accepted                     |
-| `human-merge-authority` is likewise stated at principle altitude and enforced by no mechanism                                                    | cxotech | As above                                                                                        |
-| Anchor token form: a composite anchor must name the object format that produced it                                                               | secrev  | With the anchor-content constraint above                                                        |
+| Gap                                                                                                                                              | Owner   | Closure trigger                                                                                 | Status                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cross-enum: `access_tier ≥ sensitivity` is a documented rule, not a schema check                                                                 | secrev  | Before v0 is described as enforcing it, or before promotion to a stable contract                | **Closed 2026-07-30** — enforced in-schema on entry classification and manifest ceiling, per the minimum-tier table; half-`unknown` pairs fail closed. Negative controls in `rejects/`.                                                                                                           |
+| Cross-stream: an event's classification is not checked against the manifest ceiling                                                              | secrev  | As above                                                                                        | **Closed 2026-07-30** — journal-set check in this repository's gate; reject fixtures ship as contract data so adopters prove their own tooling. A distributable checker remains downstream tooling, not contract scope.                                                                           |
+| Anchor content is unconstrained — presence is required, well-formedness is not                                                                   | secrev  | As above                                                                                        | **Closed 2026-07-30** — labeled digest forms are constrained so a label never claims an algorithm it does not use; unlabeled commit SHAs and message IDs are carried as-is.                                                                                                                       |
+| Participant identity cannot be joined to role-prompt and reasoner, so variance is not machine-measurable                                         | cxotech | Before any claim that panel variance is machine-measurable is made without a caveat             | **Closed 2026-07-30** — roster seats declare `participant` (id, kind, reasoner with `not-exposed` admitted); events join via `agent.participant_ref`; the join is checked at the set level.                                                                                                       |
+| Prompt identity is not integrity-bearing: `role_prompt.digest` is optional, so `{slug, version}` alone can name two materially different prompts | cxotech | With the participant-join work, or before any framing-comparison claim is made without a caveat | **Closed 2026-07-30** — `role_prompt.digest` required for approving seats, `sha256:`-prefixed so the label names the algorithm.                                                                                                                                                                   |
+| `author-≠-approver` is stated at principle altitude and enforced by no mechanism on any surface                                                  | cxotech | Before v0 is described as carrying the non-negotiable, or at draft→accepted                     | **Closed 2026-07-30 (contract surface)** — seat level in-schema (author seat cannot record `accepted`; `ceiling.set_by` cannot be author; author-only rosters invalid) and person level via the participant join at the set level. The principle still also binds surfaces outside this contract. |
+| `human-merge-authority` is likewise stated at principle altitude and enforced by no mechanism                                                    | cxotech | As above                                                                                        | **Open** — a journal cannot prove who held merge authority; this gap is structural to the record, not an implementation queue item. It travels with the contract and bounds any v0-carries-the-non-negotiables claim.                                                                             |
+| Anchor token form: a composite anchor must name the object format that produced it                                                               | secrev  | With the anchor-content constraint above                                                        | **Closed 2026-07-30** — `git-tree:<object-format>:<oid>` enforced with per-format OID lengths.                                                                                                                                                                                                    |
 
 Until a trigger fires, the corresponding claim is stated as design intent and the
-gap travels with the contract. A conforming journal is evidence of shape, not of
-these properties.
+gap travels with the contract. For the rows above marked closed, the closure is
+itself held to [EPR-0002](EPR-0002-verification-gate-integrity.md) obligation 3:
+every enforcement has a reject fixture proven to fail, each paired with a
+single-field-corrected baseline twin that passes, so the rejection is pinned to
+its intended gate by construction.
 
 **Scope of this table.** It lists every accepted contract gap that bears on a
-public claim. The remaining items in the contract's implementation queue —
-machine-readable finding lifecycle and gate scope, the defect-`class` field, the
-`reasoner` field, and a validator for the classification ceiling across a journal
-set — are **implementation work under claims this table has already bounded**, not
-additional accepted gaps. They are named here once so a public reader does not have
-to reconstruct the boundary, and they do not carry separate triggers.
+public claim. The formerly queued implementation items — machine-readable finding
+lifecycle and gate scope, the `defect_class` field, the `reasoner` field, and the
+journal-set ceiling validator — landed with the closures above.
 
 ## References
 
@@ -161,7 +161,8 @@ to reconstruct the boundary, and they do not carry separate triggers.
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                                                       | Updated By |
-| ---------- | ------------- | --------------------------------------------------------------------------------------------- | ---------- |
-| 2026-07-23 | → proposed    | Ratify the fierce-collaboration review standard + journal contract                            | cxotech    |
-| 2026-07-27 | (refine)      | Record deferred contract gaps with owners and closure triggers; bound the measurability claim | cxotech    |
+| Date       | Status Change | Summary                                                                                                                                                                                                     | Updated By |
+| ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 2026-07-23 | → proposed    | Ratify the fierce-collaboration review standard + journal contract                                                                                                                                          | cxotech    |
+| 2026-07-27 | (refine)      | Record deferred contract gaps with owners and closure triggers; bound the measurability claim                                                                                                               | cxotech    |
+| 2026-07-30 | (refine)      | Close seven of eight deferred gaps with in-schema and journal-set enforcement, each proven able to fail via reject/baseline fixture pairs; `human-merge-authority` remains open as structural to the record | cxotech    |

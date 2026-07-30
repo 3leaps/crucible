@@ -338,6 +338,8 @@ lint-config: ## Validate config data files against schemas
 			done < "$$f"; \
 			rm -rf "$$tmpd"; \
 		done; \
+		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
+		sh scripts/test-review-journal-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/data-artifact/v0/contract.json \
