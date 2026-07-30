@@ -19,8 +19,10 @@ base="schemas/review-journal/v0"
 
 # Structural distance between two JSON documents: added/removed/changed
 # scalars count 1 each; an added or removed subtree counts 1 at its root; a
-# list length change counts 1. The reject/baseline single-field-mutation
-# claim is asserted with this, not by prose.
+# list length change counts 1 PLUS any differences over the shared indices -
+# a length change never short-circuits element comparison, or an appended
+# element would mask a mutation of an existing one. The reject/baseline
+# single-field-mutation claim is asserted with this, not by prose.
 ndiff_jq='
 def ndiff(a; b):
   if (a | type) != (b | type) then 1
@@ -31,9 +33,10 @@ def ndiff(a; b):
          else 1 end)
      | add) // 0
   elif (a | type) == "array" then
-    if (a | length) != (b | length) then 1
-    else ([range(0; a | length)] | map(. as $i | ndiff(a[$i]; b[$i])) | add) // 0
-    end
+    (if (a | length) != (b | length) then 1 else 0 end)
+    + (([range(0; ([(a | length), (b | length)] | min))]
+        | map(. as $i | ndiff(a[$i]; b[$i]))
+        | add) // 0)
   elif a == b then 0
   else 1
   end;
@@ -53,6 +56,27 @@ assert_pair_distance_one() {
         exit 1
     fi
 }
+
+# Control-of-the-control for ndiff itself: the distance function is proven
+# able to count before anything is measured with it. In particular, an array
+# length change must NOT short-circuit element comparison - an appended
+# element plus a mutated existing element is distance 2, never 1.
+ndiff_case() {
+    got=$(jq -n --argjson a "$1" --argjson b "$2" "$ndiff_jq ndiff(\$a; \$b)")
+    if [ "$got" -ne "$3" ]; then
+        echo "    [!!] ndiff self-test failed: expected $3, got $got for $1 vs $2" >&2
+        exit 1
+    fi
+}
+echo "    ndiff self-test (the distance function is proven able to count)..."
+ndiff_case '{"x":1}' '{"x":1}' 0
+ndiff_case '{"x":1}' '{"x":2}' 1
+ndiff_case '{"x":1,"y":{"a":1,"b":2}}' '{"x":1}' 1
+ndiff_case '{"s":[{"id":"p1"}]}' '{"s":[{"id":"p1"},{"id":"p2"}]}' 1
+ndiff_case '{"s":[{"id":"p1"}]}' '{"s":[{"id":"MUT"},{"id":"p2"}]}' 2
+ndiff_case '{"s":[{"id":"p1"},{"id":"p2"}]}' '{"s":[{"id":"p1"},{"id":"MUT"}]}' 1
+ndiff_case '{"x":1,"s":[{"id":"p1"}]}' '{"x":2,"s":[{"id":"p1"},{"id":"p2"}]}' 2
+echo "    [ok] ndiff self-test passed"
 
 for f in "$base"/rejects/manifest/baseline-*.json; do
     [ -f "$f" ] || continue
