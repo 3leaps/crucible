@@ -14,6 +14,9 @@ For detailed release content, see [docs/releases/](docs/releases/).
 review standard, and a review-journal contract that now enforces what it
 documented — with every enforcement demonstrated able to fail.**
 
+- **PDR-0006 (accepted)** — the repository shipping charter: no consumer-linked
+  code; canonical tools standard-library-only, with the Rule 2 referent amended
+  in for tools that orchestrate other programs (declared invocation sets).
 - **Running a Fierce-Collaboration Review guide** — executable steps from
   declaration to disposition, a redacted real worked example throughout,
   failure modes mapped to the steps that catch them, copy-paste templates.

@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PDR-0006 (accepted): Crucible ships no consumer-linked code.** The
+  repository's shipping charter, written down after governing implicitly since
+  creation. Two independent rules: **linkage** (crucible ships nothing that
+  consuming code imports or depends on; standalone canonical tools whose sole
+  purpose is making its contracts falsifiable or materializable are admitted
+  by conformance fixtures, never by fiat) and **dependencies** (any canonical
+  tool crucible ships is standard-library-only).
+- **PDR-0006 amendment: the Rule 2 referent.** Rule 2a names which tools the
+  dependency rule governs — canonical contract tooling and anything held out
+  for copying or adoption; repository-internal infrastructure is not a charter
+  matter. Rule 2b defines "standard-library-only" for tools that orchestrate
+  other programs: a declared, closed set of external commands, each justified
+  as subject-matter (named by the contract) or on a fixed baseline list;
+  undeclared invocation is nonconformance.
 - **Running a Fierce-Collaboration Review guide** (`docs/guides/`). The
   run-book companion to the review standard: executable steps from declaring a
   review through disposition and close-out, a redacted worked example from a
