@@ -41,6 +41,7 @@ Operational guides for maintainers and implementers.
 Run-books and adoption guides — the mechanics companion to the standards.
 
 - [running-a-fierce-collaboration-review.md](guides/running-a-fierce-collaboration-review.md) - Executable steps for the fierce-collaboration review standard
+- [composing-a-review-panel.md](guides/composing-a-review-panel.md) - Assembling review seats and panels: the five-layer composition model, harness classes, framing blocks, and preflight
 - [agentic-interface-adoption.md](guides/agentic-interface-adoption.md) - Adopting the role catalog and attribution baseline
 - [multi-org-github-cli-auth.md](guides/multi-org-github-cli-auth.md) - GitHub CLI auth across orgs
 

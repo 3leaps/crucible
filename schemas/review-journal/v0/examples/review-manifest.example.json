@@ -22,6 +22,11 @@
         "kind": "agent",
         "reasoner": { "name": "reasoner-family-b", "version": "b.2" }
       },
+      "execution": {
+        "harness": "harness-class-subagent",
+        "mode": "subagent",
+        "capture": "structured-output"
+      },
       "role_prompt": {
         "slug": "entarch",
         "version": "1.0.0",
@@ -34,6 +39,12 @@
         "id": "p-secrev",
         "kind": "agent",
         "reasoner": "not-exposed"
+      },
+      "execution": {
+        "harness": "harness-class-headless-cli",
+        "profile_ref": "profile-review-seat",
+        "mode": "headless",
+        "capture": "last-message-file"
       },
       "role_prompt": {
         "slug": "secrev",

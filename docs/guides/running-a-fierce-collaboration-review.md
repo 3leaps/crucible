@@ -18,7 +18,10 @@ defines what must hold in a relied-upon review. This guide is the **run-book**:
 the steps a team executes, in order, with a checklist at each gate. The standard
 is normative; where this guide and the standard disagree, the standard wins.
 Tool-specific detail (journal emitters, validators) lives in each tool's own
-`--help`, not here.
+`--help`, not here. How the seats themselves are assembled and launched —
+composition, harness classes, framing blocks, preflight — is the companion
+guide, [Composing a Review Panel](composing-a-review-panel.md), and comes
+before this page's Step 0.
 
 **If you cannot run a review from this page, that is a defect in this page.**
 File it.

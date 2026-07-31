@@ -43,6 +43,17 @@ and additionally enforces:
   semantic identity, not byte identity, so the digest is what proves which
   framing a seat actually ran under. The author and the human maintainer are
   outside this requirement by design — neither is a prompted review seat.
+- **Execution record (optional, shape-enforced)** — a seat may record how it was
+  actually run: a symbolic `harness` token, an optional symbolic `profile_ref`,
+  a `mode` (`interactive` | `headless` | `subagent`), and a `capture` form. All
+  references are symbolic — tokens resolved against an operator-maintained
+  launch matrix, never command lines, flags, or filesystem paths — and the
+  capture enum deliberately admits no terminal-scrape form. Optional in v0
+  (reserve-don't-force); the standard §9.2 requires it for every compared seat
+  when a **framing-comparison claim** is made from the journal — a bound the
+  schema cannot see, so it stays normative in the standard, checked by the
+  panel, not the file gate. When present, its shape is enforced and proven able
+  to fail.
 - **Finding lifecycle** — findings and verdicts carry a machine-readable
   `lifecycle`; `deferred` requires an owner and closure trigger, because
   unlabeled deferral is not closure. Findings carry a `defect_class`, which is

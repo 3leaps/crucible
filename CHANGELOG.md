@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Composing a Review Panel guide** (`docs/guides/`). The composition
+  companion to the fierce-collaboration standard and its run-book: the
+  five-layer seat composition model (identity × environment × harness+profile
+  × mode × framing+capture), three harness classes with their composition
+  rules and cross-class footguns, panel diversity mechanics, the six-part
+  framing block with its implementation-seat variant, a preflight checklist,
+  and copy-paste templates. All launch references are symbolic — harness
+  classes and named profiles, never invocation detail. Indexed from
+  `docs/README.md` and cross-linked from the run-book and the standard.
+- **Seat execution record** in `review-journal/v0`. A manifest seat may record
+  how it was actually run: symbolic `harness` token, symbolic `profile_ref`,
+  `mode` (`interactive` | `headless` | `subagent`), and `capture` form (no
+  terminal-scrape form admitted). Optional in v0 per reserve-don't-force; two
+  new reject/baseline pairs join the negative-control battery (terminal-scrape
+  capture form, execution record without its harness token).
+
+### Changed
+
+- **Fierce-collaboration standard 0.5.0 → 0.6.0.** §3 gains the execution
+  disclosure: a seat is a composition, and its disclosure records harness
+  class, symbolic profile, mode, and capture form alongside kind and reasoner.
+  §9.2 co-moves: the execution record completes the framing comparison and is
+  required for every compared seat when a framing-comparison claim is made
+  from a journal — a comparison over seats lacking it narrows to the seats
+  whose composition is recorded. New §9.3 makes the verdict contract for
+  non-interactive seats normative: one binary disposition token mapped to the
+  canonical vocabulary (fail-closed — no token is never a green), numbered
+  severity-tagged findings, bounded length.
+
 ## [0.1.25] - 2026-07-31
 
 ### Added

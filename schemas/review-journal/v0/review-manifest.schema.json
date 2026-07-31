@@ -117,6 +117,37 @@
               }
             ]
           },
+          "execution": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["harness", "mode", "capture"],
+            "description": "How this seat was actually run - the launch composition behind the participant. Optional in v0 (reserve-don't-force); the standard (section 9.2) makes it REQUIRED for every compared seat when a framing-comparison claim is made from the journal - a bound the schema cannot see, because the claim lives outside the file. All references are SYMBOLIC: tokens resolved against an operator-maintained launch matrix, never command lines, flags, or filesystem paths - raw launch detail drifts with tool versions and is the part of a seat record most likely to carry non-public operating detail.",
+            "properties": {
+              "harness": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Symbolic harness token - the class or product token under which the seat ran (e.g. an orchestrator-native subagent facility or a headless vendor CLI), resolved by the operator's matrix. Never an invocation string."
+              },
+              "profile_ref": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Symbolic reference to the operator-provisioned launch/permission profile the seat ran under. Omitted when the harness runs without one; when present it names the profile, never its contents."
+              },
+              "mode": {
+                "enum": ["interactive", "headless", "subagent"],
+                "description": "interactive: a live multi-turn session. headless: a non-interactive single-turn or scripted run. subagent: spawned inside an orchestrating session, sharing its working tree."
+              },
+              "capture": {
+                "enum": [
+                  "channel-post",
+                  "last-message-file",
+                  "structured-output",
+                  "session-transcript"
+                ],
+                "description": "How the seat's output entered the record. Deliberately admits no terminal-scrape form: a truncated terminal tail loses structure and can cut mid-finding, so it is not a capture method this contract recognizes."
+              }
+            }
+          },
           "role_prompt": {
             "type": "object",
             "additionalProperties": false,

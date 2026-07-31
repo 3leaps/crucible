@@ -1,0 +1,50 @@
+{
+  "capabilities": ["contract: review-journal/v0"],
+  "review_id": "reject-fixture-review",
+  "target": {
+    "repo": "example/repo",
+    "ref": "feature/example"
+  },
+  "created": "2026-07-31T10:00:00Z",
+  "seats": [
+    {
+      "seat": "author",
+      "participant": {
+        "id": "p-author",
+        "kind": "agent",
+        "reasoner": {
+          "name": "reasoner-family-a"
+        }
+      }
+    },
+    {
+      "seat": "secrev",
+      "participant": {
+        "id": "p-secrev",
+        "kind": "agent",
+        "reasoner": "not-exposed"
+      },
+      "execution": {
+        "mode": "subagent",
+        "capture": "structured-output"
+      },
+      "role_prompt": {
+        "slug": "secrev",
+        "version": "1.2.1",
+        "digest": "sha256:c10ed1b65d2f4e3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a"
+      }
+    },
+    {
+      "seat": "maintainer",
+      "participant": {
+        "id": "p-maintainer",
+        "kind": "human"
+      }
+    }
+  ],
+  "ceiling": {
+    "sensitivity": "3-proprietary",
+    "access_tier": "restricted",
+    "set_by": "maintainer"
+  }
+}
