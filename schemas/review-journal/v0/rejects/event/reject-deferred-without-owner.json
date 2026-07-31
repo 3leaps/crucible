@@ -1,0 +1,26 @@
+{
+  "ts": "2026-07-28T09:40:00Z",
+  "round": 1,
+  "seat": "devrev",
+  "agent": {
+    "kind": "live",
+    "participant_ref": "p-devrev",
+    "reasoner": {
+      "name": "reasoner-family-b"
+    }
+  },
+  "phase": "verdict",
+  "finding_id": "DR-EXAMPLE-R1-2",
+  "lifecycle": "deferred",
+  "claim": "P3 deferred with owner and trigger.",
+  "evidence": {
+    "kind": "citation",
+    "ref": "docs/example.md:10"
+  },
+  "verdict": "confirmed",
+  "anchor": "sha256:2f0c1e8a9b7d4c3f5a6e2d1b0c9f8e7d6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d",
+  "classification": {
+    "sensitivity": "0-public",
+    "access_tier": "public"
+  }
+}

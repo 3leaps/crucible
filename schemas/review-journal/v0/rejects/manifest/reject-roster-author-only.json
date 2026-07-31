@@ -1,0 +1,26 @@
+{
+  "capabilities": ["contract: review-journal/v0"],
+  "review_id": "reject-fixture-review",
+  "target": {
+    "repo": "example/repo",
+    "ref": "feature/example"
+  },
+  "created": "2026-07-28T10:00:00Z",
+  "seats": [
+    {
+      "seat": "author",
+      "participant": {
+        "id": "p-author",
+        "kind": "agent",
+        "reasoner": {
+          "name": "reasoner-family-a"
+        }
+      }
+    }
+  ],
+  "ceiling": {
+    "sensitivity": "3-proprietary",
+    "access_tier": "restricted",
+    "set_by": "maintainer"
+  }
+}

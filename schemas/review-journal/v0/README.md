@@ -7,63 +7,104 @@ parallel to the required human-readable markdown alignment log.
 
 Emission is **optional-but-recommended best practice**: the markdown alignment log
 is the required foundation, and the journal is the diffable form. It is **intended**
-to cut review wall-time and to make panel variance (sub-agent vs live, model vs
-model, framing vs framing) measurable — both are stated as design intent and
-neither is yet evidenced; see the standard §9.2. When a journal **is** emitted, it
-MUST conform to this contract.
+to cut review wall-time — stated as design intent and not yet evidenced; see the
+standard §9.2. When a journal **is** emitted, it MUST conform to this contract.
 
-**What conformance does and does not establish.** v0 checks the shape of each
-event and manifest. It does **not** yet check that an event's classification stays
-within the manifest ceiling (a cross-stream property), that `access_tier ≥
-sensitivity` (a cross-enum property), or that an anchor's _content_ is a
-well-formed digest rather than merely present. It also records, but cannot yet
-join, participant identity to role-prompt and reasoner — so a conforming journal
-is **not** evidence that model or framing variance is machine-measurable. These
-gaps are owned with closure triggers in PDR-0005; conformance is bounded to what
-the contract actually checks.
+**What conformance establishes.** v0 checks the shape of each event and manifest,
+and additionally enforces:
+
+- **Cross-enum floor** — `access_tier ≥ sensitivity` per the
+  [minimum-access-tier-per-sensitivity table](../../../docs/standards/access-tier-classification.md#relationship-to-sensitivity),
+  in-schema, on every entry classification and on the manifest ceiling. `unknown`
+  is valid only as a pair: a half-classified value fails closed.
+- **Cross-stream ceiling and roster closure** — no event's classification
+  exceeds the manifest ceiling on either dimension; roster seat names are
+  unique (a duplicated seat makes the join ambiguous and fails); every event's
+  seat is declared and its mandatory `participant_ref` resolves to that seat's
+  participant; `ceiling.set_by` resolves to exactly one roster seat. These
+  span two files, so they are **journal-set** checks
+  (`scripts/validate-review-journal-set.sh` in this repository), not
+  single-file schema properties.
+- **Anchor label integrity** — a labeled digest anchor must be what its label
+  claims: `sha256:` carries 64 hex, `git-tree:sha1:` carries a 40-hex OID,
+  `git-tree:sha256:` a 64-hex OID. A label that names an algorithm it does not
+  use is a false provenance record at the one field this process treats as
+  immutable.
+- **Participant join** — every roster seat declares its `participant` (id, kind,
+  and reasoner for agents), and every event carries a **mandatory**
+  `agent.participant_ref` joining back to it, so seat/prompt/reasoner variance
+  is machine-comparable and the person-level checks below have a participant to
+  check. The `reasoner` field MUST admit non-exposure (`"not-exposed"`) — an
+  invented reasoner is a false provenance record. The maintainer seat's
+  participant MUST be human — merge authority is a human, and the roster says
+  so checkably.
+- **Prompt identity** — approving **agent review seats** (every seat required to
+  carry `role_prompt`) carry `role_prompt.digest` (required): a version pin is
+  semantic identity, not byte identity, so the digest is what proves which
+  framing a seat actually ran under. The author and the human maintainer are
+  outside this requirement by design — neither is a prompted review seat.
+- **Finding lifecycle** — findings and verdicts carry a machine-readable
+  `lifecycle`; `deferred` requires an owner and closure trigger, because
+  unlabeled deferral is not closure. Findings carry a `defect_class`, which is
+  what makes convergence checkable across rounds.
+- **Claim-scoped gates** — gate events carry `gate_scope` (scope, non-goals,
+  bounds), so `accepted` names what it covers rather than implying a general
+  guarantee.
+- **Author-does-not-approve** — at the seat level in-schema (an `author` seat
+  cannot record an `accepted` gate; the ceiling's `set_by` cannot be the author
+  seat; a roster of only author seats is invalid), and at the **person** level in
+  the journal-set check (the participant occupying an author seat neither records
+  an accepted gate through any seat nor sets the ceiling). The join this rests on
+  is mandatory and unambiguous: events must carry `participant_ref`, duplicate
+  roster seats fail, and a `set_by` that resolves to no participant fails —
+  never passes by absence.
+
+Every enforcement above is **proven able to fail**: the [`rejects/`](rejects/)
+fixtures are negative controls asserted in `make check`, each paired with a
+baseline twin, and the battery **mechanically asserts** that every pair differs
+in exactly one field and that set-level fixtures are schema-valid — so each
+rejection is pinned to its intended gate by construction, not by prose
+(EPR-0002 obligation 3).
+
+**What conformance still does not establish.** `human-merge-authority` remains
+stated at principle altitude and enforced by no mechanism in this contract — a
+journal cannot prove who held merge authority. Append-only remains an authoring
+rule, not tamper evidence: v0 defines no signatures or hash chain; deployments
+relying on record integrity supply that property at the storage or envelope
+layer. The wall-time claim (§9.2) remains design intent. The journal-set check
+runs in this repository's gate; a downstream adopter proves its own tooling
+against the shipped reject fixtures, which are contract data.
 
 ## Shape
 
-| File                          | Role                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| `review-manifest.schema.json` | Entry manifest — declares the review, its panel, and its **classification ceiling**.        |
-| `review-event.schema.json`    | One NDJSON line — a finding, verdict, remediation, or gate event, each **self-classified**. |
-| `contract.json`               | Capability manifest; `entry_schema` points at the review manifest.                          |
-| `examples/`                   | A synthetic manifest + event stream.                                                        |
+| File                          | Role                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `review-manifest.schema.json` | Entry manifest — declares the review, its panel + participants, and its **classification ceiling** (with `set_by`). |
+| `review-event.schema.json`    | One NDJSON line — a finding, verdict, remediation, or gate event, each **self-classified**.                         |
+| `contract.json`               | Capability manifest; `entry_schema` points at the review manifest.                                                  |
+| `examples/`                   | A redacted, fictionalized journal of a real panel — the contract dogfooding its own format.                         |
+| `rejects/`                    | Negative-control fixtures with baseline twins; see [`rejects/README.md`](rejects/README.md).                        |
 
 ## Classification & ROE
 
 Both the manifest ceiling and every event use the ecosystem's own
 [sensitivity](../../../docs/standards/data-sensitivity-classification.md) and
 [access-tier](../../../docs/standards/access-tier-classification.md) tokens. The
-org's cxotech agent or the maintainer sets the manifest `ceiling` — with the
-non-author valve in the standard §10 where the ceiling-setter would otherwise be
-the author; an event's `classification` must not exceed it. **That bound is a
-rule, not yet a check** — see above. This gives every contributor a
+org's cxotech agent or the maintainer sets the manifest `ceiling` — recorded
+first-class in `ceiling.set_by`, never the author, with the non-author valve in
+the standard §10 — and an event's `classification` must not exceed it. Both
+bounds are now checks, not only rules. This gives every contributor a
 partially-objective check — _"the evidence I want to add classifies at X; the
-ceiling is Y; X ≤ Y is permitted"_ — before adding potentially non-public evidence.
+ceiling is Y; X ≤ Y is permitted"_ — before adding potentially non-public
+evidence.
 
-`unknown` is a valid but temporary state: missing classification is a policy error,
-set `unknown` and isolate until classified.
-
-The event schema enforces the minimum evidence-bearing shape for each phase:
-findings carry stable identity, target, severity, evidence, verdict, and anchor;
-verdicts re-cite identity, evidence, verdict, and anchor; remediations carry
-identity, evidence, and a remediation reference; gates carry evidence,
-disposition, and anchor. Review seats in the manifest carry their named
-role-prompt identity; author and maintainer seats are exempt.
-
-These are **presence** requirements. The contract does not yet constrain an
-anchor's content, nor does it prevent an `author` seat from recording an approving
-gate — so v0 conformance is not evidence that the standard's author-≠-approver
-non-negotiable was honoured. Both are owned with closure triggers in PDR-0005.
-
-Append-only is an authoring rule, not tamper evidence. This v0 contract does not
-define signatures or a hash chain; deployments that rely on record integrity must
-supply that property at the storage or envelope layer.
+`unknown` is a valid but temporary state: missing classification is a policy
+error, set `unknown` (both dimensions) and isolate until classified. A
+half-classified pair fails validation.
 
 ## Status
 
-**Draft (v0).** The manifest, event stream, and contract manifest are validated in
-`make check` (mirroring `process-run/v0`) — the contract carries its own executable
-gate per EPR-0002.
+**Draft (v0).** The manifest, event stream, contract manifest, journal-set
+properties, and the full negative-control battery are validated in `make check` —
+the contract carries its own executable gate per EPR-0002, and that gate is
+demonstrated able to fail.

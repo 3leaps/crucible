@@ -21,17 +21,100 @@
       ]
     },
     "access_tier": {
-      "description": "Distribution/access tier (docs/standards/access-tier-classification.md). Convention: access_tier >= sensitivity.",
+      "description": "Distribution/access tier (docs/standards/access-tier-classification.md).",
       "enum": ["unknown", "public", "internal", "restricted", "privileged", "eyes-only"]
     },
     "classification": {
       "type": "object",
       "additionalProperties": false,
       "required": ["sensitivity", "access_tier"],
+      "description": "Self-classification of this entry. The cross-enum floor access_tier >= sensitivity is enforced below per the minimum-access-tier-per-sensitivity table in docs/standards/access-tier-classification.md#relationship-to-sensitivity. 'unknown' is valid only as a pair: a half-classified entry (one dimension known, the other unknown) fails closed - classify the other half.",
       "properties": {
         "sensitivity": { "$ref": "#/$defs/sensitivity" },
         "access_tier": { "$ref": "#/$defs/access_tier" }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "sensitivity": { "const": "unknown" } } },
+          "then": { "properties": { "access_tier": { "const": "unknown" } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "0-public" } } },
+          "then": {
+            "properties": {
+              "access_tier": {
+                "enum": ["public", "internal", "restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "1-confidential" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["internal", "restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "2-blinded" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["internal", "restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "3-proprietary" } } },
+          "then": {
+            "properties": {
+              "access_tier": { "enum": ["restricted", "privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "4-personal" } } },
+          "then": { "properties": { "access_tier": { "enum": ["privileged", "eyes-only"] } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "5-privileged" } } },
+          "then": { "properties": { "access_tier": { "enum": ["privileged", "eyes-only"] } } }
+        },
+        {
+          "if": { "properties": { "sensitivity": { "const": "6-eyes-only" } } },
+          "then": { "properties": { "access_tier": { "const": "eyes-only" } } }
+        }
+      ]
+    },
+    "reasoner": {
+      "description": "The reasoner (model) behind an agent, or the literal string 'not-exposed'. The field MUST admit non-exposure: a harness that does not expose its reasoner records 'not-exposed' rather than inventing a value - an invented reasoner is a false provenance record.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string" }
+          }
+        },
+        { "const": "not-exposed" }
+      ]
+    },
+    "anchor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Immutable provenance anchor. Labeled digest forms are constrained so a label never claims an algorithm it does not use: 'sha256:<64 hex>' is the digest of one artifact's bytes; 'git-tree:<object-format>:<oid>' is a Git tree object ID covering a reviewed set, with the object format read from the repository (git rev-parse --show-object-format), never assumed - 'git-tree:sha1:<40 hex>' or 'git-tree:sha256:<64 hex>'. Where the branch is subject to rewrite (e.g. squash-before-finalize) or unpushed, prefer a content digest over a commit SHA, since the SHA does not survive the rewrite. A bare commit SHA or a message ID (for a live exchange) is carried as-is.",
+      "allOf": [
+        {
+          "if": { "pattern": "^sha256:" },
+          "then": { "pattern": "^sha256:[0-9a-f]{64}$" }
+        },
+        {
+          "if": { "pattern": "^git-tree:" },
+          "then": { "pattern": "^git-tree:(sha1:[0-9a-f]{40}|sha256:[0-9a-f]{64})$" }
+        }
+      ]
     }
   },
   "properties": {
@@ -43,7 +126,7 @@
     "round": {
       "type": "integer",
       "minimum": 0,
-      "description": "Review round. Findings persist across rounds until proven closed."
+      "description": "Review round. Findings persist across rounds until proven closed. This integer - together with the journal's append order - is the ordering authority; ordering is never derived from sorting finding IDs."
     },
     "seat": {
       "description": "The role seat emitting the event. Core seats have contract semantics; x- seats are adopter-specific.",
@@ -67,12 +150,21 @@
     "agent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind"],
-      "description": "The reviewing agent's execution context — the axis panel-variance analysis compares over.",
+      "required": ["kind", "participant_ref"],
+      "description": "The reviewing agent's execution context - the axis panel-variance analysis compares over. participant_ref joins the event to a participant declared in the manifest roster; the join is mandatory, because an event that cannot be joined to a participant cannot support the person-level author-does-not-approve check or any variance comparison.",
       "properties": {
         "kind": { "enum": ["live", "subagent", "human"] },
-        "model": { "type": "string" },
-        "id": { "type": "string" }
+        "model": {
+          "type": "string",
+          "description": "Deprecated in favor of reasoner; retained for compatibility with earlier v0 emissions."
+        },
+        "id": { "type": "string" },
+        "participant_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The participant.id declared for this event's seat in the manifest roster. Required on every event; the journal-set check verifies it resolves to that seat's declared participant."
+        },
+        "reasoner": { "$ref": "#/$defs/reasoner" }
       }
     },
     "phase": {
@@ -81,15 +173,35 @@
     },
     "finding_id": {
       "type": "string",
-      "description": "Stable, seat-namespaced finding identity, reused across rounds and never for a different defect. Recommended shape <SEAT>-<SCOPE>-R<round>-<n> (e.g. DR-CVG-S3-R6-1). Strongly recommended when phase is finding/verdict/remediation."
+      "description": "Stable, seat-namespaced finding identity, reused across rounds and never for a different defect. Recommended shape <SEAT>-<SCOPE>-R<round>-<n> (e.g. SR-PARSE-R1-1); a scope token may itself contain hyphens, because an ID is compared for equality, never parsed. An ID is identity, never ordering: round currency comes from the required integer round field and the journal's append order, not from sorting IDs (R10 sorts lexically before R2, and no zero-padding convention is mandated, precisely so lexical sort is never relied upon). Strongly recommended when phase is finding/verdict/remediation."
     },
     "target": {
       "type": "string",
-      "description": "What the event is about — a file:line or an artifact."
+      "description": "What the event is about - a file:line or an artifact."
     },
     "severity": {
       "enum": ["P1", "P2", "P3"],
       "description": "Finding severity. A P1 is a blocker until green on re-review."
+    },
+    "defect_class": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The defect class this finding belongs to, not only the instance observed (standard section 7). Class identity is what makes convergence checkable: a later instance of a class already found in this review is a remediation-approach failure, not a new finding. Required when phase is finding."
+    },
+    "lifecycle": {
+      "enum": ["opened", "reopened", "closure-pending", "closed", "deferred", "withdrawn"],
+      "description": "Machine-readable finding lifecycle state after this event. A remediation claim is closure-pending, not closed; only the reviewing seat's re-verification moves a finding to closed. deferred requires the deferral object - unlabeled deferral is not closure. Required when phase is finding or verdict."
+    },
+    "deferral": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "closure_trigger"],
+      "description": "Required when lifecycle is deferred: a P2/P3 stays non-blocking only with a stated reason the relied-upon claim is unaffected, an owner, and a closure trigger (standard section 7).",
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "closure_trigger": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" }
+      }
     },
     "claim": {
       "type": "string",
@@ -108,7 +220,7 @@
     },
     "verdict": {
       "enum": ["confirmed", "refuted", "uncertain"],
-      "description": "Reviewer's verified conclusion — not an accepted fix report."
+      "description": "Reviewer's verified conclusion - not an accepted fix report."
     },
     "remediation_ref": {
       "type": "string",
@@ -116,25 +228,43 @@
     },
     "gate": {
       "enum": ["align", "changes", "accepted", "blocker"],
-      "description": "Seat disposition at a gate."
+      "description": "Seat disposition at a gate. An author seat may not record an accepted gate: author-does-not-approve is enforced at the seat level here, and at the person level by the journal-set check joining participant identity."
     },
-    "anchor": {
-      "type": "string",
-      "description": "Immutable provenance anchor. Where the branch is subject to rewrite (e.g. squash-before-finalize) or unpushed, prefer a content digest over a commit SHA, since the SHA does not survive the rewrite: 'sha256:<hex>' of one artifact's bytes, or 'git-tree:<object-format>:<oid>' covering a multi-artifact reviewed set (e.g. 'git-tree:sha1:2d3e...'). The object format is read from the repository rather than assumed, so the label names the algorithm that produced the value. A message ID anchors a live exchange."
+    "gate_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope"],
+      "description": "What the disposition covers (standard section 5): dispositions are claim-scoped, so a gate names its review scope, non-goals, and any bounds on the green (e.g. reasoner homogeneity, evidence withheld under the ceiling, environments not exercised). structural marks the ACCEPTED (structural) exception of section 7 and never launders a semantic change.",
+      "properties": {
+        "scope": { "type": "string", "minLength": 1 },
+        "non_goals": { "type": "array", "items": { "type": "string" } },
+        "bounds": { "type": "array", "items": { "type": "string" } },
+        "structural": { "type": "boolean" }
+      }
     },
+    "anchor": { "$ref": "#/$defs/anchor" },
     "classification": { "$ref": "#/$defs/classification" }
   },
   "allOf": [
     {
       "if": { "properties": { "phase": { "const": "finding" } } },
       "then": {
-        "required": ["finding_id", "target", "severity", "evidence", "verdict", "anchor"]
+        "required": [
+          "finding_id",
+          "target",
+          "severity",
+          "defect_class",
+          "lifecycle",
+          "evidence",
+          "verdict",
+          "anchor"
+        ]
       }
     },
     {
       "if": { "properties": { "phase": { "const": "verdict" } } },
       "then": {
-        "required": ["finding_id", "evidence", "verdict", "anchor"]
+        "required": ["finding_id", "lifecycle", "evidence", "verdict", "anchor"]
       }
     },
     {
@@ -145,7 +275,26 @@
     },
     {
       "if": { "properties": { "phase": { "const": "gate" } } },
-      "then": { "required": ["evidence", "gate", "anchor"] }
+      "then": { "required": ["evidence", "gate", "gate_scope", "anchor"] }
+    },
+    {
+      "if": {
+        "properties": { "lifecycle": { "const": "deferred" } },
+        "required": ["lifecycle"]
+      },
+      "then": { "required": ["deferral"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "seat": { "const": "author" },
+          "phase": { "const": "gate" }
+        },
+        "required": ["seat", "phase"]
+      },
+      "then": {
+        "properties": { "gate": { "enum": ["align", "changes", "blocker"] } }
+      }
     }
   ]
 }
