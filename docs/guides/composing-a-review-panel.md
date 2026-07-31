@@ -5,6 +5,7 @@ author: "Claude Fable 5"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2026-07-31"
+last_updated: "2026-07-31"
 status: "draft"
 category: "guide"
 tags: ["review", "fierce-collaboration", "panels", "agents", "composition", "how-to"]
