@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-07-31
+
 ### Added
 
 - **Running a Fierce-Collaboration Review guide** (`docs/guides/`). The
@@ -771,7 +773,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.24...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/3leaps/crucible/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/3leaps/crucible/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/3leaps/crucible/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/3leaps/crucible/compare/v0.1.21...v0.1.22

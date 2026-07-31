@@ -8,6 +8,31 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.25 (2026-07-31)
+
+**The machinery catches up to the records: an executable run-book for the
+review standard, and a review-journal contract that now enforces what it
+documented — with every enforcement demonstrated able to fail.**
+
+- **Running a Fierce-Collaboration Review guide** — executable steps from
+  declaration to disposition, a redacted real worked example throughout,
+  failure modes mapped to the steps that catch them, copy-paste templates.
+- **`review-journal/v0` enforcement batch** — classification floors in-schema
+  (half-`unknown` fails closed), anchor label integrity, mandatory participant
+  join with `not-exposed` reasoner admission, required prompt digests for
+  approving agent review seats, human maintainer participant, finding
+  lifecycle + claim-scoped gates, author-does-not-approve at seat and person
+  level.
+- **Negative-control battery** — 19 reject/baseline pairs, single-field
+  mutation machine-asserted, self-tested distance function; runs in
+  `make check`.
+- **PDR-0005** — seven of eight deferred gaps closed; `human-merge-authority`
+  honestly open. Standard 0.4.1 → 0.5.0 with disclosures co-moved.
+
+See [docs/releases/v0.1.25.md](docs/releases/v0.1.25.md).
+
+---
+
 ## v0.1.24 (2026-07-28)
 
 **A process release: a multi-agent review standard, its adoption record, an
