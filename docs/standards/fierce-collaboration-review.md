@@ -225,9 +225,10 @@ roster's participant join, **framing** to the role-prompt digest, and
 machine-readable execution record in the journal manifest (§9.2); the
 **working-tree** state a seat actually reviewed is carried per disposition by
 the exact-head rule (§7), not by the manifest. Public records carry
-harness classes and symbolic profile references **only** — never launch flags,
-machine paths, or profile contents; launch detail is operating detail, and §10
-governs it like any other. The mechanics of composing and launching seats live
+harness classes and symbolic profile and environment references **only** —
+never launch flags, machine paths, or the contents of a profile or environment
+composition; launch detail is operating detail, and §10 governs it like any
+other. The mechanics of composing and launching seats live
 in the non-normative guide,
 [Composing a Review Panel](../guides/composing-a-review-panel.md).
 

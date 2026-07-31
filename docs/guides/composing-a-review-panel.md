@@ -60,9 +60,10 @@ explicitly (`none` where the harness runs without one) so absence is never
 ambiguous (standard §9.2).
 
 **Symbolic references are the durable form.** Launch flags drift with tool
-versions; filesystem paths and profile contents are operating detail that does
-not belong on a public surface (standard §10). A record therefore names the
-harness **class** and the profile **by name**, and the operator's launch matrix
+versions; filesystem paths and the contents of a profile or environment
+composition are operating detail that does not belong on a public surface
+(standard §10). A record therefore names the harness **class**, the profile
+**by name**, and the environment composition **by name**, and the operator's launch matrix
 — maintained outside the record — resolves the name to whatever the current
 tooling actually requires. If you find yourself writing a raw invocation string
 into a prompt, a journal, or an alignment log, stop: that is the drift-prone

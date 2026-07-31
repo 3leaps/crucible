@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rules and cross-class footguns, panel diversity mechanics, the six-part
   framing block with its implementation-seat variant, a preflight checklist,
   and copy-paste templates. All launch references are symbolic — harness
-  classes and named profiles, never invocation detail. Indexed from
+  classes and named profiles and environment compositions, never invocation
+  detail. Indexed from
   `docs/README.md` and cross-linked from the run-book and the standard.
 - **Seat execution record** in `review-journal/v0`. A manifest seat may record
   how it was actually run: symbolic `harness` token, symbolic `profile_ref`,
