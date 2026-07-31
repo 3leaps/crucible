@@ -20,20 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/README.md` and cross-linked from the run-book and the standard.
 - **Seat execution record** in `review-journal/v0`. A manifest seat may record
   how it was actually run: symbolic `harness` token, symbolic `profile_ref`,
-  `mode` (`interactive` | `headless` | `subagent`), and `capture` form (no
-  terminal-scrape form admitted). Optional in v0 per reserve-don't-force; two
-  new reject/baseline pairs join the negative-control battery (terminal-scrape
-  capture form, execution record without its harness token).
+  symbolic `environment_ref` (`inherited` admitted), `mode` (`interactive` |
+  `headless` | `subagent`), and `capture` form (no terminal-scrape form
+  admitted). Together with the participant join and role-prompt digest this
+  maps every layer of the composition model to a named record (the
+  working-tree axis rides each disposition's exact-head anchor). Optional in
+  v0 per reserve-don't-force; three new reject/baseline pairs join the
+  negative-control battery (terminal-scrape capture form, execution record
+  without its harness token, empty environment reference).
 
 ### Changed
 
 - **Fierce-collaboration standard 0.5.0 → 0.6.0.** §3 gains the execution
   disclosure: a seat is a composition, and its disclosure records harness
   class, symbolic profile, mode, and capture form alongside kind and reasoner.
-  §9.2 co-moves: the execution record completes the framing comparison and is
-  required for every compared seat when a framing-comparison claim is made
-  from a journal — a comparison over seats lacking it narrows to the seats
-  whose composition is recorded. New §9.3 makes the verdict contract for
+  §9.2 co-moves: a framing-comparison claim requires the full recorded
+  composition per compared seat — participant join, role-prompt digest, and an
+  execution record carrying harness, mode, capture, `environment_ref`, and an
+  explicit `profile_ref` (`none` admitted) — and a comparison over seats
+  lacking any of these narrows to the seats whose composition is fully
+  recorded. New §9.3 makes the verdict contract for
   non-interactive seats normative: one binary disposition token mapped to the
   canonical vocabulary (fail-closed — no token is never a green), numbered
   severity-tagged findings, bounded length.

@@ -215,10 +215,16 @@ is a **different seat**. Field evidence behind this rule: every launch failure
 observed across multi-reasoner panels lived in a layer that was implicit rather
 than declared. Each seat's disclosure therefore records, alongside its kind and
 reasoner (or `not-exposed`), the **harness class** it ran under, the
-operator-provisioned **profile** it referenced — **symbolically**, by name — its
-**mode** (interactive, headless, or sub-agent), and the **capture form** by which
-its output entered the record. The journal manifest carries the same facts as
-the seat's machine-readable execution record (§9.2). Public records carry
+operator-provisioned **profile** it referenced — **symbolically**, by name — the
+**environment composition** it ran in — symbolically, or `inherited` for a seat
+in the launching operator's own session — its **mode** (interactive, headless,
+or sub-agent), and the **capture form** by which its output entered the record.
+Each layer of the composition maps to a named record: **identity** to the
+roster's participant join, **framing** to the role-prompt digest, and
+**environment, harness, profile, mode, and capture** to the seat's
+machine-readable execution record in the journal manifest (§9.2); the
+**working-tree** state a seat actually reviewed is carried per disposition by
+the exact-head rule (§7), not by the manifest. Public records carry
 harness classes and symbolic profile references **only** — never launch flags,
 machine paths, or profile contents; launch detail is operating detail, and §10
 governs it like any other. The mechanics of composing and launching seats live
@@ -506,17 +512,24 @@ mandated, but it is **best practice for relied-upon reviews**, because:
   comparison possible and does not claim it has been informative.
 - **The execution record completes the comparison.** A seat may additionally
   record its **execution composition** in the manifest — symbolic `harness`
-  token, symbolic `profile_ref`, `mode`, and `capture` form (§3 execution
-  disclosure, machine-readable). It is **optional in v0**
-  (reserve-don't-force), with one normative bound: when a
+  token, symbolic `profile_ref`, symbolic `environment_ref`, `mode`, and
+  `capture` form (§3 execution disclosure, machine-readable). It is **optional
+  in v0** (reserve-don't-force), with one normative bound: when a
   **framing-comparison claim** is made from a journal — attributing a variance
-  to framing rather than to reasoner or chance — the execution record is
-  **REQUIRED for every seat entering the comparison**. Framing variance is only
-  attributable to framing when the rest of the composition is recorded: two
-  cells differing in prompt _and_ in mode or harness measure nothing. A
-  comparison over seats lacking execution records is **narrowed to the seats
-  whose composition is recorded**, in the same shape as the withholding rule
-  (§10). The schema enforces the record's shape; this bound references a claim
+  to framing rather than to reasoner or chance — every seat entering the
+  comparison **REQUIRES the full recorded composition**: the participant join
+  and `role_prompt.digest` (already mandatory for approving agent review
+  seats) **plus** an execution record carrying `harness`, `mode`, `capture`,
+  `environment_ref`, and `profile_ref` — the last stated **explicitly**, with
+  `none` as the recorded value where the harness runs without a profile, so
+  absence-of-field is never ambiguous between "no profile" and "not recorded".
+  Framing variance is only attributable to framing when every other recorded
+  axis is held constant or disclosed: two cells differing in prompt _and_ in
+  mode, harness, or environment measure nothing. A comparison over seats
+  lacking any of these is **narrowed to the seats whose composition is fully
+  recorded**, in the same shape as the withholding rule (§10). The
+  working-tree axis is compared via each disposition's exact-head anchor (§7).
+  The schema enforces the record's shape; this bound references a claim
   outside the file, so the panel checks it, not the file gate.
 
 When emitted, a journal **MUST conform** to the `review-journal/v0` contract. See

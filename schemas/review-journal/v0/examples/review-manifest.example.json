@@ -43,6 +43,7 @@
       "execution": {
         "harness": "harness-class-headless-cli",
         "profile_ref": "profile-review-seat",
+        "environment_ref": "env-review-default",
         "mode": "headless",
         "capture": "last-message-file"
       },

@@ -133,6 +133,11 @@
                 "minLength": 1,
                 "description": "Symbolic reference to the operator-provisioned launch/permission profile the seat ran under. Omitted when the harness runs without one; when present it names the profile, never its contents."
               },
+              "environment_ref": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Symbolic reference to the environment composition (credentials, variables) the seat ran under - a token from the operator's matrix, or 'inherited' for a seat running in the launching operator's own session environment. Names the composition, never its contents. This is the environment layer of the composition model; the working-tree layer is carried per disposition by the standard's exact-head rule, not here."
+              },
               "mode": {
                 "enum": ["interactive", "headless", "subagent"],
                 "description": "interactive: a live multi-turn session. headless: a non-interactive single-turn or scripted run. subagent: spawned inside an orchestrating session, sharing its working tree."

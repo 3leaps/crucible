@@ -47,12 +47,17 @@ A seat launch is a composition of five layers:
 | **Framing + capture** | The prompt skeleton (the six-part framing block below) and the declared path by which the seat's output enters the record.                                                                                                                                                      | The verdict lives only in a scrollback buffer; a truncated capture cuts mid-finding and the record understates what the seat found.                                                                   |
 
 Reproducibility of a seat's verdict requires **all five layers recorded**, not
-just the prompt. The machine-readable form of that record is the seat's
-`execution` object in the
+just the prompt — and each layer maps to a named record. Identity is carried by
+the manifest's participant join, framing by the role-prompt digest, the working
+tree a seat reviewed by each disposition's exact-head anchor (standard §7), and
+the remaining layers by the seat's `execution` object in the
 [`review-journal/v0`](../../schemas/review-journal/v0/) manifest — symbolic
-`harness`, symbolic `profile_ref`, `mode`, and `capture` — required for every
-compared seat whenever a framing-comparison claim is made from the journal
-(standard §9.2).
+`harness`, symbolic `profile_ref`, symbolic `environment_ref` (`inherited`
+admitted for a seat in the launching operator's own session), `mode`, and
+`capture`. The full set is required for every compared seat whenever a
+framing-comparison claim is made from the journal, with `profile_ref` stated
+explicitly (`none` where the harness runs without one) so absence is never
+ambiguous (standard §9.2).
 
 **Symbolic references are the durable form.** Launch flags drift with tool
 versions; filesystem paths and profile contents are operating detail that does
@@ -225,8 +230,9 @@ for once.
       contract) declared with token pair and word cap.
 - [ ] Role prompt pinned: {slug, version} resolved, digest computed where run
       comparability matters (standard §12).
-- [ ] Execution record ready: harness, profile_ref, mode, capture known for
-      this seat — the journal manifest will carry them (standard §9.2).
+- [ ] Execution record ready: harness, profile_ref, environment_ref, mode,
+      capture known for this seat — the journal manifest will carry them
+      (standard §9.2).
 - [ ] Diversity checked: at least one approving seat off the implementer's
       reasoner family; subagent approvals of the orchestrator's own work
       avoided.
@@ -248,6 +254,7 @@ as its `execution` object:
   "execution": {
     "harness": "harness-class-headless-cli",
     "profile_ref": "profile-review-seat",
+    "environment_ref": "env-review-default",
     "mode": "headless",
     "capture": "last-message-file"
   },
@@ -295,8 +302,9 @@ deviation from this brief with its justification.
 
 ```markdown
 Seat: <seat> · harness: <class-or-token> · profile: <symbolic-ref | none> ·
-mode: <interactive | headless | subagent> · capture: <form> · reasoner:
-<name+version | "not exposed by this harness"> · role prompt: <slug>@<version>
+env: <symbolic-ref | inherited> · mode: <interactive | headless | subagent> ·
+capture: <form> · reasoner: <name+version | "not exposed by this harness"> ·
+role prompt: <slug>@<version>
 ```
 
 ## Relationship to the other records

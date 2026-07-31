@@ -77,7 +77,8 @@ gate. Before any evidence is exchanged, the record's header states:
 
 Then **each seat posts an execution disclosure** before it does anything else
 (standard §3): the seat it occupies, the **harness class** it runs under, the
-operator-provisioned **profile** it references — symbolically, or `none` — its
+operator-provisioned **profile** it references — symbolically, or `none` — the
+**environment composition** it runs in — symbolically, or `inherited` — its
 **mode** (interactive, headless, or sub-agent), the **capture form** by which
 its output enters the record, and its reasoner and version — or an explicit
 _"not exposed by this harness"_. A seat that cannot name its reasoner says so;
@@ -390,8 +391,9 @@ Multi-change arc or partial release: add `Arc owner: <seat>` and
 
 ```markdown
 Seat: <seat> · harness: <class-or-token> · profile: <symbolic-ref | none> ·
-mode: <interactive | headless | subagent> · capture: <form> · reasoner:
-<name+version | "not exposed by this harness"> · role prompt: <slug>@<version>
+env: <symbolic-ref | inherited> · mode: <interactive | headless | subagent> ·
+capture: <form> · reasoner: <name+version | "not exposed by this harness"> ·
+role prompt: <slug>@<version>
 ```
 
 ## Emitting a journal
