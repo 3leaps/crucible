@@ -3,8 +3,8 @@ title: "Fierce Collaboration — Multi-Agent Review Process"
 description: "A review methodology for AI-agent and human panels that is adversarial in verification and collaborative in goal, so a relied-upon review's rigor does not depend on who ran it. Optional machine-readable journal, with sensitivity-tagged records."
 category: "standards"
 status: "draft"
-version: "0.5.0"
-lastUpdated: "2026-07-30"
+version: "0.6.0"
+lastUpdated: "2026-07-31"
 maintainer: "3leaps-core"
 reviewers: ["entarch", "secrev", "devrev", "cxotech"]
 approvers: ["3leapsdave"]
@@ -16,6 +16,7 @@ relatedDocs:
   - "docs/decisions/EPR-0002-verification-gate-integrity.md"
   - "docs/standards/data-sensitivity-classification.md"
   - "docs/standards/access-tier-classification.md"
+  - "docs/guides/composing-a-review-panel.md"
   - "schemas/review-journal/v0/"
 audience: "all"
 ---
@@ -206,6 +207,30 @@ procedure. Where every approving seat ran the same reasoner and version, the
 disposition **discloses that as a bound on the green**, in the same shape as the
 withholding rule (§10) — a limit on assurance is stated in the record, not merely
 filed in it.
+
+**Execution disclosure.** A seat is not a prompt; it is a **composition** —
+identity, environment, harness and profile, mode, and framing-plus-capture — and
+the same prompt run through a different profile, working directory, or identity
+is a **different seat**. Field evidence behind this rule: every launch failure
+observed across multi-reasoner panels lived in a layer that was implicit rather
+than declared. Each seat's disclosure therefore records, alongside its kind and
+reasoner (or `not-exposed`), the **harness class** it ran under, the
+operator-provisioned **profile** it referenced — **symbolically**, by name — the
+**environment composition** it ran in — symbolically, or `inherited` for a seat
+in the launching operator's own session — its **mode** (interactive, headless,
+or sub-agent), and the **capture form** by which its output entered the record.
+Each layer of the composition maps to a named record: **identity** to the
+roster's participant join, **framing** to the role-prompt digest, and
+**environment, harness, profile, mode, and capture** to the seat's
+machine-readable execution record in the journal manifest (§9.2); the
+**working-tree** state a seat actually reviewed is carried per disposition by
+the exact-head rule (§7), not by the manifest. Public records carry
+harness classes and symbolic profile and environment references **only** —
+never launch flags, machine paths, or the contents of a profile or environment
+composition; launch detail is operating detail, and §10 governs it like any
+other. The mechanics of composing and launching seats live
+in the non-normative guide,
+[Composing a Review Panel](../guides/composing-a-review-panel.md).
 
 ## 4. The evidence bar
 
@@ -486,6 +511,27 @@ mandated, but it is **best practice for relied-upon reviews**, because:
   What remains design intent is the **conclusion**, not the join: no variance
   analysis has yet been run over real journals, so the contract makes the
   comparison possible and does not claim it has been informative.
+- **The execution record completes the comparison.** A seat may additionally
+  record its **execution composition** in the manifest — symbolic `harness`
+  token, symbolic `profile_ref`, symbolic `environment_ref`, `mode`, and
+  `capture` form (§3 execution disclosure, machine-readable). It is **optional
+  in v0** (reserve-don't-force), with one normative bound: when a
+  **framing-comparison claim** is made from a journal — attributing a variance
+  to framing rather than to reasoner or chance — every seat entering the
+  comparison **REQUIRES the full recorded composition**: the participant join
+  and `role_prompt.digest` (already mandatory for approving agent review
+  seats) **plus** an execution record carrying `harness`, `mode`, `capture`,
+  `environment_ref`, and `profile_ref` — the last stated **explicitly**, with
+  `none` as the recorded value where the harness runs without a profile, so
+  absence-of-field is never ambiguous between "no profile" and "not recorded".
+  Framing variance is only attributable to framing when every other recorded
+  axis is held constant or disclosed: two cells differing in prompt _and_ in
+  mode, harness, or environment measure nothing. A comparison over seats
+  lacking any of these is **narrowed to the seats whose composition is fully
+  recorded**, in the same shape as the withholding rule (§10). The
+  working-tree axis is compared via each disposition's exact-head anchor (§7).
+  The schema enforces the record's shape; this bound references a claim
+  outside the file, so the panel checks it, not the file gate.
 
 When emitted, a journal **MUST conform** to the `review-journal/v0` contract. See
 §10 for the classification each entry carries.
@@ -494,6 +540,42 @@ Append-only is an authoring rule, not a claim that an NDJSON file is tamper-evid
 When record-integrity or non-repudiation is part of the relied-upon claim, store the
 journal in a system that supplies those properties or add a separately specified
 signature/hash-chain mechanism; v0 does not provide one.
+
+### 9.3 Verdict contract — non-interactive seats (normative)
+
+A review seat that runs non-interactively (headless or sub-agent mode, §3) emits
+its disposition under a **fixed contract**, declared in the seat's framing before
+the seat runs:
+
+1. **One binary disposition token**, and exactly one, closing the output. The
+   token pair is declared in the framing (any accept-form/changes-form pair) and
+   **maps onto the canonical vocabulary** (§9.1): the accept-form is `ACCEPTED`,
+   the changes-form is `CHANGES`. An output that hedges between tokens, emits
+   both, or emits neither is **not a green** — it is read as `CHANGES`, and the
+   malformed emission is itself recorded. Absence of a token is never
+   `ACCEPTED`; the contract fails closed.
+2. **Numbered, severity-tagged findings** (§7 severities), each row
+   independently actionable, using the register ID shape (§5) where the seat's
+   findings enter a register.
+3. **Bounded length** — a declared word cap on the whole emission.
+
+This subsection carries the **comparability claim**, which is why it is standard
+text rather than guide mechanics: a fixed verdict contract is what makes outputs
+from seats on different reasoners, harnesses, and modes **comparable with each
+other and ingestible into the journal** (§9.2). Each element is load-bearing:
+the binary token forces a disposition instead of an essay; the cap forces
+findings instead of narrative; the numbering makes every finding a citable row.
+Field evidence: seats run under this contract across multiple reasoner families
+produced dispositions that could be tabulated and re-verified without
+interpretation, and caught real defects pre-merge; the contract constrains the
+**form** of the disposition, not the search (§1).
+
+Interactive seats already meet the same needs through the register and
+disposition log (§5, §9.1); this contract is the non-interactive projection of
+those records, not a second vocabulary. The framing block that declares the
+contract, and the capture forms that carry the emission into the record, are
+mechanics — they live in the
+[composing guide](../guides/composing-a-review-panel.md).
 
 ## 10. Data classification & Rules of Engagement (ROE)
 

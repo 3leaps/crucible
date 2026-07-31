@@ -5,7 +5,7 @@ author: "Claude Fable 5"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2026-07-29"
-last_updated: "2026-07-30"
+last_updated: "2026-07-31"
 status: "draft"
 category: "guide"
 tags: ["review", "fierce-collaboration", "process", "agents", "how-to"]
@@ -18,7 +18,10 @@ defines what must hold in a relied-upon review. This guide is the **run-book**:
 the steps a team executes, in order, with a checklist at each gate. The standard
 is normative; where this guide and the standard disagree, the standard wins.
 Tool-specific detail (journal emitters, validators) lives in each tool's own
-`--help`, not here.
+`--help`, not here. How the seats themselves are assembled and launched —
+composition, harness classes, framing blocks, preflight — is the companion
+guide, [Composing a Review Panel](composing-a-review-panel.md), and comes
+before this page's Step 0.
 
 **If you cannot run a review from this page, that is a defect in this page.**
 File it.
@@ -72,10 +75,16 @@ gate. Before any evidence is exchanged, the record's header states:
 | **The record home** | Where the alignment log lives (§9.1) and whether a journal is emitted alongside it (§9.2).                                                                                                                                                                                                                                                                                   |
 | **Role prompts**    | Per seat: `{slug, version}` — plus a content digest if run comparability matters (§11, §12).                                                                                                                                                                                                                                                                                 |
 
-Then **each seat posts an execution disclosure** before it does anything else:
-the seat it occupies, whether it runs live or as a sub-agent, and its reasoner
-and version — or an explicit _"not exposed by this harness"_. A seat that cannot
-name its reasoner says so; it does not invent one.
+Then **each seat posts an execution disclosure** before it does anything else
+(standard §3): the seat it occupies, the **harness class** it runs under, the
+operator-provisioned **profile** it references — symbolically, or `none` — the
+**environment composition** it runs in — symbolically, or `inherited` — its
+**mode** (interactive, headless, or sub-agent), the **capture form** by which
+its output enters the record, and its reasoner and version — or an explicit
+_"not exposed by this harness"_. A seat that cannot name its reasoner says so;
+it does not invent one. How these layers are composed before the panel convenes
+is the [composing guide](composing-a-review-panel.md)'s subject; the disclosure
+here records what was actually composed.
 
 Three checks close Step 0:
 
@@ -381,7 +390,10 @@ Multi-change arc or partial release: add `Arc owner: <seat>` and
 ### Execution disclosure (one line, per seat, before any work)
 
 ```markdown
-Seat: <seat> (live | sub-agent) · reasoner: <name+version | "not exposed by this harness"> · role prompt: <slug>@<version>
+Seat: <seat> · harness: <class-or-token> · profile: <symbolic-ref | none> ·
+env: <symbolic-ref | inherited> · mode: <interactive | headless | subagent> ·
+capture: <form> · reasoner: <name+version | "not exposed by this harness"> ·
+role prompt: <slug>@<version>
 ```
 
 ## Emitting a journal
