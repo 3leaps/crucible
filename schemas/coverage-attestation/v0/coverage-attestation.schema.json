@@ -90,8 +90,8 @@
             "required": ["unit", "observed"],
             "properties": {
               "unit": { "type": "string", "minLength": 1 },
-              "observed": { "type": "number" },
-              "expected": { "type": "number" }
+              "observed": { "type": "number", "minimum": 0 },
+              "expected": { "type": "number", "minimum": 0 }
             }
           },
           "note": { "type": "string" }
@@ -104,8 +104,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["scope"],
+        "required": ["code", "scope"],
         "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable reason for the uncovered scope. Codes are an open vocabulary owned by the emitting profile; consumers may preserve unknown codes but must not infer semantics from note text.",
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+          },
           "scope": { "$ref": "#/$defs/scope" },
           "note": { "type": "string" }
         }

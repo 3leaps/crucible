@@ -37,6 +37,7 @@
   ],
   "gaps": [
     {
+      "code": "source_listing_truncated",
       "scope": {
         "partition": { "site": "opaque:site-0012" },
         "window": { "from": "2026-04-08", "to": "2026-04-14" }
