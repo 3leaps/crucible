@@ -26,6 +26,10 @@ before this page's Step 0.
 **If you cannot run a review from this page, that is a defect in this page.**
 File it.
 
+For a panel invite or a seat joining mid-flight, the one-page
+[review card](fierce-collaboration-review-card.md) is the fast path — the
+minimum conforming review with this page as its mechanics layer.
+
 ## The worked example used throughout
 
 Every step below carries a callout from one real panel: a five-seat review of a
