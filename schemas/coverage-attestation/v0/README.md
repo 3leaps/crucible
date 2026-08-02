@@ -23,8 +23,11 @@ the same way the contract already separates identity ≠ integrity.
   `basis: confirmed` only.
 - **Volume, not just presence.** A scope can be present yet volume-deficient
   (truncated enumeration leaving a trickle where full data belongs). Claims
-  carry quantitative `volume` where known; binary present/absent attestation
-  has been observed to pass while a scope was materially short.
+  carry non-negative quantitative `volume` where known; binary present/absent
+  attestation has been observed to pass while a scope was materially short.
+- **Machine-readable gaps.** Every uncovered scope carries a stable `code`
+  from the emitting profile's open vocabulary. Human `note` text may explain
+  the condition but is never the machine contract.
 - **Fail-open-but-honest.** A missing attestation never blocks by itself and is
   never treated as a claim; a malformed one fails loud. `coverage_state:
 unknown` is an honest verdict, not a default.
@@ -63,3 +66,5 @@ schema-aware tooling, but it is not the contract-entry mechanism.
 - `coverage-attestation.example.json` — an independent reconciler attesting a
   partially-covered object-index subject: one confirmed-enumerated scope with
   volume tie-out, one inferred scope, one honest gap.
+- `scripts/test-coverage-attestation-controls.sh` — negative controls proving
+  code-less gaps and negative observed/expected volumes fail validation.

@@ -301,6 +301,8 @@ lint-config: ## Validate config data files against schemas
 			echo "    Validating $$f..."; \
 			goneat validate data --schema-file schemas/coverage-attestation/v0/coverage-attestation.schema.json --data "$$f" || exit 1; \
 		done; \
+		echo "    Coverage-attestation negative controls (rejects fail, baseline passes)..."; \
+		sh scripts/test-coverage-attestation-controls.sh || exit 1; \
 		for f in schemas/process-run/v0/examples/process-card.example.json; do \
 			[ -f "$$f" ] || continue; \
 			echo "    Validating $$f..."; \

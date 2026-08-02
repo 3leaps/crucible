@@ -3,7 +3,7 @@ id: "ADR-0004"
 title: "Coverage Attestation as a Companion Portable Contract"
 status: "proposed"
 date: "2026-07-02"
-last_updated: "2026-07-03"
+last_updated: "2026-08-02"
 deciders:
   - "@3leapsdave"
 scope: "Crucible foundation / data contracts"
@@ -76,6 +76,8 @@ Core vocabulary (normative intent, hardened in review):
 - Per-scope **claims** with `basis: confirmed | inferred` and
   `method: enumerated | reconciled | derived | declared`.
 - **Volume** (`unit` / `observed` / `expected`) alongside presence.
+- **Machine-readable gaps** with a stable producer-profile `code`; prose notes
+  are explanation, never the reason identity.
 - **Fail-open-but-honest**: missing attestation never blocks and is never a
   claim; malformed attestation fails loud; `unknown` is an honest verdict.
 - **One emitter per subject; reconcile, don't re-derive.**
