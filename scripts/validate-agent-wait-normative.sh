@@ -2,9 +2,11 @@
 # Normative checks for contract: agent-wait/v0 — rules JSON Schema cannot prove.
 #
 # Declared invocation set (PDR-0006 Rule 2b):
-#   sh, coreutils, date — baseline
+#   sh, coreutils — baseline
 #   jq — structural inspection of contract fixtures (same house pattern as
 #        validate-review-journal-set.sh)
+#   python3 — subject-matter runtime for portable RFC3339 instants
+#             (scripts/rfc3339-instant.py; no GNU/BSD date)
 #   goneat is not invoked here; schema validation is the caller's job.
 #
 # Usage: validate-agent-wait-normative.sh <file-or-directory>
@@ -23,13 +25,24 @@ tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
 index="$tmpd/index.ndjson"
 
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "validate-agent-wait-normative.sh requires python3" >&2
+    exit 2
+fi
+
 fail() {
     printf 'normative_reason: %s\n' "$1" >&2
     exit 1
 }
 
-ts_epoch() {
-    date -u -d "$1" +%s
+# Sets _rel to -1, 0, or 1. Exits the checker immediately on an unparseable
+# timestamp so comparisons never run on empty epoch values.
+compare_instants() {
+    _rel=$(python3 scripts/rfc3339-instant.py --compare "$1" "$2") || fail unparseable_timestamp
+    case "$_rel" in
+        -1 | 0 | 1) ;;
+        *) fail unparseable_timestamp ;;
+    esac
 }
 
 collect_json() {
@@ -57,7 +70,8 @@ while IFS= read -r row; do
         live_wait_request | poll_cycle_request)
             run=$(printf '%s' "$row" | jq -r '.run_deadline')
             logical=$(printf '%s' "$row" | jq -r '.logical_deadline')
-            if [ "$(ts_epoch "$run")" -gt "$(ts_epoch "$logical")" ]; then
+            compare_instants "$run" "$logical"
+            if [ "$_rel" -gt 0 ]; then
                 fail deadline_ordering
             fi
             ;;
@@ -88,15 +102,17 @@ while IFS= read -r row; do
         fi
 
         if [ "$kind" = "no_change" ]; then
+            compare_instants "$completed" "$logical"
             if [ "$events_n" -ne 0 ] || [ "$complete" != "true" ] || [ "$req_no_change" != "true" ] ||
-                [ "$(ts_epoch "$completed")" -ge "$(ts_epoch "$logical")" ]; then
+                [ "$_rel" -ge 0 ]; then
                 fail no_change_invariants
             fi
         fi
 
         if [ "$kind" = "logical_deadman" ]; then
+            compare_instants "$completed" "$logical"
             if [ "$events_n" -ne 0 ] || [ "$complete" != "true" ] || [ "$req_complete" != "true" ] ||
-                [ "$(ts_epoch "$completed")" -lt "$(ts_epoch "$logical")" ]; then
+                [ "$_rel" -lt 0 ]; then
                 fail deadman_invariants
             fi
         fi

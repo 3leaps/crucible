@@ -119,11 +119,15 @@ credential). Optional: `causation_id`, `grant_ref`,
 
 ## Canonicalization
 
-JobSpec idempotency uses RFC 8785. Checked-in vectors live at
-`schemas/service-job/v0/canonicalization/`: the input document, the expected
-canonical bytes, and the SHA-256 of those bytes. The control battery
-recomputes the bytes with the stdlib-only materializer and refuses `jq -S`
-as the oracle.
+JobSpec idempotency uses RFC 8785. Official-style conformance vectors live
+at `schemas/service-job/v0/canonicalization/rfc8785/` and cover ECMAScript
+number serialization (exponent zero-padding, `1e-6` / `1e21` thresholds,
+negative zero, subnormal and min/max finite doubles), I-JSON rejection of
+non-finite values and unsafe integers, UTF-16 key order, and string
+escaping. The friendly JobSpec digest at
+`schemas/service-job/v0/canonicalization/jobspec.*` is an integration case,
+not the conformance oracle. The control battery recomputes both with the
+stdlib-only materializer and refuses `jq -S` as the oracle.
 
 ## Relationship To Other Contracts
 

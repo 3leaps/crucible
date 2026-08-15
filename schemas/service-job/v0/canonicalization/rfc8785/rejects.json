@@ -1,0 +1,10 @@
+{
+  "cases": [
+    { "name": "non-finite-nan", "json_text": "NaN" },
+    { "name": "non-finite-infinity", "json_text": "Infinity" },
+    { "name": "non-finite-neg-infinity", "json_text": "-Infinity" },
+    { "name": "overflow-to-infinity", "json_text": "1e1000" },
+    { "name": "unsafe-integer", "json_text": "9007199254740993" },
+    { "name": "unsafe-integer-object", "json_text": "{\"n\":9007199254740993}" }
+  ]
+}

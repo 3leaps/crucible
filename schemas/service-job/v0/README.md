@@ -27,5 +27,5 @@ contract-entry mechanism.
 | `service-job-message.schema.json` | Discriminated entry schema (thirteen `message_type`s). |
 | `contract.json`                   | Capability manifest and entry pointer.                 |
 | `examples/`                       | One golden per kind, plus the audio cross-path.        |
-| `canonicalization/`               | RFC 8785 JobSpec input, canonical bytes, and digest.   |
+| `canonicalization/`               | RFC 8785 vectors plus the JobSpec integration digest.  |
 | `rejects/`                        | Schema-labeled and normative-labeled controls.         |

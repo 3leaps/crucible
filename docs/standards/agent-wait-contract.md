@@ -90,6 +90,8 @@ identity reference, never a credential). Optional: `causation_id`,
 ## Frozen Rules
 
 - **Deadlines.** `run_deadline` is absolute and MUST be `<= logical_deadline`.
+  Comparisons use portable RFC3339 instants and MUST fail closed on an
+  unparseable timestamp.
 - **`no_change`.** Empty `events`, `coverage_complete`, every required arm
   `no_change`, and `completed_at < logical_deadline`.
 - **`logical_deadman`.** Empty `events`, complete non-degraded required

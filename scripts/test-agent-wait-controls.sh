@@ -2,9 +2,10 @@
 # Conformance battery for contract: agent-wait/v0.
 #
 # Declared invocation set (PDR-0006 Rule 2b):
-#   sh, coreutils, find, date — baseline
+#   sh, coreutils, find — baseline
 #   goneat — subject-matter (JSON Schema validation the contract names)
 #   jq — structural inspection of contract fixtures (house pattern)
+#   python3 — subject-matter runtime for portable RFC3339 instants
 #
 # Asserts:
 #   - every declared message kind has a golden example that validates
@@ -15,6 +16,7 @@
 #   - schema and single-file normative pairs differ in exactly one field
 #   - the cross-contract job_complete path is well-formed
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
+#   - RFC3339 parse failure is rejected; equality/before/after hold
 set -eu
 
 base="schemas/agent-wait/v0"
@@ -78,6 +80,17 @@ expected_reason() {
         *) echo unknown ;;
     esac
 }
+
+echo "    RFC3339 instant self-test..."
+python3 scripts/rfc3339-instant.py --self-test || {
+    echo "    [!!] RFC3339 instant self-test failed" >&2
+    exit 1
+}
+if python3 scripts/rfc3339-instant.py --epoch "not-a-timestamp" >/tmp/aw-ts.out 2>/tmp/aw-ts.err; then
+    echo "    [!!] unparseable timestamp was accepted" >&2
+    exit 1
+fi
+echo "    [ok] RFC3339 parse failure is rejected; equality/before/after hold"
 
 echo "    Positive coverage (one golden per declared kind)..."
 for kind in registration_set live_wait_request live_wait_outcome poll_cycle_request poll_cycle_outcome poll_cycle_ack; do

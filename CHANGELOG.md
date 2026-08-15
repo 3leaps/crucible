@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Agent-wait normative deadline comparisons parse RFC3339 with a portable
+  stdlib helper and fail closed on unparseable instants (no GNU `date`).
+- Service-job JCS materializer follows RFC 8785 / ECMAScript number
+  serialization and the I-JSON numeric domain. Official-style vectors run
+  under `make check`; the JobSpec digest remains an integration case.
+
 ### Added
 
 - **`contract: agent-wait/v0`.** Portable wait/poll family: six discriminated

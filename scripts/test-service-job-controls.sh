@@ -14,7 +14,8 @@
 #   - set fixtures are schema-valid (except interpretation sidecars)
 #   - normative baselines pass and reject-* fail with the expected reason
 #   - schema pairs differ in exactly one field
-#   - checked-in JobSpec JCS bytes and SHA-256 match the materializer
+#   - RFC 8785 official-style vectors (numbers, keys, escaping, rejects)
+#   - checked-in JobSpec JCS bytes and SHA-256 match as an integration case
 #   - jq -S is not the digest oracle
 #   - cross-contract audio → submit/result → agent-wait job_complete path
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
@@ -175,10 +176,53 @@ for f in "$base"/rejects/schema/reject-*.json; do
     echo "    [ok] pair distance 1: $f"
 done
 
-echo "    RFC 8785 canonicalization vectors..."
+echo "    RFC 8785 official-style vectors..."
 canon_dir="$base/canonicalization"
+rfc_dir="$canon_dir/rfc8785"
 tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
+for stem in values unicode-keys numbers escaping; do
+    python3 scripts/rfc8785-canonicalize.py "$rfc_dir/${stem}.input.json" >"$tmpd/${stem}.jcs"
+    if ! cmp -s "$rfc_dir/${stem}.canonical.jcs" "$tmpd/${stem}.jcs"; then
+        echo "    [!!] RFC 8785 vector $stem does not match checked-in canonical bytes" >&2
+        echo "         expected: $(cat "$rfc_dir/${stem}.canonical.jcs")" >&2
+        echo "         got:      $(cat "$tmpd/${stem}.jcs")" >&2
+        exit 1
+    fi
+    echo "    [ok] RFC 8785 vector: $stem"
+done
+python3 -c '
+import json, pathlib, struct, sys
+from importlib.machinery import SourceFileLoader
+
+jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+samples = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/ieee-samples.json").read_text())
+for row in samples:
+    bits = int(row["ieee_hex"], 16)
+    value = struct.unpack("<d", struct.pack("<Q", bits))[0]
+    got = jcs._encode_number(value)
+    want = row["canonical"]
+    if got != want:
+        raise SystemExit("ieee %s -> %s != %s" % (row["ieee_hex"], got, want))
+print("    [ok] RFC 8785 IEEE hex samples")
+'
+python3 -c '
+import json, pathlib, sys
+from importlib.machinery import SourceFileLoader
+
+jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+cases = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/rejects.json").read_text())["cases"]
+for case in cases:
+    try:
+        document = json.loads(case["json_text"])
+        jcs.jcs_dumps(document)
+    except (ValueError, json.JSONDecodeError):
+        continue
+    raise SystemExit("reject case %s was accepted" % case["name"])
+print("    [ok] RFC 8785 reject cases (non-finite, unsafe integer)")
+'
+
+echo "    RFC 8785 JobSpec integration vector..."
 python3 scripts/rfc8785-canonicalize.py "$canon_dir/jobspec.input.json" >"$tmpd/got.jcs"
 if ! cmp -s "$canon_dir/jobspec.canonical.jcs" "$tmpd/got.jcs"; then
     echo "    [!!] recomputed JCS does not match checked-in canonical bytes" >&2
@@ -213,7 +257,7 @@ want = pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.sha256").re
 if digest != want:
     raise SystemExit("submit job_spec digest %s != %s" % (digest, want))
 '
-echo "    [ok] JCS digest $want_digest (jq -S is not the oracle)"
+echo "    [ok] JobSpec integration digest $want_digest (jq -S is not the oracle)"
 
 echo "    Cross-contract audio → job → agent-wait path..."
 goneat validate data --schema-file "$da_schema" --data "$base/examples/cross-path/audio.descriptor.json" >/dev/null
