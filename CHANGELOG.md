@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   semantic use, pair catalog pages and offers by explicit refs, compare
   instants with the portable helper, and reject omitted-backend resolution
   when the offer has zero or multiple eligible local defaults.
+- The portable RFC3339 helper accepts only the contract date-time
+  profile (including fractional seconds and colon-separated offsets).
+  Basic date/time, week dates, ordinal dates, missing seconds, a space
+  separator, and offsets without a colon fail closed. Leap seconds are
+  rejected rather than clamped.
 
 ### Added
 

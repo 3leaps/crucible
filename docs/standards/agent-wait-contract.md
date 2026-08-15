@@ -96,8 +96,13 @@ identity reference, never a credential). Optional: `causation_id`,
 ## Frozen Rules
 
 - **Deadlines.** `run_deadline` is absolute and MUST be `<= logical_deadline`.
-  Comparisons use portable RFC3339 instants and MUST fail closed on an
-  unparseable timestamp.
+  Comparisons use portable RFC3339 instants
+  (`YYYY-MM-DDThh:mm:ss[.fraction]Z` or a colon-separated numeric offset)
+  and MUST fail closed on an unparseable timestamp. Basic date/time, week
+  dates, ordinal dates, missing seconds, a space separator, and offsets
+  without a colon are not RFC3339 date-times. Leap seconds (`hh:mm:60`)
+  are not admitted: they are unparseable and MUST NOT be clamped or
+  rolled forward. Equivalent offsets are the same instant.
 - **Outcome kinds.** Live and poll share the same `outcome_kind` vocabulary:
   `events` | `no_change` | `logical_deadman` | `partial` | `cancelled` |
   `coverage_degraded` | `refused` | `reauthentication_required` | `failed`.

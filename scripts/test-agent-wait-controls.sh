@@ -16,7 +16,7 @@
 #   - schema and single-file normative pairs differ in exactly one field
 #   - the cross-contract job_complete path is well-formed
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
-#   - RFC3339 parse failure is rejected; equality/before/after hold
+#   - RFC3339 profile accepted; non-RFC3339 ISO and leap seconds fail closed
 set -eu
 
 base="schemas/agent-wait/v0"
@@ -96,7 +96,37 @@ if python3 scripts/rfc3339-instant.py --epoch "not-a-timestamp" >/tmp/aw-ts.out 
     echo "    [!!] unparseable timestamp was accepted" >&2
     exit 1
 fi
-echo "    [ok] RFC3339 parse failure is rejected; equality/before/after hold"
+# Direct probes: ISO 8601 forms that datetime.fromisoformat accepts must
+# still fail closed. Leap second 60 is rejected, not clamped.
+for bad in \
+    "20260815T170000Z" \
+    "2026-W33-6T17:00:00Z" \
+    "2026-227T17:00:00Z" \
+    "2026-08-15T17:00Z" \
+    "2026-08-15T17:00:00+0000" \
+    "2026-08-15 17:00:00Z" \
+    "2016-12-31T23:59:60Z"; do
+    if python3 scripts/rfc3339-instant.py --epoch "$bad" >/tmp/aw-ts.out 2>/tmp/aw-ts.err; then
+        echo "    [!!] non-RFC3339 instant was accepted: $bad" >&2
+        exit 1
+    fi
+done
+python3 scripts/rfc3339-instant.py --epoch "2026-08-15T17:00:00Z" >/tmp/aw-ts.out
+python3 scripts/rfc3339-instant.py --epoch "2026-08-15T17:00:00.123Z" >/tmp/aw-ts.frac
+python3 scripts/rfc3339-instant.py --epoch "2026-08-15T17:00:00+00:00" >/tmp/aw-ts.off
+if [ "$(cat /tmp/aw-ts.out)" != "$(cat /tmp/aw-ts.off)" ]; then
+    echo "    [!!] Z and +00:00 must be the same instant" >&2
+    exit 1
+fi
+if [ "$(cat /tmp/aw-ts.out)" != "$(cat /tmp/aw-ts.frac)" ]; then
+    echo "    [!!] fractional seconds must not change integer epoch" >&2
+    exit 1
+fi
+if [ "$(python3 scripts/rfc3339-instant.py --compare "2026-08-15T17:00:00+00:00" "2026-08-15T17:00:00Z")" != "0" ]; then
+    echo "    [!!] offset-equivalent instants must compare equal" >&2
+    exit 1
+fi
+echo "    [ok] RFC3339 profile accepted; non-RFC3339 ISO and leap seconds fail closed"
 
 echo "    Frozen outcome kinds (live and poll)..."
 for kind in events no_change logical_deadman partial cancelled coverage_degraded refused reauthentication_required failed; do

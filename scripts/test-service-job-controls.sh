@@ -7,6 +7,7 @@
 #   jq — structural inspection of contract fixtures (house pattern)
 #   python3 — subject-matter runtime for the stdlib-only RFC 8785
 #             materializer (the contract names JCS; jq -S is not JCS)
+#             and the fail-closed RFC3339 instant helper
 #
 # Asserts:
 #   - every declared message kind has a golden example that validates
@@ -94,6 +95,26 @@ expected_reason() {
         *) echo unknown ;;
     esac
 }
+
+echo "    RFC3339 instant helper (shared with agent-wait)..."
+python3 scripts/rfc3339-instant.py --self-test || {
+    echo "    [!!] RFC3339 instant self-test failed" >&2
+    exit 1
+}
+for bad in \
+    "20260815T170000Z" \
+    "2026-W33-6T17:00:00Z" \
+    "2026-227T17:00:00Z" \
+    "2026-08-15T17:00Z" \
+    "2026-08-15T17:00:00+0000" \
+    "2026-08-15 17:00:00Z" \
+    "2016-12-31T23:59:60Z"; do
+    if python3 scripts/rfc3339-instant.py --epoch "$bad" >/tmp/sj-ts.out 2>/tmp/sj-ts.err; then
+        echo "    [!!] non-RFC3339 instant was accepted: $bad" >&2
+        exit 1
+    fi
+done
+echo "    [ok] RFC3339 profile; non-RFC3339 ISO and leap seconds fail closed"
 
 echo "    Positive coverage (one golden per declared kind)..."
 for kind in \

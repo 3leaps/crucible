@@ -147,8 +147,12 @@ credential). Optional: `causation_id`, `grant_ref`,
   `deadline`) MUST change the RFC 8785 SHA-256. Catalog pages pair by
   `request_ref`. Offers pair to submits by service, catalog revision, and
   offer revision. Unrelated interleaved exchanges MUST NOT be globally
-  paired. Instant comparisons use the portable RFC3339 helper; equivalent
-  offsets are the same instant.
+  paired. Instant comparisons use the portable RFC3339 helper
+  (`YYYY-MM-DDThh:mm:ss[.fraction]Z` or a colon-separated numeric
+  offset). Equivalent offsets are the same instant. Basic date/time,
+  week dates, ordinal dates, missing seconds, a space separator, and
+  offsets without a colon fail closed. Leap seconds (`hh:mm:60`) are
+  not admitted.
 - **`observe_hint`.** `method_id` is `job_complete`, `subject_kind` is
   `service_job`, `subject_id` is the `job_id`. The hint MUST NOT carry a
   start position. The consumer's agent-wait registration supplies

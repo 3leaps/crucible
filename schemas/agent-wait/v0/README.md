@@ -4,11 +4,14 @@ Machine-readable companion schemas for the portable agent-wait contract.
 
 The normative standard is
 [`docs/standards/agent-wait-contract.md`](../../../docs/standards/agent-wait-contract.md).
-These schemas provide the structural validation surface. Deadline ordering,
-opaque-anchor identity, full outcome kinds, coverage cardinality, fairness,
-per-registration ack/retention, replay, bounds, authn/lease, and revision
-freeze are enforced by `scripts/validate-agent-wait-normative.sh` and
-proven able to fail by `scripts/test-agent-wait-controls.sh`.
+These schemas provide the structural validation surface. Deadline ordering
+uses a fail-closed RFC3339 profile (no basic/week/ordinal dates, no
+missing seconds, no space separator, no colon-less offsets; leap seconds
+are rejected). Opaque-anchor identity, full outcome kinds, coverage
+cardinality, fairness, per-registration ack/retention, replay, bounds,
+authn/lease, and revision freeze are enforced by
+`scripts/validate-agent-wait-normative.sh` and proven able to fail by
+`scripts/test-agent-wait-controls.sh`.
 
 The contract identity is the opaque capability token
 `contract: agent-wait/v0`. Consumers resolve that token through local
