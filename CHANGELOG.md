@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service-job JCS materializer follows RFC 8785 / ECMAScript number
   serialization and the I-JSON numeric domain. Official-style vectors run
   under `make check`; the JobSpec digest remains an integration case.
+- Agent-wait exclusive anchors are provider-opaque and distinct from source
+  event IDs. Live and poll share the frozen outcome kinds; clean
+  `no_change` / `logical_deadman` are rejected when required coverage is
+  degraded. Poll carries fairness and ack/continuation surfaces.
+- Service-job submit requires a scoped idempotency key. Receipts correlate
+  by `submit_ref`; an `unknown` admission blocks a later scoped resubmit
+  until resolved. Exact retry reuses `job_id`; a different digest conflicts
+  regardless of job identity.
+- Service-job lifecycle restores `admitted`, `partial`, `expired`, and
+  observational `unknown`, monotonic `state_version`, terminal-only
+  `job_result`, and cancel admission including `refused` / `unsupported`.
+- Service-job offer and JobSpec restore frozen artifact, backend, and
+  parameter surfaces. Changing any digest-covered JobSpec component changes
+  the canonical digest.
 
 ### Added
 

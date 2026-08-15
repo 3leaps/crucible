@@ -8,5 +8,8 @@
   "causation_id": "msg:sj-cancel-req-1",
   "job_id": "job:transcribe-2",
   "cancel_admission": "accepted",
-  "job_state": "cancel_requested"
+  "job_state": "cancel_requested",
+  "cancel_request_ref": "msg:sj-cancel-req-1",
+  "state_version": 4,
+  "idempotency_key": "idem:cancel-1"
 }

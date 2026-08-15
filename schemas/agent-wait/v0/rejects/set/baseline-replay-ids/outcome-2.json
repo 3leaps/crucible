@@ -30,12 +30,14 @@
     }
   ],
   "retained_through": {
-    "kind": "event_id",
-    "value": "evt:job-complete-1"
+    "kind": "provider_opaque",
+    "value": "anc:job-complete-1"
   },
   "retained_event_ids": ["evt:job-complete-1"],
   "proposed_next_anchor": {
-    "kind": "event_id",
-    "value": "evt:job-complete-1"
-  }
+    "kind": "provider_opaque",
+    "value": "anc:job-complete-1"
+  },
+  "fairness_cursor": "fair:start",
+  "next_fairness_cursor": "fair:arm-primary"
 }

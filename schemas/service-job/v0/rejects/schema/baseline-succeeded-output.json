@@ -12,7 +12,16 @@
     {
       "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000601",
       "role": "transcript",
-      "media_type": "text/plain"
+      "media_type": "text/plain",
+      "descriptor_ref": "desc:transcript-601",
+      "representation_id": "txt",
+      "profile": "example.text/v0",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
     }
-  ]
+  ],
+  "state_version": 9,
+  "updated_at": "2026-08-15T16:07:20Z"
 }

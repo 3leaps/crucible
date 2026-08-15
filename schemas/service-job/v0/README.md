@@ -5,8 +5,8 @@ Machine-readable companion schemas for the portable service-job contract.
 The normative standard is
 [`docs/standards/service-job-contract.md`](../../../docs/standards/service-job-contract.md).
 These schemas provide the structural validation surface. Catalog/offer
-integrity, local→hosted non-fallback, hosted backend integrity, idempotency,
-and legal transitions are enforced by
+integrity, local-default resolution, hosted membership, scoped idempotency,
+artifact requirements, cancel replay, and legal transitions are enforced by
 `scripts/validate-service-job-normative.sh` and proven able to fail by
 `scripts/test-service-job-controls.sh`.
 
@@ -22,10 +22,11 @@ capability does not match, or the entry schema is missing. Direct `$id`
 lookup remains valid for schema-aware tooling, but it is not the
 contract-entry mechanism.
 
-| File                              | Role                                                   |
-| --------------------------------- | ------------------------------------------------------ |
-| `service-job-message.schema.json` | Discriminated entry schema (thirteen `message_type`s). |
-| `contract.json`                   | Capability manifest and entry pointer.                 |
-| `examples/`                       | One golden per kind, plus the audio cross-path.        |
-| `canonicalization/`               | RFC 8785 vectors plus the JobSpec integration digest.  |
-| `rejects/`                        | Schema-labeled and normative-labeled controls.         |
+| File                              | Role                                                    |
+| --------------------------------- | ------------------------------------------------------- |
+| `service-job-message.schema.json` | Discriminated entry schema (thirteen `message_type`s).  |
+| `contract.json`                   | Capability manifest and entry pointer.                  |
+| `parameters/`                     | Portable JobSpec parameter schemas referenced by offer. |
+| `examples/`                       | One golden per kind, plus frozen-state extras.          |
+| `canonicalization/`               | RFC 8785 vectors plus the JobSpec integration digest.   |
+| `rejects/`                        | Schema-labeled and normative-labeled controls.          |

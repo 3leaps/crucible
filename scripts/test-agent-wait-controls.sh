@@ -72,11 +72,12 @@ expected_reason() {
         *deadline-ordering*) echo deadline_ordering ;;
         *no-change-with-events* | *no-change-past-deadline*) echo no_change_invariants ;;
         *deadman-before-deadline*) echo deadman_invariants ;;
-        *outage-as-no-change* | *uncertain-as-deadman*) echo outage_not_clean ;;
+        *outage-as-no-change* | *uncertain-as-deadman* | *degraded-as-no-change* | *degraded-as-deadman*) echo outage_not_clean ;;
         *coverage-cardinality*) echo coverage_cardinality ;;
         *ack-past-unretained*) echo ack_past_unretained ;;
         *silent-cursor-advance*) echo silent_cursor_advance ;;
         *revision-cross*) echo revision_cross ;;
+        *fairness-starvation*) echo fairness_starvation ;;
         *) echo unknown ;;
     esac
 }
@@ -91,6 +92,20 @@ if python3 scripts/rfc3339-instant.py --epoch "not-a-timestamp" >/tmp/aw-ts.out 
     exit 1
 fi
 echo "    [ok] RFC3339 parse failure is rejected; equality/before/after hold"
+
+echo "    Frozen outcome kinds (live and poll)..."
+for kind in events no_change logical_deadman partial cancelled coverage_degraded refused reauthentication_required failed; do
+    for mode in live_wait_outcome poll_cycle_outcome; do
+        f="$base/examples/outcomes/${mode}.${kind}.json"
+        [ -f "$f" ] || {
+            echo "    [!!] missing $mode $kind: $f" >&2
+            exit 1
+        }
+        goneat validate data --schema-file "$schema" --data "$f" >/dev/null
+        sh scripts/validate-agent-wait-normative.sh "$f"
+        echo "    [ok] outcome $mode $kind"
+    done
+done
 
 echo "    Positive coverage (one golden per declared kind)..."
 for kind in registration_set live_wait_request live_wait_outcome poll_cycle_request poll_cycle_outcome poll_cycle_ack; do
@@ -200,8 +215,9 @@ for f in "$base"/rejects/schema/reject-*.json "$base"/rejects/normative/reject-*
             reject-no-change-with-events.json) twin="$(dirname "$f")/baseline-no-change-empty.json" ;;
             reject-no-change-past-deadline.json) twin="$(dirname "$f")/baseline-no-change-before-deadline.json" ;;
             reject-deadman-before-deadline.json) twin="$(dirname "$f")/baseline-deadman-at-deadline.json" ;;
-            reject-outage-as-no-change.json) twin="$(dirname "$f")/baseline-no-change-arm.json" ;;
-            reject-uncertain-as-deadman.json) twin="$(dirname "$f")/baseline-deadman-arm.json" ;;
+            reject-outage-as-no-change.json | reject-degraded-as-no-change.json) twin="$(dirname "$f")/baseline-no-change-arm.json" ;;
+            reject-uncertain-as-deadman.json | reject-degraded-as-deadman.json) twin="$(dirname "$f")/baseline-deadman-arm.json" ;;
+            reject-event-id-anchor.json) twin="$(dirname "$f")/baseline-opaque-anchor.json" ;;
             *)
                 echo "    [!!] reject has no baseline twin: $f" >&2
                 exit 1

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:service-job/v0/parameters/transcribe.parameters.schema.json",
+  "title": "Transcribe JobSpec parameters",
+  "description": "Portable parameters schema referenced by the example transcribe offer. additionalProperties is false so provider or CLI-only keys cannot pass.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["language"],
+  "properties": {
+    "language": { "type": "string", "minLength": 2 },
+    "beam_width": { "type": "number" },
+    "temperature": { "type": "number" }
+  }
+}

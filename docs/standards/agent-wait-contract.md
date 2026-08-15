@@ -40,6 +40,10 @@ Schema cannot prove are enforced by the repository's normative checker
   `start_anchor` (exclusive continuation) or `baseline_policy`
   (`latest` | `earliest` | `provider_defined`). Omitted position is invalid.
   There is no implicit provider default.
+- **Anchors are provider-opaque.** An exclusive continuation cursor has
+  `kind` `provider_opaque`. Its `value` is not a source `event_id` and MUST
+  NOT be treated as one. Stable event identity lives on `events[].event_id`
+  and on ack/retention event-id lists.
 - **Live match does not commit the cursor.** `proposed_next_anchor` is a
   proposal. The next live wait advances only after a new `registration_set`
   whose `start_anchor` is the consumer-chosen continuation.
@@ -82,25 +86,40 @@ identity reference, never a credential). Optional: `causation_id`,
 | -------------------- | ------------------------------------------------------------------------------------- |
 | `registration_set`   | Snapshot of registrations for one waiter/seat, with a frozen `registration_revision`. |
 | `live_wait_request`  | Wait for a live match against that snapshot.                                          |
-| `live_wait_outcome`  | Matched events plus `proposed_next_anchor`. Does not commit a cursor.                 |
-| `poll_cycle_request` | Poll against the snapshot, naming `required_arms` and absolute deadlines.             |
-| `poll_cycle_outcome` | Events, coverage, retained ids, and an outcome kind.                                  |
-| `poll_cycle_ack`     | Consumer commit of a cursor. Cannot advance past unretained events.                   |
+| `live_wait_outcome`  | Discriminated wait result. `events` is not required for every kind.                   |
+| `poll_cycle_request` | Poll against the snapshot: `required_arms`, `fairness_cursor`, optional ack/bound.    |
+| `poll_cycle_outcome` | Discriminated poll result plus retention, fairness, and coverage arms.                |
+| `poll_cycle_ack`     | Consumer commit of an opaque cursor. Cannot advance past unretained events.           |
 
 ## Frozen Rules
 
 - **Deadlines.** `run_deadline` is absolute and MUST be `<= logical_deadline`.
   Comparisons use portable RFC3339 instants and MUST fail closed on an
   unparseable timestamp.
+- **Outcome kinds.** Live and poll share the same `outcome_kind` vocabulary:
+  `events` | `no_change` | `logical_deadman` | `partial` | `cancelled` |
+  `coverage_degraded` | `refused` | `reauthentication_required` | `failed`.
+  `cancelled`, `refused`, `reauthentication_required`, and `failed` require
+  `reason_code`.
 - **`no_change`.** Empty `events`, `coverage_complete`, every required arm
-  `no_change`, and `completed_at < logical_deadline`.
+  `no_change` and not degraded, and `completed_at < logical_deadline`.
 - **`logical_deadman`.** Empty `events`, complete non-degraded required
   coverage, and `completed_at >= logical_deadline`.
-- **Outage is not clean.** A required-arm `outage` or `cursor_uncertain`
-  (or a degraded required arm) MUST NOT validate as `no_change` or
-  `logical_deadman`.
-- **Ack vs retention.** `poll_cycle_ack` MUST NOT commit an anchor or ack an
-  event id that the paired outcome did not retain.
+- **Outage is not clean.** A required-arm `outage`, `cursor_uncertain`, or
+  `degraded` MUST NOT validate as `no_change` or `logical_deadman`. Report
+  `coverage_degraded` (or another non-clean kind) instead.
+- **Fairness.** Poll request and outcome carry `fairness_cursor`. The
+  outcome also carries `next_fairness_cursor`. A required arm MAY be
+  `deferred` in one cycle; a noisy arm MUST NOT keep another required arm
+  deferred across successive outcomes that never rotate the fairness
+  cursor.
+- **Bounds.** Poll request and outcome MAY carry `bound`
+  (`max_events`, `max_payload_refs`) when the provider degrades or
+  truncates a cycle.
+- **Ack vs retention.** Pair `poll_cycle_ack.outcome_ref` to the outcome
+  `message_id`. `committed_anchor` MUST equal `retained_through` as
+  `{kind, value}`. `acked_event_ids` MUST be a subset of
+  `retained_event_ids`. The opaque anchor value is not an event id.
 - **Crash-before-ack.** A later outcome MAY replay stable event ids. The
   cursor MUST NOT silently advance across unacked events.
 - **Revision freeze.** Live and poll requests MUST cite the

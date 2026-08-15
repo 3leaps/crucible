@@ -9,8 +9,8 @@
   "waiter_id": "waiter:seat-consumer-a",
   "outcome_ref": "msg:aw-poll-out-job-1",
   "committed_anchor": {
-    "kind": "event_id",
-    "value": "evt:unretained-9"
+    "kind": "provider_opaque",
+    "value": "anc:unretained-9"
   },
   "acked_event_ids": ["evt:job-complete-1"]
 }

@@ -8,7 +8,7 @@
   "causation_id": "msg:sj-submit-1",
   "submit_ref": "msg:sj-submit-replay",
   "admission": "accepted",
-  "job_id": "job:transcribe-1",
+  "job_id": "job:transcribe-other",
   "resolved_backend_ref": "backend:local-default",
   "resolved_placement": "local",
   "observe_hint": {
@@ -19,6 +19,6 @@
   "job_spec_digest": {
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
-    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "value": "96b35bc8b8d1023dd61d30cc75a931a9daddea80660b738576eb2602a718c4da"
   }
 }

@@ -5,8 +5,9 @@ Machine-readable companion schemas for the portable agent-wait contract.
 The normative standard is
 [`docs/standards/agent-wait-contract.md`](../../../docs/standards/agent-wait-contract.md).
 These schemas provide the structural validation surface. Deadline ordering,
-coverage cardinality, ack/retention, replay, and revision freeze are enforced
-by `scripts/validate-agent-wait-normative.sh` and proven able to fail by
+opaque-anchor identity, full outcome kinds, coverage cardinality, fairness,
+ack/retention, replay, and revision freeze are enforced by
+`scripts/validate-agent-wait-normative.sh` and proven able to fail by
 `scripts/test-agent-wait-controls.sh`.
 
 The contract identity is the opaque capability token
@@ -25,5 +26,5 @@ contract-entry mechanism.
 | -------------------------------- | ------------------------------------------------- |
 | `agent-wait-message.schema.json` | Discriminated entry schema (six `message_type`s). |
 | `contract.json`                  | Capability manifest and entry pointer.            |
-| `examples/`                      | One golden per kind, plus the job_complete path.  |
+| `examples/`                      | One golden per kind, plus outcome-kind goldens.   |
 | `rejects/`                       | Schema-labeled and normative-labeled controls.    |

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:agent-wait/v0/agent-wait-message.schema.json",
   "title": "Agent Wait Message",
-  "description": "Discriminated entry schema for contract: agent-wait/v0. Six message kinds only. The prose standard remains normative for deadline ordering, coverage cardinality, ack/retention, replay, and revision freeze.",
+  "description": "Discriminated entry schema for contract: agent-wait/v0. Six message kinds only. Provider-opaque exclusive anchors are distinct from source event IDs. The prose standard remains normative for deadline ordering, coverage, fairness, ack/retention, replay, and revision freeze.",
   "oneOf": [
     { "$ref": "#/$defs/registrationSet" },
     { "$ref": "#/$defs/liveWaitRequest" },
@@ -57,10 +57,26 @@
       "additionalProperties": false,
       "required": ["kind", "value"],
       "properties": {
-        "kind": { "const": "event_id" },
+        "kind": { "const": "provider_opaque" },
         "value": { "$ref": "#/$defs/idToken" }
       },
-      "description": "Exclusive continuation cursor. Events at or before this id are already consumed."
+      "description": "Provider-opaque exclusive continuation cursor. Distinct from a source event_id. The value MUST NOT be treated as an event identifier."
+    },
+    "outcomeKind": {
+      "enum": [
+        "events",
+        "no_change",
+        "logical_deadman",
+        "partial",
+        "cancelled",
+        "coverage_degraded",
+        "refused",
+        "reauthentication_required",
+        "failed"
+      ]
+    },
+    "reasonOutcomeKind": {
+      "enum": ["cancelled", "refused", "reauthentication_required", "failed"]
     },
     "baselinePolicy": {
       "enum": ["latest", "earliest", "provider_defined"],
@@ -87,7 +103,7 @@
         "delivery_ref": { "$ref": "#/$defs/refToken" },
         "activation_ref": { "$ref": "#/$defs/refToken" }
       },
-      "description": "Event identity plus payload_ref only. delivery_ref and activation_ref never imply agent action."
+      "description": "Stable source event identity plus payload_ref only. event_id is not an exclusive cursor."
     },
     "coverageArm": {
       "type": "object",
@@ -97,9 +113,17 @@
         "arm_id": { "$ref": "#/$defs/idToken" },
         "required": { "type": "boolean" },
         "status": {
-          "enum": ["no_change", "events", "observed", "outage", "cursor_uncertain"]
+          "enum": ["no_change", "events", "observed", "outage", "cursor_uncertain", "deferred"]
         },
         "degraded": { "type": "boolean" }
+      }
+    },
+    "pollBound": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_events": { "type": "integer", "minimum": 1 },
+        "max_payload_refs": { "type": "integer", "minimum": 1 }
       }
     },
     "registration": {
@@ -207,8 +231,8 @@
         "actor_ref",
         "waiter_id",
         "request_ref",
-        "events",
-        "proposed_next_anchor"
+        "completed_at",
+        "outcome_kind"
       ],
       "properties": {
         "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -223,12 +247,69 @@
         "policy_decision_ref": { "$ref": "#/$defs/refToken" },
         "waiter_id": { "$ref": "#/$defs/idToken" },
         "request_ref": { "$ref": "#/$defs/idToken" },
+        "completed_at": { "$ref": "#/$defs/rfc3339" },
+        "logical_deadline": { "$ref": "#/$defs/rfc3339" },
+        "outcome_kind": { "$ref": "#/$defs/outcomeKind" },
         "events": {
           "type": "array",
           "items": { "$ref": "#/$defs/waitEvent" }
         },
-        "proposed_next_anchor": { "$ref": "#/$defs/anchor" }
-      }
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" },
+        "coverage_complete": { "type": "boolean" },
+        "arms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/coverageArm" }
+        },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome_kind": { "const": "events" } },
+            "required": ["outcome_kind"]
+          },
+          "then": {
+            "required": ["events", "proposed_next_anchor"],
+            "properties": { "events": { "minItems": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome_kind": { "enum": ["no_change", "logical_deadman"] } },
+            "required": ["outcome_kind"]
+          },
+          "then": {
+            "required": ["events", "coverage_complete", "arms", "logical_deadline"],
+            "properties": { "events": { "maxItems": 0 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome_kind": { "const": "partial" } },
+            "required": ["outcome_kind"]
+          },
+          "then": {
+            "required": ["events", "arms", "coverage_complete"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome_kind": { "const": "coverage_degraded" } },
+            "required": ["outcome_kind"]
+          },
+          "then": {
+            "required": ["arms", "coverage_complete"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome_kind": { "$ref": "#/$defs/reasonOutcomeKind" } },
+            "required": ["outcome_kind"]
+          },
+          "then": { "required": ["reason_code"] }
+        }
+      ]
     },
     "pollCycleRequest": {
       "type": "object",
@@ -245,7 +326,8 @@
         "registration_revision",
         "logical_deadline",
         "run_deadline",
-        "required_arms"
+        "required_arms",
+        "fairness_cursor"
       ],
       "properties": {
         "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -268,7 +350,10 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/idToken" }
-        }
+        },
+        "fairness_cursor": { "$ref": "#/$defs/idToken" },
+        "acknowledged_anchor": { "$ref": "#/$defs/anchor" },
+        "bound": { "$ref": "#/$defs/pollBound" }
       }
     },
     "pollCycleOutcome": {
@@ -291,7 +376,9 @@
         "arms",
         "retained_through",
         "retained_event_ids",
-        "proposed_next_anchor"
+        "proposed_next_anchor",
+        "fairness_cursor",
+        "next_fairness_cursor"
       ],
       "properties": {
         "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -308,7 +395,7 @@
         "request_ref": { "$ref": "#/$defs/idToken" },
         "completed_at": { "$ref": "#/$defs/rfc3339" },
         "logical_deadline": { "$ref": "#/$defs/rfc3339" },
-        "outcome_kind": { "enum": ["events", "no_change", "logical_deadman"] },
+        "outcome_kind": { "$ref": "#/$defs/outcomeKind" },
         "events": {
           "type": "array",
           "items": { "$ref": "#/$defs/waitEvent" }
@@ -325,8 +412,22 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/idToken" }
         },
-        "proposed_next_anchor": { "$ref": "#/$defs/anchor" }
-      }
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" },
+        "fairness_cursor": { "$ref": "#/$defs/idToken" },
+        "next_fairness_cursor": { "$ref": "#/$defs/idToken" },
+        "acknowledged_anchor": { "$ref": "#/$defs/anchor" },
+        "bound": { "$ref": "#/$defs/pollBound" },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome_kind": { "$ref": "#/$defs/reasonOutcomeKind" } },
+            "required": ["outcome_kind"]
+          },
+          "then": { "required": ["reason_code"] }
+        }
+      ]
     },
     "pollCycleAck": {
       "type": "object",

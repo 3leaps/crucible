@@ -10,24 +10,36 @@
   "offer_revision": "offerrev-7",
   "idempotency_key": "idem:transcribe-1",
   "job_spec": {
+    "inputs": [
+      {
+        "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000401",
+        "role": "source_audio",
+        "descriptor_ref": "desc:audio-401",
+        "representation_id": "clip_wav",
+        "profile": "example.audio/v0",
+        "media_type": "audio/wav",
+        "digest": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
     "parameters": {
       "beam_width": 4.5,
       "language": "en",
       "temperature": 1e-15
     },
-    "input_artifacts": [
+    "outputs": [
       {
-        "role": "source_audio",
-        "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000401"
+        "role": "transcript"
       }
     ],
-    "service_id": "svc:transcribe",
-    "scale_hint": 1e30
+    "deadline": "2026-08-15T17:00:00Z"
   },
   "job_spec_digest": {
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
-    "value": "cc80ae9f7a9f0e40c6a9cb46671449b0c073c22639420e34484a3ee1f683d6de"
+    "value": "0595b8d6f3b58b7f726aec93d97f558d9e271364219d65a1506d220ec82a7759"
   },
   "placement": "hosted"
 }

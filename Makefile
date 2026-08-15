@@ -342,7 +342,7 @@ lint-config: ## Validate config data files against schemas
 		done; \
 		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
 		sh scripts/test-review-journal-controls.sh || exit 1; \
-		for f in schemas/agent-wait/v0/examples/*.json; do \
+		for f in schemas/agent-wait/v0/examples/*.json schemas/agent-wait/v0/examples/outcomes/*.json; do \
 			[ -f "$$f" ] || continue; \
 			echo "    Validating $$f..."; \
 			goneat validate data --schema-file schemas/agent-wait/v0/agent-wait-message.schema.json --data "$$f" || exit 1; \

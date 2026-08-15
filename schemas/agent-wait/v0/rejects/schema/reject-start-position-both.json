@@ -16,8 +16,8 @@
       "subject_id": "job:transcribe-1",
       "baseline_policy": "latest",
       "start_anchor": {
-        "kind": "event_id",
-        "value": "evt:cursor-0"
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
       }
     }
   ]

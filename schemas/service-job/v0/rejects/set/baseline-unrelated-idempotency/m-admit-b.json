@@ -1,0 +1,23 @@
+{
+  "capabilities": ["contract: service-job/v0"],
+  "message_type": "job_admission_receipt",
+  "message_id": "msg:sj-admit-b",
+  "correlation_id": "corr:sj-b",
+  "created_at": "2026-08-15T16:00:10Z",
+  "actor_ref": "seat:provider-admit",
+  "submit_ref": "msg:sj-submit-b",
+  "admission": "accepted",
+  "job_id": "job:other-1",
+  "resolved_backend_ref": "backend:local-default",
+  "resolved_placement": "local",
+  "observe_hint": {
+    "method_id": "job_complete",
+    "subject_kind": "service_job",
+    "subject_id": "job:other-1"
+  },
+  "job_spec_digest": {
+    "canonicalization": "rfc8785",
+    "algorithm": "sha256",
+    "value": "0595b8d6f3b58b7f726aec93d97f558d9e271364219d65a1506d220ec82a7759"
+  }
+}

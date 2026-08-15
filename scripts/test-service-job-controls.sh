@@ -17,6 +17,8 @@
 #   - RFC 8785 official-style vectors (numbers, keys, escaping, rejects)
 #   - checked-in JobSpec JCS bytes and SHA-256 match as an integration case
 #   - jq -S is not the digest oracle
+#   - JobSpec parameters validate against the referenced portable schema
+#   - changing any digest-covered JobSpec component changes the digest
 #   - cross-contract audio → submit/result → agent-wait job_complete path
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
 set -eu
@@ -76,12 +78,16 @@ expected_reason() {
         *pagination-revision-cross*) echo pagination_revision_cross ;;
         *offer-revision-mismatch*) echo offer_revision_mismatch ;;
         *local-to-hosted-fallback*) echo local_to_hosted_fallback ;;
-        *hosted-backend-mismatch*) echo hosted_backend_integrity ;;
-        *idempotency-conflict*) echo idempotency_conflict ;;
+        *hosted-backend-mismatch* | *hosted-not-in-offer*) echo hosted_backend_integrity ;;
+        *local-default-resolution*) echo local_default_resolution ;;
+        *idempotency-conflict* | *idempotency-job-id-drift*) echo idempotency_conflict ;;
         *unknown-admission-retry*) echo unknown_admission_retry ;;
         *illegal-transition*) echo illegal_transition ;;
         *terminal-escape*) echo terminal_escape ;;
         *cancel-accepted-as-cancelled*) echo cancel_accepted_as_cancelled ;;
+        *artifact-requirement*) echo artifact_requirement ;;
+        *cancel-conflict*) echo cancel_idempotency_conflict ;;
+        *state-version-regression*) echo state_version_regression ;;
         *) echo unknown ;;
     esac
 }
@@ -98,6 +104,24 @@ for kind in \
     }
     goneat validate data --schema-file "$schema" --data "$f" >/dev/null
     echo "    [ok] golden: $f"
+done
+
+echo "    Extra goldens (frozen terminals, cancel admissions, not-ready)..."
+for extra in \
+    job_result.partial.example.json \
+    job_result.expired.example.json \
+    job_cancel_receipt.refused.example.json \
+    job_cancel_receipt.unsupported.example.json \
+    job_cancel_receipt.unknown.example.json \
+    service_job_error.result_not_ready.example.json \
+    job_status.unknown.example.json; do
+    f="$base/examples/$extra"
+    [ -f "$f" ] || {
+        echo "    [!!] missing extra golden: $f" >&2
+        exit 1
+    }
+    goneat validate data --schema-file "$schema" --data "$f" >/dev/null
+    echo "    [ok] extra golden: $f"
 done
 
 echo "    Schema-labeled controls..."
@@ -166,6 +190,8 @@ for f in "$base"/rejects/schema/reject-*.json; do
             reject-observe-hint-start-position.json) twin="$(dirname "$f")/baseline-observe-hint.json" ;;
             reject-accepted-without-job-id.json) twin="$(dirname "$f")/baseline-accepted-job-id.json" ;;
             reject-succeeded-without-output.json) twin="$(dirname "$f")/baseline-succeeded-output.json" ;;
+            reject-result-not-ready.json) twin="$(dirname "$f")/baseline-terminal-result.json" ;;
+            reject-cli-field.json | reject-missing-idempotency-key.json) twin="$(dirname "$f")/baseline-job-spec.json" ;;
             *)
                 echo "    [!!] reject has no baseline twin: $f" >&2
                 exit 1
@@ -258,6 +284,50 @@ if digest != want:
     raise SystemExit("submit job_spec digest %s != %s" % (digest, want))
 '
 echo "    [ok] JobSpec integration digest $want_digest (jq -S is not the oracle)"
+
+echo "    Portable parameters schema..."
+jq '.job_spec.parameters' "$base/examples/job_submit_request.example.json" >"$tmpd/parameters.json"
+goneat validate data --schema-file "$base/parameters/transcribe.parameters.schema.json" --data "$tmpd/parameters.json" >/dev/null
+jq '. + {cli_args: ["--model", "local"]}' "$tmpd/parameters.json" >"$tmpd/parameters-cli.json"
+if goneat validate data --schema-file "$base/parameters/transcribe.parameters.schema.json" --data "$tmpd/parameters-cli.json" >/dev/null 2>&1; then
+    echo "    [!!] parameters schema accepted a CLI-only field" >&2
+    exit 1
+fi
+echo "    [ok] transcribe parameters validate; CLI-only keys are rejected"
+
+echo "    Digest-covered JobSpec components..."
+python3 -c '
+import copy, hashlib, json, pathlib, sys
+from importlib.machinery import SourceFileLoader
+
+jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+spec = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.input.json").read_text())
+base = hashlib.sha256(jcs.jcs_dumps(spec).encode("utf-8")).hexdigest()
+
+def digest(document):
+    return hashlib.sha256(jcs.jcs_dumps(document).encode("utf-8")).hexdigest()
+
+mutated = copy.deepcopy(spec)
+mutated["inputs"][0]["digest"]["value"] = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+if digest(mutated) == base:
+    raise SystemExit("changing inputs digest did not change JobSpec digest")
+
+mutated = copy.deepcopy(spec)
+mutated["parameters"]["language"] = "es"
+if digest(mutated) == base:
+    raise SystemExit("changing parameters did not change JobSpec digest")
+
+mutated = copy.deepcopy(spec)
+mutated["outputs"][0]["role"] = "notes"
+if digest(mutated) == base:
+    raise SystemExit("changing outputs did not change JobSpec digest")
+
+mutated = copy.deepcopy(spec)
+mutated["deadline"] = "2026-08-15T18:00:00Z"
+if digest(mutated) == base:
+    raise SystemExit("changing deadline did not change JobSpec digest")
+'
+echo "    [ok] each digest-covered JobSpec component changes the canonical digest"
 
 echo "    Cross-contract audio → job → agent-wait path..."
 goneat validate data --schema-file "$da_schema" --data "$base/examples/cross-path/audio.descriptor.json" >/dev/null

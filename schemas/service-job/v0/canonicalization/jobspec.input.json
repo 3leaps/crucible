@@ -1,15 +1,27 @@
 {
+  "inputs": [
+    {
+      "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000401",
+      "role": "source_audio",
+      "descriptor_ref": "desc:audio-401",
+      "representation_id": "clip_wav",
+      "profile": "example.audio/v0",
+      "media_type": "audio/wav",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ],
   "parameters": {
     "beam_width": 4.5,
     "language": "en",
-    "temperature": 0.000000000000001
+    "temperature": 1e-15
   },
-  "input_artifacts": [
+  "outputs": [
     {
-      "role": "source_audio",
-      "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000401"
+      "role": "transcript"
     }
   ],
-  "service_id": "svc:transcribe",
-  "scale_hint": 1e30
+  "deadline": "2026-08-15T17:00:00Z"
 }

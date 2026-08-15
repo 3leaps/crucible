@@ -11,5 +11,6 @@
   "registration_revision": "regrev-1",
   "logical_deadline": "2026-08-15T17:00:00Z",
   "run_deadline": "2026-08-15T16:05:00Z",
-  "required_arms": ["arm:primary", "arm:secondary"]
+  "required_arms": ["arm:primary", "arm:secondary"],
+  "fairness_cursor": "fair:start"
 }

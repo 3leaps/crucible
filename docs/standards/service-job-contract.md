@@ -36,18 +36,29 @@ JSON Schema cannot prove are enforced by
 - **Authorization-filtered catalog.** A list response is what the caller may
   see, not a global dump. `catalog_revision` and `offer_revision` are
   immutable. Pagination MUST NOT silently cross revisions.
-- **Local-only implicit default.** Omitting `placement` means local. Hosted
-  submit requires explicit `backend_ref` and `egress_authorization_ref`.
-  There is no silent local→hosted fallback.
-- **Admission is not completion.** `accepted` is not started, completed,
-  delivered, or activated. An accepted receipt requires `job_id`,
-  `resolved_backend_ref`, and `observe_hint`.
-- **Digest-bound idempotency.** The JobSpec is canonicalized with RFC 8785
-  (JCS) and bound by SHA-256. `jq -S` is not JCS. An exact retry of the same
-  digest MUST reuse the same `job_id`. A different digest is a hard conflict.
-  An `unknown` admission MUST be resolved before retry.
-- **Legal transitions; terminals never leave.** `cancel_admission=accepted`
-  is not "worker stopped". `cancel_requested → succeeded` is an honest race.
+- **Local-only implicit default.** Omitting `placement` and `backend_ref`
+  resolves only the offer's declared available local default
+  (`default_local=true`, `placement=local`, `availability=available`).
+  Hosted submit requires explicit `backend_ref`, `egress_authorization_ref`,
+  offer membership, and egress authorization. There is no silent
+  local→hosted fallback.
+- **Admission is not a job state.** Receipt `admission` is
+  `accepted` | `unknown` | `conflict` | `rejected`. The first job state is
+  `admitted`. `accepted` is not started, completed, delivered, or activated.
+  An accepted receipt requires `job_id`, `resolved_backend_ref`,
+  `resolved_placement`, and `observe_hint`.
+- **Digest-bound scoped idempotency.** `idempotency_key` is required. Scope
+  is authenticated `actor_ref` + `service_id` + key. Receipts correlate by
+  `submit_ref` = submit `message_id`. The JobSpec is canonicalized with RFC
+  8785 (JCS) and bound by SHA-256. `jq -S` is not JCS. An exact retry of the
+  same scoped digest MUST reuse the same `job_id`. A different digest is a
+  hard conflict regardless of `job_id`. An `unknown` admission MUST be
+  resolved before a later scoped resubmit.
+- **Legal transitions; terminals never leave.** Job states include
+  `partial`, `expired`, and observational `unknown`.
+  `cancel_admission=accepted` is not "worker stopped".
+  `cancel_requested → running` / `succeeded` / `partial` / `failed` /
+  `expired` are honest races.
 
 ## Capability And Versioning
 
@@ -81,41 +92,77 @@ credential). Optional: `causation_id`, `grant_ref`,
 | `catalog_list_request`     | Authorization-scoped page, optionally revision-pinned. |
 | `catalog_list_response`    | Filtered page bound to `catalog_revision`.             |
 | `service_describe_request` | Ask for one service at a catalog revision.             |
-| `service_offer`            | Immutable offer plus backends.                         |
-| `job_submit_request`       | JobSpec + RFC 8785 digest; local default.              |
+| `service_offer`            | Immutable method, artifact requirements, and backends. |
+| `job_submit_request`       | Structured JobSpec + RFC 8785 digest; required key.    |
 | `job_admission_receipt`    | `accepted` / `unknown` / `conflict` / `rejected`.      |
-| `job_status_request`       | Ask for current state.                                 |
-| `job_status`               | State plus the same start-position-free hint.          |
+| `job_status_request`       | Ask for state at or after `minimum_state_version`.     |
+| `job_status`               | Versioned state, backend, progress, and observe hint.  |
 | `job_result_request`       | Ask for the result.                                    |
-| `job_result`               | Terminal outputs, or `result_not_ready`.               |
-| `job_cancel_request`       | Ask to cancel.                                         |
-| `job_cancel_receipt`       | Cancel admission plus current `job_state`.             |
-| `service_job_error`        | Closed-envelope error.                                 |
+| `job_result`               | Terminal outcome only.                                 |
+| `job_cancel_request`       | Ask to cancel; required `idempotency_key`.             |
+| `job_cancel_receipt`       | Cancel admission plus `job_state` and `state_version`. |
+| `service_job_error`        | Closed-envelope error, including `result_not_ready`.   |
 
 ## Frozen Rules
 
+- **Offer.** A `service_offer` carries `method_id`, `display_name`,
+  `description`, `parameters_schema_ref`, `input_requirements`,
+  `output_requirements`, and one or more `BackendOffer`s. Each backend
+  declares `availability`, `default_local`, `cost_class`, `egress`,
+  `limits`, `worker_version`, and optional `policy_claims`.
+  `default_local=true` implies `placement=local` and
+  `availability=available`.
+- **JobSpec.** Closed object: `inputs` (artifact refs), `parameters`,
+  `outputs` (role slots), `deadline`. Provider- or CLI-specific fields
+  (`cli_args` and kin) are rejected at the contract boundary. Parameters
+  MUST validate against the referenced portable schema.
+- **Artifact refs.** An `ArtifactRef` may carry `descriptor_ref`,
+  `representation_id`, `profile`, `media_type`, and `digest` in addition to
+  `artifact_ref` and `role`. Offers constrain cardinality, profile, media
+  type, and whether a digest is required. No credentials and no
+  machine-local paths. Audio travels as a `data-artifact` descriptor using
+  profile-qualified tokens and `media_type`. This family does not bump the
+  data-artifact base enums.
+- **JobSpec digest.** Changing any digest-covered component (`inputs`,
+  `parameters`, `outputs`, `deadline`) MUST change the RFC 8785 SHA-256.
 - **`observe_hint`.** `method_id` is `job_complete`, `subject_kind` is
   `service_job`, `subject_id` is the `job_id`. The hint MUST NOT carry a
   start position. The consumer's agent-wait registration supplies
   `baseline_policy` XOR `start_anchor`.
-- **Succeeded result.** Requires at least one output. A non-terminal result
-  MUST use `reason_code` `result_not_ready`.
-- **Artifact refs.** No credentials and no machine-local paths. Audio travels
-  as a `data-artifact` descriptor using profile-qualified tokens and
-  `media_type`. This family does not bump the data-artifact base enums.
+- **Status.** `job_status_request` requires `minimum_state_version`.
+  `job_status` requires monotonic `state_version` (including same-state
+  progress), `updated_at`, `resolved_backend_ref`, `progress`, and
+  `observe_hint`. `failed` requires `error`. Order transitions by
+  `state_version`, not envelope `created_at`.
+- **Result.** `job_result` is terminal only:
+  `succeeded` | `failed` | `cancelled` | `partial` | `expired`.
+  `succeeded` and `partial` require outputs. `failed`, `cancelled`, and
+  `expired` require `reason_code`. Not-ready is `service_job_error` with
+  `error_code` `result_not_ready`, never a `job_result`.
+- **Cancel.** `job_cancel_request` requires `idempotency_key`. The receipt
+  requires `cancel_request_ref`, `state_version`, `idempotency_key`, and
+  `cancel_admission` of `accepted` | `refused` | `unsupported` | `unknown`.
+  Exact replay of the same scoped key MUST repeat the admission. A conflict
+  on that key is rejected.
 - **One `job_complete` event.** A single stable event identity references the
   terminal `job_result`. It is not a second waiter.
 - **Legal transitions.**
 
-  | From                                 | To                                                |
-  | ------------------------------------ | ------------------------------------------------- |
-  | `accepted`                           | `queued`, `running`, `cancel_requested`, `failed` |
-  | `queued`                             | `running`, `cancel_requested`, `failed`           |
-  | `running`                            | `succeeded`, `failed`, `cancel_requested`         |
-  | `cancel_requested`                   | `cancelled`, `succeeded`, `failed`                |
-  | `succeeded` / `failed` / `cancelled` | (none)                                            |
+  | From               | To                                                                  |
+  | ------------------ | ------------------------------------------------------------------- |
+  | `admitted`         | `queued`, `running`, `cancel_requested`, `failed`, `expired`        |
+  | `queued`           | `running`, `cancel_requested`, `failed`, `expired`                  |
+  | `running`          | `succeeded`, `failed`, `cancel_requested`, `partial`, `expired`     |
+  | `cancel_requested` | `cancelled`, `succeeded`, `failed`, `running`, `partial`, `expired` |
+  | `unknown`          | any non-observational job state                                     |
+  | `succeeded`        | (none)                                                              |
+  | `failed`           | (none)                                                              |
+  | `cancelled`        | (none)                                                              |
+  | `partial`          | (none)                                                              |
+  | `expired`          | (none)                                                              |
 
-  `accepted → succeeded` is illegal: admission is not completion.
+  `admitted → succeeded` is illegal: admission is not completion. Terminals
+  never leave.
 
 ## Canonicalization
 
@@ -134,7 +181,8 @@ stdlib-only materializer and refuses `jq -S` as the oracle.
 - **`contract: agent-wait/v0`** — observe via one waiter; the hint does not
   choose the start position.
 - **`contract: data-artifact/v0`** — inputs and outputs are artifact refs
-  plus optional profile tokens / `media_type`.
+  that may carry descriptor identity, representation, profile, media type,
+  and digest.
 
 ## Validation Requirements
 

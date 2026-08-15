@@ -19,7 +19,9 @@
     }
   ],
   "proposed_next_anchor": {
-    "kind": "event_id",
-    "value": "evt:job-complete-1"
-  }
+    "kind": "provider_opaque",
+    "value": "anc:job-complete-1"
+  },
+  "outcome_kind": "events",
+  "completed_at": "2026-08-15T16:08:00Z"
 }

@@ -77,25 +77,31 @@ while IFS= read -r row; do
             ;;
     esac
 
-    if [ "$mt" = "poll_cycle_outcome" ]; then
+    if [ "$mt" = "poll_cycle_outcome" ] || [ "$mt" = "live_wait_outcome" ]; then
         kind=$(printf '%s' "$row" | jq -r '.outcome_kind')
-        events_n=$(printf '%s' "$row" | jq -r '.events | length')
-        complete=$(printf '%s' "$row" | jq -r '.coverage_complete')
+        events_n=$(printf '%s' "$row" | jq -r '.events // [] | length')
+        complete=$(printf '%s' "$row" | jq -r '.coverage_complete // empty')
         completed=$(printf '%s' "$row" | jq -r '.completed_at')
-        logical=$(printf '%s' "$row" | jq -r '.logical_deadline')
-        dirty=$(printf '%s' "$row" | jq -r '
-            [.arms[] | select(.required == true) | select(.status == "outage" or .status == "cursor_uncertain" or .degraded == true)] | length
-        ')
-        req_no_change=$(printf '%s' "$row" | jq -r '
-            ([.arms[] | select(.required == true)] | length) as $n
-            | ([.arms[] | select(.required == true and .status == "no_change" and .degraded == false)] | length) as $ok
-            | if $n > 0 and $n == $ok then "true" else "false" end
-        ')
-        req_complete=$(printf '%s' "$row" | jq -r '
-            ([.arms[] | select(.required == true)] | length) as $n
-            | ([.arms[] | select(.required == true and .degraded == false and .status != "outage" and .status != "cursor_uncertain")] | length) as $ok
-            | if $n > 0 and $n == $ok then "true" else "false" end
-        ')
+        logical=$(printf '%s' "$row" | jq -r '.logical_deadline // empty')
+        has_arms=$(printf '%s' "$row" | jq -r 'has("arms")')
+        dirty=0
+        req_no_change=false
+        req_complete=false
+        if [ "$has_arms" = "true" ]; then
+            dirty=$(printf '%s' "$row" | jq -r '
+                [.arms[] | select(.required == true) | select(.status == "outage" or .status == "cursor_uncertain" or .degraded == true)] | length
+            ')
+            req_no_change=$(printf '%s' "$row" | jq -r '
+                ([.arms[] | select(.required == true)] | length) as $n
+                | ([.arms[] | select(.required == true and .status == "no_change" and .degraded == false)] | length) as $ok
+                | if $n > 0 and $n == $ok then "true" else "false" end
+            ')
+            req_complete=$(printf '%s' "$row" | jq -r '
+                ([.arms[] | select(.required == true)] | length) as $n
+                | ([.arms[] | select(.required == true and .degraded == false and .status != "outage" and .status != "cursor_uncertain")] | length) as $ok
+                | if $n > 0 and $n == $ok then "true" else "false" end
+            ')
+        fi
 
         if [ "$dirty" -gt 0 ] && { [ "$kind" = "no_change" ] || [ "$kind" = "logical_deadman" ]; }; then
             fail outage_not_clean
@@ -138,17 +144,48 @@ fi
 if jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "poll_cycle_ack")] | length >= 1' "$index" >/dev/null; then
     bad=$(jq -s '
-        ([.[] | select(.message_type == "poll_cycle_outcome")] | last) as $o
-        | ([.[] | select(.message_type == "poll_cycle_ack")] | last) as $a
-        | ($o.retained_event_ids + [$o.retained_through.value]) as $kept
-        | (
-            ($a.committed_anchor.value as $c | ($kept | index($c) | not))
-            or
-            ([ $a.acked_event_ids[] | select(. as $e | ($kept | index($e) | not)) ] | length > 0)
-          )
+        [.[] | select(.message_type == "poll_cycle_ack")] as $acks
+        | [.[] | select(.message_type == "poll_cycle_outcome")] as $outs
+        | [
+            $acks[] as $a
+            | ($outs | map(select(.message_id == $a.outcome_ref)) | .[0]) as $o
+            | select($o != null)
+            | (
+                ($a.committed_anchor.kind != $o.retained_through.kind)
+                or ($a.committed_anchor.value != $o.retained_through.value)
+                or ([ $a.acked_event_ids[] | select(. as $e | ($o.retained_event_ids | index($e) | not)) ] | length > 0)
+              )
+          ]
+        | any
     ' "$index")
     if [ "$bad" = "true" ]; then
         fail ack_past_unretained
+    fi
+fi
+
+if jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome")] | length >= 2' "$index" >/dev/null; then
+    starved=$(jq -s '
+        [.[] | select(.message_type == "poll_cycle_outcome")]
+        | group_by(.waiter_id)
+        | map(
+            sort_by(.created_at)
+            | . as $os
+            | ($os | map(.arms[] | select(.required == true) | .arm_id) | unique) as $arms
+            | [
+                $arms[] as $arm
+                | select(
+                    ($os | all(.arms | map(select(.arm_id == $arm)) | .[0].status == "deferred"))
+                    and ($os | any(.arms | map(select(.required == true and .arm_id != $arm and .status == "events")) | length > 0))
+                    and (($os | map(.next_fairness_cursor) | unique | length) == 1)
+                  )
+                | $arm
+              ]
+            | length
+          )
+        | add // 0
+    ' "$index")
+    if [ "$starved" -gt 0 ]; then
+        fail fairness_starvation
     fi
 fi
 

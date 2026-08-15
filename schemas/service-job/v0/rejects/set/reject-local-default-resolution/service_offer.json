@@ -1,0 +1,91 @@
+{
+  "capabilities": ["contract: service-job/v0"],
+  "message_type": "service_offer",
+  "message_id": "msg:sj-offer-1",
+  "correlation_id": "corr:sj-1",
+  "created_at": "2026-08-15T16:00:03Z",
+  "actor_ref": "seat:provider-catalog",
+  "causation_id": "msg:sj-desc-req-1",
+  "request_ref": "msg:sj-desc-req-1",
+  "service_id": "svc:transcribe",
+  "catalog_revision": "catrev-42",
+  "offer_revision": "offerrev-7",
+  "backends": [
+    {
+      "backend_ref": "backend:local-default",
+      "placement": "local",
+      "availability": "available",
+      "default_local": true,
+      "cost_class": "included",
+      "egress": {
+        "required": false
+      },
+      "limits": {
+        "max_duration_s": 3600,
+        "max_input_artifacts": 1
+      },
+      "worker_version": "1.0.0",
+      "policy_claims": ["local_compute"]
+    },
+    {
+      "backend_ref": "backend:local-other",
+      "placement": "local",
+      "availability": "available",
+      "default_local": false,
+      "cost_class": "included",
+      "egress": {
+        "required": false
+      },
+      "limits": {
+        "max_duration_s": 3600,
+        "max_input_artifacts": 1
+      },
+      "worker_version": "1.0.0",
+      "policy_claims": ["local_compute"]
+    },
+    {
+      "backend_ref": "backend:hosted-a",
+      "placement": "hosted",
+      "availability": "available",
+      "default_local": false,
+      "cost_class": "metered",
+      "egress": {
+        "required": true,
+        "authorization_kinds": ["egress:audio-transcribe"]
+      },
+      "limits": {
+        "max_duration_s": 3600,
+        "max_input_artifacts": 1
+      },
+      "worker_version": "1.0.0",
+      "policy_claims": ["hosted_compute"]
+    }
+  ],
+  "method_id": "transcribe",
+  "display_name": "Transcribe audio",
+  "description": "Produce a text artifact from an audio data-artifact.",
+  "parameters_schema_ref": "contract:service-job/v0/parameters/transcribe.parameters.schema.json",
+  "input_requirements": [
+    {
+      "role": "source_audio",
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "profile": "example.audio/v0",
+      "media_types": ["audio/wav"],
+      "digest_required": true
+    }
+  ],
+  "output_requirements": [
+    {
+      "role": "transcript",
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "media_types": ["text/plain"],
+      "digest_required": false
+    }
+  ]
+}
