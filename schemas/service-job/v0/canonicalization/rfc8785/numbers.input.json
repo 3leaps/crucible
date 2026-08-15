@@ -1,0 +1,12 @@
+{
+  "exponent_unpadded_1e_minus_7": 1e-7,
+  "fixed_1e20": 1e20,
+  "fixed_1e_minus_6": 1e-6,
+  "max_finite": 1.7976931348623157e308,
+  "min_normal": 2.2250738585072014e-308,
+  "min_subnormal": 5e-324,
+  "negative_zero": -0.0,
+  "safe_integer_max": 9007199254740991,
+  "safe_integer_min": -9007199254740991,
+  "scientific_1e21": 1e21
+}

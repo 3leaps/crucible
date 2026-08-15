@@ -1,0 +1,18 @@
+{
+  "cases": [
+    { "name": "non-finite-nan", "json_text": "NaN" },
+    { "name": "non-finite-infinity", "json_text": "Infinity" },
+    { "name": "non-finite-neg-infinity", "json_text": "-Infinity" },
+    { "name": "overflow-to-infinity", "json_text": "1e1000" },
+    { "name": "unsafe-integer", "json_text": "9007199254740993" },
+    { "name": "unsafe-integer-object", "json_text": "{\"n\":9007199254740993}" },
+    { "name": "duplicate-member", "json_text": "{\"a\":1,\"a\":2}" },
+    { "name": "duplicate-member-nested-object", "json_text": "{\"outer\":{\"a\":1,\"a\":2}}" },
+    { "name": "duplicate-member-nested-array", "json_text": "[{\"a\":1,\"a\":2}]" },
+    { "name": "duplicate-member-deep", "json_text": "{\"a\":{\"b\":{\"c\":1,\"c\":2}}}" },
+    { "name": "lone-surrogate-high", "json_text": "\"\\uD800\"" },
+    { "name": "lone-surrogate-low", "json_text": "\"\\uDFFF\"" },
+    { "name": "lone-surrogate-object-key", "json_text": "{\"\\uD800\":1}" },
+    { "name": "lone-surrogate-object-value", "json_text": "{\"s\":\"\\uDEAD\"}" }
+  ]
+}

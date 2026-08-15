@@ -102,9 +102,11 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── auth/v0/               # Session artifact schema
 │   ├── classifiers/v0/        # Classifier dimension meta-schemas
 │   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
+│   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
-│   └── process-run/v0/        # Local process telemetry/control (proposed)
+│   ├── process-run/v0/        # Local process telemetry/control (proposed)
+│   └── service-job/v0/        # Portable service job contract
 └── scripts/                   # Release and automation scripts
 ```
 

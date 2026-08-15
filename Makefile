@@ -342,12 +342,28 @@ lint-config: ## Validate config data files against schemas
 		done; \
 		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
 		sh scripts/test-review-journal-controls.sh || exit 1; \
+		for f in schemas/agent-wait/v0/examples/*.json schemas/agent-wait/v0/examples/outcomes/*.json; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f..."; \
+			goneat validate data --schema-file schemas/agent-wait/v0/agent-wait-message.schema.json --data "$$f" || exit 1; \
+		done; \
+		for f in schemas/service-job/v0/examples/*.json; do \
+			[ -f "$$f" ] || continue; \
+			echo "    Validating $$f..."; \
+			goneat validate data --schema-file schemas/service-job/v0/service-job-message.schema.json --data "$$f" || exit 1; \
+		done; \
+		echo "    Agent-wait controls..."; \
+		sh scripts/test-agent-wait-controls.sh || exit 1; \
+		echo "    Service-job controls..."; \
+		sh scripts/test-service-job-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/data-artifact/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
 			schemas/process-run/v0/contract.json \
-			schemas/review-journal/v0/contract.json || exit 1; \
+			schemas/review-journal/v0/contract.json \
+			schemas/agent-wait/v0/contract.json \
+			schemas/service-job/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
 	fi

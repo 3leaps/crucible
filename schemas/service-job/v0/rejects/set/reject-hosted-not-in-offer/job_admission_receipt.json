@@ -1,0 +1,29 @@
+{
+  "capabilities": ["contract: service-job/v0"],
+  "message_type": "job_admission_receipt",
+  "message_id": "msg:sj-admit-1",
+  "correlation_id": "corr:sj-1",
+  "created_at": "2026-08-15T16:00:11Z",
+  "actor_ref": "seat:provider-admit",
+  "submit_ref": "msg:sj-submit-1",
+  "admission": "accepted",
+  "job_id": "job:transcribe-1",
+  "resolved_backend_ref": "backend:unknown-hosted",
+  "resolved_placement": "hosted",
+  "observe_hint": {
+    "method_id": "job_complete",
+    "subject_kind": "service_job",
+    "subject_id": "job:transcribe-1"
+  },
+  "job_spec_digest": {
+    "canonicalization": "rfc8785",
+    "algorithm": "sha256",
+    "value": "19305a599b36ae93aa9074c9cc9865bc15ac8b8be83b2591aa2951133fa5faee"
+  },
+  "idempotency_key": "idem:transcribe-1",
+  "decided_at": "2026-08-15T16:00:11Z",
+  "catalog_id": "cat:public",
+  "catalog_revision": "catrev-42",
+  "service_id": "svc:transcribe",
+  "offer_revision": "offerrev-7"
+}

@@ -7,8 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Agent-wait normative deadline comparisons parse RFC3339 with a portable
+  stdlib helper and fail closed on unparseable instants (no GNU `date`).
+- Service-job JCS materializer follows RFC 8785 / ECMAScript number
+  serialization and the I-JSON numeric domain. Official-style vectors run
+  under `make check`; the JobSpec digest remains an integration case.
+- JCS string serialization leaves U+2028 and U+2029 as UTF-8. Duplicate
+  object members are rejected at every nesting depth. Lone surrogate code
+  points are rejected. Quote, backslash, and C0 control escapes are
+  unchanged.
+- Agent-wait exclusive anchors are provider-opaque and distinct from source
+  event IDs. Live and poll share the frozen outcome kinds; clean
+  `no_change` / `logical_deadman` are rejected when required coverage is
+  degraded. Poll carries fairness and ack/continuation surfaces.
+- Service-job submit requires a scoped idempotency key. Receipts correlate
+  by `submit_ref`; an `unknown` admission blocks a later scoped resubmit
+  until resolved. Exact retry reuses `job_id`; a different digest conflicts
+  regardless of job identity.
+- Service-job lifecycle restores `admitted`, `partial`, `expired`, and
+  observational `unknown`, monotonic `state_version`, terminal-only
+  `job_result`, and cancel admission including `refused` / `unsupported`.
+- Service-job offer and JobSpec restore frozen artifact, backend, and
+  parameter surfaces. Changing any digest-covered JobSpec component changes
+  the canonical digest.
+- Agent-wait registration sets carry principal, authn mode, aggregate
+  limits, and a registration digest. Each registration carries source,
+  predicate, capability, lease, and bounds. Events use structured payload
+  refs and replay metadata. Poll ack, retention, and coverage are
+  per-registration maps.
+- Service-job JobSpec digest identity includes catalog and offer revision,
+  service, requester, and backend/placement choice. Catalog, offer,
+  admission, result, cancel, and error restore the frozen required
+  fields and conditionals. Unknown admission cannot invent job identity.
+- Service-job normative checks recompute every submit digest before
+  semantic use, pair catalog pages and offers by explicit refs, compare
+  instants with the portable helper, and reject omitted-backend resolution
+  when the offer has zero or multiple eligible local defaults.
+- The portable RFC3339 helper accepts only the contract date-time
+  profile (including fractional seconds and colon-separated offsets).
+  Basic date/time, week dates, ordinal dates, missing seconds, a space
+  separator, and offsets without a colon fail closed. Leap seconds are
+  rejected rather than clamped.
+- Agent-wait and service-job normative checkers fail closed when the
+  target is missing, unreadable, empty, or not JSON. Paths are iterated
+  without word-splitting so a filename with spaces cannot become a
+  zero-record pass.
+- Service-job submit carries required `catalog_id` on the envelope and
+  the canonical JobSpec. Top-level `placement` and `backend_ref` are
+  rejected; execution selectors are digest-bound on the JobSpec only.
+  Offer and admission pairing uses catalog identity together with
+  service and both revisions.
+
 ### Added
 
+- **`contract: agent-wait/v0`.** Portable wait/poll family: six discriminated
+  message kinds, explicit start-position XOR, live match as a proposal, and
+  poll `no_change` / `logical_deadman` rules. Schemas, goldens, and
+  schema/normative/set controls land under `schemas/agent-wait/v0/`; the
+  standard is `docs/standards/agent-wait-contract.md`. Wired into `make check`.
+- **`contract: service-job/v0`.** Portable service-job family: thirteen
+  discriminated kinds, authorization-filtered catalog, local-only implicit
+  default, RFC 8785 digest-bound idempotency, and legal/terminal transitions.
+  Schemas, goldens, JCS vectors, and controls land under
+  `schemas/service-job/v0/`; the standard is
+  `docs/standards/service-job-contract.md`. Wired into `make check`.
 - **Composing a Review Panel guide** (`docs/guides/`). The composition
   companion to the fierce-collaboration standard and its run-book: the
   five-layer seat composition model (identity × environment × harness+profile
@@ -32,6 +96,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Release-surface changelog grep.** The version-section check now consumes
+  the whole changelog stream so `grep -q` plus `pipefail` cannot report a
+  missing `## [version]` heading after a legitimate Unreleased addition.
 - **Fierce-collaboration standard 0.5.0 → 0.6.0.** §3 gains the execution
   disclosure: a seat is a composition, and its disclosure records harness
   class, symbolic profile, mode, and capture form alongside kind and reasoner.

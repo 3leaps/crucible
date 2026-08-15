@@ -1,0 +1,12 @@
+{
+  "capabilities": ["contract: service-job/v0"],
+  "message_type": "service_job_error",
+  "message_id": "msg:sj-error-result_not_ready",
+  "correlation_id": "corr:sj-1",
+  "created_at": "2026-08-15T16:00:12Z",
+  "actor_ref": "seat:provider-admit",
+  "operation": "job_result",
+  "error_code": "result_not_ready",
+  "redacted_message": "redacted result not ready",
+  "retryable": true
+}

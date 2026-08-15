@@ -1,0 +1,959 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:service-job/v0/service-job-message.schema.json",
+  "title": "Service Job Message",
+  "description": "Discriminated entry schema for contract: service-job/v0. Thirteen message kinds only. The prose standard remains normative for catalog/offer integrity, placement fallback, scoped idempotency, and legal transitions.",
+  "oneOf": [
+    { "$ref": "#/$defs/catalogListRequest" },
+    { "$ref": "#/$defs/catalogListResponse" },
+    { "$ref": "#/$defs/serviceDescribeRequest" },
+    { "$ref": "#/$defs/serviceOffer" },
+    { "$ref": "#/$defs/jobSubmitRequest" },
+    { "$ref": "#/$defs/jobAdmissionReceipt" },
+    { "$ref": "#/$defs/jobStatusRequest" },
+    { "$ref": "#/$defs/jobStatus" },
+    { "$ref": "#/$defs/jobResultRequest" },
+    { "$ref": "#/$defs/jobResult" },
+    { "$ref": "#/$defs/jobCancelRequest" },
+    { "$ref": "#/$defs/jobCancelReceipt" },
+    { "$ref": "#/$defs/serviceJobError" }
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque service-job contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: service-job/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque service-job contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: service-job/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "idToken": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier. Never a credential."
+    },
+    "actorRef": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "Actor identity reference. Never a credential, raw token, or machine-local path."
+    },
+    "refToken": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "Symbolic reference. Never a credential, raw token, or machine-local path."
+    },
+    "rfc3339": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "jobState": {
+      "enum": [
+        "admitted",
+        "queued",
+        "running",
+        "cancel_requested",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "partial",
+        "expired",
+        "unknown"
+      ]
+    },
+    "terminalJobState": {
+      "enum": ["succeeded", "failed", "cancelled", "partial", "expired"]
+    },
+    "observeHint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Wait binding without a start position. The consumer's agent-wait registration supplies baseline_policy XOR start_anchor.",
+      "required": ["method_id", "subject_kind", "subject_id"],
+      "properties": {
+        "method_id": { "const": "job_complete" },
+        "subject_kind": { "const": "service_job" },
+        "subject_id": { "$ref": "#/$defs/idToken" }
+      }
+    },
+    "jobSpecDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalization", "algorithm", "value"],
+      "properties": {
+        "canonicalization": { "const": "rfc8785" },
+        "algorithm": { "const": "sha256" },
+        "value": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_ref", "role"],
+      "properties": {
+        "artifact_ref": { "$ref": "#/$defs/refToken" },
+        "role": { "$ref": "#/$defs/idToken" },
+        "descriptor_ref": { "$ref": "#/$defs/refToken" },
+        "representation_id": { "$ref": "#/$defs/idToken" },
+        "profile": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifactRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "cardinality"],
+      "properties": {
+        "role": { "$ref": "#/$defs/idToken" },
+        "cardinality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "profile": { "type": "string", "minLength": 1 },
+        "media_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "digest_required": { "type": "boolean" },
+        "max_bytes": { "type": "integer", "minimum": 1 },
+        "provenance_required": { "type": "boolean" }
+      }
+    },
+    "outputSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "properties": {
+        "role": { "$ref": "#/$defs/idToken" }
+      }
+    },
+    "jobSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_id",
+        "catalog_revision",
+        "offer_revision",
+        "service_id",
+        "requester_ref",
+        "inputs",
+        "parameters",
+        "outputs",
+        "deadline"
+      ],
+      "properties": {
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "offer_revision": { "$ref": "#/$defs/idToken" },
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "requester_ref": { "$ref": "#/$defs/actorRef" },
+        "backend_ref": { "$ref": "#/$defs/refToken" },
+        "placement": { "enum": ["local", "hosted"] },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifactRef" }
+        },
+        "parameters": { "type": "object" },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/outputSlot" }
+        },
+        "deadline": { "$ref": "#/$defs/rfc3339" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "placement": { "const": "hosted" } },
+            "required": ["placement"]
+          },
+          "then": { "required": ["backend_ref"] }
+        }
+      ]
+    },
+    "egressClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "authorization_kinds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idToken" }
+        }
+      }
+    },
+    "backendLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_duration_s": { "type": "integer", "minimum": 1 },
+        "max_input_artifacts": { "type": "integer", "minimum": 1 },
+        "max_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "backendOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_ref",
+        "placement",
+        "availability",
+        "default_local",
+        "cost_class",
+        "egress",
+        "limits",
+        "worker_version"
+      ],
+      "properties": {
+        "backend_ref": { "$ref": "#/$defs/refToken" },
+        "placement": { "enum": ["local", "hosted"] },
+        "availability": { "enum": ["available", "unavailable", "degraded"] },
+        "default_local": { "type": "boolean" },
+        "cost_class": { "enum": ["included", "metered", "unspecified"] },
+        "egress": { "$ref": "#/$defs/egressClaim" },
+        "limits": { "$ref": "#/$defs/backendLimits" },
+        "worker_version": { "type": "string", "minLength": 1 },
+        "policy_claims": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idToken" }
+        },
+        "provenance_claims": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idToken" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "default_local": { "const": true } },
+            "required": ["default_local"]
+          },
+          "then": {
+            "properties": {
+              "placement": { "const": "local" },
+              "availability": { "const": "available" }
+            }
+          }
+        }
+      ]
+    },
+    "offerSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method_id", "availability", "cancel_posture"],
+      "properties": {
+        "method_id": { "$ref": "#/$defs/idToken" },
+        "availability": { "enum": ["available", "unavailable", "degraded"] },
+        "cancel_posture": { "enum": ["supported", "unsupported", "best_effort"] }
+      }
+    },
+    "catalogService": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_id", "title", "offer_summary"],
+      "properties": {
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "offer_summary": { "$ref": "#/$defs/offerSummary" }
+      }
+    },
+    "catalogFilters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "service_prefix": { "$ref": "#/$defs/idToken" },
+        "placement": { "enum": ["local", "hosted"] }
+      }
+    },
+    "errorCode": {
+      "enum": [
+        "result_not_ready",
+        "offer_revision_mismatch",
+        "idempotency_conflict",
+        "unknown_admission",
+        "unauthorized",
+        "invalid_job_spec",
+        "backend_unavailable",
+        "cancel_unsupported",
+        "timeout",
+        "internal"
+      ]
+    },
+    "errorOperation": {
+      "enum": [
+        "catalog_list",
+        "service_describe",
+        "job_submit",
+        "job_status",
+        "job_result",
+        "job_cancel"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "note": { "type": "string" }
+      }
+    },
+    "jobError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason_code"],
+      "properties": {
+        "reason_code": { "$ref": "#/$defs/idToken" },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "catalogListRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "catalog_id",
+        "page"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "catalog_list_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "filters": { "$ref": "#/$defs/catalogFilters" },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limit"],
+          "properties": {
+            "limit": { "type": "integer", "minimum": 1 },
+            "cursor": { "$ref": "#/$defs/idToken" }
+          }
+        }
+      }
+    },
+    "catalogListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "request_ref",
+        "catalog_id",
+        "catalog_revision",
+        "authorization_filtered",
+        "services",
+        "page"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "catalog_list_response" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "request_ref": { "$ref": "#/$defs/idToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "authorization_filtered": { "type": "boolean" },
+        "services": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalogService" }
+        },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limit"],
+          "properties": {
+            "limit": { "type": "integer", "minimum": 1 },
+            "next_cursor": { "$ref": "#/$defs/idToken" }
+          }
+        }
+      }
+    },
+    "serviceDescribeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "service_id",
+        "catalog_id",
+        "catalog_revision"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "service_describe_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" }
+      }
+    },
+    "serviceOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "request_ref",
+        "service_id",
+        "catalog_id",
+        "catalog_revision",
+        "offer_revision",
+        "method_id",
+        "display_name",
+        "description",
+        "parameters_schema_ref",
+        "input_requirements",
+        "output_requirements",
+        "backends",
+        "cancel_posture",
+        "availability",
+        "default_backend_ref",
+        "required_actions",
+        "retention_ref",
+        "policy_ref"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "service_offer" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "request_ref": { "$ref": "#/$defs/idToken" },
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "offer_revision": { "$ref": "#/$defs/idToken" },
+        "cancel_posture": { "enum": ["supported", "unsupported", "best_effort"] },
+        "availability": { "enum": ["available", "unavailable", "degraded"] },
+        "default_backend_ref": { "$ref": "#/$defs/refToken" },
+        "required_actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idToken" }
+        },
+        "retention_ref": { "$ref": "#/$defs/refToken" },
+        "policy_ref": { "$ref": "#/$defs/refToken" },
+        "method_id": { "$ref": "#/$defs/idToken" },
+        "display_name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "parameters_schema_ref": { "$ref": "#/$defs/refToken" },
+        "input_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifactRequirement" }
+        },
+        "output_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifactRequirement" }
+        },
+        "backends": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/backendOffer" }
+        }
+      }
+    },
+    "jobSubmitRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "service_id",
+        "catalog_id",
+        "catalog_revision",
+        "offer_revision",
+        "idempotency_key",
+        "job_spec",
+        "job_spec_digest"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_submit_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "offer_revision": { "$ref": "#/$defs/idToken" },
+        "idempotency_key": { "$ref": "#/$defs/idToken" },
+        "job_spec": { "$ref": "#/$defs/jobSpec" },
+        "job_spec_digest": { "$ref": "#/$defs/jobSpecDigest" },
+        "egress_authorization_ref": { "$ref": "#/$defs/refToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "job_spec": {
+                "type": "object",
+                "properties": {
+                  "placement": { "const": "hosted" }
+                },
+                "required": ["placement"]
+              }
+            },
+            "required": ["job_spec"]
+          },
+          "then": {
+            "required": ["egress_authorization_ref"]
+          }
+        }
+      ]
+    },
+    "jobAdmissionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "submit_ref",
+        "admission",
+        "idempotency_key",
+        "decided_at",
+        "job_spec_digest"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_admission_receipt" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "submit_ref": { "$ref": "#/$defs/idToken" },
+        "admission": { "enum": ["accepted", "unknown", "conflict", "rejected"] },
+        "idempotency_key": { "$ref": "#/$defs/idToken" },
+        "decided_at": { "$ref": "#/$defs/rfc3339" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
+        "catalog_revision": { "$ref": "#/$defs/idToken" },
+        "service_id": { "$ref": "#/$defs/idToken" },
+        "offer_revision": { "$ref": "#/$defs/idToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "resolved_backend_ref": { "$ref": "#/$defs/refToken" },
+        "resolved_placement": { "enum": ["local", "hosted"] },
+        "observe_hint": { "$ref": "#/$defs/observeHint" },
+        "job_spec_digest": { "$ref": "#/$defs/jobSpecDigest" },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "admission": { "const": "accepted" } },
+            "required": ["admission"]
+          },
+          "then": {
+            "required": [
+              "catalog_id",
+              "catalog_revision",
+              "service_id",
+              "offer_revision",
+              "job_id",
+              "resolved_backend_ref",
+              "resolved_placement",
+              "observe_hint"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "admission": { "enum": ["unknown", "conflict", "rejected"] }
+            },
+            "required": ["admission"]
+          },
+          "then": { "required": ["reason_code"] }
+        },
+        {
+          "if": {
+            "properties": { "admission": { "const": "unknown" } },
+            "required": ["admission"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["job_id"] },
+                { "required": ["resolved_backend_ref"] },
+                { "required": ["resolved_placement"] },
+                { "required": ["observe_hint"] }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "jobStatusRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id",
+        "minimum_state_version"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_status_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "minimum_state_version": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "jobStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id",
+        "state",
+        "state_version",
+        "updated_at",
+        "resolved_backend_ref",
+        "progress",
+        "observe_hint"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_status" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "state": { "$ref": "#/$defs/jobState" },
+        "state_version": { "type": "integer", "minimum": 1 },
+        "updated_at": { "$ref": "#/$defs/rfc3339" },
+        "resolved_backend_ref": { "$ref": "#/$defs/refToken" },
+        "progress": { "$ref": "#/$defs/progress" },
+        "error": { "$ref": "#/$defs/jobError" },
+        "observe_hint": { "$ref": "#/$defs/observeHint" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "const": "failed" } },
+            "required": ["state"]
+          },
+          "then": { "required": ["error"] }
+        }
+      ]
+    },
+    "jobResultRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_result_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" }
+      }
+    },
+    "jobResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id",
+        "job_spec_digest",
+        "resolved_backend_ref",
+        "finished_at",
+        "state",
+        "state_version",
+        "updated_at",
+        "outputs",
+        "result_digest",
+        "worker_version"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_result" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "job_spec_digest": { "$ref": "#/$defs/jobSpecDigest" },
+        "resolved_backend_ref": { "$ref": "#/$defs/refToken" },
+        "finished_at": { "$ref": "#/$defs/rfc3339" },
+        "state": { "$ref": "#/$defs/terminalJobState" },
+        "state_version": { "type": "integer", "minimum": 1 },
+        "updated_at": { "$ref": "#/$defs/rfc3339" },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifactRef" }
+        },
+        "result_digest": { "$ref": "#/$defs/jobSpecDigest" },
+        "worker_version": { "$ref": "#/$defs/idToken" },
+        "model_ref": { "$ref": "#/$defs/idToken" },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "enum": ["succeeded", "partial"] } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "outputs": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "enum": ["failed", "cancelled", "expired"] } },
+            "required": ["state"]
+          },
+          "then": { "required": ["reason_code"] }
+        }
+      ]
+    },
+    "jobCancelRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id",
+        "idempotency_key"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_cancel_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "idempotency_key": { "$ref": "#/$defs/idToken" }
+      }
+    },
+    "jobCancelReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "job_id",
+        "cancel_request_ref",
+        "cancel_admission",
+        "job_state",
+        "state_version",
+        "idempotency_key",
+        "decided_at"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "job_cancel_receipt" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "job_id": { "$ref": "#/$defs/idToken" },
+        "cancel_request_ref": { "$ref": "#/$defs/idToken" },
+        "cancel_admission": { "enum": ["accepted", "refused", "unsupported", "unknown"] },
+        "job_state": { "$ref": "#/$defs/jobState" },
+        "state_version": { "type": "integer", "minimum": 1 },
+        "idempotency_key": { "$ref": "#/$defs/idToken" },
+        "decided_at": { "$ref": "#/$defs/rfc3339" },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "if": {
+        "properties": {
+          "cancel_admission": { "enum": ["refused", "unsupported", "unknown"] }
+        },
+        "required": ["cancel_admission"]
+      },
+      "then": { "required": ["reason_code"] }
+    },
+    "serviceJobError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "operation",
+        "error_code",
+        "redacted_message",
+        "retryable"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "service_job_error" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "operation": { "$ref": "#/$defs/errorOperation" },
+        "error_code": { "$ref": "#/$defs/errorCode" },
+        "redacted_message": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "retryable": { "type": "boolean" },
+        "retry_after_s": { "type": "integer", "minimum": 0 },
+        "detail_ref": { "$ref": "#/$defs/refToken" },
+        "related_ref": { "$ref": "#/$defs/idToken" }
+      }
+    }
+  }
+}

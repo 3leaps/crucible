@@ -1,0 +1,34 @@
+# contract: service-job/v0
+
+Machine-readable companion schemas for the portable service-job contract.
+
+The normative standard is
+[`docs/standards/service-job-contract.md`](../../../docs/standards/service-job-contract.md).
+These schemas provide the structural validation surface. Digest-bound
+JobSpec identity (including `catalog_id`), catalog/offer pairing by
+explicit refs, local-default resolution, hosted membership, scoped
+idempotency, artifact requirements, cancel replay, and legal transitions
+are enforced by `scripts/validate-service-job-normative.sh` and proven
+able to fail by `scripts/test-service-job-controls.sh`. The checker
+fails closed on a missing, unreadable, empty, or malformed target.
+
+The contract identity is the opaque capability token
+`contract: service-job/v0`. Consumers resolve that token through local
+configuration, a vendored copy, or another trusted registry. Instances must
+not embed a schema host as their identity.
+
+The L2 contract entry point is `contract.json`. Consumers resolve the
+capability to that manifest, verify its `capability`, and load the relative
+`entry_schema`. Resolution fails closed when the manifest is missing, the
+capability does not match, or the entry schema is missing. Direct `$id`
+lookup remains valid for schema-aware tooling, but it is not the
+contract-entry mechanism.
+
+| File                              | Role                                                    |
+| --------------------------------- | ------------------------------------------------------- |
+| `service-job-message.schema.json` | Discriminated entry schema (thirteen `message_type`s).  |
+| `contract.json`                   | Capability manifest and entry pointer.                  |
+| `parameters/`                     | Portable JobSpec parameter schemas referenced by offer. |
+| `examples/`                       | One golden per kind, plus frozen-state extras.          |
+| `canonicalization/`               | RFC 8785 vectors plus the JobSpec integration digest.   |
+| `rejects/`                        | Schema-labeled and normative-labeled controls.          |

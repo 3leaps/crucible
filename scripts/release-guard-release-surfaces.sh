@@ -54,7 +54,11 @@ validate_release_surfaces() {
         return 1
     fi
 
-    if ! printf '%s\n' "${changelog}" | grep -qF "## [${version}]"; then
+    # Consume the whole stream. grep -q exits on the first hit (the version
+    # heading is near the top) and closes the pipe; with pipefail that becomes
+    # a false "missing section" once CHANGELOG is large enough for printf to
+    # still be writing.
+    if ! printf '%s\n' "${changelog}" | grep -F "## [${version}]" >/dev/null; then
         echo "error: CHANGELOG.md has no section for [${version}]" >&2
         return 1
     fi

@@ -1,0 +1,13 @@
+{
+  "capabilities": ["contract: service-job/v0"],
+  "message_type": "catalog_list_request",
+  "message_id": "msg:sj-cat-req-b",
+  "correlation_id": "corr:sj-other",
+  "created_at": "2026-08-15T16:00:02Z",
+  "actor_ref": "seat:consumer-b",
+  "catalog_id": "cat:other",
+  "catalog_revision": "catrev-99",
+  "page": {
+    "limit": 10
+  }
+}
