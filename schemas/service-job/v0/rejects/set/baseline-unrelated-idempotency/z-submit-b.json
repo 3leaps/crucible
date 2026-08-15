@@ -6,6 +6,7 @@
   "created_at": "2026-08-15T16:00:09Z",
   "actor_ref": "seat:consumer-b",
   "service_id": "svc:transcribe",
+  "catalog_id": "cat:public",
   "catalog_revision": "catrev-42",
   "offer_revision": "offerrev-7",
   "idempotency_key": "idem:other",
@@ -35,6 +36,7 @@
       }
     ],
     "deadline": "2026-08-15T17:00:00Z",
+    "catalog_id": "cat:public",
     "catalog_revision": "catrev-42",
     "offer_revision": "offerrev-7",
     "service_id": "svc:transcribe",
@@ -43,6 +45,6 @@
   "job_spec_digest": {
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
-    "value": "8691eee839d9e13f3dd5e20859ac0845d9c5f598b3147b4561868f773d7b0a7e"
+    "value": "d492d5770801fb67d755c6ccf434ec351d89c7d45a8ca3af17c8e93e84a801be"
   }
 }

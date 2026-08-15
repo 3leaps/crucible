@@ -21,8 +21,11 @@
 #   - jq -S is not the digest oracle
 #   - JobSpec parameters validate against the referenced portable schema
 #   - changing any digest-covered JobSpec component changes the digest
+#   - schema and normative pairs reject undigested or mismatched selectors
 #   - cross-contract audio → submit/result → agent-wait job_complete path
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
+#   - a missing, unreadable, empty, malformed, or space-named target fails
+#   - a single file and a directory of valid records still pass
 set -eu
 
 base="schemas/service-job/v0"
@@ -78,7 +81,8 @@ expected_reason() {
     name=$1
     case "$name" in
         *pagination-revision-cross*) echo pagination_revision_cross ;;
-        *offer-revision-mismatch*) echo offer_revision_mismatch ;;
+        *offer-revision-mismatch* | *offer-catalog-id*) echo offer_revision_mismatch ;;
+        *citation* | *admission-catalog-id*) echo job_spec_citation_mismatch ;;
         *local-to-hosted-fallback*) echo local_to_hosted_fallback ;;
         *hosted-backend-mismatch* | *hosted-not-in-offer*) echo hosted_backend_integrity ;;
         *local-default-resolution*) echo local_default_resolution ;;
@@ -94,6 +98,77 @@ expected_reason() {
         *local-default-none* | *local-default-ambiguous*) echo local_default_resolution ;;
         *) echo unknown ;;
     esac
+}
+
+assert_normative_target_gate() {
+    script=$1
+    golden=$2
+    baseline_dir=$3
+    work=$(mktemp -d)
+
+    if sh "$script" /definitely/missing/path >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] missing path was accepted by $script" >&2
+        exit 1
+    fi
+    if sh "$script" "/definitely/missing/path with spaces" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] missing path with spaces was accepted by $script" >&2
+        exit 1
+    fi
+
+    cp "$golden" "$work/unreadable.json"
+    chmod 000 "$work/unreadable.json"
+    if sh "$script" "$work/unreadable.json" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] unreadable file was accepted by $script" >&2
+        chmod 600 "$work/unreadable.json"
+        exit 1
+    fi
+    chmod 600 "$work/unreadable.json"
+
+    mkdir -p "$work/unreadable-dir"
+    cp "$golden" "$work/unreadable-dir/ok.json"
+    chmod 000 "$work/unreadable-dir"
+    if sh "$script" "$work/unreadable-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] unreadable directory was accepted by $script" >&2
+        chmod 700 "$work/unreadable-dir"
+        exit 1
+    fi
+    chmod 700 "$work/unreadable-dir"
+
+    mkdir -p "$work/empty-dir"
+    if sh "$script" "$work/empty-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] empty directory was accepted by $script" >&2
+        exit 1
+    fi
+
+    printf '%s\n' '{not-json' >"$work/malformed.json"
+    if sh "$script" "$work/malformed.json" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] malformed JSON was accepted by $script" >&2
+        exit 1
+    fi
+
+    mkdir -p "$work/space-dir"
+    printf '%s\n' '{not-json' >"$work/space-dir/broken name.json"
+    if sh "$script" "$work/space-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
+        echo "    [!!] space-named malformed JSON was accepted by $script" >&2
+        exit 1
+    fi
+
+    sh "$script" "$golden" || {
+        echo "    [!!] single-file golden failed $script: $golden" >&2
+        exit 1
+    }
+    sh "$script" "$baseline_dir" || {
+        echo "    [!!] directory baseline failed $script: $baseline_dir" >&2
+        exit 1
+    }
+
+    mkdir -p "$work/space-ok"
+    cp "$golden" "$work/space-ok/wait outcome.json"
+    sh "$script" "$work/space-ok" || {
+        echo "    [!!] valid space-named file failed $script" >&2
+        exit 1
+    }
+    rm -rf "$work"
 }
 
 echo "    RFC3339 instant helper (shared with agent-wait)..."
@@ -115,6 +190,13 @@ for bad in \
     fi
 done
 echo "    [ok] RFC3339 profile; non-RFC3339 ISO and leap seconds fail closed"
+
+echo "    Normative target resolution..."
+assert_normative_target_gate \
+    scripts/validate-service-job-normative.sh \
+    "$base/examples/job_submit_request.example.json" \
+    "$base/rejects/set/baseline-local-placement"
+echo "    [ok] missing, unreadable, empty, malformed, and space-named targets fail closed"
 
 echo "    Positive coverage (one golden per declared kind)..."
 for kind in \
@@ -175,6 +257,39 @@ for f in "$base"/rejects/schema/reject-*.json; do
     echo "    [ok] schema rejected: $f"
 done
 
+echo "    Normative-labeled controls..."
+for f in "$base"/rejects/normative/baseline-*.json; do
+    [ -f "$f" ] || continue
+    goneat validate data --schema-file "$schema" --data "$f" >/dev/null || {
+        echo "    [!!] normative baseline is not schema-valid: $f" >&2
+        exit 1
+    }
+    sh scripts/validate-service-job-normative.sh "$f" || {
+        echo "    [!!] normative baseline failed normative check: $f" >&2
+        exit 1
+    }
+    echo "    [ok] normative baseline passes: $f"
+done
+for f in "$base"/rejects/normative/reject-*.json; do
+    [ -f "$f" ] || continue
+    goneat validate data --schema-file "$schema" --data "$f" >/dev/null || {
+        echo "    [!!] normative reject is not schema-valid: $f" >&2
+        exit 1
+    }
+    if sh scripts/validate-service-job-normative.sh "$f" >/tmp/sj-norm.out 2>/tmp/sj-norm.err; then
+        echo "    [!!] normative reject passed the normative check: $f" >&2
+        exit 1
+    fi
+    got=$(sed -n 's/^normative_reason: //p' /tmp/sj-norm.err | head -n 1)
+    want=$(expected_reason "${f##*/}")
+    if [ "$got" != "$want" ]; then
+        echo "    [!!] expected reason $want, got ${got:-<none>}: $f" >&2
+        cat /tmp/sj-norm.err >&2
+        exit 1
+    fi
+    echo "    [ok] normative rejected ($got): $f"
+done
+
 echo "    Set fixtures..."
 for d in "$base"/rejects/set/baseline-* "$base"/rejects/set/reject-*; do
     [ -d "$d" ] || continue
@@ -213,8 +328,8 @@ for d in "$base"/rejects/set/reject-*; do
     echo "    [ok] rejected set ($got): $d"
 done
 
-echo "    Pair-distance invariant (schema pairs)..."
-for f in "$base"/rejects/schema/reject-*.json; do
+echo "    Pair-distance invariant (schema and single-file normative pairs)..."
+for f in "$base"/rejects/schema/reject-*.json "$base"/rejects/normative/reject-*.json; do
     [ -f "$f" ] || continue
     twin="$(dirname "$f")/baseline-${f##*/reject-}"
     if [ ! -f "$twin" ]; then
@@ -229,6 +344,8 @@ for f in "$base"/rejects/schema/reject-*.json; do
             reject-admission-missing-reason.json) twin="$(dirname "$f")/baseline-admission-reason.json" ;;
             reject-admission-missing-decided-at.json) twin="$(dirname "$f")/baseline-admission-decided-at.json" ;;
             reject-cancel-missing-reason.json) twin="$(dirname "$f")/baseline-cancel-reason.json" ;;
+            reject-top-level-placement.json | reject-top-level-backend.json | reject-missing-catalog-id.json | reject-missing-jobspec-catalog-id.json) twin="$(dirname "$f")/baseline-job-spec.json" ;;
+            reject-citation-catalog-id.json | reject-citation-service-id.json | reject-citation-catalog-revision.json | reject-citation-offer-revision.json) twin="$(dirname "$f")/baseline-citation.json" ;;
             *)
                 echo "    [!!] reject has no baseline twin: $f" >&2
                 exit 1
@@ -391,6 +508,7 @@ if digest(mutated) == base:
     raise SystemExit("changing deadline did not change JobSpec digest")
 
 for field, value in (
+    ("catalog_id", "cat:other"),
     ("catalog_revision", "catrev-other"),
     ("offer_revision", "offerrev-other"),
     ("service_id", "svc:other"),

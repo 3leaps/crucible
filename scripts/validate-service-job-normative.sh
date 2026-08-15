@@ -21,9 +21,24 @@ if [ "$#" -ne 1 ]; then
 fi
 
 target=$1
+
+if [ ! -e "$target" ]; then
+    echo "    [!!] missing target: $target" >&2
+    exit 1
+fi
+if [ ! -r "$target" ]; then
+    echo "    [!!] unreadable target: $target" >&2
+    exit 1
+fi
+if [ ! -f "$target" ] && [ ! -d "$target" ]; then
+    echo "    [!!] missing target: $target" >&2
+    exit 1
+fi
+
 tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
 index="$tmpd/index.ndjson"
+files="$tmpd/files.list"
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "validate-service-job-normative.sh requires python3" >&2
@@ -45,27 +60,45 @@ compare_instants() {
     esac
 }
 
-collect_json() {
-    if [ -f "$target" ]; then
-        printf '%s\n' "$target"
-    elif [ -d "$target" ]; then
-        # Hash-order the files so directory listing cannot become protocol order.
-        find "$target" -type f -name '*.json' | while IFS= read -r f; do
-            printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
-        done | sort | awk -F '\t' '{print $2}'
-    else
-        echo "    [!!] missing target: $target" >&2
+# Resolve the target in this shell. A missing or empty target must not
+# become a successful zero-record pass via command substitution.
+if [ -f "$target" ]; then
+    printf '%s\n' "$target" >"$files"
+else
+    if ! find "$target" -type f -name '*.json' >"$tmpd/found.list"; then
+        echo "    [!!] unreadable target: $target" >&2
         exit 1
     fi
-}
+    if [ ! -s "$tmpd/found.list" ]; then
+        echo "    [!!] empty target: $target" >&2
+        exit 1
+    fi
+    # Hash-order the files so directory listing cannot become protocol order.
+    while IFS= read -r f; do
+        printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
+    done <"$tmpd/found.list" | sort | awk -F '\t' '{print $2}' >"$files"
+fi
 
 : >"$index"
-for f in $(collect_json); do
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
     case "$(basename "$f")" in
         interpretation.json) continue ;;
     esac
-    jq -c --arg path "$f" '. + {_path: $path}' "$f" >>"$index"
-done
+    if [ ! -r "$f" ]; then
+        echo "    [!!] unreadable target: $f" >&2
+        exit 1
+    fi
+    jq -c --arg path "$f" '. + {_path: $path}' "$f" >>"$index" || {
+        echo "    [!!] malformed JSON: $f" >&2
+        exit 1
+    }
+done <"$files"
+
+if [ ! -s "$index" ]; then
+    echo "    [!!] empty target: $target" >&2
+    exit 1
+fi
 
 # Recompute and constant-compare every submit JobSpec digest before semantic use.
 while IFS= read -r row; do
@@ -81,11 +114,14 @@ while IFS= read -r row; do
     fi
     env_svc=$(printf '%s' "$row" | jq -r '.service_id')
     spec_svc=$(printf '%s' "$row" | jq -r '.job_spec.service_id')
+    env_catid=$(printf '%s' "$row" | jq -r '.catalog_id')
+    spec_catid=$(printf '%s' "$row" | jq -r '.job_spec.catalog_id')
     env_cat=$(printf '%s' "$row" | jq -r '.catalog_revision')
     spec_cat=$(printf '%s' "$row" | jq -r '.job_spec.catalog_revision')
     env_off=$(printf '%s' "$row" | jq -r '.offer_revision')
     spec_off=$(printf '%s' "$row" | jq -r '.job_spec.offer_revision')
-    if [ "$env_svc" != "$spec_svc" ] || [ "$env_cat" != "$spec_cat" ] || [ "$env_off" != "$spec_off" ]; then
+    if [ "$env_svc" != "$spec_svc" ] || [ "$env_catid" != "$spec_catid" ] ||
+        [ "$env_cat" != "$spec_cat" ] || [ "$env_off" != "$spec_off" ]; then
         fail job_spec_citation_mismatch
     fi
 done <"$index"
@@ -117,7 +153,7 @@ if jq -s -e '[.[] | select(.message_type == "catalog_list_request")] | length >=
     fi
 fi
 
-# Offer integrity pairs by JobSpec service + catalog revision + offer revision.
+# Offer integrity pairs by JobSpec catalog, service, and both revisions.
 if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1' "$index" >/dev/null; then
     mismatch=$(jq -s '
@@ -126,6 +162,7 @@ if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$i
             .[] | select(.message_type == "job_submit_request") as $s
             | ($offers | map(select(
                 .service_id == $s.job_spec.service_id
+                and .catalog_id == $s.job_spec.catalog_id
                 and .catalog_revision == $s.job_spec.catalog_revision
                 and .offer_revision == $s.job_spec.offer_revision
               )) | .[0]) as $o
@@ -148,6 +185,7 @@ if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$i
             | select(($offers | map(.service_id) | index($s.job_spec.service_id)) != null)
             | select(($offers | map(select(
                 .service_id == $s.job_spec.service_id
+                and .catalog_id == $s.job_spec.catalog_id
                 and .catalog_revision == $s.job_spec.catalog_revision
                 and .offer_revision == $s.job_spec.offer_revision
               )) | length) == 0)
@@ -163,6 +201,26 @@ fi
 # Omitted backend may resolve only the offer's declared available local default.
 if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] | length >= 1' "$index" >/dev/null; then
+    admit_cite=$(jq -s '
+        [.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] as $ads
+        | [.[] | select(.message_type == "job_submit_request")] as $subs
+        | [
+            $ads[] as $a
+            | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
+            | select($s != null)
+            | (
+                $a.catalog_id != $s.job_spec.catalog_id
+                or $a.catalog_revision != $s.job_spec.catalog_revision
+                or $a.service_id != $s.job_spec.service_id
+                or $a.offer_revision != $s.job_spec.offer_revision
+              )
+          ]
+        | any
+    ' "$index")
+    if [ "$admit_cite" = "true" ]; then
+        fail job_spec_citation_mismatch
+    fi
+
     default_mismatch=$(jq -s '
         [.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] as $ads
         | [.[] | select(.message_type == "job_submit_request")] as $subs
@@ -173,6 +231,7 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
             | select($s != null and $s.job_spec.backend_ref == null)
             | ($offers | map(select(
                 .service_id == $s.job_spec.service_id
+                and .catalog_id == $s.job_spec.catalog_id
                 and .catalog_revision == $s.job_spec.catalog_revision
                 and .offer_revision == $s.job_spec.offer_revision
               )) | .[0]) as $o
@@ -219,6 +278,7 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
             | select($s != null and $s.job_spec.placement == "hosted")
             | ($offers | map(select(
                 .service_id == $s.job_spec.service_id
+                and .catalog_id == $s.job_spec.catalog_id
                 and .catalog_revision == $s.job_spec.catalog_revision
                 and .offer_revision == $s.job_spec.offer_revision
               )) | .[0]) as $o
@@ -302,6 +362,7 @@ if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$i
             $subs[] as $s
             | ($offers | map(select(
                 .service_id == $s.job_spec.service_id
+                and .catalog_id == $s.job_spec.catalog_id
                 and .catalog_revision == $s.job_spec.catalog_revision
                 and .offer_revision == $s.job_spec.offer_revision
               )) | .[0]) as $o

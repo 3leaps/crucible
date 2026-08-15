@@ -50,6 +50,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Basic date/time, week dates, ordinal dates, missing seconds, a space
   separator, and offsets without a colon fail closed. Leap seconds are
   rejected rather than clamped.
+- Agent-wait and service-job normative checkers fail closed when the
+  target is missing, unreadable, empty, or not JSON. Paths are iterated
+  without word-splitting so a filename with spaces cannot become a
+  zero-record pass.
+- Service-job submit carries required `catalog_id` on the envelope and
+  the canonical JobSpec. Top-level `placement` and `backend_ref` are
+  rejected; execution selectors are digest-bound on the JobSpec only.
+  Offer and admission pairing uses catalog identity together with
+  service and both revisions.
 
 ### Added
 

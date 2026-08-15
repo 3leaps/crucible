@@ -17,6 +17,8 @@
 #   - the cross-contract job_complete path is well-formed
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
 #   - RFC3339 profile accepted; non-RFC3339 ISO and leap seconds fail closed
+#   - a missing, unreadable, empty, malformed, or space-named target fails
+#   - a single file and a directory of valid records still pass
 set -eu
 
 base="schemas/agent-wait/v0"
@@ -87,6 +89,77 @@ expected_reason() {
     esac
 }
 
+assert_normative_target_gate() {
+    script=$1
+    golden=$2
+    baseline_dir=$3
+    work=$(mktemp -d)
+
+    if sh "$script" /definitely/missing/path >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] missing path was accepted by $script" >&2
+        exit 1
+    fi
+    if sh "$script" "/definitely/missing/path with spaces" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] missing path with spaces was accepted by $script" >&2
+        exit 1
+    fi
+
+    cp "$golden" "$work/unreadable.json"
+    chmod 000 "$work/unreadable.json"
+    if sh "$script" "$work/unreadable.json" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] unreadable file was accepted by $script" >&2
+        chmod 600 "$work/unreadable.json"
+        exit 1
+    fi
+    chmod 600 "$work/unreadable.json"
+
+    mkdir -p "$work/unreadable-dir"
+    cp "$golden" "$work/unreadable-dir/ok.json"
+    chmod 000 "$work/unreadable-dir"
+    if sh "$script" "$work/unreadable-dir" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] unreadable directory was accepted by $script" >&2
+        chmod 700 "$work/unreadable-dir"
+        exit 1
+    fi
+    chmod 700 "$work/unreadable-dir"
+
+    mkdir -p "$work/empty-dir"
+    if sh "$script" "$work/empty-dir" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] empty directory was accepted by $script" >&2
+        exit 1
+    fi
+
+    printf '%s\n' '{not-json' >"$work/malformed.json"
+    if sh "$script" "$work/malformed.json" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] malformed JSON was accepted by $script" >&2
+        exit 1
+    fi
+
+    mkdir -p "$work/space-dir"
+    printf '%s\n' '{not-json' >"$work/space-dir/broken name.json"
+    if sh "$script" "$work/space-dir" >/tmp/aw-tgt.out 2>/tmp/aw-tgt.err; then
+        echo "    [!!] space-named malformed JSON was accepted by $script" >&2
+        exit 1
+    fi
+
+    sh "$script" "$golden" || {
+        echo "    [!!] single-file golden failed $script: $golden" >&2
+        exit 1
+    }
+    sh "$script" "$baseline_dir" || {
+        echo "    [!!] directory baseline failed $script: $baseline_dir" >&2
+        exit 1
+    }
+
+    mkdir -p "$work/space-ok"
+    cp "$golden" "$work/space-ok/wait outcome.json"
+    sh "$script" "$work/space-ok" || {
+        echo "    [!!] valid space-named file failed $script" >&2
+        exit 1
+    }
+    rm -rf "$work"
+}
+
 echo "    RFC3339 instant self-test..."
 python3 scripts/rfc3339-instant.py --self-test || {
     echo "    [!!] RFC3339 instant self-test failed" >&2
@@ -127,6 +200,13 @@ if [ "$(python3 scripts/rfc3339-instant.py --compare "2026-08-15T17:00:00+00:00"
     exit 1
 fi
 echo "    [ok] RFC3339 profile accepted; non-RFC3339 ISO and leap seconds fail closed"
+
+echo "    Normative target resolution..."
+assert_normative_target_gate \
+    scripts/validate-agent-wait-normative.sh \
+    "$base/examples/registration_set.example.json" \
+    "$base/rejects/set/baseline-authn-optional"
+echo "    [ok] missing, unreadable, empty, malformed, and space-named targets fail closed"
 
 echo "    Frozen outcome kinds (live and poll)..."
 for kind in events no_change logical_deadman partial cancelled coverage_degraded refused reauthentication_required failed; do

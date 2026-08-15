@@ -11,7 +11,8 @@ are rejected). Opaque-anchor identity, full outcome kinds, coverage
 cardinality, fairness, per-registration ack/retention, replay, bounds,
 authn/lease, and revision freeze are enforced by
 `scripts/validate-agent-wait-normative.sh` and proven able to fail by
-`scripts/test-agent-wait-controls.sh`.
+`scripts/test-agent-wait-controls.sh`. The checker fails closed on a
+missing, unreadable, empty, or malformed target.
 
 The contract identity is the opaque capability token
 `contract: agent-wait/v0`. Consumers resolve that token through local

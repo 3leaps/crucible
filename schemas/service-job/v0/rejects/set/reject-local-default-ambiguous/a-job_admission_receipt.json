@@ -25,6 +25,6 @@
   "job_spec_digest": {
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
-    "value": "5f656a18aacaad5dfc4766ceb94a0054ed972c7d8ee86737235d6feeda79d216"
+    "value": "19305a599b36ae93aa9074c9cc9865bc15ac8b8be83b2591aa2951133fa5faee"
   }
 }

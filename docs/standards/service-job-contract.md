@@ -124,12 +124,14 @@ credential). Optional: `causation_id`, `grant_ref`,
   `provenance_claims`. Artifact requirements MAY add `max_bytes` and
   `provenance_required`. `default_local=true` implies `placement=local`
   and `availability=available`.
-- **JobSpec.** Closed object: `catalog_revision`, `offer_revision`,
-  `service_id`, `requester_ref`, `inputs` (artifact refs), `parameters`,
-  `outputs` (role slots), `deadline`, and optional `backend_ref` /
-  `placement`. Hosted placement on the JobSpec requires `backend_ref`.
-  Envelope `service_id`, `catalog_revision`, and `offer_revision` are
-  citations and MUST match the JobSpec. Provider- or CLI-specific fields
+- **JobSpec.** Closed object: `catalog_id`, `catalog_revision`,
+  `offer_revision`, `service_id`, `requester_ref`, `inputs` (artifact
+  refs), `parameters`, `outputs` (role slots), `deadline`, and optional
+  `backend_ref` / `placement`. Hosted placement on the JobSpec requires
+  `backend_ref`. Submit `placement` and `backend_ref` live only on the
+  JobSpec; the envelope MUST NOT carry undigested copies. Envelope
+  `catalog_id`, `service_id`, `catalog_revision`, and `offer_revision`
+  are citations and MUST match the JobSpec. Provider- or CLI-specific fields
   (`cli_args` and kin) are rejected at the contract boundary. Parameters
   MUST validate against the referenced portable schema. The carried
   `job_spec_digest` MUST be the RFC 8785 SHA-256 of that JobSpec;
@@ -142,12 +144,13 @@ credential). Optional: `causation_id`, `grant_ref`,
   profile-qualified tokens and `media_type`. This family does not bump the
   data-artifact base enums.
 - **JobSpec digest.** Changing any digest-covered component
-  (`catalog_revision`, `offer_revision`, `service_id`, `requester_ref`,
-  `backend_ref`, `placement`, `inputs`, `parameters`, `outputs`,
-  `deadline`) MUST change the RFC 8785 SHA-256. Catalog pages pair by
-  `request_ref`. Offers pair to submits by service, catalog revision, and
-  offer revision. Unrelated interleaved exchanges MUST NOT be globally
-  paired. Instant comparisons use the portable RFC3339 helper
+  (`catalog_id`, `catalog_revision`, `offer_revision`, `service_id`,
+  `requester_ref`, `backend_ref`, `placement`, `inputs`, `parameters`,
+  `outputs`, `deadline`) MUST change the RFC 8785 SHA-256. Catalog pages
+  pair by `request_ref`. Offers and accepted admissions pair to submits
+  by catalog identity, service, catalog revision, and offer revision.
+  Unrelated interleaved exchanges MUST NOT be globally paired. Instant
+  comparisons use the portable RFC3339 helper
   (`YYYY-MM-DDThh:mm:ss[.fraction]Z` or a colon-separated numeric
   offset). Equivalent offsets are the same instant. Basic date/time,
   week dates, ordinal dates, missing seconds, a space separator, and

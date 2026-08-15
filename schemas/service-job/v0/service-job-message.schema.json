@@ -161,6 +161,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "catalog_id",
         "catalog_revision",
         "offer_revision",
         "service_id",
@@ -171,6 +172,7 @@
         "deadline"
       ],
       "properties": {
+        "catalog_id": { "$ref": "#/$defs/idToken" },
         "catalog_revision": { "$ref": "#/$defs/idToken" },
         "offer_revision": { "$ref": "#/$defs/idToken" },
         "service_id": { "$ref": "#/$defs/idToken" },
@@ -538,6 +540,7 @@
         "created_at",
         "actor_ref",
         "service_id",
+        "catalog_id",
         "catalog_revision",
         "offer_revision",
         "idempotency_key",
@@ -556,13 +559,12 @@
         "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
         "policy_decision_ref": { "$ref": "#/$defs/refToken" },
         "service_id": { "$ref": "#/$defs/idToken" },
+        "catalog_id": { "$ref": "#/$defs/idToken" },
         "catalog_revision": { "$ref": "#/$defs/idToken" },
         "offer_revision": { "$ref": "#/$defs/idToken" },
         "idempotency_key": { "$ref": "#/$defs/idToken" },
         "job_spec": { "$ref": "#/$defs/jobSpec" },
         "job_spec_digest": { "$ref": "#/$defs/jobSpecDigest" },
-        "placement": { "enum": ["local", "hosted"] },
-        "backend_ref": { "$ref": "#/$defs/refToken" },
         "egress_authorization_ref": { "$ref": "#/$defs/refToken" }
       },
       "allOf": [

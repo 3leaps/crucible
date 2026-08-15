@@ -22,9 +22,24 @@ if [ "$#" -ne 1 ]; then
 fi
 
 target=$1
+
+if [ ! -e "$target" ]; then
+    echo "    [!!] missing target: $target" >&2
+    exit 1
+fi
+if [ ! -r "$target" ]; then
+    echo "    [!!] unreadable target: $target" >&2
+    exit 1
+fi
+if [ ! -f "$target" ] && [ ! -d "$target" ]; then
+    echo "    [!!] missing target: $target" >&2
+    exit 1
+fi
+
 tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
 index="$tmpd/index.ndjson"
+files="$tmpd/files.list"
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "validate-agent-wait-normative.sh requires python3" >&2
@@ -46,24 +61,42 @@ compare_instants() {
     esac
 }
 
-collect_json() {
-    if [ -f "$target" ]; then
-        printf '%s\n' "$target"
-    elif [ -d "$target" ]; then
-        # Hash-order the files so directory listing cannot become protocol order.
-        find "$target" -type f -name '*.json' | while IFS= read -r f; do
-            printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
-        done | sort | awk -F '\t' '{print $2}'
-    else
-        echo "    [!!] missing target: $target" >&2
+# Resolve the target in this shell. A missing or empty target must not
+# become a successful zero-record pass via command substitution.
+if [ -f "$target" ]; then
+    printf '%s\n' "$target" >"$files"
+else
+    if ! find "$target" -type f -name '*.json' >"$tmpd/found.list"; then
+        echo "    [!!] unreadable target: $target" >&2
         exit 1
     fi
-}
+    if [ ! -s "$tmpd/found.list" ]; then
+        echo "    [!!] empty target: $target" >&2
+        exit 1
+    fi
+    # Hash-order the files so directory listing cannot become protocol order.
+    while IFS= read -r f; do
+        printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
+    done <"$tmpd/found.list" | sort | awk -F '\t' '{print $2}' >"$files"
+fi
 
 : >"$index"
-for f in $(collect_json); do
-    jq -c --arg path "$f" '. + {_path: $path}' "$f" >>"$index"
-done
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if [ ! -r "$f" ]; then
+        echo "    [!!] unreadable target: $f" >&2
+        exit 1
+    fi
+    jq -c --arg path "$f" '. + {_path: $path}' "$f" >>"$index" || {
+        echo "    [!!] malformed JSON: $f" >&2
+        exit 1
+    }
+done <"$files"
+
+if [ ! -s "$index" ]; then
+    echo "    [!!] empty target: $target" >&2
+    exit 1
+fi
 
 # --- per-message rules ---
 while IFS= read -r row; do
