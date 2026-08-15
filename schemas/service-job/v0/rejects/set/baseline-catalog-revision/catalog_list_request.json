@@ -9,5 +9,6 @@
   "page": {
     "limit": 20,
     "cursor": "cur:cat-42-0"
-  }
+  },
+  "catalog_id": "cat:public"
 }

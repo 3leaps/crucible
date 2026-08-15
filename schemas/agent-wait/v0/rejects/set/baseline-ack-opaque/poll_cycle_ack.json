@@ -7,9 +7,13 @@
   "actor_ref": "seat:consumer-a",
   "waiter_id": "waiter:seat-consumer-a",
   "outcome_ref": "msg:aw-poll-events",
-  "committed_anchor": {
-    "kind": "provider_opaque",
-    "value": "anc:opaque-7"
+  "committed_anchors": {
+    "reg:job-complete-1": {
+      "kind": "provider_opaque",
+      "value": "anc:opaque-7"
+    }
   },
-  "acked_event_ids": ["evt:job-complete-1"]
+  "retained_events": {
+    "reg:job-complete-1": ["evt:job-complete-1"]
+  }
 }

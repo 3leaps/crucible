@@ -6,9 +6,9 @@ The normative standard is
 [`docs/standards/agent-wait-contract.md`](../../../docs/standards/agent-wait-contract.md).
 These schemas provide the structural validation surface. Deadline ordering,
 opaque-anchor identity, full outcome kinds, coverage cardinality, fairness,
-ack/retention, replay, and revision freeze are enforced by
-`scripts/validate-agent-wait-normative.sh` and proven able to fail by
-`scripts/test-agent-wait-controls.sh`.
+per-registration ack/retention, replay, bounds, authn/lease, and revision
+freeze are enforced by `scripts/validate-agent-wait-normative.sh` and
+proven able to fail by `scripts/test-agent-wait-controls.sh`.
 
 The contract identity is the opaque capability token
 `contract: agent-wait/v0`. Consumers resolve that token through local

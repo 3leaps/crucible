@@ -13,10 +13,16 @@
     {
       "service_id": "svc:transcribe",
       "title": "Transcribe audio",
-      "summary": "Produce a text artifact from an audio data-artifact."
+      "summary": "Produce a text artifact from an audio data-artifact.",
+      "offer_summary": {
+        "method_id": "transcribe",
+        "availability": "available",
+        "cancel_posture": "supported"
+      }
     }
   ],
   "page": {
     "limit": 20
-  }
+  },
+  "catalog_id": "cat:public"
 }

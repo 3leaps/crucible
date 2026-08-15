@@ -12,5 +12,8 @@
   "logical_deadline": "2026-08-15T17:00:00Z",
   "run_deadline": "2026-08-15T16:05:00Z",
   "required_arms": ["arm:primary"],
-  "fairness_cursor": "fair:start"
+  "fairness_cursor": "fair:start",
+  "acknowledged_anchors": {},
+  "activation_ref": "act:cycle-1",
+  "cycle_id": "cycle:1"
 }

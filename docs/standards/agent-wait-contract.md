@@ -50,8 +50,10 @@ Schema cannot prove are enforced by the repository's normative checker
 - **Transport-neutral.** No socket, webhook, or chat binding is part of this
   family. `delivery_ref` and `activation_ref` are optional and never imply
   agent action; those contracts stay outside this family.
-- **Payload by reference.** Event bodies are `payload_ref` only. No embedded
-  bodies and no secrets.
+- **Payload by reference.** Event bodies carry a structured `payload`
+  (`payload_ref`, `content_digest`, optional `media_type`). No embedded
+  bodies and no secrets. `payload_ref` is never a bare token at the event
+  surface.
 
 ## Capability And Versioning
 
@@ -82,14 +84,14 @@ identity reference, never a credential). Optional: `causation_id`,
 
 ## Message Kinds
 
-| Kind                 | Role                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| `registration_set`   | Snapshot of registrations for one waiter/seat, with a frozen `registration_revision`. |
-| `live_wait_request`  | Wait for a live match against that snapshot.                                          |
-| `live_wait_outcome`  | Discriminated wait result. `events` is not required for every kind.                   |
-| `poll_cycle_request` | Poll against the snapshot: `required_arms`, `fairness_cursor`, optional ack/bound.    |
-| `poll_cycle_outcome` | Discriminated poll result plus retention, fairness, and coverage arms.                |
-| `poll_cycle_ack`     | Consumer commit of an opaque cursor. Cannot advance past unretained events.           |
+| Kind                 | Role                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `registration_set`   | Snapshot of registrations for one waiter/seat, with principal, authn, aggregate limits, and a registration digest. |
+| `live_wait_request`  | Wait for a live match against that snapshot.                                                                       |
+| `live_wait_outcome`  | Discriminated wait result. `events` is not required for every kind.                                                |
+| `poll_cycle_request` | Poll against the snapshot: required arms, fairness, per-registration acknowledged anchors, activation, and cycle.  |
+| `poll_cycle_outcome` | Discriminated poll result plus per-registration retention, fairness, and coverage arms.                            |
+| `poll_cycle_ack`     | Consumer commit of per-registration opaque cursors. Cannot advance past unretained events.                         |
 
 ## Frozen Rules
 
@@ -116,10 +118,35 @@ identity reference, never a credential). Optional: `causation_id`,
 - **Bounds.** Poll request and outcome MAY carry `bound`
   (`max_events`, `max_payload_refs`) when the provider degrades or
   truncates a cycle.
+- **Registration set.** Required: `principal_ref`, `logical_deadline`,
+  `authn_mode` (`required` | `optional` | `disabled`), `aggregate_limits`
+  (`max_events`, `max_bytes`), and `registration_digest` (RFC 8785 SHA-256
+  of the `registrations` array). Each registration requires `required`,
+  `source_instance_ref`, `predicate_ref`, `capability_ref`,
+  `lease_expires_at`, and per-registration `bounds`, plus the start-position
+  XOR. `authn_mode=required` needs a `verification_receipt_ref` on the wait
+  request, or the outcome MUST be `reauthentication_required`. A completed
+  wait after `lease_expires_at` MUST be `reauthentication_required`.
+  Exceeding per-registration or aggregate bounds is valid only as `partial`
+  or `coverage_degraded`.
+- **Events.** Each `waitEvent` carries `registration_id`,
+  `source_instance_ref`, `start_anchor`, `proposed_next_anchor`,
+  `observed_at`, provider timestamp `occurred_at`, `replay_status`
+  (`fresh` | `replay`), `correlation_id`, optional `causation_id`, and
+  structured `payload`.
+- **Coverage arms.** Each arm carries `registration_id`, `start_anchor`,
+  `proposed_next_anchor`, `event_count`, and `byte_count`. `reason_code` is
+  required when `status` is `outage` or `cursor_uncertain`, or when
+  `degraded` is true.
 - **Ack vs retention.** Pair `poll_cycle_ack.outcome_ref` to the outcome
-  `message_id`. `committed_anchor` MUST equal `retained_through` as
-  `{kind, value}`. `acked_event_ids` MUST be a subset of
-  `retained_event_ids`. The opaque anchor value is not an event id.
+  `message_id`. Poll request `acknowledged_anchors`, outcome
+  `retained_through` / `retained_events` / `proposed_next_anchors`, and ack
+  `committed_anchors` / `retained_events` are maps keyed by
+  `registration_id`. An empty acknowledged map is a first cycle. Each
+  committed anchor MUST equal that registration's `retained_through`. Each
+  acked event id MUST be a subset of that registration's retained events.
+  A commit MUST NOT apply another registration's cursor or events. The
+  opaque anchor value is not an event id.
 - **Crash-before-ack.** A later outcome MAY replay stable event ids. The
   cursor MUST NOT silently advance across unacked events.
 - **Revision freeze.** Live and poll requests MUST cite the

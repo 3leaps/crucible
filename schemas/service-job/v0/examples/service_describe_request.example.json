@@ -6,5 +6,6 @@
   "created_at": "2026-08-15T16:00:02Z",
   "actor_ref": "seat:consumer-a",
   "service_id": "svc:transcribe",
-  "catalog_revision": "catrev-42"
+  "catalog_revision": "catrev-42",
+  "catalog_id": "cat:public"
 }

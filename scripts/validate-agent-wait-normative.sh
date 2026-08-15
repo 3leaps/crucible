@@ -2,11 +2,12 @@
 # Normative checks for contract: agent-wait/v0 — rules JSON Schema cannot prove.
 #
 # Declared invocation set (PDR-0006 Rule 2b):
-#   sh, coreutils — baseline
+#   sh, coreutils, sha256sum — baseline
 #   jq — structural inspection of contract fixtures (same house pattern as
 #        validate-review-journal-set.sh)
 #   python3 — subject-matter runtime for portable RFC3339 instants
-#             (scripts/rfc3339-instant.py; no GNU/BSD date)
+#             (scripts/rfc3339-instant.py; no GNU/BSD date) and RFC 8785
+#             registration-digest materialization
 #   goneat is not invoked here; schema validation is the caller's job.
 #
 # Usage: validate-agent-wait-normative.sh <file-or-directory>
@@ -49,7 +50,10 @@ collect_json() {
     if [ -f "$target" ]; then
         printf '%s\n' "$target"
     elif [ -d "$target" ]; then
-        find "$target" -type f -name '*.json' | sort
+        # Hash-order the files so directory listing cannot become protocol order.
+        find "$target" -type f -name '*.json' | while IFS= read -r f; do
+            printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
+        done | sort | awk -F '\t' '{print $2}'
     else
         echo "    [!!] missing target: $target" >&2
         exit 1
@@ -73,6 +77,16 @@ while IFS= read -r row; do
             compare_instants "$run" "$logical"
             if [ "$_rel" -gt 0 ]; then
                 fail deadline_ordering
+            fi
+            ;;
+        registration_set)
+            claimed=$(printf '%s' "$row" | jq -r '.registration_digest.value // empty')
+            if [ -n "$claimed" ]; then
+                printf '%s' "$row" | jq -c '.registrations' >"$tmpd/regs.json"
+                got=$(python3 scripts/rfc8785-canonicalize.py "$tmpd/regs.json" | sha256sum | awk '{print $1}')
+                if [ "$got" != "$claimed" ]; then
+                    fail registration_digest_mismatch
+                fi
             fi
             ;;
     esac
@@ -143,6 +157,38 @@ fi
 
 if jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "poll_cycle_ack")] | length >= 1' "$index" >/dev/null; then
+    cross=$(jq -s '
+        [.[] | select(.message_type == "poll_cycle_ack")] as $acks
+        | [.[] | select(.message_type == "poll_cycle_outcome")] as $outs
+        | [
+            $acks[] as $a
+            | ($outs | map(select(.message_id == $a.outcome_ref)) | .[0]) as $o
+            | select($o != null)
+            | ($a.committed_anchors // {}) as $ca
+            | ($o.retained_through // {}) as $rt
+            | ($a.retained_events // {}) as $ae
+            | ($o.retained_events // {}) as $oe
+            | [
+                ($ca | keys[]) as $rid
+                | select(
+                    ($ca[$rid] != $rt[$rid])
+                    and ([($rt | keys[]) as $oid | select($oid != $rid and $ca[$rid] == $rt[$oid])] | length > 0)
+                  )
+              ]
+              + [
+                ($ae | keys[]) as $rid
+                | ($ae[$rid] // [])[] as $eid
+                | select(
+                    ([($oe | to_entries[]) | select(.key != $rid and (.value | index($eid) != null))] | length > 0)
+                  )
+              ]
+          ]
+        | add
+        | length > 0
+    ' "$index")
+    if [ "$cross" = "true" ]; then
+        fail cross_arm_commit
+    fi
     bad=$(jq -s '
         [.[] | select(.message_type == "poll_cycle_ack")] as $acks
         | [.[] | select(.message_type == "poll_cycle_outcome")] as $outs
@@ -150,10 +196,15 @@ if jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome")] | length >= 1
             $acks[] as $a
             | ($outs | map(select(.message_id == $a.outcome_ref)) | .[0]) as $o
             | select($o != null)
+            | ($a.committed_anchors // {}) as $ca
+            | ($o.retained_through // {}) as $rt
+            | ($a.retained_events // {}) as $ae
+            | ($o.retained_events // {}) as $oe
             | (
-                ($a.committed_anchor.kind != $o.retained_through.kind)
-                or ($a.committed_anchor.value != $o.retained_through.value)
-                or ([ $a.acked_event_ids[] | select(. as $e | ($o.retained_event_ids | index($e) | not)) ] | length > 0)
+                ([($ca | keys[]) as $rid | select($ca[$rid] != $rt[$rid])] | length > 0)
+                or ([($ae | keys[]) as $rid
+                    | ($ae[$rid] // [])[]
+                    | select(. as $e | (($oe[$rid] // []) | index($e) | not))] | length > 0)
               )
           ]
         | any
@@ -199,7 +250,11 @@ if jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome")] | length >= 2
         | ($last.events | map(.event_id)) as $later
         | ($ids | length > 0)
           and (($ids - $later) | length > 0)
-          and ($last.proposed_next_anchor.value != $first.proposed_next_anchor.value)
+          and (
+            [(($first.proposed_next_anchors // {}) | keys[]) as $rid
+              | select(($last.proposed_next_anchors[$rid].value // "") != ($first.proposed_next_anchors[$rid].value // ""))]
+            | length > 0
+          )
     ' "$index")
     if [ "$advanced" = "true" ]; then
         fail silent_cursor_advance
@@ -215,5 +270,84 @@ if jq -s -e '[.[] | select(.message_type == "registration_set")] | length >= 1' 
     ' "$index")
     if [ "$crossed" = "true" ]; then
         fail revision_cross
+    fi
+fi
+
+# Lease expiry requires reauthentication_required. Authn required needs a receipt
+# or a reauth outcome. Bounds may be exceeded only on partial/coverage_degraded.
+if jq -s -e '[.[] | select(.message_type == "registration_set")] | length >= 1' "$index" >/dev/null &&
+    jq -s -e '[.[] | select(.message_type == "poll_cycle_outcome" or .message_type == "live_wait_outcome")] | length >= 1' "$index" >/dev/null; then
+    jq -s -c '
+        [.[] | select(.message_type == "registration_set")] as $sets
+        | [.[] | select(.message_type == "poll_cycle_outcome" or .message_type == "live_wait_outcome")] as $outs
+        | [.[] | select(.message_type == "poll_cycle_request" or .message_type == "live_wait_request")] as $reqs
+        | {sets: $sets, outs: $outs, reqs: $reqs}
+    ' "$index" >"$tmpd/aw_scope.json"
+
+    authn=$(jq -r '
+        .sets as $sets
+        | .reqs as $reqs
+        | .outs as $outs
+        | [
+            $sets[] as $s
+            | select($s.authn_mode == "required")
+            | select(($reqs | length) == 0 or ($reqs | any(.verification_receipt_ref == null)))
+            | select($outs | any(.outcome_kind == "events" or .outcome_kind == "no_change" or .outcome_kind == "logical_deadman" or .outcome_kind == "partial"))
+          ]
+        | length > 0
+    ' "$tmpd/aw_scope.json")
+    if [ "$authn" = "true" ]; then
+        fail authn_required
+    fi
+
+    jq -c '
+        .sets[] as $s
+        | .outs[] as $o
+        | $s.registrations[] as $r
+        | {lease: $r.lease_expires_at, completed: $o.completed_at, kind: $o.outcome_kind}
+    ' "$tmpd/aw_scope.json" >"$tmpd/leases.ndjson"
+    while IFS= read -r pair; do
+        [ -n "$pair" ] || continue
+        lease=$(printf '%s' "$pair" | jq -r '.lease')
+        completed=$(printf '%s' "$pair" | jq -r '.completed')
+        kind=$(printf '%s' "$pair" | jq -r '.kind')
+        compare_instants "$lease" "$completed"
+        if [ "$_rel" -lt 0 ] && [ "$kind" != "reauthentication_required" ]; then
+            fail lease_reauth
+        fi
+    done <"$tmpd/leases.ndjson"
+
+    bound=$(jq -r '
+        [
+            .sets[] as $s
+            | .outs[] as $o
+            | select($o.outcome_kind != "partial" and $o.outcome_kind != "coverage_degraded")
+            | ($o.events // []) as $ev
+            | (
+                ([ $s.registrations[] as $r
+                   | select(([$ev[] | select(.registration_id == $r.registration_id)] | length) > $r.bounds.max_events)
+                 ] | length > 0)
+                or (($ev | length) > $s.aggregate_limits.max_events)
+              )
+        ] | any
+    ' "$tmpd/aw_scope.json")
+    if [ "$bound" = "true" ]; then
+        # Distinguish per-registration vs aggregate for the expected reason.
+        reg_hit=$(jq -r '
+            [
+                .sets[] as $s
+                | .outs[] as $o
+                | select($o.outcome_kind != "partial" and $o.outcome_kind != "coverage_degraded")
+                | ($o.events // []) as $ev
+                | [ $s.registrations[] as $r
+                    | select(([$ev[] | select(.registration_id == $r.registration_id)] | length) > $r.bounds.max_events)
+                  ]
+                | length > 0
+            ] | any
+        ' "$tmpd/aw_scope.json")
+        if [ "$reg_hit" = "true" ]; then
+            fail registration_bound
+        fi
+        fail aggregate_bound
     fi
 fi

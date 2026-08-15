@@ -17,19 +17,37 @@
       "arm_id": "arm:primary",
       "required": true,
       "status": "no_change",
-      "degraded": false
+      "degraded": false,
+      "registration_id": "reg:job-complete-1",
+      "start_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
+      },
+      "proposed_next_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
+      },
+      "event_count": 0,
+      "byte_count": 0,
+      "reason_code": "coverage_note"
     }
   ],
   "retained_through": {
-    "kind": "provider_opaque",
-    "value": "anc:cursor-0"
-  },
-  "retained_event_ids": [],
-  "proposed_next_anchor": {
-    "kind": "provider_opaque",
-    "value": "anc:cursor-0"
+    "reg:job-complete-1": {
+      "kind": "provider_opaque",
+      "value": "anc:cursor-0"
+    }
   },
   "fairness_cursor": "fair:start",
   "next_fairness_cursor": "fair:arm-primary",
-  "reason_code": "policy_refused"
+  "reason_code": "policy_refused",
+  "retained_events": {
+    "reg:job-complete-1": []
+  },
+  "proposed_next_anchors": {
+    "reg:job-complete-1": {
+      "kind": "provider_opaque",
+      "value": "anc:cursor-0"
+    }
+  }
 }

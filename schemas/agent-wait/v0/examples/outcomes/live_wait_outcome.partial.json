@@ -16,7 +16,26 @@
       "subject_kind": "service_job",
       "subject_id": "job:transcribe-1",
       "occurred_at": "2026-08-15T16:07:30Z",
-      "payload_ref": "msg:sj-result-1"
+      "payload": {
+        "payload_ref": "msg:sj-result-1",
+        "content_digest": {
+          "algorithm": "sha256",
+          "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "registration_id": "reg:job-complete-1",
+      "source_instance_ref": "source:provider-a",
+      "observed_at": "2026-08-15T16:07:30Z",
+      "start_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
+      },
+      "proposed_next_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:after-1"
+      },
+      "replay_status": "fresh",
+      "correlation_id": "corr:aw-1"
     }
   ],
   "coverage_complete": false,
@@ -25,13 +44,37 @@
       "arm_id": "arm:primary",
       "required": true,
       "status": "events",
-      "degraded": false
+      "degraded": false,
+      "registration_id": "reg:job-complete-1",
+      "start_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
+      },
+      "proposed_next_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:after-1"
+      },
+      "event_count": 1,
+      "byte_count": 0,
+      "reason_code": "coverage_note"
     },
     {
       "arm_id": "arm:secondary",
       "required": true,
       "status": "deferred",
-      "degraded": false
+      "degraded": false,
+      "registration_id": "reg:job-complete-1",
+      "start_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:cursor-0"
+      },
+      "proposed_next_anchor": {
+        "kind": "provider_opaque",
+        "value": "anc:after-1"
+      },
+      "event_count": 1,
+      "byte_count": 0,
+      "reason_code": "coverage_note"
     }
   ],
   "proposed_next_anchor": {

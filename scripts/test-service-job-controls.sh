@@ -89,6 +89,8 @@ expected_reason() {
         *artifact-requirement*) echo artifact_requirement ;;
         *cancel-conflict*) echo cancel_idempotency_conflict ;;
         *state-version-regression*) echo state_version_regression ;;
+        *tampered-job-spec* | *tampered-digest*) echo job_spec_digest_mismatch ;;
+        *local-default-none* | *local-default-ambiguous*) echo local_default_resolution ;;
         *) echo unknown ;;
     esac
 }
@@ -115,6 +117,15 @@ for extra in \
     job_cancel_receipt.unsupported.example.json \
     job_cancel_receipt.unknown.example.json \
     service_job_error.result_not_ready.example.json \
+    service_job_error.offer_revision_mismatch.example.json \
+    service_job_error.idempotency_conflict.example.json \
+    service_job_error.unknown_admission.example.json \
+    service_job_error.unauthorized.example.json \
+    service_job_error.invalid_job_spec.example.json \
+    service_job_error.backend_unavailable.example.json \
+    service_job_error.cancel_unsupported.example.json \
+    service_job_error.timeout.example.json \
+    service_job_error.internal.example.json \
     job_status.unknown.example.json; do
     f="$base/examples/$extra"
     [ -f "$f" ] || {
@@ -193,6 +204,10 @@ for f in "$base"/rejects/schema/reject-*.json; do
             reject-succeeded-without-output.json) twin="$(dirname "$f")/baseline-succeeded-output.json" ;;
             reject-result-not-ready.json) twin="$(dirname "$f")/baseline-terminal-result.json" ;;
             reject-cli-field.json | reject-missing-idempotency-key.json) twin="$(dirname "$f")/baseline-job-spec.json" ;;
+            reject-unknown-with-job-id.json) twin="$(dirname "$f")/baseline-unknown-admission.json" ;;
+            reject-admission-missing-reason.json) twin="$(dirname "$f")/baseline-admission-reason.json" ;;
+            reject-admission-missing-decided-at.json) twin="$(dirname "$f")/baseline-admission-decided-at.json" ;;
+            reject-cancel-missing-reason.json) twin="$(dirname "$f")/baseline-cancel-reason.json" ;;
             *)
                 echo "    [!!] reject has no baseline twin: $f" >&2
                 exit 1
@@ -353,6 +368,27 @@ mutated = copy.deepcopy(spec)
 mutated["deadline"] = "2026-08-15T18:00:00Z"
 if digest(mutated) == base:
     raise SystemExit("changing deadline did not change JobSpec digest")
+
+for field, value in (
+    ("catalog_revision", "catrev-other"),
+    ("offer_revision", "offerrev-other"),
+    ("service_id", "svc:other"),
+    ("requester_ref", "seat:other"),
+):
+    mutated = copy.deepcopy(spec)
+    mutated[field] = value
+    if digest(mutated) == base:
+        raise SystemExit("changing %s did not change JobSpec digest" % field)
+
+mutated = copy.deepcopy(spec)
+mutated["backend_ref"] = "backend:hosted-a"
+if digest(mutated) == base:
+    raise SystemExit("adding backend_ref did not change JobSpec digest")
+
+mutated = copy.deepcopy(spec)
+mutated["placement"] = "hosted"
+if digest(mutated) == base:
+    raise SystemExit("adding placement did not change JobSpec digest")
 '
 echo "    [ok] each digest-covered JobSpec component changes the canonical digest"
 
@@ -387,7 +423,7 @@ jq -e '
 jq -e '
   (.events | length) == 1
   and .events[0].event_id == "evt:job-complete-1"
-  and .events[0].payload_ref == "msg:sj-result-1"
+  and .events[0].payload.payload_ref == "msg:sj-result-1"
 ' "schemas/agent-wait/v0/examples/cross-path/poll_cycle_outcome.job_complete.json" >/dev/null
 echo "    [ok] cross-path: audio profile → submit/result → one job_complete waiter"
 

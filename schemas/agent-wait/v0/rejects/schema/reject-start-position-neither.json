@@ -13,7 +13,28 @@
       "registration_id": "reg:job-complete-1",
       "method_id": "job_complete",
       "subject_kind": "service_job",
-      "subject_id": "job:transcribe-1"
+      "subject_id": "job:transcribe-1",
+      "required": true,
+      "source_instance_ref": "source:provider-a",
+      "predicate_ref": "pred:job-complete",
+      "capability_ref": "cap:wait",
+      "lease_expires_at": "2026-08-16T00:00:00Z",
+      "bounds": {
+        "max_events": 50,
+        "max_bytes": 524288
+      }
     }
-  ]
+  ],
+  "principal_ref": "seat:consumer-a",
+  "logical_deadline": "2026-08-15T17:00:00Z",
+  "authn_mode": "optional",
+  "aggregate_limits": {
+    "max_events": 100,
+    "max_bytes": 1048576
+  },
+  "registration_digest": {
+    "canonicalization": "rfc8785",
+    "algorithm": "sha256",
+    "value": "cb5c843991542fca328ea9916d810e601f83429a496bd94986a1e7b5cfbeb7c1"
+  }
 }

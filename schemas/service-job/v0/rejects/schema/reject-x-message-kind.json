@@ -7,5 +7,7 @@
   "actor_ref": "seat:provider-admit",
   "error_code": "idempotency_conflict",
   "retryable": false,
-  "related_ref": "msg:sj-submit-9"
+  "related_ref": "msg:sj-submit-9",
+  "operation": "job_submit",
+  "redacted_message": "service job error"
 }

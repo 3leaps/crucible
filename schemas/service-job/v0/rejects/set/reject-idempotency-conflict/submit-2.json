@@ -34,11 +34,15 @@
         "role": "transcript"
       }
     ],
-    "deadline": "2026-08-15T17:00:00Z"
+    "deadline": "2026-08-15T17:00:00Z",
+    "catalog_revision": "catrev-42",
+    "offer_revision": "offerrev-7",
+    "service_id": "svc:transcribe",
+    "requester_ref": "seat:consumer-a"
   },
   "job_spec_digest": {
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
-    "value": "96b35bc8b8d1023dd61d30cc75a931a9daddea80660b738576eb2602a718c4da"
+    "value": "bb94a5eec3f8e447f1f9ab9811463f646eca734137d99694d0e0a9bf2108c22d"
   }
 }

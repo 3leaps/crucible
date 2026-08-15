@@ -2,9 +2,12 @@
 # Normative checks for contract: service-job/v0 — rules JSON Schema cannot prove.
 #
 # Declared invocation set (PDR-0006 Rule 2b):
-#   sh, coreutils — baseline
+#   sh, coreutils, sha256sum — baseline
 #   jq — structural inspection of contract fixtures (same house pattern as
 #        validate-review-journal-set.sh)
+#   python3 — subject-matter runtime for portable RFC3339 instants
+#             (scripts/rfc3339-instant.py) and RFC 8785 JobSpec digest
+#             verification before any semantic use
 #
 # Usage: validate-service-job-normative.sh <file-or-directory>
 # Exit 0 when every applicable rule holds. On failure prints
@@ -22,16 +25,34 @@ tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
 index="$tmpd/index.ndjson"
 
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "validate-service-job-normative.sh requires python3" >&2
+    exit 2
+fi
+
 fail() {
     printf 'normative_reason: %s\n' "$1" >&2
     exit 1
+}
+
+# Sets _rel to -1, 0, or 1. Exits the checker immediately on an unparseable
+# timestamp so comparisons never run on empty epoch values.
+compare_instants() {
+    _rel=$(python3 scripts/rfc3339-instant.py --compare "$1" "$2") || fail unparseable_timestamp
+    case "$_rel" in
+        -1 | 0 | 1) ;;
+        *) fail unparseable_timestamp ;;
+    esac
 }
 
 collect_json() {
     if [ -f "$target" ]; then
         printf '%s\n' "$target"
     elif [ -d "$target" ]; then
-        find "$target" -type f -name '*.json' | sort
+        # Hash-order the files so directory listing cannot become protocol order.
+        find "$target" -type f -name '*.json' | while IFS= read -r f; do
+            printf '%s\t%s\n' "$(printf '%s' "$f" | sha256sum | awk '{print $1}')" "$f"
+        done | sort | awk -F '\t' '{print $2}'
     else
         echo "    [!!] missing target: $target" >&2
         exit 1
@@ -40,8 +61,34 @@ collect_json() {
 
 : >"$index"
 for f in $(collect_json); do
+    case "$(basename "$f")" in
+        interpretation.json) continue ;;
+    esac
     jq -c --arg path "$f" '. + {_path: $path}' "$f" >>"$index"
 done
+
+# Recompute and constant-compare every submit JobSpec digest before semantic use.
+while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    mt=$(printf '%s' "$row" | jq -r '.message_type')
+    [ "$mt" = "job_submit_request" ] || continue
+    claimed=$(printf '%s' "$row" | jq -r '.job_spec_digest.value // empty')
+    [ -n "$claimed" ] || fail job_spec_digest_mismatch
+    printf '%s' "$row" | jq -c '.job_spec' >"$tmpd/job_spec.json"
+    got=$(python3 scripts/rfc8785-canonicalize.py "$tmpd/job_spec.json" | sha256sum | awk '{print $1}')
+    if [ "$got" != "$claimed" ]; then
+        fail job_spec_digest_mismatch
+    fi
+    env_svc=$(printf '%s' "$row" | jq -r '.service_id')
+    spec_svc=$(printf '%s' "$row" | jq -r '.job_spec.service_id')
+    env_cat=$(printf '%s' "$row" | jq -r '.catalog_revision')
+    spec_cat=$(printf '%s' "$row" | jq -r '.job_spec.catalog_revision')
+    env_off=$(printf '%s' "$row" | jq -r '.offer_revision')
+    spec_off=$(printf '%s' "$row" | jq -r '.job_spec.offer_revision')
+    if [ "$env_svc" != "$spec_svc" ] || [ "$env_cat" != "$spec_cat" ] || [ "$env_off" != "$spec_off" ]; then
+        fail job_spec_citation_mismatch
+    fi
+done <"$index"
 
 # Cancel-accepted is not cancelled. An interpretation sidecar may not equate them.
 if [ -d "$target" ] && [ -f "$target/interpretation.json" ]; then
@@ -51,29 +98,63 @@ if [ -d "$target" ] && [ -f "$target/interpretation.json" ]; then
     fi
 fi
 
-# Catalog pagination cannot silently cross revisions.
+# Catalog pagination pairs each response to its request_ref, not a global last.
 if jq -s -e '[.[] | select(.message_type == "catalog_list_request")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "catalog_list_response")] | length >= 1' "$index" >/dev/null; then
     crossed=$(jq -s '
-        ([.[] | select(.message_type == "catalog_list_request")] | last) as $q
-        | ([.[] | select(.message_type == "catalog_list_response")] | last) as $r
-        | ($q.catalog_revision != null) and ($q.catalog_revision != $r.catalog_revision)
+        [.[] | select(.message_type == "catalog_list_request")] as $qs
+        | [.[] | select(.message_type == "catalog_list_response")] as $rs
+        | [
+            $rs[] as $r
+            | ($qs | map(select(.message_id == $r.request_ref)) | .[0]) as $q
+            | select($q != null)
+            | ($q.catalog_revision != null) and ($q.catalog_revision != $r.catalog_revision)
+          ]
+        | any
     ' "$index")
     if [ "$crossed" = "true" ]; then
         fail pagination_revision_cross
     fi
 fi
 
-# Offer / catalog revision integrity on submit.
+# Offer integrity pairs by JobSpec service + catalog revision + offer revision.
 if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1' "$index" >/dev/null; then
     mismatch=$(jq -s '
-        ([.[] | select(.message_type == "service_offer")] | last) as $o
-        | [.[] | select(.message_type == "job_submit_request")
-            | select(.offer_revision != $o.offer_revision or .catalog_revision != $o.catalog_revision)]
-        | length > 0
+        [.[] | select(.message_type == "service_offer")] as $offers
+        | [
+            .[] | select(.message_type == "job_submit_request") as $s
+            | ($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | .[0]) as $o
+            | select($o != null)
+            | ($s.job_spec.offer_revision != $o.offer_revision
+               or $s.job_spec.catalog_revision != $o.catalog_revision
+               or $s.job_spec.service_id != $o.service_id)
+          ]
+        | any
     ' "$index")
     if [ "$mismatch" = "true" ]; then
+        fail offer_revision_mismatch
+    fi
+    # A submit whose cited offer identity is present in the set but does not
+    # match any offer is also a mismatch. Unrelated offers are ignored.
+    dangling=$(jq -s '
+        [.[] | select(.message_type == "service_offer")] as $offers
+        | [
+            .[] | select(.message_type == "job_submit_request") as $s
+            | select(($offers | map(.service_id) | index($s.job_spec.service_id)) != null)
+            | select(($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | length) == 0)
+          ]
+        | length > 0
+    ' "$index")
+    if [ "$dangling" = "true" ]; then
         fail offer_revision_mismatch
     fi
 fi
@@ -89,8 +170,8 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
             $ads[] as $a
             | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
             | select($s != null)
-            | (($s.placement == null) or ($s.placement == "local"))
-              and ($s.backend_ref == null)
+            | (($s.job_spec.placement == null) or ($s.job_spec.placement == "local"))
+              and ($s.job_spec.backend_ref == null)
               and ($a.resolved_placement == "hosted")
           ]
         | any
@@ -106,16 +187,20 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
         | [
             $ads[] as $a
             | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
-            | select($s != null and $s.placement == "hosted")
-            | ($offers | map(select(.offer_revision == $s.offer_revision)) | .[0]) as $o
+            | select($s != null and $s.job_spec.placement == "hosted")
+            | ($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | .[0]) as $o
             | (
                 ($s.egress_authorization_ref == null)
-                or ($s.backend_ref == null)
-                or ($a.resolved_backend_ref != $s.backend_ref)
+                or ($s.job_spec.backend_ref == null)
+                or ($a.resolved_backend_ref != $s.job_spec.backend_ref)
                 or ($a.resolved_placement != "hosted")
                 or (
                     $o != null
-                    and ($o.backends | map(select(.backend_ref == $s.backend_ref and .placement == "hosted")) | length == 0)
+                    and ($o.backends | map(select(.backend_ref == $s.job_spec.backend_ref and .placement == "hosted")) | length == 0)
                   )
               )
           ]
@@ -132,11 +217,18 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
         | [
             $ads[] as $a
             | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
-            | select($s != null and $s.backend_ref == null)
-            | ($offers | map(select(.offer_revision == $s.offer_revision)) | .[0]) as $o
+            | select($s != null and $s.job_spec.backend_ref == null)
+            | ($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | .[0]) as $o
             | select($o != null)
-            | ($o.backends | map(select(.default_local == true and .availability == "available" and .placement == "local")) | .[0]) as $d
-            | $d != null and $a.resolved_backend_ref != $d.backend_ref
+            | ($o.backends | map(select(.default_local == true and .availability == "available" and .placement == "local"))) as $defaults
+            | (
+                ($defaults | length) != 1
+                or $a.resolved_backend_ref != $defaults[0].backend_ref
+              )
           ]
         | any
     ' "$index")
@@ -148,26 +240,26 @@ fi
 # Unknown is scoped: original submit→unknown with no later scoped submit is fine.
 # A later submit in the same actor+service+key scope before resolution is not.
 if jq -s -e '[.[] | select(.message_type == "job_admission_receipt" and .admission == "unknown")] | length >= 1' "$index" >/dev/null; then
-    unknown_retry=$(jq -s '
+    jq -c '
         [.[] | select(.message_type == "job_submit_request")] as $subs
         | [.[] | select(.message_type == "job_admission_receipt" and .admission == "unknown")] as $unks
-        | [
-            $unks[] as $u
-            | ($subs | map(select(.message_id == $u.submit_ref)) | .[0]) as $orig
-            | select($orig != null)
-            | [
-                $subs[]
-                | select(.message_id != $orig.message_id)
-                | select(.actor_ref == $orig.actor_ref and .service_id == $orig.service_id and .idempotency_key == $orig.idempotency_key)
-                | select(.created_at > $u.created_at)
-              ]
-            | length > 0
-          ]
-        | any
-    ' "$index")
-    if [ "$unknown_retry" = "true" ]; then
-        fail unknown_admission_retry
-    fi
+        | $unks[] as $u
+        | ($subs | map(select(.message_id == $u.submit_ref)) | .[0]) as $orig
+        | select($orig != null)
+        | $subs[]
+        | select(.message_id != $orig.message_id)
+        | select(.actor_ref == $orig.actor_ref and .service_id == $orig.service_id and .idempotency_key == $orig.idempotency_key)
+        | {unknown: $u.created_at, retry: .created_at}
+    ' "$index" >"$tmpd/unknown_retry.ndjson"
+    while IFS= read -r pair; do
+        [ -n "$pair" ] || continue
+        unk=$(printf '%s' "$pair" | jq -r '.unknown')
+        retry=$(printf '%s' "$pair" | jq -r '.retry')
+        compare_instants "$unk" "$retry"
+        if [ "$_rel" -lt 0 ]; then
+            fail unknown_admission_retry
+        fi
+    done <"$tmpd/unknown_retry.ndjson"
 fi
 
 # Scoped idempotency: actor + service + key.
@@ -205,7 +297,11 @@ if jq -s -e '[.[] | select(.message_type == "service_offer")] | length >= 1' "$i
         | [.[] | select(.message_type == "job_submit_request")] as $subs
         | [
             $subs[] as $s
-            | ($offers | map(select(.offer_revision == $s.offer_revision)) | .[0]) as $o
+            | ($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | .[0]) as $o
             | select($o != null)
             | $o.input_requirements[] as $req
             | ($s.job_spec.inputs | map(select(.role == $req.role))) as $got
@@ -266,9 +362,9 @@ if jq -s -e '[.[] | select(.message_type == "job_status")] | length >= 2' "$inde
     illegal=$(jq -s '
         def allowed:
           {
-            admitted: ["queued", "running", "cancel_requested", "failed", "expired"],
-            queued: ["running", "cancel_requested", "failed", "expired"],
-            running: ["succeeded", "failed", "cancel_requested", "partial", "expired"],
+            admitted: ["queued", "running", "cancel_requested", "cancelled", "failed", "expired"],
+            queued: ["running", "cancel_requested", "cancelled", "failed", "expired"],
+            running: ["succeeded", "failed", "cancel_requested", "cancelled", "partial", "expired"],
             cancel_requested: ["cancelled", "succeeded", "failed", "running", "partial", "expired"],
             succeeded: [],
             failed: [],

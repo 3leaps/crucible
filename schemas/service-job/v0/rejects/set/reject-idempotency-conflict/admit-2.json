@@ -20,5 +20,11 @@
     "canonicalization": "rfc8785",
     "algorithm": "sha256",
     "value": "96b35bc8b8d1023dd61d30cc75a931a9daddea80660b738576eb2602a718c4da"
-  }
+  },
+  "idempotency_key": "idem:transcribe-1",
+  "decided_at": "2026-08-15T16:00:11Z",
+  "catalog_id": "cat:public",
+  "catalog_revision": "catrev-42",
+  "service_id": "svc:transcribe",
+  "offer_revision": "offerrev-7"
 }

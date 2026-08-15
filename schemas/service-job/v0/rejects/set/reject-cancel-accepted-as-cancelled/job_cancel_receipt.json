@@ -11,5 +11,6 @@
   "job_state": "cancel_requested",
   "cancel_request_ref": "msg:sj-cancel-req-1",
   "state_version": 4,
-  "idempotency_key": "idem:cancel-1"
+  "idempotency_key": "idem:cancel-1",
+  "decided_at": "2026-08-15T16:03:01Z"
 }

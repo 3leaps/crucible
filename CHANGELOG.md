@@ -32,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service-job offer and JobSpec restore frozen artifact, backend, and
   parameter surfaces. Changing any digest-covered JobSpec component changes
   the canonical digest.
+- Agent-wait registration sets carry principal, authn mode, aggregate
+  limits, and a registration digest. Each registration carries source,
+  predicate, capability, lease, and bounds. Events use structured payload
+  refs and replay metadata. Poll ack, retention, and coverage are
+  per-registration maps.
+- Service-job JobSpec digest identity includes catalog and offer revision,
+  service, requester, and backend/placement choice. Catalog, offer,
+  admission, result, cancel, and error restore the frozen required
+  fields and conditionals. Unknown admission cannot invent job identity.
+- Service-job normative checks recompute every submit digest before
+  semantic use, pair catalog pages and offers by explicit refs, compare
+  instants with the portable helper, and reject omitted-backend resolution
+  when the offer has zero or multiple eligible local defaults.
 
 ### Added
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:agent-wait/v0/agent-wait-message.schema.json",
   "title": "Agent Wait Message",
-  "description": "Discriminated entry schema for contract: agent-wait/v0. Six message kinds only. Provider-opaque exclusive anchors are distinct from source event IDs. The prose standard remains normative for deadline ordering, coverage, fairness, ack/retention, replay, and revision freeze.",
+  "description": "Discriminated entry schema for contract: agent-wait/v0. Six message kinds only. Provider-opaque exclusive anchors are distinct from source event IDs. Registration sets carry principal, authn, aggregate limits, and a registration digest. Poll ack/retention is per-registration. The prose standard remains normative for deadline ordering, coverage, fairness, ack/retention, replay, bounds, and revision freeze.",
   "oneOf": [
     { "$ref": "#/$defs/registrationSet" },
     { "$ref": "#/$defs/liveWaitRequest" },
@@ -52,6 +52,29 @@
       "format": "date-time",
       "description": "Absolute RFC3339 timestamp."
     },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "jcsDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalization", "algorithm", "value"],
+      "properties": {
+        "canonicalization": { "const": "rfc8785" },
+        "algorithm": { "const": "sha256" },
+        "value": { "$ref": "#/$defs/sha256" }
+      }
+    },
     "anchor": {
       "type": "object",
       "additionalProperties": false,
@@ -61,6 +84,40 @@
         "value": { "$ref": "#/$defs/idToken" }
       },
       "description": "Provider-opaque exclusive continuation cursor. Distinct from a source event_id. The value MUST NOT be treated as an event identifier."
+    },
+    "registrationAnchorMap": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/anchor" },
+      "description": "Map keyed by registration_id. Empty object is a first-cycle or no-ack map."
+    },
+    "registrationEventMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": { "$ref": "#/$defs/idToken" }
+      },
+      "description": "Map of event id lists keyed by registration_id."
+    },
+    "waitBound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_events", "max_bytes"],
+      "properties": {
+        "max_events": { "type": "integer", "minimum": 0 },
+        "max_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "payloadRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload_ref", "content_digest"],
+      "properties": {
+        "payload_ref": { "$ref": "#/$defs/refToken" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "media_type": { "type": "string", "minLength": 1 }
+      },
+      "description": "Structured payload reference. payload_ref is never a bare token at the event surface."
     },
     "outcomeKind": {
       "enum": [
@@ -78,63 +135,136 @@
     "reasonOutcomeKind": {
       "enum": ["cancelled", "refused", "reauthentication_required", "failed"]
     },
+    "authnMode": {
+      "enum": ["required", "optional", "disabled"],
+      "description": "Aggregate authentication posture for the registration set."
+    },
     "baselinePolicy": {
       "enum": ["latest", "earliest", "provider_defined"],
       "description": "Explicit start-position policy. There is no implicit provider default."
+    },
+    "replayStatus": {
+      "enum": ["fresh", "replay"]
     },
     "waitEvent": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "event_id",
+        "registration_id",
+        "source_instance_ref",
         "method_id",
         "subject_kind",
         "subject_id",
         "occurred_at",
-        "payload_ref"
+        "observed_at",
+        "start_anchor",
+        "proposed_next_anchor",
+        "replay_status",
+        "correlation_id",
+        "payload"
       ],
       "properties": {
         "event_id": { "$ref": "#/$defs/idToken" },
+        "registration_id": { "$ref": "#/$defs/idToken" },
+        "source_instance_ref": { "$ref": "#/$defs/refToken" },
         "method_id": { "$ref": "#/$defs/idToken" },
         "subject_kind": { "$ref": "#/$defs/idToken" },
         "subject_id": { "$ref": "#/$defs/idToken" },
-        "occurred_at": { "$ref": "#/$defs/rfc3339" },
-        "payload_ref": { "$ref": "#/$defs/refToken" },
+        "occurred_at": {
+          "$ref": "#/$defs/rfc3339",
+          "description": "Provider timestamp. Mapped equivalent of the frozen provider-occurred instant."
+        },
+        "observed_at": { "$ref": "#/$defs/rfc3339" },
+        "start_anchor": { "$ref": "#/$defs/anchor" },
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" },
+        "replay_status": { "$ref": "#/$defs/replayStatus" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "payload": { "$ref": "#/$defs/payloadRef" },
         "delivery_ref": { "$ref": "#/$defs/refToken" },
         "activation_ref": { "$ref": "#/$defs/refToken" }
       },
-      "description": "Stable source event identity plus payload_ref only. event_id is not an exclusive cursor."
+      "description": "Stable source event identity plus structured payload. event_id is not an exclusive cursor."
     },
     "coverageArm": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["arm_id", "required", "status", "degraded"],
+      "required": [
+        "arm_id",
+        "registration_id",
+        "required",
+        "status",
+        "degraded",
+        "start_anchor",
+        "proposed_next_anchor",
+        "event_count",
+        "byte_count"
+      ],
       "properties": {
         "arm_id": { "$ref": "#/$defs/idToken" },
+        "registration_id": { "$ref": "#/$defs/idToken" },
         "required": { "type": "boolean" },
         "status": {
           "enum": ["no_change", "events", "observed", "outage", "cursor_uncertain", "deferred"]
         },
-        "degraded": { "type": "boolean" }
-      }
+        "degraded": { "type": "boolean" },
+        "start_anchor": { "$ref": "#/$defs/anchor" },
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" },
+        "event_count": { "type": "integer", "minimum": 0 },
+        "byte_count": { "type": "integer", "minimum": 0 },
+        "reason_code": { "$ref": "#/$defs/idToken" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": { "status": { "enum": ["outage", "cursor_uncertain"] } },
+                "required": ["status"]
+              },
+              { "properties": { "degraded": { "const": true } }, "required": ["degraded"] }
+            ]
+          },
+          "then": { "required": ["reason_code"] }
+        }
+      ]
     },
     "pollBound": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "max_events": { "type": "integer", "minimum": 1 },
-        "max_payload_refs": { "type": "integer", "minimum": 1 }
+        "max_payload_refs": { "type": "integer", "minimum": 1 },
+        "max_bytes": { "type": "integer", "minimum": 1 }
       }
     },
     "registration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["registration_id", "method_id", "subject_kind", "subject_id"],
+      "required": [
+        "registration_id",
+        "method_id",
+        "subject_kind",
+        "subject_id",
+        "required",
+        "source_instance_ref",
+        "predicate_ref",
+        "capability_ref",
+        "lease_expires_at",
+        "bounds"
+      ],
       "properties": {
         "registration_id": { "$ref": "#/$defs/idToken" },
         "method_id": { "$ref": "#/$defs/idToken" },
         "subject_kind": { "$ref": "#/$defs/idToken" },
         "subject_id": { "$ref": "#/$defs/idToken" },
+        "required": { "type": "boolean" },
+        "source_instance_ref": { "$ref": "#/$defs/refToken" },
+        "predicate_ref": { "$ref": "#/$defs/refToken" },
+        "capability_ref": { "$ref": "#/$defs/refToken" },
+        "lease_expires_at": { "$ref": "#/$defs/rfc3339" },
+        "bounds": { "$ref": "#/$defs/waitBound" },
         "start_anchor": { "$ref": "#/$defs/anchor" },
         "baseline_policy": { "$ref": "#/$defs/baselinePolicy" }
       },
@@ -159,9 +289,14 @@
         "correlation_id",
         "created_at",
         "actor_ref",
+        "principal_ref",
         "waiter_id",
         "seat_ref",
         "registration_revision",
+        "logical_deadline",
+        "authn_mode",
+        "aggregate_limits",
+        "registration_digest",
         "registrations"
       ],
       "properties": {
@@ -171,6 +306,7 @@
         "correlation_id": { "$ref": "#/$defs/idToken" },
         "created_at": { "$ref": "#/$defs/rfc3339" },
         "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "principal_ref": { "$ref": "#/$defs/actorRef" },
         "causation_id": { "$ref": "#/$defs/idToken" },
         "grant_ref": { "$ref": "#/$defs/refToken" },
         "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
@@ -178,6 +314,10 @@
         "waiter_id": { "$ref": "#/$defs/idToken" },
         "seat_ref": { "$ref": "#/$defs/refToken" },
         "registration_revision": { "$ref": "#/$defs/idToken" },
+        "logical_deadline": { "$ref": "#/$defs/rfc3339" },
+        "authn_mode": { "$ref": "#/$defs/authnMode" },
+        "aggregate_limits": { "$ref": "#/$defs/waitBound" },
+        "registration_digest": { "$ref": "#/$defs/jcsDigest" },
         "registrations": {
           "type": "array",
           "minItems": 1,
@@ -327,7 +467,10 @@
         "logical_deadline",
         "run_deadline",
         "required_arms",
-        "fairness_cursor"
+        "fairness_cursor",
+        "acknowledged_anchors",
+        "activation_ref",
+        "cycle_id"
       ],
       "properties": {
         "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -352,7 +495,9 @@
           "items": { "$ref": "#/$defs/idToken" }
         },
         "fairness_cursor": { "$ref": "#/$defs/idToken" },
-        "acknowledged_anchor": { "$ref": "#/$defs/anchor" },
+        "acknowledged_anchors": { "$ref": "#/$defs/registrationAnchorMap" },
+        "activation_ref": { "$ref": "#/$defs/refToken" },
+        "cycle_id": { "$ref": "#/$defs/idToken" },
         "bound": { "$ref": "#/$defs/pollBound" }
       }
     },
@@ -375,8 +520,8 @@
         "coverage_complete",
         "arms",
         "retained_through",
-        "retained_event_ids",
-        "proposed_next_anchor",
+        "retained_events",
+        "proposed_next_anchors",
         "fairness_cursor",
         "next_fairness_cursor"
       ],
@@ -406,16 +551,12 @@
           "minItems": 1,
           "items": { "$ref": "#/$defs/coverageArm" }
         },
-        "retained_through": { "$ref": "#/$defs/anchor" },
-        "retained_event_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "$ref": "#/$defs/idToken" }
-        },
-        "proposed_next_anchor": { "$ref": "#/$defs/anchor" },
+        "retained_through": { "$ref": "#/$defs/registrationAnchorMap" },
+        "retained_events": { "$ref": "#/$defs/registrationEventMap" },
+        "proposed_next_anchors": { "$ref": "#/$defs/registrationAnchorMap" },
         "fairness_cursor": { "$ref": "#/$defs/idToken" },
         "next_fairness_cursor": { "$ref": "#/$defs/idToken" },
-        "acknowledged_anchor": { "$ref": "#/$defs/anchor" },
+        "acknowledged_anchors": { "$ref": "#/$defs/registrationAnchorMap" },
         "bound": { "$ref": "#/$defs/pollBound" },
         "reason_code": { "$ref": "#/$defs/idToken" }
       },
@@ -441,8 +582,8 @@
         "actor_ref",
         "waiter_id",
         "outcome_ref",
-        "committed_anchor",
-        "acked_event_ids"
+        "committed_anchors",
+        "retained_events"
       ],
       "properties": {
         "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -457,12 +598,8 @@
         "policy_decision_ref": { "$ref": "#/$defs/refToken" },
         "waiter_id": { "$ref": "#/$defs/idToken" },
         "outcome_ref": { "$ref": "#/$defs/idToken" },
-        "committed_anchor": { "$ref": "#/$defs/anchor" },
-        "acked_event_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "$ref": "#/$defs/idToken" }
-        }
+        "committed_anchors": { "$ref": "#/$defs/registrationAnchorMap" },
+        "retained_events": { "$ref": "#/$defs/registrationEventMap" }
       }
     }
   }

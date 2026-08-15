@@ -36,17 +36,23 @@ JSON Schema cannot prove are enforced by
 - **Authorization-filtered catalog.** A list response is what the caller may
   see, not a global dump. `catalog_revision` and `offer_revision` are
   immutable. Pagination MUST NOT silently cross revisions.
-- **Local-only implicit default.** Omitting `placement` and `backend_ref`
-  resolves only the offer's declared available local default
-  (`default_local=true`, `placement=local`, `availability=available`).
-  Hosted submit requires explicit `backend_ref`, `egress_authorization_ref`,
-  offer membership, and egress authorization. There is no silent
-  local→hosted fallback.
+- **Local-only implicit default.** Omitting JobSpec `placement` and
+  `backend_ref` resolves only when the referenced offer has exactly one
+  declared available local default (`default_local=true`,
+  `placement=local`, `availability=available`). Zero or multiple eligible
+  defaults is a resolution failure. Hosted submit requires explicit
+  JobSpec `backend_ref`, envelope `egress_authorization_ref`, offer
+  membership, and egress authorization. There is no silent local→hosted
+  fallback.
 - **Admission is not a job state.** Receipt `admission` is
   `accepted` | `unknown` | `conflict` | `rejected`. The first job state is
   `admitted`. `accepted` is not started, completed, delivered, or activated.
-  An accepted receipt requires `job_id`, `resolved_backend_ref`,
-  `resolved_placement`, and `observe_hint`.
+  Every receipt requires `idempotency_key` and `decided_at`. An accepted
+  receipt also requires `catalog_id`, `catalog_revision`, `service_id`,
+  `offer_revision`, `job_id`, `resolved_backend_ref`,
+  `resolved_placement`, and `observe_hint`. `unknown`, `conflict`, and
+  `rejected` require `reason_code`. `unknown` MUST NOT invent `job_id`,
+  `resolved_backend_ref`, `resolved_placement`, or `observe_hint`.
 - **Digest-bound scoped idempotency.** `idempotency_key` is required. Scope
   is authenticated `actor_ref` + `service_id` + key. Receipts correlate by
   `submit_ref` = submit `message_id`. The JobSpec is canonicalized with RFC
@@ -105,17 +111,29 @@ credential). Optional: `causation_id`, `grant_ref`,
 
 ## Frozen Rules
 
-- **Offer.** A `service_offer` carries `method_id`, `display_name`,
+- **Catalog and offer.** Catalog list/describe and the offer carry
+  `catalog_id`. A list request MAY carry `filters`. Each catalog service
+  carries `offer_summary` (`method_id`, `availability`, `cancel_posture`).
+  A `service_offer` also requires `cancel_posture`, overall
+  `availability`, `default_backend_ref`, `required_actions`,
+  `retention_ref`, `policy_ref`, `method_id`, `display_name`,
   `description`, `parameters_schema_ref`, `input_requirements`,
   `output_requirements`, and one or more `BackendOffer`s. Each backend
   declares `availability`, `default_local`, `cost_class`, `egress`,
-  `limits`, `worker_version`, and optional `policy_claims`.
-  `default_local=true` implies `placement=local` and
-  `availability=available`.
-- **JobSpec.** Closed object: `inputs` (artifact refs), `parameters`,
-  `outputs` (role slots), `deadline`. Provider- or CLI-specific fields
+  `limits`, `worker_version`, and optional `policy_claims` /
+  `provenance_claims`. Artifact requirements MAY add `max_bytes` and
+  `provenance_required`. `default_local=true` implies `placement=local`
+  and `availability=available`.
+- **JobSpec.** Closed object: `catalog_revision`, `offer_revision`,
+  `service_id`, `requester_ref`, `inputs` (artifact refs), `parameters`,
+  `outputs` (role slots), `deadline`, and optional `backend_ref` /
+  `placement`. Hosted placement on the JobSpec requires `backend_ref`.
+  Envelope `service_id`, `catalog_revision`, and `offer_revision` are
+  citations and MUST match the JobSpec. Provider- or CLI-specific fields
   (`cli_args` and kin) are rejected at the contract boundary. Parameters
-  MUST validate against the referenced portable schema.
+  MUST validate against the referenced portable schema. The carried
+  `job_spec_digest` MUST be the RFC 8785 SHA-256 of that JobSpec;
+  a tampered body or a tampered digest is rejected before semantic use.
 - **Artifact refs.** An `ArtifactRef` may carry `descriptor_ref`,
   `representation_id`, `profile`, `media_type`, and `digest` in addition to
   `artifact_ref` and `role`. Offers constrain cardinality, profile, media
@@ -123,8 +141,14 @@ credential). Optional: `causation_id`, `grant_ref`,
   machine-local paths. Audio travels as a `data-artifact` descriptor using
   profile-qualified tokens and `media_type`. This family does not bump the
   data-artifact base enums.
-- **JobSpec digest.** Changing any digest-covered component (`inputs`,
-  `parameters`, `outputs`, `deadline`) MUST change the RFC 8785 SHA-256.
+- **JobSpec digest.** Changing any digest-covered component
+  (`catalog_revision`, `offer_revision`, `service_id`, `requester_ref`,
+  `backend_ref`, `placement`, `inputs`, `parameters`, `outputs`,
+  `deadline`) MUST change the RFC 8785 SHA-256. Catalog pages pair by
+  `request_ref`. Offers pair to submits by service, catalog revision, and
+  offer revision. Unrelated interleaved exchanges MUST NOT be globally
+  paired. Instant comparisons use the portable RFC3339 helper; equivalent
+  offsets are the same instant.
 - **`observe_hint`.** `method_id` is `job_complete`, `subject_kind` is
   `service_job`, `subject_id` is the `job_id`. The hint MUST NOT carry a
   start position. The consumer's agent-wait registration supplies
@@ -136,30 +160,42 @@ credential). Optional: `causation_id`, `grant_ref`,
   `state_version`, not envelope `created_at`.
 - **Result.** `job_result` is terminal only:
   `succeeded` | `failed` | `cancelled` | `partial` | `expired`.
-  `succeeded` and `partial` require outputs. `failed`, `cancelled`, and
-  `expired` require `reason_code`. Not-ready is `service_job_error` with
-  `error_code` `result_not_ready`, never a `job_result`.
+  Required: `job_spec_digest`, `resolved_backend_ref`, `finished_at`,
+  always-present `outputs` array, `result_digest`, and `worker_version`.
+  Optional `model_ref`. `succeeded` and `partial` require at least one
+  output. `failed`, `cancelled`, and `expired` require `reason_code`.
+  Not-ready is `service_job_error` with `error_code` `result_not_ready`,
+  never a `job_result`.
 - **Cancel.** `job_cancel_request` requires `idempotency_key`. The receipt
-  requires `cancel_request_ref`, `state_version`, `idempotency_key`, and
-  `cancel_admission` of `accepted` | `refused` | `unsupported` | `unknown`.
-  Exact replay of the same scoped key MUST repeat the admission. A conflict
-  on that key is rejected.
+  requires `cancel_request_ref`, `state_version`, `idempotency_key`,
+  `decided_at`, and `cancel_admission` of
+  `accepted` | `refused` | `unsupported` | `unknown`. Non-accept decisions
+  require `reason_code`. Exact replay of the same scoped key MUST repeat
+  the admission. A conflict on that key is rejected.
+- **Errors.** `service_job_error` requires `operation`
+  (`catalog_list` | `service_describe` | `job_submit` | `job_status` |
+  `job_result` | `job_cancel`), a stable `error_code`
+  (`result_not_ready` | `offer_revision_mismatch` | `idempotency_conflict`
+  | `unknown_admission` | `unauthorized` | `invalid_job_spec` |
+  `backend_unavailable` | `cancel_unsupported` | `timeout` | `internal`),
+  `redacted_message`, and `retryable`. Optional: `retry_after_s`,
+  `detail_ref`, `related_ref`.
 - **One `job_complete` event.** A single stable event identity references the
   terminal `job_result`. It is not a second waiter.
 - **Legal transitions.**
 
-  | From               | To                                                                  |
-  | ------------------ | ------------------------------------------------------------------- |
-  | `admitted`         | `queued`, `running`, `cancel_requested`, `failed`, `expired`        |
-  | `queued`           | `running`, `cancel_requested`, `failed`, `expired`                  |
-  | `running`          | `succeeded`, `failed`, `cancel_requested`, `partial`, `expired`     |
-  | `cancel_requested` | `cancelled`, `succeeded`, `failed`, `running`, `partial`, `expired` |
-  | `unknown`          | any non-observational job state                                     |
-  | `succeeded`        | (none)                                                              |
-  | `failed`           | (none)                                                              |
-  | `cancelled`        | (none)                                                              |
-  | `partial`          | (none)                                                              |
-  | `expired`          | (none)                                                              |
+  | From               | To                                                                           |
+  | ------------------ | ---------------------------------------------------------------------------- |
+  | `admitted`         | `queued`, `running`, `cancel_requested`, `cancelled`, `failed`, `expired`    |
+  | `queued`           | `running`, `cancel_requested`, `cancelled`, `failed`, `expired`              |
+  | `running`          | `succeeded`, `failed`, `cancel_requested`, `cancelled`, `partial`, `expired` |
+  | `cancel_requested` | `cancelled`, `succeeded`, `failed`, `running`, `partial`, `expired`          |
+  | `unknown`          | any non-observational job state                                              |
+  | `succeeded`        | (none)                                                                       |
+  | `failed`           | (none)                                                                       |
+  | `cancelled`        | (none)                                                                       |
+  | `partial`          | (none)                                                                       |
+  | `expired`          | (none)                                                                       |
 
   `admitted → succeeded` is illegal: admission is not completion. Terminals
   never leave.

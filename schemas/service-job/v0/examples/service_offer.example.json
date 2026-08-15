@@ -71,5 +71,12 @@
       "media_types": ["text/plain"],
       "digest_required": false
     }
-  ]
+  ],
+  "catalog_id": "cat:public",
+  "cancel_posture": "supported",
+  "availability": "available",
+  "default_backend_ref": "backend:local-default",
+  "required_actions": [],
+  "retention_ref": "ret:default",
+  "policy_ref": "pol:default"
 }

@@ -78,6 +78,11 @@ expected_reason() {
         *silent-cursor-advance*) echo silent_cursor_advance ;;
         *revision-cross*) echo revision_cross ;;
         *fairness-starvation*) echo fairness_starvation ;;
+        *authn-required*) echo authn_required ;;
+        *lease-expired*) echo lease_reauth ;;
+        *registration-bound*) echo registration_bound ;;
+        *aggregate-bound*) echo aggregate_bound ;;
+        *cross-arm-commit*) echo cross_arm_commit ;;
         *) echo unknown ;;
     esac
 }
@@ -236,7 +241,7 @@ sh scripts/validate-agent-wait-normative.sh "$base/examples/cross-path/poll_cycl
 # observe_hint is supplied by service-job; this registration must add a start position.
 jq -e '.registrations[] | (has("start_anchor") or has("baseline_policy")) and ((has("start_anchor") and has("baseline_policy")) | not)' \
     "$base/examples/cross-path/registration_set.job_complete.json" >/dev/null
-jq -e '.events[0].method_id == "job_complete" and .events[0].subject_kind == "service_job" and .events[0].payload_ref == "msg:sj-result-1"' \
+jq -e '.events[0].method_id == "job_complete" and .events[0].subject_kind == "service_job" and .events[0].payload.payload_ref == "msg:sj-result-1"' \
     "$base/examples/cross-path/poll_cycle_outcome.job_complete.json" >/dev/null
 echo "    [ok] cross-path registration adds start position; event is job_complete"
 

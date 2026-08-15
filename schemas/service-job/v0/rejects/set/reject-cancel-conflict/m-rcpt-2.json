@@ -10,5 +10,7 @@
   "cancel_admission": "refused",
   "job_state": "running",
   "state_version": 4,
-  "idempotency_key": "idem:cancel-1"
+  "idempotency_key": "idem:cancel-1",
+  "decided_at": "2026-08-15T16:03:11Z",
+  "reason_code": "cancel_refused"
 }

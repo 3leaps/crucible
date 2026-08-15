@@ -4,9 +4,10 @@ Machine-readable companion schemas for the portable service-job contract.
 
 The normative standard is
 [`docs/standards/service-job-contract.md`](../../../docs/standards/service-job-contract.md).
-These schemas provide the structural validation surface. Catalog/offer
-integrity, local-default resolution, hosted membership, scoped idempotency,
-artifact requirements, cancel replay, and legal transitions are enforced by
+These schemas provide the structural validation surface. Digest-bound
+JobSpec identity, catalog/offer pairing by explicit refs, local-default
+resolution, hosted membership, scoped idempotency, artifact requirements,
+cancel replay, and legal transitions are enforced by
 `scripts/validate-service-job-normative.sh` and proven able to fail by
 `scripts/test-service-job-controls.sh`.
 
