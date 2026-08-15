@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service-job JCS materializer follows RFC 8785 / ECMAScript number
   serialization and the I-JSON numeric domain. Official-style vectors run
   under `make check`; the JobSpec digest remains an integration case.
+- JCS string serialization leaves U+2028 and U+2029 as UTF-8. Duplicate
+  object members are rejected at every nesting depth. Lone surrogate code
+  points are rejected. Quote, backslash, and C0 control escapes are
+  unchanged.
 - Agent-wait exclusive anchors are provider-opaque and distinct from source
   event IDs. Live and poll share the frozen outcome kinds; clean
   `no_change` / `logical_deadman` are rejected when required coverage is

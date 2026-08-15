@@ -170,8 +170,10 @@ JobSpec idempotency uses RFC 8785. Official-style conformance vectors live
 at `schemas/service-job/v0/canonicalization/rfc8785/` and cover ECMAScript
 number serialization (exponent zero-padding, `1e-6` / `1e21` thresholds,
 negative zero, subnormal and min/max finite doubles), I-JSON rejection of
-non-finite values and unsafe integers, UTF-16 key order, and string
-escaping. The friendly JobSpec digest at
+non-finite values, unsafe integers, duplicate object members, and lone
+surrogates, UTF-16 key order, and string escaping. Quote, backslash, and
+C0 controls are escaped; other Unicode, including U+2028 and U+2029, is
+emitted as UTF-8. The friendly JobSpec digest at
 `schemas/service-job/v0/canonicalization/jobspec.*` is an integration case,
 not the conformance oracle. The control battery recomputes both with the
 stdlib-only materializer and refuses `jq -S` as the oracle.

@@ -15,6 +15,7 @@
 #   - normative baselines pass and reject-* fail with the expected reason
 #   - schema pairs differ in exactly one field
 #   - RFC 8785 official-style vectors (numbers, keys, escaping, rejects)
+#   - U+2028/U+2029 stay raw UTF-8; duplicate members and lone surrogates fail
 #   - checked-in JobSpec JCS bytes and SHA-256 match as an integration case
 #   - jq -S is not the digest oracle
 #   - JobSpec parameters validate against the referenced portable schema
@@ -207,7 +208,7 @@ canon_dir="$base/canonicalization"
 rfc_dir="$canon_dir/rfc8785"
 tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
-for stem in values unicode-keys numbers escaping; do
+for stem in values unicode-keys numbers escaping line-separators; do
     python3 scripts/rfc8785-canonicalize.py "$rfc_dir/${stem}.input.json" >"$tmpd/${stem}.jcs"
     if ! cmp -s "$rfc_dir/${stem}.canonical.jcs" "$tmpd/${stem}.jcs"; then
         echo "    [!!] RFC 8785 vector $stem does not match checked-in canonical bytes" >&2
@@ -217,6 +218,17 @@ for stem in values unicode-keys numbers escaping; do
     fi
     echo "    [ok] RFC 8785 vector: $stem"
 done
+want_lsps=$(tr -d '[:space:]' <"$rfc_dir/line-separators.hex")
+got_lsps=$(python3 -c 'import pathlib,sys; sys.stdout.write(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$tmpd/line-separators.jcs")
+if [ "$got_lsps" != "$want_lsps" ]; then
+    echo "    [!!] U+2028/U+2029 hex $got_lsps != $want_lsps" >&2
+    exit 1
+fi
+if [ "$got_lsps" = "225c75323032385c753230323922" ]; then
+    echo "    [!!] U+2028/U+2029 were escaped as \\\\u2028\\\\u2029" >&2
+    exit 1
+fi
+echo "    [ok] U+2028/U+2029 canonical UTF-8 bytes $want_lsps"
 python3 -c '
 import json, pathlib, struct, sys
 from importlib.machinery import SourceFileLoader
@@ -240,13 +252,28 @@ jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
 cases = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/rejects.json").read_text())["cases"]
 for case in cases:
     try:
-        document = json.loads(case["json_text"])
+        document = jcs.jcs_loads(case["json_text"])
         jcs.jcs_dumps(document)
     except (ValueError, json.JSONDecodeError):
         continue
     raise SystemExit("reject case %s was accepted" % case["name"])
-print("    [ok] RFC 8785 reject cases (non-finite, unsafe integer)")
+probes = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/string-bytes.json").read_text())["cases"]
+for case in probes:
+    got = jcs.jcs_dumps(jcs.jcs_loads(case["json_text"])).encode("utf-8").hex()
+    if got != case["canonical_hex"]:
+        raise SystemExit("%s hex %s != %s" % (case["name"], got, case["canonical_hex"]))
+    if got == case.get("rejected_helper_hex"):
+        raise SystemExit("%s matched rejected helper hex" % case["name"])
+print("    [ok] RFC 8785 reject cases (numbers, duplicates, lone surrogates)")
+print("    [ok] RFC 8785 string-byte probes (U+2028/U+2029 unescaped)")
 '
+if python3 scripts/rfc8785-canonicalize.py >/dev/null 2>"$tmpd/dup.err" <<'JSON'; then
+{"a":1,"a":2}
+JSON
+    echo "    [!!] duplicate object members were accepted" >&2
+    exit 1
+fi
+echo "    [ok] CLI rejects duplicate object members"
 
 echo "    RFC 8785 JobSpec integration vector..."
 python3 scripts/rfc8785-canonicalize.py "$canon_dir/jobspec.input.json" >"$tmpd/got.jcs"
