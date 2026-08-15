@@ -1,0 +1,1 @@
+{"input_artifacts":[{"artifact_ref":"urn:uuid:00000000-0000-7000-8000-000000000401","role":"source_audio"}],"parameters":{"beam_width":4.5,"language":"en","temperature":1e-15},"scale_hint":1e+30,"service_id":"svc:transcribe"}

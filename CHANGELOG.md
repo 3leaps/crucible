@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`contract: agent-wait/v0`.** Portable wait/poll family: six discriminated
+  message kinds, explicit start-position XOR, live match as a proposal, and
+  poll `no_change` / `logical_deadman` rules. Schemas, goldens, and
+  schema/normative/set controls land under `schemas/agent-wait/v0/`; the
+  standard is `docs/standards/agent-wait-contract.md`. Wired into `make check`.
+- **`contract: service-job/v0`.** Portable service-job family: thirteen
+  discriminated kinds, authorization-filtered catalog, local-only implicit
+  default, RFC 8785 digest-bound idempotency, and legal/terminal transitions.
+  Schemas, goldens, JCS vectors, and controls land under
+  `schemas/service-job/v0/`; the standard is
+  `docs/standards/service-job-contract.md`. Wired into `make check`.
 - **Composing a Review Panel guide** (`docs/guides/`). The composition
   companion to the fierce-collaboration standard and its run-book: the
   five-layer seat composition model (identity × environment × harness+profile
@@ -32,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Release-surface changelog grep.** The version-section check now consumes
+  the whole changelog stream so `grep -q` plus `pipefail` cannot report a
+  missing `## [version]` heading after a legitimate Unreleased addition.
 - **Fierce-collaboration standard 0.5.0 → 0.6.0.** §3 gains the execution
   disclosure: a seat is a composition, and its disclosure records harness
   class, symbolic profile, mode, and capture form alongside kind and reasoner.

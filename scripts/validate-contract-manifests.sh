@@ -35,6 +35,16 @@ for manifest_path in "$@"; do
         fail "$manifest_path" "capability must be a non-empty string"
     fi
 
+    cap_family=$(printf '%s' "$capability" | sed -n 's/^contract: \([^/][^/]*\)\/\([^/][^/]*\)$/\1/p')
+    cap_version=$(printf '%s' "$capability" | sed -n 's/^contract: \([^/][^/]*\)\/\([^/][^/]*\)$/\2/p')
+    dir_version=$(basename "$(dirname "$manifest_path")")
+    dir_family=$(basename "$(dirname "$(dirname "$manifest_path")")")
+    if [ -z "$cap_family" ] || [ -z "$cap_version" ]; then
+        fail "$manifest_path" "capability must be of the form 'contract: <family>/<version>'"
+    elif [ "$cap_family" != "$dir_family" ] || [ "$cap_version" != "$dir_version" ]; then
+        fail "$manifest_path" "capability $capability does not match directory $dir_family/$dir_version"
+    fi
+
     if [ -z "$entry_schema" ]; then
         fail "$manifest_path" "entry_schema must be a non-empty string"
         continue

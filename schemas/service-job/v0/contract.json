@@ -1,0 +1,4 @@
+{
+  "capability": "contract: service-job/v0",
+  "entry_schema": "service-job-message.schema.json"
+}

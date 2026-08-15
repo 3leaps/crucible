@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:agent-wait/v0/agent-wait-message.schema.json",
+  "title": "Agent Wait Message",
+  "description": "Discriminated entry schema for contract: agent-wait/v0. Six message kinds only. The prose standard remains normative for deadline ordering, coverage cardinality, ack/retention, replay, and revision freeze.",
+  "oneOf": [
+    { "$ref": "#/$defs/registrationSet" },
+    { "$ref": "#/$defs/liveWaitRequest" },
+    { "$ref": "#/$defs/liveWaitOutcome" },
+    { "$ref": "#/$defs/pollCycleRequest" },
+    { "$ref": "#/$defs/pollCycleOutcome" },
+    { "$ref": "#/$defs/pollCycleAck" }
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque agent-wait contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: agent-wait/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque agent-wait contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: agent-wait/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "idToken": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier. Never a credential."
+    },
+    "actorRef": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "Actor identity reference. Never a credential, raw token, or machine-local path."
+    },
+    "refToken": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "Symbolic reference. Never a credential, raw token, or machine-local path."
+    },
+    "rfc3339": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Absolute RFC3339 timestamp."
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "const": "event_id" },
+        "value": { "$ref": "#/$defs/idToken" }
+      },
+      "description": "Exclusive continuation cursor. Events at or before this id are already consumed."
+    },
+    "baselinePolicy": {
+      "enum": ["latest", "earliest", "provider_defined"],
+      "description": "Explicit start-position policy. There is no implicit provider default."
+    },
+    "waitEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "method_id",
+        "subject_kind",
+        "subject_id",
+        "occurred_at",
+        "payload_ref"
+      ],
+      "properties": {
+        "event_id": { "$ref": "#/$defs/idToken" },
+        "method_id": { "$ref": "#/$defs/idToken" },
+        "subject_kind": { "$ref": "#/$defs/idToken" },
+        "subject_id": { "$ref": "#/$defs/idToken" },
+        "occurred_at": { "$ref": "#/$defs/rfc3339" },
+        "payload_ref": { "$ref": "#/$defs/refToken" },
+        "delivery_ref": { "$ref": "#/$defs/refToken" },
+        "activation_ref": { "$ref": "#/$defs/refToken" }
+      },
+      "description": "Event identity plus payload_ref only. delivery_ref and activation_ref never imply agent action."
+    },
+    "coverageArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm_id", "required", "status", "degraded"],
+      "properties": {
+        "arm_id": { "$ref": "#/$defs/idToken" },
+        "required": { "type": "boolean" },
+        "status": {
+          "enum": ["no_change", "events", "observed", "outage", "cursor_uncertain"]
+        },
+        "degraded": { "type": "boolean" }
+      }
+    },
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registration_id", "method_id", "subject_kind", "subject_id"],
+      "properties": {
+        "registration_id": { "$ref": "#/$defs/idToken" },
+        "method_id": { "$ref": "#/$defs/idToken" },
+        "subject_kind": { "$ref": "#/$defs/idToken" },
+        "subject_id": { "$ref": "#/$defs/idToken" },
+        "start_anchor": { "$ref": "#/$defs/anchor" },
+        "baseline_policy": { "$ref": "#/$defs/baselinePolicy" }
+      },
+      "oneOf": [
+        {
+          "required": ["start_anchor"],
+          "not": { "required": ["baseline_policy"] }
+        },
+        {
+          "required": ["baseline_policy"],
+          "not": { "required": ["start_anchor"] }
+        }
+      ]
+    },
+    "registrationSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "seat_ref",
+        "registration_revision",
+        "registrations"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "registration_set" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "seat_ref": { "$ref": "#/$defs/refToken" },
+        "registration_revision": { "$ref": "#/$defs/idToken" },
+        "registrations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/registration" }
+        }
+      }
+    },
+    "liveWaitRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "registration_set_ref",
+        "registration_revision",
+        "logical_deadline",
+        "run_deadline"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "live_wait_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "registration_set_ref": { "$ref": "#/$defs/idToken" },
+        "registration_revision": { "$ref": "#/$defs/idToken" },
+        "logical_deadline": { "$ref": "#/$defs/rfc3339" },
+        "run_deadline": { "$ref": "#/$defs/rfc3339" }
+      }
+    },
+    "liveWaitOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "request_ref",
+        "events",
+        "proposed_next_anchor"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "live_wait_outcome" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "request_ref": { "$ref": "#/$defs/idToken" },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/waitEvent" }
+        },
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" }
+      }
+    },
+    "pollCycleRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "registration_set_ref",
+        "registration_revision",
+        "logical_deadline",
+        "run_deadline",
+        "required_arms"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "poll_cycle_request" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "registration_set_ref": { "$ref": "#/$defs/idToken" },
+        "registration_revision": { "$ref": "#/$defs/idToken" },
+        "logical_deadline": { "$ref": "#/$defs/rfc3339" },
+        "run_deadline": { "$ref": "#/$defs/rfc3339" },
+        "required_arms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/idToken" }
+        }
+      }
+    },
+    "pollCycleOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "request_ref",
+        "completed_at",
+        "logical_deadline",
+        "outcome_kind",
+        "events",
+        "coverage_complete",
+        "arms",
+        "retained_through",
+        "retained_event_ids",
+        "proposed_next_anchor"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "poll_cycle_outcome" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "request_ref": { "$ref": "#/$defs/idToken" },
+        "completed_at": { "$ref": "#/$defs/rfc3339" },
+        "logical_deadline": { "$ref": "#/$defs/rfc3339" },
+        "outcome_kind": { "enum": ["events", "no_change", "logical_deadman"] },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/waitEvent" }
+        },
+        "coverage_complete": { "type": "boolean" },
+        "arms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/coverageArm" }
+        },
+        "retained_through": { "$ref": "#/$defs/anchor" },
+        "retained_event_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/idToken" }
+        },
+        "proposed_next_anchor": { "$ref": "#/$defs/anchor" }
+      }
+    },
+    "pollCycleAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "message_type",
+        "message_id",
+        "correlation_id",
+        "created_at",
+        "actor_ref",
+        "waiter_id",
+        "outcome_ref",
+        "committed_anchor",
+        "acked_event_ids"
+      ],
+      "properties": {
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "message_type": { "const": "poll_cycle_ack" },
+        "message_id": { "$ref": "#/$defs/idToken" },
+        "correlation_id": { "$ref": "#/$defs/idToken" },
+        "created_at": { "$ref": "#/$defs/rfc3339" },
+        "actor_ref": { "$ref": "#/$defs/actorRef" },
+        "causation_id": { "$ref": "#/$defs/idToken" },
+        "grant_ref": { "$ref": "#/$defs/refToken" },
+        "verification_receipt_ref": { "$ref": "#/$defs/refToken" },
+        "policy_decision_ref": { "$ref": "#/$defs/refToken" },
+        "waiter_id": { "$ref": "#/$defs/idToken" },
+        "outcome_ref": { "$ref": "#/$defs/idToken" },
+        "committed_anchor": { "$ref": "#/$defs/anchor" },
+        "acked_event_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/idToken" }
+        }
+      }
+    }
+  }
+}

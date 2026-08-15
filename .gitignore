@@ -36,6 +36,10 @@ bin/
 *.log
 npm-debug.log*
 
+# Python bytecode from stdlib-only conformance helpers
+__pycache__/
+*.pyc
+
 # Lock files (optional - uncomment if you want to ignore)
 # package-lock.json
 # bun.lockb

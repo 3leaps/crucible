@@ -1,0 +1,48 @@
+{
+  "capabilities": ["contract: data-artifact/v0"],
+  "artifact_id": "urn:uuid:00000000-0000-7000-8000-000000000401",
+  "lifecycle": "complete",
+  "producer": {
+    "name": "example-audio-capture",
+    "version": "1.0.0",
+    "profile": "example.audio/v0",
+    "run_id": "00000000-0000-7000-8000-000000000501"
+  },
+  "grains": [
+    {
+      "id": "clip",
+      "kind": "example.audio/v0/clip",
+      "record_kind": "audio_clip",
+      "row_count": 1
+    }
+  ],
+  "representations": [
+    {
+      "id": "clip_wav",
+      "grain": "clip",
+      "role": "example.audio/v0/waveform",
+      "format": "example.audio/v0/wav",
+      "media_type": "audio/wav",
+      "profile": "example.audio/v0",
+      "uri": "clips/source.wav",
+      "row_count": 1,
+      "read_path": {
+        "range_readable": true,
+        "partitioned": false,
+        "sharded": false,
+        "appendable": false,
+        "scan_capabilities": ["random_access"],
+        "read_path_granularity": "artifact",
+        "gateable_unit_granularity": "artifact",
+        "sidecar_required": false,
+        "physical_ordering": "not_promised"
+      },
+      "protection_enforceable_granularity": "artifact"
+    }
+  ],
+  "protection": {
+    "default_action": "block_export",
+    "default_export_class": "internal",
+    "profile_ref": "profile:example-audio"
+  }
+}

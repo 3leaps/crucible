@@ -1,0 +1,15 @@
+{
+  "parameters": {
+    "beam_width": 4.5,
+    "language": "en",
+    "temperature": 0.000000000000001
+  },
+  "input_artifacts": [
+    {
+      "role": "source_audio",
+      "artifact_ref": "urn:uuid:00000000-0000-7000-8000-000000000401"
+    }
+  ],
+  "service_id": "svc:transcribe",
+  "scale_hint": 1e30
+}

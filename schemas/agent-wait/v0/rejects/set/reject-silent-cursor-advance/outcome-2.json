@@ -1,0 +1,41 @@
+{
+  "capabilities": ["contract: agent-wait/v0"],
+  "message_type": "poll_cycle_outcome",
+  "message_id": "msg:aw-poll-out-replay-2",
+  "correlation_id": "corr:sj-1",
+  "created_at": "2026-08-15T16:07:30Z",
+  "actor_ref": "seat:provider-wait",
+  "waiter_id": "waiter:seat-consumer-a",
+  "request_ref": "msg:aw-poll-req-job-1",
+  "completed_at": "2026-08-15T16:07:30Z",
+  "logical_deadline": "2026-08-15T17:00:00Z",
+  "outcome_kind": "events",
+  "events": [
+    {
+      "event_id": "evt:job-complete-2",
+      "method_id": "job_complete",
+      "subject_kind": "service_job",
+      "subject_id": "job:transcribe-1",
+      "occurred_at": "2026-08-15T16:08:00Z",
+      "payload_ref": "msg:sj-result-1"
+    }
+  ],
+  "coverage_complete": true,
+  "arms": [
+    {
+      "arm_id": "arm:primary",
+      "required": true,
+      "status": "events",
+      "degraded": false
+    }
+  ],
+  "retained_through": {
+    "kind": "event_id",
+    "value": "evt:job-complete-2"
+  },
+  "retained_event_ids": ["evt:job-complete-2"],
+  "proposed_next_anchor": {
+    "kind": "event_id",
+    "value": "evt:job-complete-2"
+  }
+}

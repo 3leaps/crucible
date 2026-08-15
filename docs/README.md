@@ -56,8 +56,10 @@ Standard operating procedures - mandatory policies.
 Cross-cutting classification standards for data and artifacts, plus contract standards shared across tools.
 
 - [auth-session-artifact.md](standards/auth-session-artifact.md) - Non-secret auth session metadata contract (acquirer ⇄ inspector)
+- [agent-wait-contract.md](standards/agent-wait-contract.md) - Portable wait/poll contract for one aggregate waiter per consuming seat
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
+- [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [data-artifact-contract-examples.md](standards/data-artifact-contract-examples.md) - Source-neutral stress cases and producer adoption preview template
 - [data-sensitivity-classification.md](standards/data-sensitivity-classification.md) - Sensitivity levels (UNKNOWN, 0-6)
 - [volatility-classification.md](standards/volatility-classification.md) - Update cadence (static → streaming)
