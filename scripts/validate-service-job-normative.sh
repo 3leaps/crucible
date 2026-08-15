@@ -163,6 +163,35 @@ fi
 # Omitted backend may resolve only the offer's declared available local default.
 if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1' "$index" >/dev/null &&
     jq -s -e '[.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] | length >= 1' "$index" >/dev/null; then
+    default_mismatch=$(jq -s '
+        [.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] as $ads
+        | [.[] | select(.message_type == "job_submit_request")] as $subs
+        | [.[] | select(.message_type == "service_offer")] as $offers
+        | [
+            $ads[] as $a
+            | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
+            | select($s != null and $s.job_spec.backend_ref == null)
+            | ($offers | map(select(
+                .service_id == $s.job_spec.service_id
+                and .catalog_revision == $s.job_spec.catalog_revision
+                and .offer_revision == $s.job_spec.offer_revision
+              )) | .[0]) as $o
+            | select($o != null)
+            | ($o.backends | map(select(.default_local == true and .availability == "available" and .placement == "local"))) as $defaults
+            | (
+                ($defaults | length) != 1
+                or (
+                  $a.resolved_placement != "hosted"
+                  and $a.resolved_backend_ref != $defaults[0].backend_ref
+                )
+              )
+          ]
+        | any
+    ' "$index")
+    if [ "$default_mismatch" = "true" ]; then
+        fail local_default_resolution
+    fi
+
     fallback=$(jq -s '
         [.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] as $ads
         | [.[] | select(.message_type == "job_submit_request")] as $subs
@@ -209,38 +238,12 @@ if jq -s -e '[.[] | select(.message_type == "job_submit_request")] | length >= 1
     if [ "$hosted_mismatch" = "true" ]; then
         fail hosted_backend_integrity
     fi
-
-    default_mismatch=$(jq -s '
-        [.[] | select(.message_type == "job_admission_receipt" and .admission == "accepted")] as $ads
-        | [.[] | select(.message_type == "job_submit_request")] as $subs
-        | [.[] | select(.message_type == "service_offer")] as $offers
-        | [
-            $ads[] as $a
-            | ($subs | map(select(.message_id == $a.submit_ref)) | .[0]) as $s
-            | select($s != null and $s.job_spec.backend_ref == null)
-            | ($offers | map(select(
-                .service_id == $s.job_spec.service_id
-                and .catalog_revision == $s.job_spec.catalog_revision
-                and .offer_revision == $s.job_spec.offer_revision
-              )) | .[0]) as $o
-            | select($o != null)
-            | ($o.backends | map(select(.default_local == true and .availability == "available" and .placement == "local"))) as $defaults
-            | (
-                ($defaults | length) != 1
-                or $a.resolved_backend_ref != $defaults[0].backend_ref
-              )
-          ]
-        | any
-    ' "$index")
-    if [ "$default_mismatch" = "true" ]; then
-        fail local_default_resolution
-    fi
 fi
 
 # Unknown is scoped: original submit→unknown with no later scoped submit is fine.
 # A later submit in the same actor+service+key scope before resolution is not.
 if jq -s -e '[.[] | select(.message_type == "job_admission_receipt" and .admission == "unknown")] | length >= 1' "$index" >/dev/null; then
-    jq -c '
+    jq -s -c '
         [.[] | select(.message_type == "job_submit_request")] as $subs
         | [.[] | select(.message_type == "job_admission_receipt" and .admission == "unknown")] as $unks
         | $unks[] as $u

@@ -56,7 +56,7 @@
         "kind": "provider_opaque",
         "value": "anc:cursor-0"
       },
-      "event_count": 1,
+      "event_count": 0,
       "byte_count": 0,
       "reason_code": "coverage_note"
     }
