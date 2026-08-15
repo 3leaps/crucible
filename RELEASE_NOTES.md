@@ -8,6 +8,34 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.26 (2026-08-15)
+
+**A contract-boundary cut: portable wait/poll and service-job families land
+as `v0`, so a consumer can wait and submit against a shared message contract
+instead of a provider-specific protocol.**
+
+- **`contract: agent-wait/v0`** — six discriminated message kinds, explicit
+  start-position XOR, live match as a proposal, poll `no_change` /
+  `logical_deadman` rules. Schemas, goldens, and `make check` controls.
+- **`contract: service-job/v0`** — thirteen kinds, authorization-filtered
+  catalog, local-only implicit default, RFC 8785 digest-bound idempotency,
+  legal/terminal transitions. Schemas, goldens, JCS vectors, and controls.
+- **Composing a Review Panel guide** — five-layer seat composition, harness
+  classes, panel diversity, framing block, preflight and templates. All
+  launch references are symbolic.
+- **`review-journal/v0` seat execution record** — optional symbolic harness,
+  profile, environment, mode, and capture. Fierce-collaboration standard
+  0.5.0 → 0.6.0 with execution disclosure and a normative non-interactive
+  verdict contract.
+- **Contract close-out** — portable RFC3339 helper, JCS materializer, fail
+  closed on missing/unreadable targets, scoped idempotency, restored
+  lifecycle and digest identity. Coverage-attestation gaps require a
+  machine-readable `code`; volumes reject negatives.
+
+See [docs/releases/v0.1.26.md](docs/releases/v0.1.26.md).
+
+---
+
 ## v0.1.25 (2026-07-31)
 
 **The machinery catches up to the records: an executable run-book for the
