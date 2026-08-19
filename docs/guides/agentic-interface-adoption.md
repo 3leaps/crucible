@@ -110,26 +110,32 @@ cp ~/dev/crucible/config/agentic/roles/devrev.yaml \
 
 ### Available Roles
 
-| Role       | Slug       | Use When                                      |
-| ---------- | ---------- | --------------------------------------------- |
-| Dev Lead   | `devlead`  | Writing features, fixing bugs, implementation |
-| Dev Review | `devrev`   | Code review, four-eyes audit                  |
-| Info Arch  | `infoarch` | Documentation, schemas, standards             |
-| Sec Review | `secrev`   | Security analysis, vulnerability review       |
-| QA         | `qa`       | Testing, validation                           |
-| CI/CD      | `cicd`     | Pipelines, GitHub Actions, automation         |
-| Rel Eng    | `releng`   | Versioning, releases, changelogs              |
-| Dispatch   | `dispatch` | Session coordination, role assignment         |
+| Role        | Slug         | Use When                                       |
+| ----------- | ------------ | ---------------------------------------------- |
+| Dev Lead    | `devlead`    | Writing features, fixing bugs, implementation  |
+| Dev Review  | `devrev`     | Code review, four-eyes audit                   |
+| Info Arch   | `infoarch`   | Documentation, schemas, standards              |
+| Sec Review  | `secrev`     | Security analysis, vulnerability review        |
+| UX Dev      | `uxdev`      | Interactive experience implementation          |
+| Analyst     | `analyst`    | Evidence, methods, and findings                |
+| Strategist  | `strategist` | Strategic options and recommendations          |
+| Data Eng    | `dataeng`    | Data systems, quality, and lineage             |
+| Watcher     | `watcher`    | Bounded monitoring and escalation              |
+| Delegate    | `delegate`   | Privileged assistance under explicit grants    |
+| Sec Ops     | `secops`     | Privileged infrastructure and asset operations |
+| Project Mgr | `projectmgr` | Tasking, dependencies, project state           |
+| Rel Eng     | `releng`     | Complex release and publication systems        |
+| Dispatch    | `dispatch`   | Estate routing and coordination                |
 
 ### Recommended by Repository Type
 
-| Repository Type | Recommended Roles                   |
-| --------------- | ----------------------------------- |
-| Library/Package | `devlead`, `devrev`, `infoarch`     |
-| CLI Tool        | `devlead`, `devrev`, `secrev`       |
-| Web Application | `devlead`, `devrev`, `secrev`, `qa` |
-| Standards/Docs  | `infoarch`, `devlead`               |
-| Infrastructure  | `cicd`, `secrev`, `devlead`         |
+| Repository Type | Recommended Roles                                             |
+| --------------- | ------------------------------------------------------------- |
+| Library/Package | `devlead`, `devrev`, `infoarch`                               |
+| CLI Tool        | `devlead`, `devrev`, `secrev`                                 |
+| Web Application | `devlead`, `devrev`, `secrev`, `uxdev`                        |
+| Standards/Docs  | `infoarch`, `devlead`                                         |
+| Infrastructure  | `devlead`, `secrev`; add `releng` for complex release systems |
 
 ## AGENTS.md Integration
 
@@ -250,15 +256,40 @@ If you need custom roles:
 
 ### Overriding Baseline Roles
 
-Create a local override that extends the baseline:
+Create a complete local specialization and record its provenance:
 
 ```yaml
 # config/agentic/roles.local/devlead-custom.yaml
-slug: devlead-custom
-extends: devlead
+slug: devleadcustom
+name: Repository Development Lead
+description: Repository-specific development lead specialization
+version: 1.0.0
+status: draft
+tier: supplemental
+category: agentic
+domains:
+  - development
+extends: https://raw.githubusercontent.com/3leaps/crucible/v0.1.25/config/agentic/roles/devlead.yaml
+outputs:
+  - Repository-specific implementation
+authority:
+  may:
+    - Make reversible implementation decisions within the repository
+  requires_approval:
+    - Breaking contract changes
 scope:
-  - ...additional scope items specific to your repo...
+  - Repository-specific implementation work
+responsibilities:
+  - Implement repository-specific changes
+escalates_to:
+  - target: human maintainers
+    when: The change exceeds repository scope
+does_not:
+  - Make breaking changes without approval
 ```
+
+In the experimental `v0` contract, `extends` is provenance-only and does not
+merge documents. The specialization must remain a complete valid role prompt.
 
 ## Adoption Checklist
 
@@ -282,9 +313,9 @@ scope:
 
 ### Schema Validation Fails
 
-**Problem**: `role_id must match pattern`
+**Problem**: `slug must match pattern`
 
-**Solution**: Ensure slug uses lowercase alphanumeric with hyphens only
+**Solution**: Ensure slug starts with a lowercase letter and contains only lowercase letters and digits
 
 ### Attribution Format Rejected
 

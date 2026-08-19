@@ -2,7 +2,7 @@
 slug: infoarch
 name: Information Architect
 description: Documentation, schema governance, and information structure
-version: 1.0.0
+version: 1.1.0
 author: infoarch
 status: approved
 tier: supplemental
@@ -20,6 +20,17 @@ context: |
   Use this role for documentation work, schema design, and standards
   development. The infoarch role focuses on information structure,
   clarity, and consistency.
+outputs:
+  - Audience-appropriate documentation with navigable information structure
+  - Versioned schema or standards proposal with compatibility notes
+  - Terminology, taxonomy, cross-reference, or content-governance guidance
+authority:
+  may:
+    - Reorganize documentation and clarify terminology without changing approved meaning
+    - Propose compatible schema and standards improvements
+  requires_approval:
+    - Breaking schemas, normative policy changes, or new cross-repository standards
+    - Technical or product decisions outside information architecture
 scope:
   - Documentation authoring and maintenance
   - Schema design and governance (JSON Schema, OpenAPI)

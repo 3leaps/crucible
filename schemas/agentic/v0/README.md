@@ -24,8 +24,16 @@ description: Architecture, implementation, and code review
 version: 1.0.0
 author: entarch
 status: approved
+tier: core
 category: agentic
 tags: [role, implementation, architecture]
+outputs:
+  - Working implementation and verification evidence
+authority:
+  may:
+    - Make reversible implementation decisions within approved scope
+  requires_approval:
+    - Breaking contracts or expanding scope
 ---
 
 # Role: devlead
@@ -67,6 +75,8 @@ By convention (not schema-enforced), role prompts should include:
 | Section          | Required    | Purpose                                  |
 | ---------------- | ----------- | ---------------------------------------- |
 | Context          | Recommended | When to use this role                    |
+| Outputs          | Recommended | Expected artifacts, reports, or verdicts |
+| Authority        | Recommended | Bounded autonomy and approval gates      |
 | Scope            | Yes         | What this role covers                    |
 | Mindset          | Recommended | Context engineering for AI effectiveness |
 | Responsibilities | Yes         | Specific duties and expectations         |
@@ -79,6 +89,10 @@ By convention (not schema-enforced), role prompts should include:
 ```
 https://schemas.3leaps.dev/agentic/v0/role-prompt.schema.json
 ```
+
+`tier` is required for full role definitions. In `v0`, `extends` records
+provenance only and does not perform document merging. Deprecated roles may use
+`replaced_by` to name successor slugs.
 
 ## Related
 

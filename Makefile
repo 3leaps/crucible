@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt lint lint-schemas lint-config build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test fmt lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -273,7 +273,7 @@ lint-schemas: ## Validate JSON Schema files against meta-schema
 		echo "[!!] goneat not found, skipping schema validation"; \
 	fi
 
-lint-config: ## Validate config data files against schemas
+lint-config: lint-role-prompts lint-coverage-attestation ## Validate config data files against schemas
 	@echo "[..] Validating config data files..."
 	@if command -v goneat >/dev/null 2>&1; then \
 		for f in config/agentic/roles/*.yaml; do \
@@ -301,8 +301,6 @@ lint-config: ## Validate config data files against schemas
 			echo "    Validating $$f..."; \
 			goneat validate data --schema-file schemas/coverage-attestation/v0/coverage-attestation.schema.json --data "$$f" || exit 1; \
 		done; \
-		echo "    Coverage-attestation negative controls (rejects fail, baseline passes)..."; \
-		sh scripts/test-coverage-attestation-controls.sh || exit 1; \
 		for f in schemas/process-run/v0/examples/process-card.example.json; do \
 			[ -f "$$f" ] || continue; \
 			echo "    Validating $$f..."; \
@@ -366,6 +364,22 @@ lint-config: ## Validate config data files against schemas
 			schemas/service-job/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
+	fi
+
+lint-role-prompts: ## Run role-prompt negative controls
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Role-prompt negative controls (rejects fail, baseline passes)..."; \
+		sh scripts/test-role-prompt-controls.sh; \
+	else \
+		echo "[--] goneat not found, skipping role-prompt controls"; \
+	fi
+
+lint-coverage-attestation: ## Run coverage-attestation negative controls
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Coverage-attestation negative controls (rejects fail, baseline passes)..."; \
+		sh scripts/test-coverage-attestation-controls.sh; \
+	else \
+		echo "[--] goneat not found, skipping coverage-attestation controls"; \
 	fi
 
 build: ## Build artifacts (validation is the build for standards repo)

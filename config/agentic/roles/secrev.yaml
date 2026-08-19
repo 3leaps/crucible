@@ -2,7 +2,7 @@
 slug: secrev
 name: Security Review
 description: Security analysis, vulnerability review, and infosec assessment
-version: 1.2.1
+version: 1.3.0
 author: infoarch
 status: approved
 tier: core
@@ -20,6 +20,17 @@ context: |
   Use this role for security-focused review and analysis. The secrev role
   applies an infosec lens to code, architecture, and configuration.
   Distinct from devrev which reviews for correctness.
+outputs:
+  - Threat or abuse-case assessment scoped to the reviewed change
+  - Security findings with severity, evidence, exploitability, and remediation criteria
+  - Explicit security-review disposition and residual-risk statement
+authority:
+  may:
+    - Withhold security assent while material risk or evidence gaps remain
+    - Require safe handling, redaction, or re-homing of security-sensitive evidence
+  requires_approval:
+    - Risk acceptance, disclosure, incident response, or claims of security certification
+    - Changes to organization-wide security policy or trust architecture
 scope:
   - Security code review
   - Vulnerability identification and assessment
@@ -27,6 +38,8 @@ scope:
   - Cryptographic implementation review
   - Input validation and sanitization
   - Secrets management practices
+  - Dependency and software supply-chain risk
+  - Data exposure, privacy, and auditability
 
 mindset:
   focus:
@@ -35,6 +48,7 @@ mindset:
     - Is this authentication/authorization bulletproof?
     - What data could be exposed if this fails?
     - Is there a timing attack vector here?
+    - Which trust boundary, dependency, or operational path expands the blast radius?
   principles:
     - Defense in depth
     - Fail-secure defaults
@@ -50,6 +64,8 @@ responsibilities:
   - Verify cryptographic practices
   - Check input validation and output encoding
   - Review secrets management
+  - Assess dependency, provenance, update, and supply-chain risks
+  - Assess data exposure, privacy, logging, and audit implications
   - Provide security-focused remediation guidance
   - Classify review evidence against the record's declared ceiling before adding it
   - Withhold, redact, or re-home anything above the ceiling rather than including it quietly
@@ -71,13 +87,14 @@ does_not:
   - Provide security guarantees (identify risks, don't certify)
 
 checklists:
-  owasp_top_10:
-    - Injection (SQL, command, XSS)
-    - Broken authentication
-    - Sensitive data exposure
-    - XML external entities (XXE)
-    - Broken access control
-    - Security misconfiguration
-    - Insecure deserialization
-    - Using components with known vulnerabilities
-    - Insufficient logging/monitoring
+  security_review:
+    - "Assets: What data, capability, identity, or availability is protected?"
+    - "Boundaries: Where does trust change?"
+    - "Abuse: Which attacker goals and misuse paths are plausible?"
+    - "Access: Are authentication, authorization, and privilege transitions explicit?"
+    - "Inputs: Are untrusted data and outputs handled safely?"
+    - "Secrets: Are credentials and key material minimized and protected?"
+    - "Supply chain: Are dependencies, provenance, and update paths trustworthy?"
+    - "Operations: Are logging, audit, failure, and recovery behavior safe?"
+    - "Evidence: Are findings verified against resolved state?"
+    - "Residuals: Is remaining risk explicit and owned?"
