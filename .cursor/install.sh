@@ -3,8 +3,7 @@
 #
 # Idempotent bootstrap of the crucible development toolchain following the
 # repository's documented trust chain (curl -> sfetch -> goneat -> tools) plus
-# bun for prettier. When a sibling waitprims checkout is present, its Rust
-# toolchain requirements are satisfied as well.
+# bun for prettier.
 #
 # Safe to run repeatedly: every step is guarded and only does work when a tool
 # or dependency is actually missing.
@@ -12,7 +11,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRUCIBLE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-WORKSPACE_DIR="$(cd "$CRUCIBLE_DIR/.." && pwd)"
 
 # Pinned tool versions (kept in sync with .goneat/tools.yaml and Makefile).
 GONEAT_VERSION="v0.5.1"
@@ -25,6 +23,7 @@ log() { printf '[install] %s\n' "$*"; }
 # ---------------------------------------------------------------------------
 # 1. Persist tool paths for login/interactive shells the agent will use.
 # ---------------------------------------------------------------------------
+# shellcheck disable=SC2016  # write $HOME/$PATH literally to the profile, expand at shell load
 PATH_LINE='export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/go/bin:$PATH"'
 ensure_path_block() {
     local file="$1"
@@ -110,27 +109,5 @@ fi
 # ---------------------------------------------------------------------------
 log "installing crucible bun dependencies"
 (cd "$CRUCIBLE_DIR" && bun install)
-
-# ---------------------------------------------------------------------------
-# 7. Rust toolchain (>= 1.88 MSRV, needed by a sibling waitprims checkout).
-#    The stock image ships 1.83, which is too old for edition2024 deps.
-# ---------------------------------------------------------------------------
-if command -v rustup >/dev/null 2>&1; then
-    if ! rustup toolchain list 2>/dev/null | grep -q '^stable'; then
-        log "installing Rust stable toolchain"
-        rustup toolchain install stable --profile minimal
-    fi
-    rustup component add rustfmt clippy --toolchain stable >/dev/null 2>&1 || true
-    rustup default stable >/dev/null 2>&1 || true
-    log "Rust default: $(rustc --version 2>/dev/null || echo unknown)"
-fi
-
-# ---------------------------------------------------------------------------
-# 8. Optional sibling waitprims checkout: pre-fetch locked dependencies.
-# ---------------------------------------------------------------------------
-if [ -f "$WORKSPACE_DIR/waitprims/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
-    log "pre-fetching waitprims Rust dependencies"
-    (cd "$WORKSPACE_DIR/waitprims" && cargo fetch --locked)
-fi
 
 log "install complete"
