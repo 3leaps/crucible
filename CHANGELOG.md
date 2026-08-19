@@ -7,7 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.26] - 2026-08-15
+## [0.1.27] - 2026-08-19
+
+### Added
+
+- **Curated agentic role catalog.** Twenty public role definitions now carry
+  explicit core, supplemental, or deprecated tiers. Seven focused roles join
+  the catalog, while deprecated roles name their successor roles. The new
+  active-role index separates approved and draft definitions for adopters.
+- **Role-catalog decision records.** PDR-0007 records the catalog curation;
+  ADR-0007 separates documentation and schema registry origins; EPR-0004
+  preserves the boundary between publication surfaces and their domains of
+  concern.
+
+### Changed
+
+- **Role-prompt validation.** The v0 schema now requires a tier, models
+  lifecycle status, authority, outputs, and replacement relationships, and
+  rejects invalid lifecycle combinations. The role-prompt control battery runs
+  as part of configuration linting.
+- **Agentic adoption guidance.** Catalog, repository identity, and adoption
+  documentation now distinguish the canonical role catalog from role
+  documentation and describe tiering and deprecated-role migration.
+- **Assessment controls.** Shell-lint scope narrows to `**/*.sh`, and the
+  checkmake target-length allowance expands so the comprehensive
+  configuration-lint target stays conformant. A `.goneatignore` keeps RFC 8785
+  canonical JSON bytes (intentional no trailing newline) out of text
+  formatting; the service-job control battery verifies their byte integrity
+  rather than a formatter.
+
+## 0.1.26 - 2026-08-15
+
+> **Publication note:** v0.1.26 was superseded before a signed tag or GitHub
+> release was published.
 
 ### Added
 
@@ -897,8 +929,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.26...HEAD
-[0.1.26]: https://github.com/3leaps/crucible/compare/v0.1.25...v0.1.26
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/3leaps/crucible/compare/v0.1.25...v0.1.27
 [0.1.25]: https://github.com/3leaps/crucible/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/3leaps/crucible/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/3leaps/crucible/compare/v0.1.22...v0.1.23
