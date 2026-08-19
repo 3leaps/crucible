@@ -57,8 +57,24 @@ if ! command -v yamllint >/dev/null 2>&1; then
     sudo pip3 install --quiet yamllint
 fi
 
-# 5. Repository JavaScript dependencies (prettier) via bun.
-log "Installing bun dependencies..."
+# 5. prettier -- markdown/JSON formatter used by `make fmt`/`make check` and the
+#    package.json scripts.
+#
+#    Installed globally (durable) rather than only into the repo's node_modules,
+#    because a prebuilt-environment agent re-checks-out the repo cold on every
+#    boot, which wipes a repo-local node_modules. The Makefile prefers
+#    ./node_modules/.bin/prettier and falls back to prettier on PATH, so a global
+#    install keeps `make check` fully functional without node_modules.
+PRETTIER_VERSION="3.7.4" # keep in sync with bun.lock / package.json
+if ! command -v prettier >/dev/null 2>&1; then
+    log "Installing prettier ${PRETTIER_VERSION}..."
+    bun install -g "prettier@${PRETTIER_VERSION}"
+fi
+sudo ln -sf "$HOME/.bun/bin/prettier" "$BIN_DIR/prettier"
+
+# Also install the repo's JS deps for local convenience (present for just-in-time
+# agents; harmless when a fresh checkout later removes node_modules).
+log "Installing repo JS dependencies..."
 (cd "$REPO_ROOT" && bun install)
 
 log "Bootstrap complete. Run 'make check' to verify."
