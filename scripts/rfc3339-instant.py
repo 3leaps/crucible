@@ -74,7 +74,9 @@ def parse_rfc3339(text: str) -> datetime:
         tzinfo = timezone(offset)
 
     try:
-        parsed = datetime(year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo)
+        parsed = datetime(
+            year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo
+        )
     except ValueError as exc:
         raise ValueError(f"unparseable RFC3339 timestamp: {text!r}") from exc
     return parsed.astimezone(timezone.utc)
@@ -139,7 +141,9 @@ def self_test() -> None:
         failures.append("epoch 1970-01-01T00:00:01Z must be 1")
     if epoch_seconds("1970-01-01T00:00:00+00:00") != 0:
         failures.append("epoch +00:00 must match Z")
-    if epoch_seconds("2026-08-15T17:00:00.123Z") != epoch_seconds("2026-08-15T17:00:00Z"):
+    if epoch_seconds("2026-08-15T17:00:00.123Z") != epoch_seconds(
+        "2026-08-15T17:00:00Z"
+    ):
         failures.append("fractional seconds must not change integer epoch")
 
     if compare("1970-01-01T00:00:00Z", "1970-01-01T00:00:00+00:00") != 0:

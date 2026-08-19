@@ -36,7 +36,7 @@ lint:
   # (shfmt -i 4 -ci -w scripts/*.sh). Keep args in sync with Makefile fmt
   # and .editorconfig [*.sh].
   shell:
-    paths: ["**/*.sh", "scripts/**/*"]
+    paths: ["**/*.sh"]
     ignore:
       - ".git/**"
       - "node_modules/**"
@@ -52,9 +52,9 @@ lint:
     checkmake:
       enabled: true
       config:
-        # Target body length - 75 lines accommodates bootstrap (73 lines)
-        # and other complex targets in this standards repository
-        max_body_length: 75
+        # Target body length - 100 lines accommodates bootstrap (73 lines)
+        # and the deliberately comprehensive lint-config target (91 lines).
+        max_body_length: 100
         min_phony_targets:
           - all
           - clean

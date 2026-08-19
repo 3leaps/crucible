@@ -1,0 +1,3 @@
+# Canonical JCS bytes intentionally omit a trailing newline (RFC 8785).
+# They are verified by the service-job control battery rather than text formatters.
+schemas/service-job/v0/canonicalization/**/*.canonical.jcs
