@@ -1,130 +1,77 @@
 # Role Catalog
 
-**Canonical URL** (hosted site planned — v0.1.x): `https://crucible.3leaps.dev/catalog/roles`
+**Canonical URL** (planned): `https://crucible.3leaps.dev/catalog/roles`
 
-Baseline role prompts for AI agent sessions in 3leaps repositories.
-
-## Usage
-
-Repos configure roles in `AGENTS.md` using a roles table:
-
-```markdown
-## Roles
-
-| Role      | Source                                                                 | Customization    |
-| --------- | ---------------------------------------------------------------------- | ---------------- |
-| `devlead` | [crucible baseline](https://crucible.3leaps.dev/catalog/roles/devlead) | —                |
-| `qa`      | [crucible baseline](https://crucible.3leaps.dev/catalog/roles/qa)      | See [below](#qa) |
-| `proxy`   | `roles/proxy.md`                                                       | Project-specific |
-```
-
-### Source Options
-
-1. **Crucible baseline** - Use standard role as-is (link to this catalog)
-2. **Inline section** - Extend in `AGENTS.md` with `## Role: <identifier>` section
-3. **Separate file** - Define in `roles/<identifier>.md` for complex roles
-
-### Customization Patterns
-
-**No customization** - Reference crucible baseline:
-
-```markdown
-| `devlead` | [crucible baseline](https://crucible.3leaps.dev/catalog/roles/devlead) | — |
-```
-
-**Inline extension** - Add section in AGENTS.md:
-
-```markdown
-| `qa` | [crucible baseline](https://crucible.3leaps.dev/catalog/roles/qa) | See [below](#role-qa) |
-
-...
-
-## Role: qa
-
-Extends [crucible qa baseline](https://crucible.3leaps.dev/catalog/roles/qa).
-
-### Additional Scope
-
-- Integration tests for proxy modes
-- Session artifact validation
-```
-
-**Separate file** - For complex project-specific roles:
-
-```markdown
-| `proxy` | `roles/proxy.md` | Project-specific |
-```
-
-## Available Roles
-
-Each role carries a **tier** — default guidance, not a mandate. A repo that adopts this
-catalog may re-tier (see [PDR-0003](../../decisions/PDR-0003-role-portfolio-tiering.md)).
-The full registry, including each role's tier, lives in
+Reusable, schema-validated role prompts for supervised and autonomous agent
+sessions. The machine-readable source is
 [`config/agentic/roles/`](../../../config/agentic/roles/README.md).
 
-### Core — the always-on default spine
+Start with the [active role portfolio](active-roles.md) for a human- and
+agent-readable selection guide that excludes deprecated roles from the working
+set.
 
-| Role                                              | Identifier | Typical Scope                                                                     |
-| ------------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
-| [Development Lead](devlead.md)                    | `devlead`  | Implementation, architecture                                                      |
-| [Development Reviewer](devrev.md)                 | `devrev`   | Code review, four-eyes audit                                                      |
-| [Security Review](secrev.md)                      | `secrev`   | Security analysis, vulnerability review                                           |
-| [Chief Experience Technology Officer](cxotech.md) | `cxotech`  | Strategic fulcrum: product-architecture decisions, brief/ADR approval, tie-breaks |
+## Portfolio
 
-### Supplemental — adopt by need
+### Core
 
-| Role                                 | Identifier     | Typical Scope                                                       |
-| ------------------------------------ | -------------- | ------------------------------------------------------------------- |
-| [Quality Assurance](qa.md)           | `qa`           | Testing, validation, quality gates                                  |
-| [Enterprise Architect](entarch.md)   | `entarch`      | Cross-repo architecture alignment, standards propagation            |
-| [Information Architect](infoarch.md) | `infoarch`     | Documentation, structure, standards                                 |
-| [Data Engineering](dataeng.md)       | `dataeng`      | Data infrastructure, pipelines                                      |
-| [Release Manager](releng.md)         | `releng`       | Versioning, releases, changelogs                                    |
-| [Product Marketing](prodmktg.md)     | `prodmktg`     | Product positioning, audience understanding, messaging              |
-| [Dispatcher](dispatch.md)            | `dispatch`     | Cross-session coordination, message routing                         |
-| [Delivery Lead](deliverylead.md)     | `deliverylead` | Project lifecycle, sprint coordination — large multi-sprint efforts |
+- [`devlead`](../../../config/agentic/roles/devlead.yaml) — implementation
+- [`devrev`](../../../config/agentic/roles/devrev.yaml) — independent correctness review
+- [`secrev`](../../../config/agentic/roles/secrev.yaml) — security review
+- [`cxotech`](../../../config/agentic/roles/cxotech.yaml) — product-side direction
+
+### Supplemental
+
+- [`entarch`](../../../config/agentic/roles/entarch.yaml) — technology-side coherence
+- [`uxdev`](../../../config/agentic/roles/uxdev.yaml) — interactive experience
+- [`dataeng`](../../../config/agentic/roles/dataeng.yaml) — data systems
+- [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml) — positioning and messaging
+- [`analyst`](../../../config/agentic/roles/analyst.yaml) — evidence and findings
+- [`strategist`](../../../config/agentic/roles/strategist.yaml) — strategic choices
+- [`watcher`](../../../config/agentic/roles/watcher.yaml) — bounded monitoring
+- [`delegate`](../../../config/agentic/roles/delegate.yaml) — privileged, compartmented assistance
+- [`secops`](../../../config/agentic/roles/secops.yaml) — privileged infrastructure and asset operations
+- [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) — project control
+- [`dispatch`](../../../config/agentic/roles/dispatch.yaml) — estate routing
+- [`infoarch`](../../../config/agentic/roles/infoarch.yaml) — information structure
+- [`releng`](../../../config/agentic/roles/releng.yaml) — complex release systems
 
 ### Deprecated
 
-| Role                        | Identifier | Note                                                                                |
-| --------------------------- | ---------- | ----------------------------------------------------------------------------------- |
-| [CI/CD Automation](cicd.md) | `cicd`     | Retired — real-world use favored `releng` supplementing `devlead` for complex CI/CD |
+- [`qa`](../../../config/agentic/roles/qa.yaml) — use `devrev` plus task acceptance criteria
+- [`deliverylead`](../../../config/agentic/roles/deliverylead.yaml) — use `projectmgr`
+- [`cicd`](../../../config/agentic/roles/cicd.yaml) — use `devlead`; add `releng` only when warranted
 
-## Creating Custom Roles
+Tier indicates default adoption, not status or authority. Consult each prompt's
+`status`, `outputs`, `authority`, escalation paths, and exclusions.
 
-Project-specific roles (e.g., `proxy`, `tui`, `crawler`) should:
+## Product and technology actors
 
-1. Use lowercase identifier (kebab-case if multi-word)
-2. Follow the same structure as baseline roles
-3. Document in `AGENTS.md` roles table or `roles/` directory
-4. Define clear scope boundaries and escalation paths
+Long-running agent systems benefit from a durable product/technology pair:
 
-## Role Prompt Structure
+- `cxotech` acts on the product side: problem choice, user value, bets, and priority.
+- `entarch` acts on the technology side: system boundaries, contracts, compatibility,
+  and architectural integrity.
 
-Each role prompt follows this structure:
+They are peers with different decision domains. Human maintainers retain
+authority for consequential organizational, financial, public, and breaking
+commitments.
 
-```markdown
-# Role: <identifier>
+`delegate` is the principal-facing coordination role. It receives no authority
+from the role alone: each deployment requires explicit, compartmented grants
+for information access, actions, and disclosure.
 
-<One-line description>
+`secops` is the asset-facing privileged operator. It receives operational
+authority only through an explicit custodianship grant and remains separate
+from independent security review by `secrev`.
 
-## Scope
+## Adoption
 
-- What this role owns
-- Boundaries of responsibility
+Reference a canonical role from `AGENTS.md`, then keep repository commands and
+local constraints in repository guidance. If vendoring, pin the source and do
+not hand-maintain a divergent full copy.
 
-## Responsibilities
+The `extends` field is provenance-only in the experimental `v0` schema; it does
+not merge role documents.
 
-- Specific tasks and duties
-- Quality expectations
-
-## Escalates To
-
-- When to escalate
-- Who to escalate to
-
-## Does Not
-
-- Explicit exclusions
-- Out-of-scope items
-```
+See the [machine-readable catalog](../../../config/agentic/roles/README.md) for
+selection guidance and validation commands.

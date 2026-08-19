@@ -84,7 +84,7 @@ Decision and governance records (ADR / PDR / …) — see the [decisions index](
 
 Reusable templates and reference materials.
 
-- [roles/](catalog/roles/) - Baseline role prompts for AI agent sessions
+- [roles/](catalog/roles/) - Role catalog and [active-role selection guide](catalog/roles/active-roles.md)
 - [classifiers/](catalog/classifiers/) - Index of classifier dimensions and sources
 
 ### [Releases](releases/)

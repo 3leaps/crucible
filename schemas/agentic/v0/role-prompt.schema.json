@@ -10,6 +10,7 @@
     "description",
     "version",
     "status",
+    "tier",
     "scope",
     "responsibilities",
     "escalates_to",
@@ -105,11 +106,58 @@
     "extends": {
       "type": "string",
       "format": "uri",
-      "description": "URL to base role this extends"
+      "description": "Provenance reference to a base role. In v0 this field does not define or perform document merging; the containing role remains a complete, independently valid prompt."
     },
     "context": {
       "type": "string",
       "description": "When to use this role, distinct from similar roles"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Expected artifacts, decisions, reports, or verdicts produced by the role"
+    },
+    "authority": {
+      "type": "object",
+      "properties": {
+        "may": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Actions or decisions the role may take without additional approval"
+        },
+        "requires_approval": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Actions or decisions that require escalation or explicit approval"
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false,
+      "description": "Explicit autonomy boundary for the role"
+    },
+    "replaced_by": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*$",
+        "minLength": 2,
+        "maxLength": 16
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Role slugs that supersede a deprecated role"
     },
     "scope": {
       "type": "array",
@@ -206,6 +254,59 @@
       "description": "Guidance on coordination with other roles"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["replaced_by"]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "deprecated"
+          },
+          "tier": {
+            "const": "deprecated"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "deprecated"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["replaced_by"],
+        "properties": {
+          "tier": {
+            "const": "deprecated"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tier": {
+            "const": "deprecated"
+          }
+        },
+        "required": ["tier"]
+      },
+      "then": {
+        "required": ["replaced_by"],
+        "properties": {
+          "status": {
+            "const": "deprecated"
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false,
   "$defs": {
     "escalation": {

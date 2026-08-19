@@ -1,0 +1,22 @@
+slug: watcher
+name: Watcher
+description: Baseline bounded role used to prove role-prompt negative controls
+version: 1.0.0
+status: draft
+tier: supplemental
+outputs:
+  - Status observation
+authority:
+  may:
+    - Run documented read-only checks
+  requires_approval:
+    - Any consequential change
+scope:
+  - Bounded monitoring
+responsibilities:
+  - Observe and escalate
+escalates_to:
+  - target: human maintainers
+    when: A condition exceeds bounded authority
+does_not:
+  - Make consequential changes

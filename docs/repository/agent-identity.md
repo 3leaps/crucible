@@ -17,7 +17,7 @@ workflows.
 1. **Human accountability is explicit.** A human maintainer remains responsible
    for accepting the change.
 2. **The AI role is described generically.** Use a public role slug such as
-   `devlead`, `devrev`, `secrev`, `qa`, `releng`, or `docs`.
+   `devlead`, `devrev`, `secrev`, `releng`, `infoarch`, or `docs`.
 3. **Metadata is durable.** Commit messages, PR descriptions, and review
    comments should be written as public records.
 4. **Private context stays out.** Do not include private task identifiers,
@@ -48,14 +48,14 @@ Use a bare role slug in `Role`, not a bot username or internal roster label.
 
 Recommended public role labels:
 
-| Role      | Use When                                          |
-| --------- | ------------------------------------------------- |
-| `devlead` | Implementation or repository maintenance          |
-| `devrev`  | Code review or change review                      |
-| `secrev`  | Security review or security-sensitive guidance    |
-| `qa`      | Testing, verification, or quality-gate work       |
-| `releng`  | Release process, changelog, or packaging work     |
-| `docs`    | Documentation-only changes without a narrower fit |
+| Role       | Use When                                                         |
+| ---------- | ---------------------------------------------------------------- |
+| `devlead`  | Implementation, testing, routine CI, or repository maintenance   |
+| `devrev`   | Independent correctness, test-strategy, or change review         |
+| `secrev`   | Security review or security-sensitive guidance                   |
+| `releng`   | Complex release, publication, signing, or provenance engineering |
+| `infoarch` | Documentation, schema, or information-architecture work          |
+| `docs`     | Documentation-only changes without a narrower fit                |
 
 Repositories may document additional public role labels when the label is useful
 to external readers.

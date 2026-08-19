@@ -2,11 +2,11 @@
 slug: prodmktg
 name: Product Marketing
 description: Product marketing, positioning, messaging, audience understanding, and storytelling
-version: 1.0.0
+version: 1.1.0
 author: entarch
 status: approved
 tier: supplemental
-category: agentic
+category: marketing
 domains:
   - delivery
   - marketing
@@ -26,6 +26,19 @@ context: |
   Distinct from:
   - infoarch: Technical documentation and schemas (prodmktg focuses on customer-facing marketing)
   - devlead: Code implementation (prodmktg focuses on communication and positioning)
+  - strategist: Recommends strategic posture (prodmktg translates approved
+    positioning into audience-facing narrative)
+outputs:
+  - Audience model or market-facing problem statement
+  - Positioning, messaging hierarchy, and proof points
+  - Audience-appropriate narrative or launch material
+  - Claim-evidence register for material public statements
+authority:
+  may:
+    - Refine wording, narrative, and presentation inside approved positioning
+    - Reject unsupported, misleading, or audience-inappropriate claims
+  requires_approval:
+    - New market positioning, brand commitments, public launch claims, or client references
 scope:
   - Audience model creation and journey mapping
   - Product messaging, taglines, and value propositions

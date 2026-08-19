@@ -180,15 +180,18 @@ mechanism** — though the roster now checkably requires the maintainer seat's
 participant to be human: a
 journal cannot prove who held merge authority, so v0 conformance is evidence for
 the first non-negotiable at the contract surface and is **not** evidence for the
-second. Status and bounds are recorded in PDR-0005. Three seats are **adopt-by-need,
-not default**: a dedicated `qa` seat (test-strategy design) earns its place only
-where field/dogfood validation does not already cover the risk; `releng` folds
-into `devlead` unless a repository's CI/CD load is heavy enough to warrant a
-separate seat; and a claim-hygiene seat (`prodmktg` or equivalent) earns its place
-where the artifact **is itself a public claim surface**, since an unevidenced claim
-in shipped packaging is the same defect as one in a gate. Prefer the smallest panel that covers the artifact's real risk
-surface — an unused seat is ceremony, not rigor. In this standard, **full panel**
-means that declared, risk-shaped roster; it does not mean every catalog seat.
+second. Status and bounds are recorded in PDR-0005. Test-strategy review belongs
+to `devrev`; test implementation belongs to `devlead`; field/dogfood validation
+remains its own evidence-producing seat. Two additional seats are
+**adopt-by-need, not default**: `releng` separates from `devlead` only when the
+release system is itself a complex cross-platform, cross-repository, signing,
+provenance, or publication problem; and a claim-hygiene seat (`prodmktg` or
+equivalent) earns its place where the artifact **is itself a public claim
+surface**, since an unevidenced claim in shipped packaging is the same defect as
+one in a gate. Prefer the smallest panel that covers the artifact's real risk
+surface — an unused seat is ceremony, not rigor. In this standard, **full
+panel** means that declared, risk-shaped roster; it does not mean every catalog
+seat.
 
 **Independent first pass.** Open collaboration is not consensus-first. Before
 reconciling findings, each approving seat performs its own evidence pass through
