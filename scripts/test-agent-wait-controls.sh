@@ -234,6 +234,38 @@ for kind in registration_set live_wait_request live_wait_outcome poll_cycle_requ
     echo "    [ok] golden: $f"
 done
 
+echo "    Registration priority goldens..."
+for priority in 0 50 100 255; do
+    f="$base/examples/registration_set.priority-$priority.example.json"
+    [ -f "$f" ] || {
+        echo "    [!!] missing priority golden: $f" >&2
+        exit 1
+    }
+    goneat validate data --schema-file "$schema" --data "$f" >/dev/null
+    sh scripts/validate-agent-wait-normative.sh "$f"
+    echo "    [ok] priority golden: $f"
+done
+
+omitted="$base/examples/registration_set.example.json"
+explicit_50="$base/examples/registration_set.priority-50.example.json"
+jq -n -e --slurpfile omitted "$omitted" --slurpfile explicit "$explicit_50" '
+    ($omitted[0].registrations)
+    == ($explicit[0].registrations | map(del(.priority)))
+    and ($explicit[0].registrations | all(.priority == 50))
+' >/dev/null || {
+    echo "    [!!] omitted and explicit-50 registrations are not exact priority twins" >&2
+    exit 1
+}
+omitted_digest=$(jq -c '.registrations' "$omitted" | python3 scripts/rfc8785-canonicalize.py | sha256sum | awk '{print $1}')
+explicit_50_digest=$(jq -c '.registrations' "$explicit_50" | python3 scripts/rfc8785-canonicalize.py | sha256sum | awk '{print $1}')
+if [ "$omitted_digest" != "$(jq -r '.registration_digest.value' "$omitted")" ] ||
+    [ "$explicit_50_digest" != "$(jq -r '.registration_digest.value' "$explicit_50")" ] ||
+    [ "$omitted_digest" = "$explicit_50_digest" ]; then
+    echo "    [!!] omitted and explicit-50 priority digest invariant failed" >&2
+    exit 1
+fi
+echo "    [ok] omitted and explicit-50 registrations share content but differ in JCS digest"
+
 echo "    Schema-labeled controls..."
 for f in "$base"/rejects/schema/baseline-*.json; do
     [ -f "$f" ] || continue

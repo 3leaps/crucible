@@ -14,6 +14,10 @@ authn/lease, and revision freeze are enforced by
 `scripts/test-agent-wait-controls.sh`. The checker fails closed on a
 missing, unreadable, empty, or malformed target.
 
+Registrations MAY carry an optional `priority` presentation hint (`0..=255`);
+documents that omit it remain valid. It is not authorization, and consumers
+read an omission as `50` without materializing that value before digesting.
+
 The contract identity is the opaque capability token
 `contract: agent-wait/v0`. Consumers resolve that token through local
 configuration, a vendored copy, or another trusted registry. Instances must
@@ -26,9 +30,9 @@ capability does not match, or the entry schema is missing. Direct `$id`
 lookup remains valid for schema-aware tooling, but it is not the
 contract-entry mechanism.
 
-| File                             | Role                                              |
-| -------------------------------- | ------------------------------------------------- |
-| `agent-wait-message.schema.json` | Discriminated entry schema (six `message_type`s). |
-| `contract.json`                  | Capability manifest and entry pointer.            |
-| `examples/`                      | One golden per kind, plus outcome-kind goldens.   |
-| `rejects/`                       | Schema-labeled and normative-labeled controls.    |
+| File                             | Role                                                         |
+| -------------------------------- | ------------------------------------------------------------ |
+| `agent-wait-message.schema.json` | Discriminated entry schema (six `message_type`s).            |
+| `contract.json`                  | Capability manifest and entry pointer.                       |
+| `examples/`                      | One golden per kind, plus outcome-kind and priority goldens. |
+| `rejects/`                       | Schema-labeled and normative-labeled controls.               |

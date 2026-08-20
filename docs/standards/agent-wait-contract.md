@@ -4,7 +4,7 @@ description: "Transport-neutral wait/poll contract for one aggregate waiter per 
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-08-15"
+lastUpdated: "2026-08-20"
 maintainer: "core-standards"
 reviewers: ["architecture", "security"]
 approvers: ["lead-maintainer"]
@@ -134,6 +134,15 @@ identity reference, never a credential). Optional: `causation_id`,
   wait after `lease_expires_at` MUST be `reauthentication_required`.
   Exceeding per-registration or aggregate bounds is valid only as `partial`
   or `coverage_degraded`.
+- **Registration priority.** A registration MAY carry optional integer
+  `priority` (`0..=255`) as a cooperative presentation hint; omitted reads as
+  `50`, and higher values express greater presentation urgency. Consumers MUST
+  NOT materialize that value before RFC 8785 canonicalization of
+  `registrations`. It does not relax or override required, coverage/fairness,
+  bounds, deadlines, lease/authn, or ack/retention behavior, and confers no
+  grant, authorization, quota, or abort authority. Documented aliases are
+  background=`0`, normal=`50`, and urgent=`100`; implementations MAY use any
+  integer in range.
 - **Events.** Each `waitEvent` carries `registration_id`,
   `source_instance_ref`, `start_anchor`, `proposed_next_anchor`,
   `observed_at`, provider timestamp `occurred_at`, `replay_status`
