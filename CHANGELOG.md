@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-08-20
+
+### Added
+
+- **Agent-wait registration priority.** `agent-wait/v0` registrations may now
+  carry optional integer `priority` values from `0` through `255` as
+  cooperative presentation hints. Higher values express greater presentation
+  urgency; the field grants no scheduling, authorization, quota, or abort
+  authority.
+
+### Changed
+
+- **Priority contract controls.** Boundary goldens cover `0`, `50`, `100`, and
+  `255`; schema reject pairs cover negative, out-of-range, fractional, and
+  string values. The agent-wait control battery proves an omitted priority and
+  explicit `50` retain distinct RFC 8785 digests while representing the same
+  registration content after the optional field is removed.
+
 ## [0.1.27] - 2026-08-19
 
 ### Added
@@ -929,7 +947,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.27...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/3leaps/crucible/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/3leaps/crucible/compare/v0.1.25...v0.1.27
 [0.1.25]: https://github.com/3leaps/crucible/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/3leaps/crucible/compare/v0.1.23...v0.1.24

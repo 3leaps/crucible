@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.27](https://img.shields.io/badge/version-0.1.27-blue)
+![Version: 0.1.28](https://img.shields.io/badge/version-0.1.28-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)

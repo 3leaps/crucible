@@ -8,6 +8,28 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.28 (2026-08-20)
+
+**A bounded, cooperative presentation-priority hint for portable agent-wait
+registrations, with canonical-digest semantics preserved.**
+
+- **Optional registration priority** — `agent-wait/v0` registrations accept an
+  integer `priority` from `0` through `255`. Higher values express greater
+  presentation urgency; the field does not grant scheduling, authorization,
+  quota, or abort authority and does not override frozen wait rules.
+- **Stable omitted-field behavior** — consumers interpret an omitted priority
+  as `50` without materializing it before RFC 8785 canonicalization, so
+  omitted and explicit-`50` registrations retain distinct canonical digests.
+- **Executable boundary coverage** — goldens validate priorities at `0`, `50`,
+  `100`, and `255`; reject pairs demonstrate failure for negative,
+  out-of-range, fractional, and string values. The agent-wait control battery
+  verifies every recorded digest and the omitted-versus-explicit-`50`
+  invariant.
+
+See [docs/releases/v0.1.28.md](docs/releases/v0.1.28.md).
+
+---
+
 ## v0.1.27 (2026-08-19)
 
 **A curated agentic role catalog with explicit lifecycle semantics, so adopters
