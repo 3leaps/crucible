@@ -8,7 +8,36 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.27 (2026-08-19)
+
+**A curated agentic role catalog with explicit lifecycle semantics, so adopters
+can select a coherent public role set and migrate away from retired roles.**
+
+- **Twenty role definitions** — explicit `core`, `supplemental`, and
+  `deprecated` tiers; seven focused additions; and documented successors for
+  the three retired roles. The active-role index separates approved from draft
+  definitions.
+- **Fail-closed lifecycle validation** — role prompts require a tier, model
+  status, authority, outputs, and replacement metadata, with schema and
+  fixture controls rejecting inconsistent lifecycle combinations under
+  `make check`.
+- **Decision and adoption documentation** — PDR-0007 is accepted alongside
+  ADR-0007 and EPR-0004; catalog, identity, and adoption documentation now
+  describe the canonical catalog, its publication boundaries, and migration
+  guidance.
+- **Assessment-control alignment** — shell-lint scope narrows to `**/*.sh`,
+  the checkmake target-length allowance expands, and a `.goneatignore` keeps
+  RFC 8785 canonical JSON bytes out of text formatting so byte integrity stays
+  with the control battery.
+
+See [docs/releases/v0.1.27.md](docs/releases/v0.1.27.md).
+
+---
+
 ## v0.1.26 (2026-08-15)
+
+> **Publication note:** v0.1.26 was superseded before a signed tag or GitHub
+> release was published.
 
 **A contract-boundary cut: portable wait/poll and service-job families land
 as `v0`, so a consumer can wait and submit against a shared message contract
