@@ -56,7 +56,7 @@ Content vendored from external repositories.
 
 To update vendored content:
 
-1. Check latest commit: `cd ~/dev/crucible && git log -1`
+1. Check latest commit: `(cd ../crucible && git log -1)`
 2. Copy updated files to `schemas/upstream/3leaps/`
 3. Update this PROVENANCE.md with new commit hash
 4. Run `make upstream-validate` to verify
@@ -66,8 +66,8 @@ To update vendored content:
 ### 3. Copy the schema files
 
 ```bash
-# From 3leaps/crucible, copy the schema
-cp ~/dev/crucible/schemas/agentic/v0/role-prompt.schema.json \
+# From the consuming repository, with 3leaps/crucible cloned as a sibling
+cp ../crucible/schemas/agentic/v0/role-prompt.schema.json \
    schemas/upstream/3leaps/agentic/v0/
 
 # Verify it copied correctly
@@ -129,17 +129,16 @@ name: Development Lead
 When 3leaps/crucible updates and you want the new version:
 
 ```bash
+# From the consuming repository, with 3leaps/crucible cloned as a sibling
+
 # 1. Check what changed upstream
-cd ~/dev/crucible
-git pull
-git log --oneline -5
+(cd ../crucible && git pull && git log --oneline -5)
 
 # 2. Copy updated files
-cp schemas/agentic/v0/role-prompt.schema.json \
-   ~/dev/your-repo/schemas/upstream/3leaps/agentic/v0/
+cp ../crucible/schemas/agentic/v0/role-prompt.schema.json \
+   schemas/upstream/3leaps/agentic/v0/
 
 # 3. Update PROVENANCE.md with new commit hash
-cd ~/dev/your-repo
 # Edit schemas/upstream/3leaps/PROVENANCE.md
 
 # 4. Validate
@@ -207,7 +206,7 @@ The upstream schema may have new required fields. Check:
 ```bash
 # See what changed
 diff schemas/upstream/3leaps/agentic/v0/role-prompt.schema.json \
-     ~/dev/crucible/schemas/agentic/v0/role-prompt.schema.json
+     ../crucible/schemas/agentic/v0/role-prompt.schema.json
 
 # Update your config files to match new schema requirements
 ```

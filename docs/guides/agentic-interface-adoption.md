@@ -5,7 +5,7 @@ author: "Claude Opus 4.5"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2026-01-01"
-last_updated: "2026-01-01"
+last_updated: "2026-08-21"
 status: "approved"
 category: "guide"
 tags: ["agentic", "adoption", "roles", "attribution", "migration"]
@@ -89,20 +89,23 @@ your-repo/
 
 ### Path 3: Selective Role Adoption
 
-Copy only the roles you need:
+Copy only the roles you need. These commands assume the consuming repository
+is the current directory and that
+[`3leaps/crucible`](https://github.com/3leaps/crucible) is cloned as a sibling
+named `crucible`:
 
 ```bash
 # Create directories
 mkdir -p config/agentic/roles schemas/upstream/3leaps/agentic/v0
 
 # Copy schema
-cp ~/dev/crucible/schemas/agentic/v0/role-prompt.schema.json \
+cp ../crucible/schemas/agentic/v0/role-prompt.schema.json \
    schemas/upstream/3leaps/agentic/v0/
 
 # Copy selected roles
-cp ~/dev/crucible/config/agentic/roles/devlead.yaml \
+cp ../crucible/config/agentic/roles/devlead.yaml \
    config/agentic/roles/
-cp ~/dev/crucible/config/agentic/roles/devrev.yaml \
+cp ../crucible/config/agentic/roles/devrev.yaml \
    config/agentic/roles/
 ```
 

@@ -39,16 +39,22 @@ https://github.com/3leaps/crucible/  (browse or raw files)
 
 ### Local Fallback
 
-When network access is unavailable:
+When network access is unavailable, clone
+[`3leaps/crucible`](https://github.com/3leaps/crucible) as a sibling of the
+consuming repository:
 
 ```bash
-# Clone as sibling to your project
-cd ~/dev
-git clone https://github.com/3leaps/crucible.git
+# From the consuming repository
+git clone https://github.com/3leaps/crucible.git ../crucible
 
 # Reference via relative path
 ../crucible/docs/coding/baseline.md
 ```
+
+This catalog is `3leaps/crucible`. Other GitHub organizations also publish a
+repository named `crucible` (for example
+[`fulmenhq/crucible`](https://github.com/fulmenhq/crucible)). Use the
+org-qualified URL above so the sibling named `crucible` is this catalog.
 
 **Convention**: 3leaps tools check for `../crucible/` as a fallback when GitHub is unreachable.
 

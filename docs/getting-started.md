@@ -5,6 +5,7 @@ author: "Claude Opus 4.5"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2025-12-26"
+last_updated: "2026-08-21"
 status: "draft"
 tags: ["getting-started", "onboarding", "adoption"]
 ---
@@ -44,13 +45,18 @@ Crucible is a lightweight standards baseline covering:
 | 2         | `../crucible/docs/`                  | Local sibling clone (offline)      |
 | (planned) | `https://crucible.3leaps.dev/`       | Hosted docs site (targeted v0.1.x) |
 
-**For development**, clone crucible as a sibling for fast offline access:
+**For development**, clone
+[`3leaps/crucible`](https://github.com/3leaps/crucible) as a sibling of the
+consuming repository:
 
 ```bash
-cd ~/dev  # or your org's dev folder
-git clone https://github.com/3leaps/crucible.git
-# Now accessible at ../crucible/ from any sibling repo
+# From the consuming repository
+git clone https://github.com/3leaps/crucible.git ../crucible
+# Now accessible at ../crucible/
 ```
+
+This catalog is `3leaps/crucible`. Other GitHub organizations also publish a
+repository named `crucible`.
 
 ### When Local Copies Are Required
 
