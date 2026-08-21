@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:project-work/v0/ready-packet.schema.json",
+  "title": "Ready Packet",
+  "description": "Structural schema companion for contract: project-work/v0. The ready packet is the dispatchable unit of work: outcome, owner, lifecycle class, and acceptance. Hierarchy is forbidden. Journal-set rules are consumer-enforced.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "id",
+    "outcome",
+    "owner",
+    "lifecycle_class",
+    "acceptance",
+    "updated"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque project-work contract token.",
+      "items": { "type": "string" },
+      "contains": { "const": "contract: project-work/v0" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "id": { "$ref": "#/$defs/opaque-id" },
+    "scope": { "$ref": "#/$defs/scope-path" },
+    "slug": { "$ref": "#/$defs/display-slug" },
+    "project_id": { "$ref": "#/$defs/opaque-id" },
+    "milestone_id": { "$ref": "#/$defs/opaque-id" },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "The desired result in one breath. Completion is recognized against this plus acceptance."
+    },
+    "boundary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "What is out of scope."
+    },
+    "owner": { "$ref": "#/$defs/owner" },
+    "lifecycle_class": { "$ref": "#/$defs/lifecycle-class" },
+    "acceptance": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 1024 },
+      "description": "Checkable completion criteria. Required (min 1) on dispatchable classes ready, active, review, and done. Empty is allowed on draft, blocked, and cancelled."
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref"],
+        "properties": {
+          "ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+          "note": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind"],
+        "properties": {
+          "id": { "$ref": "#/$defs/opaque-id" },
+          "kind": { "enum": ["packet", "project", "decision", "external"] }
+        }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default"],
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/role-slug",
+          "description": "Accountable escalation target as a role slug. Not a closed catalog of one org's seats."
+        },
+        "note": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      }
+    },
+    "priority": { "enum": ["p0", "p1", "p2", "p3"] },
+    "labels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/display-slug" },
+      "uniqueItems": true
+    },
+    "classifiers": { "$ref": "#/$defs/classifiers" },
+    "updated": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle_class": {
+            "enum": ["ready", "active", "review", "done"]
+          }
+        },
+        "required": ["lifecycle_class"]
+      },
+      "then": {
+        "properties": {
+          "owner": {
+            "not": {
+              "properties": { "kind": { "const": "unassigned" } },
+              "required": ["kind"]
+            }
+          },
+          "acceptance": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "opaque-id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identity. Instance prefixes are local convention, not a closed enum."
+    },
+    "scope-path": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$",
+      "maxLength": 253
+    },
+    "display-slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 63
+    },
+    "role-slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "minLength": 2,
+      "maxLength": 16,
+      "description": "Exact role-prompt slug shape (lowercase letters/numbers, no hyphens, 2–16)."
+    },
+    "lifecycle-class": {
+      "enum": ["draft", "ready", "active", "blocked", "review", "done", "cancelled"],
+      "description": "Semantic class, not a board column."
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["person", "role", "unassigned"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "display": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["person", "role"] } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["id"] }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "role" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "id": { "$ref": "#/$defs/role-slug" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "unassigned" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [{ "required": ["id"] }, { "required": ["display"] }]
+            }
+          }
+        }
+      ]
+    },
+    "classifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensitivity", "access-tier"],
+      "description": "Reuse of catalog dimensions. Cross-enum floor access-tier >= sensitivity per docs/standards/access-tier-classification.md. unknown is valid only as a pair.",
+      "properties": {
+        "sensitivity": {
+          "enum": [
+            "unknown",
+            "0-public",
+            "1-confidential",
+            "2-blinded",
+            "3-proprietary",
+            "4-personal",
+            "5-privileged",
+            "6-eyes-only"
+          ]
+        },
+        "access-tier": {
+          "enum": ["unknown", "public", "internal", "restricted", "privileged", "eyes-only"]
+        },
+        "retention-lifecycle": {
+          "enum": ["unknown", "transient", "short", "standard", "long", "legal-hold"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "unknown" } }
+          },
+          "then": {
+            "properties": { "access-tier": { "const": "unknown" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "access-tier": { "const": "unknown" } }
+          },
+          "then": {
+            "properties": { "sensitivity": { "const": "unknown" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "0-public" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": {
+                "enum": ["public", "internal", "restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "1-confidential" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": {
+                "enum": ["internal", "restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "2-blinded" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": {
+                "enum": ["internal", "restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "3-proprietary" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": {
+                "enum": ["restricted", "privileged", "eyes-only"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "4-personal" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": { "enum": ["privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "5-privileged" } }
+          },
+          "then": {
+            "properties": {
+              "access-tier": { "enum": ["privileged", "eyes-only"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sensitivity": { "const": "6-eyes-only" } }
+          },
+          "then": {
+            "properties": { "access-tier": { "const": "eyes-only" } }
+          }
+        }
+      ]
+    }
+  }
+}

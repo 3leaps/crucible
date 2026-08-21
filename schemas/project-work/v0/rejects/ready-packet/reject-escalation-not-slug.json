@@ -1,0 +1,10 @@
+{
+  "id": "pw-bad-escalation",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Escalation default is a portable role slug.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Portable slug"],
+  "escalation": { "default": "DISPATCH" },
+  "updated": "2026-08-21T15:30:00Z"
+}

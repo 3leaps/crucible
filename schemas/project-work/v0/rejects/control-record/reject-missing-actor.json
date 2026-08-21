@@ -1,0 +1,8 @@
+{
+  "id": "pw-blocker-no-actor",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "blocker",
+  "summary": "Must be attributable.",
+  "waiting_on": "an-actor",
+  "ts": "2026-08-21T15:30:00Z"
+}

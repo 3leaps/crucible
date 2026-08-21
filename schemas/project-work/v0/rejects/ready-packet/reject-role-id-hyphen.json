@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-role-hyphen",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Role ids must match the role-prompt slug shape.",
+  "owner": { "kind": "role", "id": "dev-lead" },
+  "lifecycle_class": "ready",
+  "acceptance": ["No hyphens in role slugs"],
+  "updated": "2026-08-21T15:30:00Z"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "pw-blocker-dual",
+  "packet_id": "pw-ready-packet-001",
+  "project_id": "pw-project-001",
+  "kind": "blocker",
+  "summary": "Cannot attach to both subjects.",
+  "waiting_on": "one-subject",
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

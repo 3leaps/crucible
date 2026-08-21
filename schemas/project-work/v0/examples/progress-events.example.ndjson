@@ -1,0 +1,2 @@
+{"ts":"2026-08-21T15:00:00Z","packet_id":"pw-ready-packet-001","kind":"created","actor":{"kind":"role","id":"projectmgr"},"seq":0,"data":{"lifecycle_class":"draft"}}
+{"ts":"2026-08-21T15:10:00Z","packet_id":"pw-ready-packet-001","kind":"class-changed","actor":{"kind":"role","id":"projectmgr"},"seq":1,"data":{"from":"draft","to":"ready"}}

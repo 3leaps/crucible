@@ -50,6 +50,7 @@ Examples:
 | [ADR-0005](ADR-0005-operation-record-classification.md)                    | Operation-Record Classification Standard                           | proposed | 2026-07-02 |
 | [ADR-0006](ADR-0006-process-run-contract.md)                               | Local Process Telemetry & Control as a Companion Portable Contract | proposed | 2026-07-06 |
 | [ADR-0007](ADR-0007-separate-documentation-and-schema-registry-origins.md) | Separate Crucible Documentation and Schema Registry Origins        | proposed | 2026-08-19 |
+| [ADR-0008](ADR-0008-project-work-contract.md)                              | Portable Project Work as a Companion Contract                      | proposed | 2026-08-21 |
 | [PDR-0001](PDR-0001-adopt-data-pipeline-principles.md)                     | Adopt the Data-Pipeline Engineering Principles                     | accepted | 2026-06-29 |
 | [PDR-0002](PDR-0002-worktree-per-task.md)                                  | One git worktree per concurrent task                               | accepted | 2026-06-29 |
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                             | Role portfolio tiering: core, supplemental, deprecated             | accepted | 2026-06-29 |

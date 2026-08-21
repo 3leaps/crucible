@@ -1,0 +1,8 @@
+{
+  "ts": "2026-08-21T16:00:00Z",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "class-changed",
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "seq": 3,
+  "data": { "from": "done", "to": "active" }
+}

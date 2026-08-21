@@ -1,0 +1,23 @@
+{
+  "id": "pw-project-001",
+  "capabilities": ["contract: project-work/v0"],
+  "slug": "portable-work-floor",
+  "scope": "3leaps/crucible",
+  "outcome": "Orgs can emit and validate ready work without a product task tool.",
+  "owner": { "kind": "role", "id": "projectmgr" },
+  "lifecycle_class": "active",
+  "milestones": [
+    {
+      "id": "ms-floor",
+      "title": "v0 schemas in the public catalog",
+      "lifecycle_class": "review"
+    }
+  ],
+  "critical_path": ["pw-ready-packet-001"],
+  "forecast": {
+    "narrative": "Floor schemas first; product overlays after the contract exists to pin.",
+    "as_of": "2026-08-21T15:30:00Z",
+    "confidence": "medium"
+  },
+  "updated": "2026-08-21T15:30:00Z"
+}

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:project-work/v0/control-record.schema.json",
+  "title": "Control Record",
+  "description": "Structural schema companion for contract: project-work/v0. One status note, blocker, or decision. Class changes are progress events, not status notes. Subject is typed: exactly one of packet_id or project_id. Journal-set rules (blocked requires an open blocker) are consumer-enforced, not proven by structural make check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "summary", "ts", "actor"],
+  "oneOf": [{ "required": ["packet_id"] }, { "required": ["project_id"] }],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "kind": { "enum": ["status", "blocker", "decision"] },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "ts": { "type": "string", "format": "date-time" },
+    "actor": { "$ref": "#/$defs/actor" },
+    "open": {
+      "type": "boolean",
+      "description": "For blocker records: whether the blocker still applies. Default true when omitted."
+    },
+    "waiting_on": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Opaque description of the missing fact, person, or decision. Not a chat wait-state."
+    },
+    "decider": { "$ref": "#/$defs/actor" },
+    "affects": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "blocker" } },
+        "required": ["kind"]
+      },
+      "then": { "required": ["waiting_on"] }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "decision" } },
+        "required": ["kind"]
+      },
+      "then": { "required": ["decider"] }
+    }
+  ],
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["person", "role"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "display": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "role" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "id": { "$ref": "#/$defs/role-slug" } }
+          }
+        }
+      ]
+    },
+    "role-slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "minLength": 2,
+      "maxLength": 16,
+      "description": "Exact role-prompt slug shape (no hyphens)."
+    }
+  }
+}

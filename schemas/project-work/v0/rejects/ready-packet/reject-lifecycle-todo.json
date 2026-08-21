@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-class",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Must use a closed lifecycle class.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "lifecycle_class": "todo",
+  "acceptance": ["Use ready not todo"],
+  "updated": "2026-08-21T15:30:00Z"
+}
