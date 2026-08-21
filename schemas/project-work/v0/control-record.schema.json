@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:project-work/v0/control-record.schema.json",
   "title": "Control Record",
-  "description": "Structural schema companion for contract: project-work/v0. One status note, blocker, or decision. Class changes are progress events, not status notes. Subject is typed: exactly one of packet_id or project_id. Journal-set rules (blocked requires an open blocker) are consumer-enforced, not proven by structural make check.",
+  "description": "Structural schema companion for contract: project-work/v0. One status note, blocker, or decision. Kind closes kind-owned fields. Class changes are progress events, not status notes. Subject is typed: exactly one of packet_id or project_id. Journal-set rules (blocked requires an open blocker) are consumer-enforced, not proven by structural make check.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "kind", "summary", "ts", "actor"],
@@ -46,17 +46,41 @@
   "allOf": [
     {
       "if": {
+        "properties": { "kind": { "const": "status" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "waiting_on": false,
+          "decider": false,
+          "open": false
+        }
+      }
+    },
+    {
+      "if": {
         "properties": { "kind": { "const": "blocker" } },
         "required": ["kind"]
       },
-      "then": { "required": ["waiting_on"] }
+      "then": {
+        "required": ["waiting_on"],
+        "properties": {
+          "decider": false
+        }
+      }
     },
     {
       "if": {
         "properties": { "kind": { "const": "decision" } },
         "required": ["kind"]
       },
-      "then": { "required": ["decider"] }
+      "then": {
+        "required": ["decider"],
+        "properties": {
+          "waiting_on": false,
+          "open": false
+        }
+      }
     }
   ],
   "$defs": {

@@ -1,0 +1,8 @@
+{
+  "ts": "2026-08-21T20:00:00Z",
+  "packet_id": "pw-test",
+  "kind": "created",
+  "actor": { "kind": "role", "id": "devrev" },
+  "seq": 0,
+  "data": { "lifecycle_class": "draft", "from": "done", "to": "done" }
+}

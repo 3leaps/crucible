@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:project-work/v0/progress-event.schema.json",
   "title": "Progress Event",
-  "description": "Structural schema companion for contract: project-work/v0. One NDJSON line of the append-only work ledger. Envelope is contract-governed; extra keys on data are producer-owned. Kinds are locked; each kind has authoritative transition semantics so a consumer can project lifecycle state. seq is the per-subject order key (timestamp is not).",
+  "description": "Structural schema companion for contract: project-work/v0. One NDJSON line of the append-only work ledger. Envelope is contract-governed; extra keys on data are producer-owned except reserved core transition keys, which are reserved by kind. Kinds are locked; each kind has authoritative transition semantics so a consumer can project lifecycle state. seq is the per-subject order key (timestamp is not).",
   "type": "object",
   "additionalProperties": false,
   "required": ["ts", "kind", "actor", "seq", "data"],
@@ -22,7 +22,7 @@
     },
     "data": {
       "type": "object",
-      "description": "Transition payload. Core from/to or lifecycle_class keys are contract-governed; additional properties are producer-owned."
+      "description": "Transition payload. Core from/to and lifecycle_class keys are contract-governed and reserved by kind; additional properties are producer-owned."
     }
   },
   "allOf": [
@@ -37,7 +37,9 @@
             "type": "object",
             "required": ["lifecycle_class"],
             "properties": {
-              "lifecycle_class": { "$ref": "#/$defs/lifecycle-class" }
+              "lifecycle_class": { "$ref": "#/$defs/lifecycle-class" },
+              "from": false,
+              "to": false
             }
           }
         }
@@ -55,7 +57,8 @@
             "required": ["from", "to"],
             "properties": {
               "from": { "$ref": "#/$defs/lifecycle-class" },
-              "to": { "$ref": "#/$defs/lifecycle-class" }
+              "to": { "$ref": "#/$defs/lifecycle-class" },
+              "lifecycle_class": false
             },
             "allOf": [
               {
@@ -149,7 +152,8 @@
             "required": ["from", "to"],
             "properties": {
               "from": { "enum": ["done", "cancelled"] },
-              "to": { "enum": ["draft", "ready"] }
+              "to": { "enum": ["draft", "ready"] },
+              "lifecycle_class": false
             }
           }
         }
@@ -169,7 +173,8 @@
               "from": {
                 "enum": ["draft", "ready", "active", "review"]
               },
-              "to": { "const": "blocked" }
+              "to": { "const": "blocked" },
+              "lifecycle_class": false
             }
           }
         }
@@ -189,7 +194,8 @@
               "from": { "const": "blocked" },
               "to": {
                 "enum": ["draft", "ready", "active", "review"]
-              }
+              },
+              "lifecycle_class": false
             }
           }
         }

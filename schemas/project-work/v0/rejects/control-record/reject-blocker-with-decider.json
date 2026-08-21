@@ -1,0 +1,11 @@
+{
+  "id": "pw-blocker-with-decider",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "blocker",
+  "summary": "Blockers must not carry a decision decider.",
+  "waiting_on": "schema-brief",
+  "open": true,
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

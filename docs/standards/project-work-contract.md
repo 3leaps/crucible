@@ -124,18 +124,20 @@ order key. Timestamp is not a ledger key.
 
 | kind            | Authoritative transition                | Required `data`                                                        |
 | --------------- | --------------------------------------- | ---------------------------------------------------------------------- |
-| `created`       | Birth of the subject                    | `lifecycle_class` (initial class)                                      |
-| `class-changed` | Any other class→class not covered below | `from`, `to` (`from` ≠ `to`; `from` not terminal; not a block/unblock) |
-| `reopened`      | Terminal → open                         | `from` ∈ {done, cancelled}, `to` ∈ {draft, ready}                      |
-| `blocked`       | Open → blocked                          | `from` ∈ {draft, ready, active, review}, `to` = blocked                |
-| `unblocked`     | blocked → open                          | `from` = blocked, `to` ∈ {draft, ready, active, review}                |
+| `created`       | Birth of the subject                    | `lifecycle_class` (initial class); MUST NOT carry `from` or `to`       |
+| `class-changed` | Any other class→class not covered below | `from`, `to` (`from` ≠ `to`; `from` not terminal; not a block/unblock); MUST NOT carry `lifecycle_class` |
+| `reopened`      | Terminal → open                         | `from` ∈ {done, cancelled}, `to` ∈ {draft, ready}; MUST NOT carry `lifecycle_class` |
+| `blocked`       | Open → blocked                          | `from` ∈ {draft, ready, active, review}, `to` = blocked; MUST NOT carry `lifecycle_class` |
+| `unblocked`     | blocked → open                          | `from` = blocked, `to` ∈ {draft, ready, active, review}; MUST NOT carry `lifecycle_class` |
 
 ### Control records
 
 `kind` is `status` | `blocker` | `decision`. Status notes do not change
-class. Blockers require `waiting_on` (opaque). Decisions require `decider`
-(person or role — never `unassigned`). Every record requires `actor` and
-exactly one of `packet_id` or `project_id`.
+class and MUST NOT carry `waiting_on`, `decider`, or `open`. Blockers
+require `waiting_on` (opaque), may carry `open`, and MUST NOT carry
+`decider`. Decisions require `decider` (person or role — never
+`unassigned`) and MUST NOT carry `waiting_on` or `open`. Every record
+requires `actor` and exactly one of `packet_id` or `project_id`.
 
 ## Journal-set rules (consumer-enforced)
 
@@ -150,6 +152,8 @@ prove them. Consumers MUST enforce:
    `cancelled`.
 4. Additional properties on governed envelopes fail closed. Event `data`
    may carry extra producer keys beside the required transition fields.
+   Extra keys MUST NOT be reserved core transition keys of another
+   discriminant (`lifecycle_class` vs `from`/`to`).
 
 ## Classifiers
 

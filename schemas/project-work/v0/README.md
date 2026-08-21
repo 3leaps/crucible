@@ -6,10 +6,11 @@ The normative standard is
 [`docs/standards/project-work-contract.md`](../../../docs/standards/project-work-contract.md).
 These schemas provide a **structural** validation surface. Journal-set rules
 (an open blocker when class is `blocked`; a `class-changed` to `done` as
-evidence of completion) **MUST** be enforced by consumers. The reference
-controls in `scripts/test-project-work-controls.sh` cover structural
-examples/rejects and classifier-key alignment only. `make check` does **not**
-prove blocked↔blocker or done↔event.
+evidence of completion) **MUST** be enforced by consumers. Kind
+discriminants close reserved transition keys and kind-owned control
+fields. The reference controls in `scripts/test-project-work-controls.sh`
+cover structural examples/rejects and classifier-key alignment only.
+`make check` does **not** prove blocked↔blocker or done↔event.
 
 The contract identity is the opaque capability token
 `contract: project-work/v0`. Consumers resolve that token through local

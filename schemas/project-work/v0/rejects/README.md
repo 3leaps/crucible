@@ -18,20 +18,25 @@ schema of its directory.
 
 ## progress-event
 
-| File                                  | Why                                                 |
-| ------------------------------------- | --------------------------------------------------- |
-| `reject-missing-seq.json`             | `seq` is the ledger order key.                      |
-| `reject-class-changed-no-to.json`     | `class-changed` requires `from` and `to`.           |
-| `reject-blocked-wrong-to.json`        | `blocked` requires `to=blocked`.                    |
-| `reject-dual-subject.json`            | Exactly one of `packet_id` or `project_id`.         |
-| `reject-created-no-class.json`        | `created` requires initial `lifecycle_class`.       |
-| `reject-class-changed-from-done.json` | Terminal exits are `reopened`, not `class-changed`. |
+| File                                             | Why                                                     |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `reject-missing-seq.json`                        | `seq` is the ledger order key.                          |
+| `reject-class-changed-no-to.json`                | `class-changed` requires `from` and `to`.               |
+| `reject-blocked-wrong-to.json`                   | `blocked` requires `to=blocked`.                        |
+| `reject-dual-subject.json`                       | Exactly one of `packet_id` or `project_id`.             |
+| `reject-created-no-class.json`                   | `created` requires initial `lifecycle_class`.           |
+| `reject-created-with-from-to.json`               | `created` forbids contract `from`/`to`.                 |
+| `reject-class-changed-from-done.json`            | Terminal exits are `reopened`, not `class-changed`.     |
+| `reject-class-changed-with-lifecycle-class.json` | Transition kinds forbid contract `lifecycle_class`.     |
 
 ## control-record
 
-| File                             | Why                                         |
-| -------------------------------- | ------------------------------------------- |
-| `reject-dual-subject.json`       | Exactly one of `packet_id` or `project_id`. |
-| `reject-missing-actor.json`      | Records must be attributable.               |
-| `reject-unassigned-decider.json` | A decision `decider` is a person or role.   |
-| `reject-untyped-subject.json`    | Bare `subject_id` is not a typed subject.   |
+| File                                   | Why                                           |
+| -------------------------------------- | --------------------------------------------- |
+| `reject-dual-subject.json`             | Exactly one of `packet_id` or `project_id`.   |
+| `reject-missing-actor.json`            | Records must be attributable.                 |
+| `reject-unassigned-decider.json`       | A decision `decider` is a person or role.     |
+| `reject-untyped-subject.json`          | Bare `subject_id` is not a typed subject.     |
+| `reject-status-cross-kind.json`        | Status forbids blocker and decision fields.   |
+| `reject-blocker-with-decider.json`     | Blockers forbid `decider`.                    |
+| `reject-decision-with-waiting-on.json` | Decisions forbid blocker-only fields.         |

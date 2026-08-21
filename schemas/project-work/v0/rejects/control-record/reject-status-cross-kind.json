@@ -1,0 +1,11 @@
+{
+  "id": "pw-status-cross-kind",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "status",
+  "summary": "Status notes must not carry blocker or decision fields.",
+  "open": false,
+  "waiting_on": "a-blocker",
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}
