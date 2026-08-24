@@ -16,6 +16,9 @@ echo "    [ok] project-work project-state example passes"
 goneat validate data --schema-file "$control_schema" --data schemas/project-work/v0/examples/control-record.blocker.example.json >/dev/null
 echo "    [ok] project-work control-record example passes"
 
+goneat validate data --schema-file "$control_schema" --data schemas/project-work/v0/examples/control-record.decision.example.json >/dev/null
+echo "    [ok] project-work control-record decision example passes"
+
 tmpd=$(mktemp -d)
 tmp="$tmpd/event.json"
 while IFS= read -r line; do
@@ -42,6 +45,7 @@ reject_dir() {
 reject_dir "$packet_schema" schemas/project-work/v0/rejects/ready-packet
 reject_dir "$event_schema" schemas/project-work/v0/rejects/progress-event
 reject_dir "$control_schema" schemas/project-work/v0/rejects/control-record
+reject_dir "$project_schema" schemas/project-work/v0/rejects/project-state
 
 # Inlined classifier keys must match catalog dimensions (anti-fork).
 dim_keys() {

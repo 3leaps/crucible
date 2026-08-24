@@ -1,0 +1,11 @@
+{
+  "id": "pw-blocker-with-affects",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "blocker",
+  "summary": "Blockers must not carry decision-owned affects.",
+  "waiting_on": "schema-brief",
+  "open": true,
+  "affects": ["pw-ready-packet-001"],
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-24T14:00:00Z"
+}

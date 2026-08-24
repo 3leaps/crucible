@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:project-work/v0/control-record.schema.json",
   "title": "Control Record",
-  "description": "Structural schema companion for contract: project-work/v0. One status note, blocker, or decision. Kind closes kind-owned fields. Class changes are progress events, not status notes. Subject is typed: exactly one of packet_id or project_id. Journal-set rules (blocked requires an open blocker) are consumer-enforced, not proven by structural make check.",
+  "description": "Structural schema companion for contract: project-work/v0. One status note, blocker, or decision. Kind closes kind-owned fields: decisions own decider and affects (non-empty, unique); status and blocker forbid them. Class changes are progress events, not status notes. Subject is typed: exactly one of packet_id or project_id. Journal-set rules (blocked requires an open blocker) are consumer-enforced, not proven by structural make check.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "kind", "summary", "ts", "actor"],
@@ -40,7 +40,10 @@
     "decider": { "$ref": "#/$defs/actor" },
     "affects": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "For decision records: the packet or project ids this decision governs. Decision-owned; forbidden on status and blocker records."
     }
   },
   "allOf": [
@@ -53,7 +56,8 @@
         "properties": {
           "waiting_on": false,
           "decider": false,
-          "open": false
+          "open": false,
+          "affects": false
         }
       }
     },
@@ -65,7 +69,8 @@
       "then": {
         "required": ["waiting_on"],
         "properties": {
-          "decider": false
+          "decider": false,
+          "affects": false
         }
       }
     },
@@ -75,7 +80,7 @@
         "required": ["kind"]
       },
       "then": {
-        "required": ["decider"],
+        "required": ["decider", "affects"],
         "properties": {
           "waiting_on": false,
           "open": false

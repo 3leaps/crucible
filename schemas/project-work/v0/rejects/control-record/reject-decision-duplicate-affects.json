@@ -1,0 +1,10 @@
+{
+  "id": "pw-decision-duplicate-affects",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "Decision affects must be unique.",
+  "affects": ["pw-ready-packet-001", "pw-ready-packet-001"],
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-24T14:00:00Z"
+}

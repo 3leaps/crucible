@@ -98,6 +98,11 @@ have an empty `acceptance` array. This rule applies to packets only.
 It does **not** carry `acceptance`. `owner` is optional. A project is an
 inspectable projection, not a dispatchable packet.
 
+**Milestone dates.** `project-state.milestones[].target` is an ISO-8601
+full date (`YYYY-MM-DD`). The schema asserts both the pattern and
+`format: date`, so impossible dates (for example `2026-99-99`) are
+rejected.
+
 ### Owner
 
 ```json
@@ -122,22 +127,24 @@ There is no `completed` kind. Completion is `class-changed` with
 `project_id`. `seq` is required: monotonic per subject; it is the ledger
 order key. Timestamp is not a ledger key.
 
-| kind            | Authoritative transition                | Required `data`                                                        |
-| --------------- | --------------------------------------- | ---------------------------------------------------------------------- |
-| `created`       | Birth of the subject                    | `lifecycle_class` (initial class); MUST NOT carry `from` or `to`       |
+| kind            | Authoritative transition                | Required `data`                                                                                          |
+| --------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `created`       | Birth of the subject                    | `lifecycle_class` (initial class); MUST NOT carry `from` or `to`                                         |
 | `class-changed` | Any other class→class not covered below | `from`, `to` (`from` ≠ `to`; `from` not terminal; not a block/unblock); MUST NOT carry `lifecycle_class` |
-| `reopened`      | Terminal → open                         | `from` ∈ {done, cancelled}, `to` ∈ {draft, ready}; MUST NOT carry `lifecycle_class` |
-| `blocked`       | Open → blocked                          | `from` ∈ {draft, ready, active, review}, `to` = blocked; MUST NOT carry `lifecycle_class` |
-| `unblocked`     | blocked → open                          | `from` = blocked, `to` ∈ {draft, ready, active, review}; MUST NOT carry `lifecycle_class` |
+| `reopened`      | Terminal → open                         | `from` ∈ {done, cancelled}, `to` ∈ {draft, ready}; MUST NOT carry `lifecycle_class`                      |
+| `blocked`       | Open → blocked                          | `from` ∈ {draft, ready, active, review}, `to` = blocked; MUST NOT carry `lifecycle_class`                |
+| `unblocked`     | blocked → open                          | `from` = blocked, `to` ∈ {draft, ready, active, review}; MUST NOT carry `lifecycle_class`                |
 
 ### Control records
 
 `kind` is `status` | `blocker` | `decision`. Status notes do not change
-class and MUST NOT carry `waiting_on`, `decider`, or `open`. Blockers
-require `waiting_on` (opaque), may carry `open`, and MUST NOT carry
-`decider`. Decisions require `decider` (person or role — never
-`unassigned`) and MUST NOT carry `waiting_on` or `open`. Every record
-requires `actor` and exactly one of `packet_id` or `project_id`.
+class and MUST NOT carry `waiting_on`, `decider`, `open`, or `affects`.
+Blockers require `waiting_on` (opaque), may carry `open`, and MUST NOT
+carry `decider` or `affects`. Decisions require `decider` (person or role
+— never `unassigned`) and `affects` (a non-empty, unique list of the
+packet or project ids the decision governs) and MUST NOT carry
+`waiting_on` or `open`. Every record requires `actor` and exactly one of
+`packet_id` or `project_id`.
 
 ## Journal-set rules (consumer-enforced)
 
