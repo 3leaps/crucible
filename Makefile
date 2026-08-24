@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -211,7 +211,7 @@ tools: ## Verify external tools are available
 # Quality Gates
 # -----------------------------------------------------------------------------
 
-check: fmt lint test ## Run all quality checks
+check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
 test: ## Run release-control negative tests
@@ -248,6 +248,16 @@ fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 		echo "[!!] shfmt not found, skipping shell formatting"; \
 	fi
 	@echo "[ok] Formatting complete"
+
+fmt-check: ## Verify canonical formatting without modifying files
+	@echo "Checking formatting..."
+	@if command -v goneat >/dev/null 2>&1; then \
+		PATH="$(CURDIR)/node_modules/.bin:$$PATH" goneat assess --categories format --check --fail-on low --ci-summary; \
+	else \
+		echo "[!!] goneat not found, cannot verify formatting"; \
+		exit 1; \
+	fi
+	@echo "[ok] Formatting checks passed"
 
 lint: lint-schemas lint-config ## Run linting checks
 	@echo "Linting..."
@@ -385,7 +395,7 @@ lint-coverage-attestation: ## Run coverage-attestation negative controls
 		echo "[--] goneat not found, skipping coverage-attestation controls"; \
 	fi
 
-build: ## Build artifacts (validation is the build for standards repo)
+build: check ## Build artifacts (validation is the build for standards repo)
 	@echo "Building..."
 	@echo "[ok] Build complete (crucible is docs - validation is the build)"
 
