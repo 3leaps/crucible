@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Portable Project Work Contract (draft).** Add the `project-work/v0`
+  standard, JSON Schema family (`ready-packet`, `project-state`,
+  `control-record`, `progress-event`), `contract.json` entry manifest, README,
+  examples, and structural rejects — a source-neutral contract for exchanging
+  ready work and project projections without importing a board or runtime.
+- **ADR-0008: project-work contract.** Record `project-work/v0` as a proposed
+  companion portable contract family. Promotion to a stable version follows
+  ADR-0001.
+
+### Changed
+
+- **Validation coverage.** `make check` now runs the project-work control
+  battery (examples, structural rejects, classifier-key alignment) and the
+  project-work contract manifest.
+
 ## [0.1.28] - 2026-08-20
 
 ### Added

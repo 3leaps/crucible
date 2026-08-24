@@ -1,0 +1,9 @@
+{
+  "id": "pw-blocker-untyped",
+  "subject_id": "pw-ready-packet-001",
+  "kind": "blocker",
+  "summary": "Subject must be packet_id or project_id.",
+  "waiting_on": "typed-subject",
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

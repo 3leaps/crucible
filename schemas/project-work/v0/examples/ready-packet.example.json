@@ -1,0 +1,18 @@
+{
+  "id": "pw-ready-packet-001",
+  "capabilities": ["contract: project-work/v0"],
+  "slug": "role-prompt-bounded-authority",
+  "scope": "3leaps/crucible",
+  "outcome": "Canonical role schema accepts bounded-authority metadata.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "lifecycle_class": "ready",
+  "priority": "p1",
+  "acceptance": [
+    "Canonical roles validate",
+    "Missing required tier fails",
+    "Malformed authority fails"
+  ],
+  "escalation": { "default": "entarch" },
+  "depends_on": [{ "id": "schema-brief-accepted", "kind": "decision" }],
+  "updated": "2026-08-21T15:30:00Z"
+}

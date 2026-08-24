@@ -1,0 +1,10 @@
+{
+  "id": "pw-blocker-001",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "blocker",
+  "summary": "Schema brief is not yet accepted.",
+  "waiting_on": "maintainer-acceptance-of-schema-brief",
+  "open": true,
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

@@ -1,0 +1,8 @@
+{
+  "ts": "2026-08-21T20:00:00Z",
+  "packet_id": "pw-test",
+  "kind": "class-changed",
+  "actor": { "kind": "role", "id": "devrev" },
+  "seq": 1,
+  "data": { "from": "draft", "to": "ready", "lifecycle_class": "cancelled" }
+}

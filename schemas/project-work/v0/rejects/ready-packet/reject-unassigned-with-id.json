@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-unassigned-id",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Unassigned owner must omit id and display.",
+  "owner": { "kind": "unassigned", "id": "nobody" },
+  "lifecycle_class": "draft",
+  "acceptance": [],
+  "updated": "2026-08-21T15:30:00Z"
+}

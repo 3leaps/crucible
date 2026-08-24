@@ -1,0 +1,10 @@
+{
+  "id": "pw-decision-with-waiting-on",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "Decisions must not carry blocker-only fields.",
+  "waiting_on": "a-blocker",
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

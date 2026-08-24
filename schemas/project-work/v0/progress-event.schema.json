@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:project-work/v0/progress-event.schema.json",
+  "title": "Progress Event",
+  "description": "Structural schema companion for contract: project-work/v0. One NDJSON line of the append-only work ledger. Envelope is contract-governed; extra keys on data are producer-owned except reserved core transition keys, which are reserved by kind. Kinds are locked; each kind has authoritative transition semantics so a consumer can project lifecycle state. seq is the per-subject order key (timestamp is not).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "kind", "actor", "seq", "data"],
+  "oneOf": [{ "required": ["packet_id"] }, { "required": ["project_id"] }],
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "packet_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "kind": {
+      "enum": ["created", "class-changed", "reopened", "blocked", "unblocked"]
+    },
+    "actor": { "$ref": "#/$defs/actor" },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic per-subject sequence. The ledger order key. Gaps indicate loss; regression indicates corruption."
+    },
+    "data": {
+      "type": "object",
+      "description": "Transition payload. Core from/to and lifecycle_class keys are contract-governed and reserved by kind; additional properties are producer-owned."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "created" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["lifecycle_class"],
+            "properties": {
+              "lifecycle_class": { "$ref": "#/$defs/lifecycle-class" },
+              "from": false,
+              "to": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "class-changed" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "$ref": "#/$defs/lifecycle-class" },
+              "to": { "$ref": "#/$defs/lifecycle-class" },
+              "lifecycle_class": false
+            },
+            "allOf": [
+              {
+                "not": {
+                  "properties": { "to": { "const": "blocked" } },
+                  "required": ["to"]
+                }
+              },
+              {
+                "not": {
+                  "properties": { "from": { "const": "blocked" } },
+                  "required": ["from"]
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "from": { "enum": ["done", "cancelled"] }
+                  },
+                  "required": ["from"]
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "draft" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "draft" } } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "ready" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "ready" } } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "active" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "active" } } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "review" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "review" } } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "done" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "done" } } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "from": { "const": "cancelled" } },
+                  "required": ["from"]
+                },
+                "then": {
+                  "properties": { "to": { "not": { "const": "cancelled" } } }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "reopened" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "enum": ["done", "cancelled"] },
+              "to": { "enum": ["draft", "ready"] },
+              "lifecycle_class": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "blocked" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": {
+                "enum": ["draft", "ready", "active", "review"]
+              },
+              "to": { "const": "blocked" },
+              "lifecycle_class": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "unblocked" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "const": "blocked" },
+              "to": {
+                "enum": ["draft", "ready", "active", "review"]
+              },
+              "lifecycle_class": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "lifecycle-class": {
+      "enum": ["draft", "ready", "active", "blocked", "review", "done", "cancelled"]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["person", "role"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "display": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "role" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "id": { "$ref": "#/$defs/role-slug" } }
+          }
+        }
+      ]
+    },
+    "role-slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "minLength": 2,
+      "maxLength": 16,
+      "description": "Exact role-prompt slug shape (no hyphens)."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "pw-project-impossible-date",
+  "capabilities": ["contract: project-work/v0"],
+  "slug": "portable-work-floor",
+  "scope": "3leaps/crucible",
+  "outcome": "Milestone target date must be a real calendar date.",
+  "owner": { "kind": "role", "id": "projectmgr" },
+  "lifecycle_class": "active",
+  "milestones": [
+    {
+      "id": "ms-impossible",
+      "title": "Impossible target date",
+      "target": "2026-99-99",
+      "lifecycle_class": "review"
+    }
+  ],
+  "critical_path": ["pw-ready-packet-001"],
+  "forecast": {
+    "narrative": "Impossible milestone dates fail format: date.",
+    "as_of": "2026-08-24T14:00:00Z",
+    "confidence": "high"
+  },
+  "updated": "2026-08-24T14:00:00Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "pw-bad-classifier-floor",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "access-tier must meet the sensitivity floor.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Floor holds"],
+  "classifiers": {
+    "sensitivity": "3-proprietary",
+    "access-tier": "public"
+  },
+  "updated": "2026-08-21T15:30:00Z"
+}

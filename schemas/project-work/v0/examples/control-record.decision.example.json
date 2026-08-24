@@ -1,0 +1,10 @@
+{
+  "id": "pw-decision-001",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "Adopt the portable project-work v0 envelope for cross-org work.",
+  "affects": ["pw-ready-packet-001", "pw-project-001"],
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-24T14:00:00Z"
+}

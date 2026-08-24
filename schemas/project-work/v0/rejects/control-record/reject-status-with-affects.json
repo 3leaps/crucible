@@ -1,0 +1,9 @@
+{
+  "id": "pw-status-with-affects",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "status",
+  "summary": "Status notes must not carry decision-owned affects.",
+  "affects": ["pw-ready-packet-001"],
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-24T14:00:00Z"
+}

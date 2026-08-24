@@ -1,0 +1,9 @@
+{
+  "id": "pw-decision-unassigned",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "Decider must be a person or role.",
+  "decider": { "kind": "unassigned" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-21T15:30:00Z"
+}

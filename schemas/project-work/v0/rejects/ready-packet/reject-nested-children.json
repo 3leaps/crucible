@@ -1,0 +1,10 @@
+{
+  "id": "pw-bad-tree",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Must not nest tasks.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "lifecycle_class": "ready",
+  "acceptance": ["No children field"],
+  "children": ["pw-child-1"],
+  "updated": "2026-08-21T15:30:00Z"
+}

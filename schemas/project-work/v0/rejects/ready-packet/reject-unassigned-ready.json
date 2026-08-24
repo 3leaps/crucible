@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-owner",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "Ready work must have an accountable owner.",
+  "owner": { "kind": "unassigned" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Owner is named"],
+  "updated": "2026-08-21T15:30:00Z"
+}

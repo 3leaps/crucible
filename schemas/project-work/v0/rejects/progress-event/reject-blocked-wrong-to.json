@@ -1,0 +1,8 @@
+{
+  "ts": "2026-08-21T15:12:00Z",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "blocked",
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "seq": 2,
+  "data": { "from": "ready", "to": "review" }
+}

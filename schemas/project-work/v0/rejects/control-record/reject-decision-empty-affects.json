@@ -1,0 +1,10 @@
+{
+  "id": "pw-decision-empty-affects",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "An empty affects list is not a valid decision.",
+  "affects": [],
+  "decider": { "kind": "role", "id": "entarch" },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-08-24T14:00:00Z"
+}

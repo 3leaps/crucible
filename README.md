@@ -112,6 +112,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── data-artifact/v0/      # Portable data artifact contract
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
+│   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
 │   └── service-job/v0/        # Portable service job contract
 └── scripts/                   # Release and automation scripts
 ```
