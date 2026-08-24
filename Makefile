@@ -219,44 +219,21 @@ test: ## Run release-control negative tests
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
 
-fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
+fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."
-	@# Use the lockfile-resolved formatter; system Prettier versions can disagree.
-	@if [ -x "./node_modules/.bin/prettier" ]; then \
-		echo "[..] Formatting markdown and JSON (prettier via bun)..."; \
-		./node_modules/.bin/prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore; \
+	@if command -v goneat >/dev/null 2>&1; then \
+		goneat assess --categories format --fix --fail-on low --ci-summary; \
+		goneat assess --categories lint --fix --lint-shell-fix --fail-on low --ci-summary; \
 	else \
-		echo "[!!] repository-local prettier not found; run make bootstrap"; \
+		echo "[!!] goneat not found; run make bootstrap"; \
 		exit 1; \
-	fi
-	@# Format YAML with yamlfmt
-	@if command -v yamlfmt >/dev/null 2>&1; then \
-		echo "[..] Formatting YAML (yamlfmt)..."; \
-		yamlfmt . 2>/dev/null || true; \
-	else \
-		echo "[!!] yamlfmt not found, skipping YAML formatting"; \
-	fi
-	@# Format shell scripts with shfmt.
-	@# Args must match .goneat/assess.yaml lint.shell.shfmt.args and .editorconfig [*.sh]
-	@# (goneat checks shell under the lint category; make fmt is the apply path).
-	@if command -v shfmt >/dev/null 2>&1; then \
-		echo "[..] Formatting shell scripts (shfmt -i 4 -ci)..."; \
-		shfmt -i 4 -ci -w scripts/*.sh; \
-	else \
-		echo "[!!] shfmt not found, skipping shell formatting"; \
 	fi
 	@echo "[ok] Formatting complete"
 
 fmt-check: ## Verify canonical formatting without modifying files
 	@echo "Checking formatting..."
-	@if [ -x "./node_modules/.bin/prettier" ]; then \
-		./node_modules/.bin/prettier --check "**/*.md" "**/*.json" --ignore-path .gitignore; \
-	else \
-		echo "[!!] repository-local prettier not found; run make bootstrap"; \
-		exit 1; \
-	fi
 	@if command -v goneat >/dev/null 2>&1; then \
-		PATH="$(CURDIR)/node_modules/.bin:$$PATH" goneat assess --categories format --check --fail-on low --ci-summary; \
+		goneat assess --categories format --mode check --fail-on low --ci-summary; \
 	else \
 		echo "[!!] goneat not found, cannot verify formatting"; \
 		exit 1; \
@@ -265,12 +242,11 @@ fmt-check: ## Verify canonical formatting without modifying files
 
 lint: lint-schemas lint-config ## Run linting checks
 	@echo "Linting..."
-	@# Lint YAML with yamllint
-	@if command -v yamllint >/dev/null 2>&1; then \
-		echo "[..] Linting YAML (yamllint)..."; \
-		yamllint -c .yamllint .; \
+	@if command -v goneat >/dev/null 2>&1; then \
+		goneat assess --categories lint --mode check --fail-on low --ci-summary; \
 	else \
-		echo "[!!] yamllint not found, skipping YAML linting"; \
+		echo "[!!] goneat not found, cannot run lint assessment"; \
+		exit 1; \
 	fi
 	@echo "[ok] Linting complete"
 
