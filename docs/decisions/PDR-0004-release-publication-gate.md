@@ -96,7 +96,6 @@ publishes. The manual undraft step is eliminated.**
    uploaded to the tagger's account, so on its own it reduces the publication
    gate to "anyone with tag-push rights and a self-uploaded key" — a compromised
    account mints publishable releases. Two assertions, both required:
-
    - **Key identity (authoritative):** the tag verifies in an isolated keyring
      built solely from the release keys committed at
      `docs/security/release-signing-keys.asc`, with a full-fingerprint

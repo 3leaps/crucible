@@ -344,7 +344,6 @@ Trust-nothing is operational, not attitudinal. Concrete techniques:
 
 - Findings carry a **severity**, defined so the rubric does not itself reintroduce
   variance:
-
   - **P1** — the relied-upon claim is false, unsafe, or unproven as stated (a wrong
     result, a security hole, a broken contract, a gate that cannot fail). **Blocks
     until green on re-review.**

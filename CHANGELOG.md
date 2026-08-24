@@ -655,7 +655,6 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 ### Added
 
 - **GitHub Actions release verification and signing handoff**
-
   - `docs/knowledge/cicd/github-actions/artifact-handling.md` - When to use (and avoid) cross-job artifacts
   - `docs/knowledge/cicd/github-actions/manual-signing-handoff.md` - Local signing workflow for draft releases
   - `docs/knowledge/cicd/github-actions/release-verification-checklist.md` - Pre-undraft verification gate
@@ -674,7 +673,6 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 ### Added
 
 - **Windows ARM64 Gaps in TypeScript** (`docs/knowledge/toolchains/typescript/windows-arm64-gaps.md`)
-
   - Native binary availability status for Biome, Rollup/Vitest on Windows ARM64
   - CI matrix pattern with skip-lint/skip-test flags for unavailable tools
   - Cross-platform path handling using `path.sep` and `path.resolve()`
@@ -692,7 +690,6 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 ### Added
 
 - **Config Layering Pitfalls guide** (`docs/knowledge/toolchains/go/config-layering-pitfalls.md`)
-
   - Multi-layer configuration precedence bug patterns
   - Guard condition pattern: `cfg.Field != "" && result.Field == ""`
   - Testing cross-layer combinations to expose hidden bugs
@@ -743,7 +740,6 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 ### Added
 
 - **Governance tier roles**
-
   - `config/agentic/roles/deliverylead.yaml` - Project lifecycle management and sprint coordination
     - Projectbook governance for git-backed docsites
     - Sprint/kanban board structure with WIP limits

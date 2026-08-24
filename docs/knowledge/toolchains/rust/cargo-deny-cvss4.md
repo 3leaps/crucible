@@ -76,7 +76,6 @@ cargo-audit may have better CVSS 4.0 support and can run alongside cargo-deny.
 ## Follow-up Required
 
 1. **Monitor upstream**: Watch cargo-deny releases for CVSS 4.0 fix
-
    - Check: `cargo search cargo-deny` periodically
 
 2. **Re-enable when fixed**: Update Makefile to use full `cargo deny check`

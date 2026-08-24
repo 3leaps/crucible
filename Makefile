@@ -221,15 +221,13 @@ test: ## Run release-control negative tests
 
 fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 	@echo "Formatting..."
-	@# Format markdown and JSON with prettier (prefer bun-installed)
+	@# Use the lockfile-resolved formatter; system Prettier versions can disagree.
 	@if [ -x "./node_modules/.bin/prettier" ]; then \
 		echo "[..] Formatting markdown and JSON (prettier via bun)..."; \
-		./node_modules/.bin/prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore 2>/dev/null || true; \
-	elif command -v prettier >/dev/null 2>&1; then \
-		echo "[..] Formatting markdown and JSON (prettier system)..."; \
-		prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore 2>/dev/null || true; \
+		./node_modules/.bin/prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore; \
 	else \
-		echo "[!!] prettier not found, skipping md/json formatting"; \
+		echo "[!!] repository-local prettier not found; run make bootstrap"; \
+		exit 1; \
 	fi
 	@# Format YAML with yamlfmt
 	@if command -v yamlfmt >/dev/null 2>&1; then \
@@ -251,6 +249,12 @@ fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
 
 fmt-check: ## Verify canonical formatting without modifying files
 	@echo "Checking formatting..."
+	@if [ -x "./node_modules/.bin/prettier" ]; then \
+		./node_modules/.bin/prettier --check "**/*.md" "**/*.json" --ignore-path .gitignore; \
+	else \
+		echo "[!!] repository-local prettier not found; run make bootstrap"; \
+		exit 1; \
+	fi
 	@if command -v goneat >/dev/null 2>&1; then \
 		PATH="$(CURDIR)/node_modules/.bin:$$PATH" goneat assess --categories format --check --fail-on low --ci-summary; \
 	else \
@@ -264,7 +268,7 @@ lint: lint-schemas lint-config ## Run linting checks
 	@# Lint YAML with yamllint
 	@if command -v yamllint >/dev/null 2>&1; then \
 		echo "[..] Linting YAML (yamllint)..."; \
-		yamllint -c .yamllint . 2>&1 | grep -v "^$$" || true; \
+		yamllint -c .yamllint .; \
 	else \
 		echo "[!!] yamllint not found, skipping YAML linting"; \
 	fi
