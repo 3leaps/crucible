@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-08-24
+
 ### Added
 
 - **Portable Project Work Contract (draft).** Add the `project-work/v0`
@@ -23,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Validation coverage.** `make check` now runs the project-work control
   battery (examples, structural rejects, classifier-key alignment) and the
   project-work contract manifest.
+- **Local fallback guidance.** Use an org-qualified `3leaps/crucible` sibling
+  clone from the consuming repository and consistent `../crucible/` paths in
+  onboarding, adoption, and upstream-sync documentation.
 
 ## [0.1.28] - 2026-08-20
 
@@ -964,7 +969,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.28...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/3leaps/crucible/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/3leaps/crucible/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/3leaps/crucible/compare/v0.1.25...v0.1.27
 [0.1.25]: https://github.com/3leaps/crucible/compare/v0.1.24...v0.1.25

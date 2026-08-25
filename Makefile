@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -48,10 +48,10 @@ help: ## Show available targets
 	@echo "Required targets:"
 	@echo "  help            Show this help message"
 	@echo "  bootstrap       Install tools (sfetch -> goneat -> others)"
-	@echo "  check           Run all quality checks (fmt, lint, test)"
+	@echo "  check           Run non-mutating quality checks"
 	@echo "  test            Run release-control negative tests"
-	@echo "  fmt             Format code (prettier, yamlfmt)"
-	@echo "  lint            Run linting (yamllint, schema validation)"
+	@echo "  fmt             Apply the goneat assessment policy"
+	@echo "  lint            Run goneat lint and schema validation"
 	@echo "  lint-schemas    Validate JSON Schema files against meta-schema"
 	@echo "  build           Build artifacts (validation is the build)"
 	@echo "  clean           Remove build artifacts"
@@ -185,33 +185,13 @@ tools: ## Verify external tools are available
 	else \
 		echo "[!!] goneat not found - run 'make bootstrap'"; \
 	fi
-	@# Check prettier (via bun)
-	@if [ -x "./node_modules/.bin/prettier" ]; then \
-		echo "[ok] prettier: $$(./node_modules/.bin/prettier --version) (bun)"; \
-	elif command -v prettier >/dev/null 2>&1; then \
-		echo "[ok] prettier: $$(prettier --version)"; \
-	else \
-		echo "[!!] prettier not found"; \
-	fi
-	@# Check yamlfmt
-	@if command -v yamlfmt >/dev/null 2>&1; then \
-		echo "[ok] yamlfmt: $$(yamlfmt --version 2>&1 | head -n1)"; \
-	else \
-		echo "[!!] yamlfmt not found"; \
-	fi
-	@# Check yamllint
-	@if command -v yamllint >/dev/null 2>&1; then \
-		echo "[ok] yamllint found"; \
-	else \
-		echo "[!!] yamllint not found"; \
-	fi
 	@echo ""
 
 # -----------------------------------------------------------------------------
 # Quality Gates
 # -----------------------------------------------------------------------------
 
-check: fmt lint test ## Run all quality checks
+check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
 test: ## Run release-control negative tests
@@ -219,44 +199,34 @@ test: ## Run release-control negative tests
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
 
-fmt: ## Format code (prettier for md/json, yamlfmt for yaml, shfmt for shell)
+fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."
-	@# Format markdown and JSON with prettier (prefer bun-installed)
-	@if [ -x "./node_modules/.bin/prettier" ]; then \
-		echo "[..] Formatting markdown and JSON (prettier via bun)..."; \
-		./node_modules/.bin/prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore 2>/dev/null || true; \
-	elif command -v prettier >/dev/null 2>&1; then \
-		echo "[..] Formatting markdown and JSON (prettier system)..."; \
-		prettier --write "**/*.md" "**/*.json" --ignore-path .gitignore 2>/dev/null || true; \
+	@if command -v goneat >/dev/null 2>&1; then \
+		goneat assess --categories format --fix --fail-on low --ci-summary; \
+		goneat assess --categories lint --fix --lint-shell-fix --fail-on low --ci-summary; \
 	else \
-		echo "[!!] prettier not found, skipping md/json formatting"; \
-	fi
-	@# Format YAML with yamlfmt
-	@if command -v yamlfmt >/dev/null 2>&1; then \
-		echo "[..] Formatting YAML (yamlfmt)..."; \
-		yamlfmt . 2>/dev/null || true; \
-	else \
-		echo "[!!] yamlfmt not found, skipping YAML formatting"; \
-	fi
-	@# Format shell scripts with shfmt.
-	@# Args must match .goneat/assess.yaml lint.shell.shfmt.args and .editorconfig [*.sh]
-	@# (goneat checks shell under the lint category; make fmt is the apply path).
-	@if command -v shfmt >/dev/null 2>&1; then \
-		echo "[..] Formatting shell scripts (shfmt -i 4 -ci)..."; \
-		shfmt -i 4 -ci -w scripts/*.sh; \
-	else \
-		echo "[!!] shfmt not found, skipping shell formatting"; \
+		echo "[!!] goneat not found; run make bootstrap"; \
+		exit 1; \
 	fi
 	@echo "[ok] Formatting complete"
 
+fmt-check: ## Verify canonical formatting without modifying files
+	@echo "Checking formatting..."
+	@if command -v goneat >/dev/null 2>&1; then \
+		goneat assess --categories format --mode check --fail-on low --ci-summary; \
+	else \
+		echo "[!!] goneat not found, cannot verify formatting"; \
+		exit 1; \
+	fi
+	@echo "[ok] Formatting checks passed"
+
 lint: lint-schemas lint-config ## Run linting checks
 	@echo "Linting..."
-	@# Lint YAML with yamllint
-	@if command -v yamllint >/dev/null 2>&1; then \
-		echo "[..] Linting YAML (yamllint)..."; \
-		yamllint -c .yamllint . 2>&1 | grep -v "^$$" || true; \
+	@if command -v goneat >/dev/null 2>&1; then \
+		goneat assess --categories lint --mode check --fail-on low --ci-summary; \
 	else \
-		echo "[!!] yamllint not found, skipping YAML linting"; \
+		echo "[!!] goneat not found, cannot run lint assessment"; \
+		exit 1; \
 	fi
 	@echo "[ok] Linting complete"
 
@@ -385,7 +355,7 @@ lint-coverage-attestation: ## Run coverage-attestation negative controls
 		echo "[--] goneat not found, skipping coverage-attestation controls"; \
 	fi
 
-build: ## Build artifacts (validation is the build for standards repo)
+build: check ## Build artifacts (validation is the build for standards repo)
 	@echo "Building..."
 	@echo "[ok] Build complete (crucible is docs - validation is the build)"
 
@@ -417,10 +387,10 @@ clean: ## Remove build artifacts
 precommit: ## Run pre-commit checks (goneat assess --fail-on critical + schema validation)
 	@echo "Running pre-commit checks..."
 	@if command -v goneat >/dev/null 2>&1; then \
-		PATH="$(CURDIR)/node_modules/.bin:$$PATH" goneat assess --categories format,lint,security --fail-on critical --ci-summary; \
+		goneat assess --categories format,lint,security --mode check --fail-on critical --ci-summary; \
 	else \
-		echo "[!!] goneat not found, falling back to basic checks"; \
-		$(MAKE) fmt lint; \
+		echo "[!!] goneat not found; run make bootstrap"; \
+		exit 1; \
 	fi
 	@# Always run schema/config validation (goneat assess doesn't cover these)
 	@$(MAKE) lint-schemas lint-config
@@ -429,10 +399,10 @@ precommit: ## Run pre-commit checks (goneat assess --fail-on critical + schema v
 prepush: ## Run pre-push checks (goneat assess --fail-on low + schema validation)
 	@echo "Running pre-push checks..."
 	@if command -v goneat >/dev/null 2>&1; then \
-		PATH="$(CURDIR)/node_modules/.bin:$$PATH" goneat assess --categories format,lint,security --fail-on low --ci-summary; \
+		goneat assess --categories format,lint,security --mode check --fail-on low --ci-summary; \
 	else \
-		echo "[!!] goneat not found, falling back to basic checks"; \
-		$(MAKE) fmt lint; \
+		echo "[!!] goneat not found; run make bootstrap"; \
+		exit 1; \
 	fi
 	@# Always run schema/config validation (goneat assess doesn't cover these)
 	@$(MAKE) lint-schemas lint-config

@@ -8,6 +8,29 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.29 (2026-08-24)
+
+**A portable project-work contract for exchanging ready work and project
+projections, with executable controls and clearer local adoption guidance.**
+
+- **Portable project-work family** — `project-work/v0` defines source-neutral
+  ready packets, project state, control records, and progress events without
+  importing a board or runtime.
+- **Explicit lifecycle and governance boundaries** — the draft contract
+  distinguishes work readiness from lifecycle class, uses typed subjects for
+  durable records, and keeps decision impact explicit through decision-owned
+  `affects` references.
+- **Executable contract coverage** — positive examples, structural rejects,
+  classifier-key alignment checks, and the project-work manifest run through
+  the repository quality gates.
+- **Org-qualified local fallback** — onboarding and adoption documentation now
+  clones `3leaps/crucible` as `../crucible/` from the consuming repository and
+  uses that path consistently in upstream-sync examples.
+
+See [docs/releases/v0.1.29.md](docs/releases/v0.1.29.md).
+
+---
+
 ## v0.1.28 (2026-08-20)
 
 **A bounded, cooperative presentation-priority hint for portable agent-wait
