@@ -4,7 +4,7 @@
   "binding_receipt_ref": "example-github-installation-binding",
   "binding_plan_ref": {
     "binding_plan_id": "binding-plan-example-github-installation",
-    "plan_spec_digest": "sha256:2593a98822af245c428f025a255306a8f82ac43d822971c4415d15f09f45f20e"
+    "plan_spec_digest": "sha256:794f1e644edcb2704f428e4c336ce5ec3f50ba500bb3284116d0b174a0a15d25"
   },
   "binding_plan_action_seq": 3,
   "catalog_ref": {

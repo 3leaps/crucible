@@ -139,6 +139,13 @@ The portable contract defines policy input, not the policy engine. OPA/Rego or
 another PDP may evaluate the facts. The resulting decision remains an opaque
 `policy_decision_ref`; it is not embedded as provider data.
 
+The policy-input target MUST match the execution target. Its requested
+capability-operation, authority-profile, and provider-native grant tuples MUST
+exactly match the plan's satisfiable resolutions. Its ordered authority-action
+summaries MUST exactly match the plan's executable authority actions. These
+facts are part of the same digest-bound plan; re-digesting internally
+inconsistent facts does not authorize them.
+
 ## L2: authority control
 
 ### Authority profiles
@@ -203,12 +210,14 @@ Side-effecting acquisition, bind, rotation, revocation, and teardown SHOULD
 run through `contract: service-job/v0` or an equivalent boundary that enforces
 digest binding and idempotency.
 
-A planned receipt at action sequence two or later MUST reference a predecessor
-receipt from the same plan, provider context, authority, and target. The
-predecessor MUST have succeeded and have an earlier action sequence. Sequence
-one may begin from a newly planned action or declare `history_basis: imported`
-when the provider object predates the portable receipt chain. A failed,
-partial, or unknown transition MUST NOT advance the chain.
+A planned receipt at action sequence two or later MUST reference the receipt
+for the immediately preceding receipt-producing action in the same plan,
+provider context, authority, and target. Actions such as `verify` that declare
+no binding transition are skipped when identifying that predecessor. The
+predecessor MUST have succeeded. Sequence one may begin from a newly planned
+action or declare `history_basis: imported` when the provider object predates
+the portable receipt chain. A failed, partial, or unknown transition MUST NOT
+be bypassed or advance the chain.
 
 ## L3–L6: neutral catalog and provider profiles
 
@@ -288,10 +297,14 @@ receipt observes one binding and reports:
 Verification MUST be time-bounded. Consumers MUST NOT treat an expired
 verification as current authority. Drift SHOULD trigger an explicit reconcile,
 rotate, revoke, or teardown plan; it MUST NOT silently escalate grants.
+`verified_at` and `valid_until` are RFC 3339 instants and MUST be compared
+chronologically after offset normalization, never lexically.
 
 A `conformant` outcome requires observed grants to match the resolved plan and
 binding receipt, no missing or unexpected grants, and allowed results for every
-reported capability check. A `drift` outcome requires a grant delta or a
+reported capability check. It also requires a successful `bound`, `rotated`, or
+`reconciled` receipt; registration, installation, consent, or provisioning is
+not usable authority. A `drift` outcome requires a grant delta or a
 denied/unknown capability check. Every satisfiable required operation in the
 linked plan MUST have a capability check.
 
@@ -339,12 +352,14 @@ enforce:
 5. Authority-profile references exist in the same provider context.
 6. Authority acquisition evidence references resolve.
 7. Requirement operations exist on the neutral capability.
-8. Binding-plan refs, revisions, digests, contexts, resolutions, contiguous
-   action sequences, and action-to-transition mappings resolve.
+8. Binding-plan refs, revisions, digests, contexts, policy facts, resolutions,
+   contiguous action sequences, and action-to-transition mappings resolve.
 9. Binding receipts match a specific plan action, target, authority, and
-   provider context; successor links never advance a non-successful receipt.
+   provider context; successor links cite the immediate receipt-producing
+   predecessor and never bypass or advance a non-successful receipt.
 10. Verification receipts match their binding and plan action, have a finite
-    validity interval, and substantiate conformant or drift outcomes.
+    chronologically ordered validity interval, require a successful usable
+    binding for conformance, and substantiate conformant or drift outcomes.
 11. Object references resolve to the selected catalog.
 
 The fixture and control battery is

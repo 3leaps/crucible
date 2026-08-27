@@ -115,7 +115,8 @@ flowchart TB
 
 Mint is not authority. A GitHub App registration is not an installation token.
 A Forgejo OAuth client is not a PAT. A binding receipt is not current
-authority until a verification receipt still in its validity interval says so.
+authority until a successful bound/rotated/reconciled receipt has a conformant
+verification still in its validity interval.
 
 ## Seven lanes
 
@@ -179,6 +180,9 @@ sequenceDiagram
 8. Drift reconcile, revoke, or teardown
 
 Do not report “we minted an app” as usable authority before bind + verify.
+The policy target, capability-operation and grant tuples, and ordered authority
+actions must exactly match the digest-bound plan; a digest does not repair
+mismatched authorization facts.
 
 Side-effecting L2 work SHOULD run as `contract: service-job/v0` (or equivalent)
 so digest and idempotency are enforced.

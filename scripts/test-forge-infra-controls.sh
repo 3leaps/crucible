@@ -1,5 +1,7 @@
 #!/bin/sh
 # Structural and cross-document controls for contract: forge-infra/v0.
+# Uses the repository RFC 8785 and RFC 3339 helpers for digest and instant
+# comparisons; lexical JSON/timestamp ordering is not a security oracle.
 
 set -eu
 
@@ -33,6 +35,18 @@ expect_rejected() {
         exit 1
     fi
     echo "    [ok] rejected: $data"
+}
+
+redigest_plan() {
+    source_plan="$1"
+    output_plan="$2"
+    updated_digest="$(jq -c .plan_spec "$source_plan" |
+        python3 scripts/rfc8785-canonicalize.py |
+        sha256sum |
+        awk '{print "sha256:" $1}')"
+    jq --arg digest "$updated_digest" \
+        '.plan_spec_digest = $digest' \
+        "$source_plan" >"$output_plan"
 }
 
 check_catalog() {
@@ -204,6 +218,23 @@ check_binding_plan() {
           | [.capability_id, .operation]
           | join("|")
         ] as $gap_keys
+      | ([
+          $plan.plan_spec.resolutions[]
+          | select(.resolution == "satisfied" or .resolution == "partial")
+          | select(.disposition != "forbidden")
+          | {
+              capability_id,
+              operation,
+              authority_profile_id,
+              required_grants: (.required_grants
+                | sort_by([.kind, .name, .access, .resource_scope]))
+            }
+        ] | sort_by([.capability_id, .operation, .authority_profile_id]))
+          as $resolved_policy_operations
+      | ([
+          $plan.plan_spec.authority_actions[]
+          | del(.notes)
+        ] | sort_by(.seq)) as $planned_policy_actions
       | def transition_for($action):
           {
             register: "registered",
@@ -273,11 +304,14 @@ check_binding_plan() {
                 == transition_for($action.action)
               end)
         )
-        and all(
-          $plan.plan_spec.policy_input.authority_profile_ids[];
-          . as $authority_profile_id
-          | ($authorities | has($authority_profile_id))
-        )
+        and ($plan.plan_spec.policy_input.target == $plan.target)
+        and (($plan.plan_spec.policy_input.requested_operations
+            | map(.required_grants |=
+                sort_by([.kind, .name, .access, .resource_scope]))
+            | sort_by([.capability_id, .operation, .authority_profile_id]))
+          == $resolved_policy_operations)
+        and (($plan.plan_spec.policy_input.authority_actions | sort_by(.seq))
+          == $planned_policy_actions)
     ' "$data" >/dev/null
 }
 
@@ -303,6 +337,12 @@ check_binding_receipt_set() {
         and all(
           $receipts[];
           . as $receipt
+          | ([
+              $plan.plan_spec.authority_actions[]
+              | select(.produces_transition != null)
+              | select(.seq < $receipt.binding_plan_action_seq)
+              | .seq
+            ] | max) as $expected_previous_action_seq
           | ($receipt.binding_plan_ref.binding_plan_id
               == $plan.binding_plan_id)
             and ($receipt.binding_plan_ref.plan_spec_digest
@@ -327,7 +367,7 @@ check_binding_receipt_set() {
                   == "succeeded")
                 and ($receipt_index[$receipt.previous_receipt_ref]
                   .binding_plan_action_seq
-                    < $receipt.binding_plan_action_seq)
+                    == $expected_previous_action_seq)
                 and ($receipt_index[$receipt.previous_receipt_ref]
                   .binding_plan_ref == $receipt.binding_plan_ref)
                 and ($receipt_index[$receipt.previous_receipt_ref]
@@ -345,6 +385,11 @@ check_verification_receipt() {
     data="$1"
     binding="$2"
     plan="$3"
+    verified_at="$(jq -r '.verified_at' "$data")"
+    valid_until="$(jq -r '.valid_until' "$data")"
+    instant_order="$(python3 scripts/rfc3339-instant.py \
+        --compare "$verified_at" "$valid_until")" || return 1
+    [ "$instant_order" = "-1" ] || return 1
     jq -e \
         --slurpfile binding_data "$binding" \
         --slurpfile plan_data "$plan" \
@@ -385,7 +430,6 @@ check_verification_receipt() {
         and ($verification.authority_profile_id
           == $binding.authority_profile_id)
         and ($verification.target == $binding.target)
-        and ($verification.verified_at < $verification.valid_until)
         and (($verification.expected_grants
           | sort_by([.kind, .name, .access, .resource_scope]))
             == $planned_grants)
@@ -407,7 +451,11 @@ check_verification_receipt() {
           | ($observed_checks | index($required_check)) != null
         )
         and (if $verification.outcome == "conformant"
-          then (($verification.observed_grants
+          then ($binding.outcome == "succeeded")
+            and ($binding.transition == "bound"
+              or $binding.transition == "rotated"
+              or $binding.transition == "reconciled")
+            and (($verification.observed_grants
               | sort_by([.kind, .name, .access, .resource_scope]))
                 == $planned_grants)
             and ($verification.missing_grants | length) == 0
@@ -480,6 +528,71 @@ check_binding_plan \
     "$examples/binding-plan.github-installation.example.json" \
     "$examples/requirement-profile.agent-memory.example.json" \
     "$examples/provider-profile.github.example.json"
+
+jq '.plan_spec.policy_input.target.structure_ref = "other/repository"' \
+    "$examples/binding-plan.github-installation.example.json" \
+    >"$tmpd/policy-target-mismatch.raw.json"
+redigest_plan \
+    "$tmpd/policy-target-mismatch.raw.json" \
+    "$tmpd/policy-target-mismatch.json"
+validate binding-plan.schema.json "$tmpd/policy-target-mismatch.json"
+if check_binding_plan \
+    "$tmpd/policy-target-mismatch.json" \
+    "$examples/requirement-profile.agent-memory.example.json" \
+    "$examples/provider-profile.github.example.json"; then
+    echo "    [!!] policy target diverged from execution target" >&2
+    exit 1
+fi
+echo "    [ok] rejected policy/execution target mismatch"
+
+jq '.plan_spec.policy_input.requested_operations[0].operation = "delete"' \
+    "$examples/binding-plan.github-installation.example.json" \
+    >"$tmpd/policy-operation-mismatch.raw.json"
+redigest_plan \
+    "$tmpd/policy-operation-mismatch.raw.json" \
+    "$tmpd/policy-operation-mismatch.json"
+validate binding-plan.schema.json "$tmpd/policy-operation-mismatch.json"
+if check_binding_plan \
+    "$tmpd/policy-operation-mismatch.json" \
+    "$examples/requirement-profile.agent-memory.example.json" \
+    "$examples/provider-profile.github.example.json"; then
+    echo "    [!!] policy operation diverged from resolved set" >&2
+    exit 1
+fi
+echo "    [ok] rejected policy/resolution operation mismatch"
+
+jq '.plan_spec.policy_input.requested_operations[0].required_grants[0].access = "admin"' \
+    "$examples/binding-plan.github-installation.example.json" \
+    >"$tmpd/policy-grant-escalation.raw.json"
+redigest_plan \
+    "$tmpd/policy-grant-escalation.raw.json" \
+    "$tmpd/policy-grant-escalation.json"
+validate binding-plan.schema.json "$tmpd/policy-grant-escalation.json"
+if check_binding_plan \
+    "$tmpd/policy-grant-escalation.json" \
+    "$examples/requirement-profile.agent-memory.example.json" \
+    "$examples/provider-profile.github.example.json"; then
+    echo "    [!!] policy grant exceeded resolved provider grants" >&2
+    exit 1
+fi
+echo "    [ok] rejected policy/provider grant escalation"
+
+jq '.plan_spec.policy_input.authority_actions[1].action = "revoke"' \
+    "$examples/binding-plan.github-installation.example.json" \
+    >"$tmpd/policy-action-mismatch.raw.json"
+redigest_plan \
+    "$tmpd/policy-action-mismatch.raw.json" \
+    "$tmpd/policy-action-mismatch.json"
+validate binding-plan.schema.json "$tmpd/policy-action-mismatch.json"
+if check_binding_plan \
+    "$tmpd/policy-action-mismatch.json" \
+    "$examples/requirement-profile.agent-memory.example.json" \
+    "$examples/provider-profile.github.example.json"; then
+    echo "    [!!] policy action diverged from planned authority action" >&2
+    exit 1
+fi
+echo "    [ok] rejected policy/authority action mismatch"
+
 check_binding_receipt_set \
     "$examples/binding-plan.github-installation.example.json" \
     "$examples/binding-receipt.github-installation-installed.example.json" \
@@ -488,6 +601,51 @@ check_verification_receipt \
     "$examples/verification-receipt.github-installation.example.json" \
     "$examples/binding-receipt.github-installation.example.json" \
     "$examples/binding-plan.github-installation.example.json"
+
+for unusable_outcome in failed partial unknown; do
+    jq --arg outcome "$unusable_outcome" \
+        '.outcome = $outcome' \
+        "$examples/binding-receipt.github-installation.example.json" \
+        >"$tmpd/unusable-binding-$unusable_outcome.json"
+    validate binding-receipt.schema.json \
+        "$tmpd/unusable-binding-$unusable_outcome.json"
+    if check_verification_receipt \
+        "$examples/verification-receipt.github-installation.example.json" \
+        "$tmpd/unusable-binding-$unusable_outcome.json" \
+        "$examples/binding-plan.github-installation.example.json"; then
+        echo "    [!!] conformant verification accepted $unusable_outcome binding" >&2
+        exit 1
+    fi
+    echo "    [ok] rejected conformant verification of $unusable_outcome binding"
+done
+
+jq '.binding_receipt_ref = "example-github-installation-installed"' \
+    "$examples/verification-receipt.github-installation.example.json" \
+    >"$tmpd/pre-bind-verification.json"
+validate verification-receipt.schema.json "$tmpd/pre-bind-verification.json"
+if check_verification_receipt \
+    "$tmpd/pre-bind-verification.json" \
+    "$examples/binding-receipt.github-installation-installed.example.json" \
+    "$examples/binding-plan.github-installation.example.json"; then
+    echo "    [!!] conformant verification accepted pre-bind receipt" >&2
+    exit 1
+fi
+echo "    [ok] rejected conformant verification of pre-bind receipt"
+
+jq '
+  .verified_at = "2026-08-27T02:00:00-04:00"
+  | .valid_until = "2026-08-27T03:00:00Z"
+' "$examples/verification-receipt.github-installation.example.json" \
+    >"$tmpd/reversed-offset-instants.json"
+validate verification-receipt.schema.json "$tmpd/reversed-offset-instants.json"
+if check_verification_receipt \
+    "$tmpd/reversed-offset-instants.json" \
+    "$examples/binding-receipt.github-installation.example.json" \
+    "$examples/binding-plan.github-installation.example.json"; then
+    echo "    [!!] verification accepted reversed RFC3339 instants" >&2
+    exit 1
+fi
+echo "    [ok] rejected reversed mixed-offset validity interval"
 
 jq '.outcome = "failed"' \
     "$examples/binding-receipt.github-installation-installed.example.json" \
@@ -512,6 +670,66 @@ if check_binding_receipt_set \
     exit 1
 fi
 echo "    [ok] rejected action/transition mismatch"
+
+jq '
+  .plan_spec.authority_actions += [{
+    "seq": 4,
+    "action": "rotate",
+    "produces_transition": "rotated",
+    "authority_profile_id": "github-app-installation",
+    "execution_mode": "service_job",
+    "service_offer_ref": "forge-authority-rotation/v0"
+  }]
+  | .plan_spec.policy_input.authority_actions += [{
+    "seq": 4,
+    "action": "rotate",
+    "produces_transition": "rotated",
+    "authority_profile_id": "github-app-installation",
+    "execution_mode": "service_job",
+    "service_offer_ref": "forge-authority-rotation/v0"
+  }]
+' "$examples/binding-plan.github-installation.example.json" \
+    >"$tmpd/extended-chain-plan.raw.json"
+redigest_plan \
+    "$tmpd/extended-chain-plan.raw.json" \
+    "$tmpd/extended-chain-plan.json"
+validate binding-plan.schema.json "$tmpd/extended-chain-plan.json"
+check_binding_plan \
+    "$tmpd/extended-chain-plan.json" \
+    "$examples/requirement-profile.agent-memory.example.json" \
+    "$examples/provider-profile.github.example.json"
+extended_chain_digest="$(jq -r '.plan_spec_digest' \
+    "$tmpd/extended-chain-plan.json")"
+jq --arg digest "$extended_chain_digest" \
+    '.binding_plan_ref.plan_spec_digest = $digest' \
+    "$examples/binding-receipt.github-installation-installed.example.json" \
+    >"$tmpd/extended-installed.json"
+jq --arg digest "$extended_chain_digest" \
+    '.binding_plan_ref.plan_spec_digest = $digest | .outcome = "failed"' \
+    "$examples/binding-receipt.github-installation.example.json" \
+    >"$tmpd/extended-bound.json"
+jq --arg digest "$extended_chain_digest" '
+  .binding_receipt_id = "example-github-installation-rotated"
+  | .binding_plan_ref.plan_spec_digest = $digest
+  | .binding_plan_action_seq = 4
+  | .previous_receipt_ref = "example-github-installation-installed"
+  | .idempotency_key = "github-installation-example-rotate-1"
+  | .transition = "rotated"
+  | .occurred_at = "2026-08-27T01:32:00Z"
+' "$examples/binding-receipt.github-installation.example.json" \
+    >"$tmpd/bypass-failed-intermediate.json"
+validate binding-receipt.schema.json "$tmpd/extended-installed.json"
+validate binding-receipt.schema.json "$tmpd/extended-bound.json"
+validate binding-receipt.schema.json "$tmpd/bypass-failed-intermediate.json"
+if check_binding_receipt_set \
+    "$tmpd/extended-chain-plan.json" \
+    "$tmpd/extended-installed.json" \
+    "$tmpd/extended-bound.json" \
+    "$tmpd/bypass-failed-intermediate.json"; then
+    echo "    [!!] receipt skipped the immediate prior transition" >&2
+    exit 1
+fi
+echo "    [ok] rejected skipped intermediate transition"
 
 jq '.plan_spec.authority_actions[2].seq = 4' \
     "$examples/binding-plan.github-installation.example.json" \

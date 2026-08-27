@@ -35,7 +35,7 @@ parity merely because another provider exposes a similarly named feature.
 | `capability-catalog.schema.json`   | Neutral capability vocabulary and operations                          |
 | `provider-profile.schema.json`     | Evidence-backed native-to-neutral mappings                            |
 | `authority-profile.schema.json`    | Acquisition, scope, grant model, and lifecycle for one authority kind |
-| `binding-plan.schema.json`         | Digest-bound resolution, policy input, and ordered authority actions  |
+| `binding-plan.schema.json`         | Digest-bound resolution and operation-complete policy facts           |
 | `binding-receipt.schema.json`      | One immutable, non-secret authority transition                        |
 | `verification-receipt.schema.json` | Time-bounded live grant and capability verification                   |
 | `requirement-profile.schema.json`  | Provider-neutral adopter requirements and prohibitions                |
@@ -59,11 +59,13 @@ additionally checks that:
 - provider and authority acquisition evidence references resolve;
 - authority-profile references use the same provider context;
 - requirement-profile operations exist on the neutral capability;
-- binding-plan refs, revisions, digests, resolutions, and actions resolve;
-- transition receipts match a specific contiguous plan action and successful
-  predecessor;
+- binding-plan refs, revisions, digests, policy facts, resolutions, and actions
+  resolve;
+- transition receipts match a specific contiguous plan action and the immediate
+  successful receipt-producing predecessor;
 - verification receipts match the binding, plan grants, required operation
-  checks, outcome semantics, and validity interval; and
+  checks, usable-authority state, outcome semantics, and normalized validity
+  interval; and
 - object references resolve to the canonical catalog.
 
 Implementations publishing multiple documents MUST enforce equivalent

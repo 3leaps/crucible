@@ -88,16 +88,65 @@
     ],
     "policy_input": {
       "actor_ref": "operator-example",
-      "action": "bind",
       "target": {
         "structure_class": "repository",
         "structure_ref": "example/repository",
         "parent_ref": "example"
       },
-      "requested_capabilities": ["forge.resource.issue", "forge.automation.workflow_run"],
-      "authority_profile_ids": ["github-app-installation"]
+      "requested_operations": [
+        {
+          "capability_id": "forge.resource.issue",
+          "operation": "create",
+          "authority_profile_id": "github-app-installation",
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "issues",
+              "access": "write",
+              "resource_scope": "installation"
+            }
+          ]
+        },
+        {
+          "capability_id": "forge.automation.workflow_run",
+          "operation": "observe",
+          "authority_profile_id": "github-app-installation",
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "actions",
+              "access": "read",
+              "resource_scope": "installation"
+            }
+          ]
+        }
+      ],
+      "authority_actions": [
+        {
+          "seq": 1,
+          "action": "install",
+          "produces_transition": "installed",
+          "authority_profile_id": "github-app-installation",
+          "execution_mode": "operator_handoff"
+        },
+        {
+          "seq": 2,
+          "action": "bind",
+          "produces_transition": "bound",
+          "authority_profile_id": "github-app-installation",
+          "execution_mode": "service_job",
+          "service_offer_ref": "forge-authority-binding/v0"
+        },
+        {
+          "seq": 3,
+          "action": "verify",
+          "authority_profile_id": "github-app-installation",
+          "execution_mode": "service_job",
+          "service_offer_ref": "forge-authority-verification/v0"
+        }
+      ]
     },
     "gaps": []
   },
-  "plan_spec_digest": "sha256:2593a98822af245c428f025a255306a8f82ac43d822971c4415d15f09f45f20e"
+  "plan_spec_digest": "sha256:794f1e644edcb2704f428e4c336ce5ec3f50ba500bb3284116d0b174a0a15d25"
 }
