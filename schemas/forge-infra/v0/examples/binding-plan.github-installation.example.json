@@ -1,0 +1,103 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "binding_plan_id": "binding-plan-example-github-installation",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "requirement_profile_ref": {
+    "requirement_profile_id": "long-running-agent-memory",
+    "digest": "sha256:8ab34f75b9d81dc8045c39656ba082b8a78d4149f2fc1cce79acd199cefde63b"
+  },
+  "provider_profile_ref": {
+    "provider_profile_id": "github-public-docs-2026-08",
+    "revision": "2026-08-27"
+  },
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted",
+    "base_uri": "https://github.com",
+    "offering": "github.com"
+  },
+  "target": {
+    "structure_class": "repository",
+    "structure_ref": "example/repository",
+    "parent_ref": "example"
+  },
+  "created_at": "2026-08-27T01:30:00Z",
+  "plan_spec": {
+    "resolutions": [
+      {
+        "capability_id": "forge.resource.issue",
+        "operation": "create",
+        "authority_profile_id": "github-app-installation",
+        "disposition": "preferred",
+        "resolution": "satisfied",
+        "required_grants": [
+          {
+            "kind": "permission",
+            "name": "issues",
+            "access": "write",
+            "resource_scope": "installation"
+          }
+        ],
+        "interaction_modes": ["api"]
+      },
+      {
+        "capability_id": "forge.automation.workflow_run",
+        "operation": "observe",
+        "authority_profile_id": "github-app-installation",
+        "disposition": "required",
+        "resolution": "satisfied",
+        "required_grants": [
+          {
+            "kind": "permission",
+            "name": "actions",
+            "access": "read",
+            "resource_scope": "installation"
+          }
+        ],
+        "interaction_modes": ["api", "webhook", "poll"]
+      }
+    ],
+    "authority_actions": [
+      {
+        "seq": 1,
+        "action": "install",
+        "produces_transition": "installed",
+        "authority_profile_id": "github-app-installation",
+        "execution_mode": "operator_handoff",
+        "notes": "A maintainer selects and approves the repository installation."
+      },
+      {
+        "seq": 2,
+        "action": "bind",
+        "produces_transition": "bound",
+        "authority_profile_id": "github-app-installation",
+        "execution_mode": "service_job",
+        "service_offer_ref": "forge-authority-binding/v0"
+      },
+      {
+        "seq": 3,
+        "action": "verify",
+        "authority_profile_id": "github-app-installation",
+        "execution_mode": "service_job",
+        "service_offer_ref": "forge-authority-verification/v0"
+      }
+    ],
+    "policy_input": {
+      "actor_ref": "operator-example",
+      "action": "bind",
+      "target": {
+        "structure_class": "repository",
+        "structure_ref": "example/repository",
+        "parent_ref": "example"
+      },
+      "requested_capabilities": ["forge.resource.issue", "forge.automation.workflow_run"],
+      "authority_profile_ids": ["github-app-installation"]
+    },
+    "gaps": []
+  },
+  "plan_spec_digest": "sha256:2593a98822af245c428f025a255306a8f82ac43d822971c4415d15f09f45f20e"
+}

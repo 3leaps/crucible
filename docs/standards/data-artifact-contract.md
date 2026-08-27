@@ -558,6 +558,14 @@ by checking the emitted aggregate against the declared threshold. It MUST NOT
 accept a producer's self-asserted "suppression applied" flag as evidence. A
 self-claim that cannot be verified against the emitted values fails closed.
 
+## Relationship To Forge Infrastructure
+
+`contract: forge-infra/v0` governs whether a provider can host, produce, or
+deliver an artifact and which authority may perform that operation. This
+contract governs the published bag of bytes, representations, provenance, and
+protection. Forge object references and event payload references do not replace
+a data-artifact descriptor.
+
 ## Validation Requirements
 
 A validator MUST check:

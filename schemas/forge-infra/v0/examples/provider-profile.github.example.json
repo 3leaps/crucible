@@ -1,0 +1,195 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "provider_profile_id": "github-public-docs-2026-08",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted",
+    "base_uri": "https://github.com",
+    "offering": "github.com"
+  },
+  "revision": "2026-08-27",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "github-issues-rest",
+      "source_uri": "https://docs.github.com/en/rest/issues/issues",
+      "checked_at": "2026-08-27T01:30:00Z"
+    },
+    {
+      "evidence_id": "github-gists-rest",
+      "source_uri": "https://docs.github.com/en/rest/gists/gists",
+      "checked_at": "2026-08-27T01:30:00Z"
+    },
+    {
+      "evidence_id": "github-actions-rest",
+      "source_uri": "https://docs.github.com/en/rest/actions",
+      "checked_at": "2026-08-27T01:30:00Z"
+    },
+    {
+      "evidence_id": "github-repository-contents",
+      "source_uri": "https://docs.github.com/en/rest/repos/contents",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "mappings": [
+    {
+      "capability_id": "forge.repository.content",
+      "native_feature": {
+        "name": "Git smart protocol and repository contents",
+        "documentation_uri": "https://docs.github.com/en/rest/repos/contents",
+        "provider_key": "contents"
+      },
+      "operation_cells": [
+        {
+          "operation": "read",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["git_remote", "api"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "contents",
+              "access": "read",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-repository-contents"]
+        },
+        {
+          "operation": "create",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["git_remote", "api"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "contents",
+              "access": "write",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-repository-contents"]
+        },
+        {
+          "operation": "update",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["git_remote", "api"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "contents",
+              "access": "write",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-repository-contents"]
+        },
+        {
+          "operation": "delete",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["git_remote", "api"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "contents",
+              "access": "write",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-repository-contents"]
+        }
+      ]
+    },
+    {
+      "capability_id": "forge.resource.issue",
+      "native_feature": {
+        "name": "Issues",
+        "documentation_uri": "https://docs.github.com/en/rest/issues/issues",
+        "provider_key": "issues"
+      },
+      "operation_cells": [
+        {
+          "operation": "create",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["api"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "issues",
+              "access": "write",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-issues-rest"]
+        }
+      ]
+    },
+    {
+      "capability_id": "forge.resource.snippet",
+      "native_feature": {
+        "name": "Gists",
+        "documentation_uri": "https://docs.github.com/en/rest/gists/gists",
+        "provider_key": "gists"
+      },
+      "operation_cells": [
+        {
+          "operation": "create",
+          "authority_profile_id": "github-app-installation",
+          "availability": "unsupported",
+          "required_grants": [],
+          "evidence_refs": ["github-gists-rest"],
+          "fallback_capability_id": "forge.resource.issue",
+          "limitations": ["Installation access tokens do not carry account-level gist authority."]
+        },
+        {
+          "operation": "create",
+          "authority_profile_id": "github-personal-access-token",
+          "availability": "supported",
+          "interaction_modes": ["api"],
+          "required_grants": [
+            {
+              "kind": "scope",
+              "name": "gist",
+              "access": "write",
+              "resource_scope": "user"
+            }
+          ],
+          "evidence_refs": ["github-gists-rest"]
+        }
+      ]
+    },
+    {
+      "capability_id": "forge.automation.workflow_run",
+      "native_feature": {
+        "name": "GitHub Actions",
+        "documentation_uri": "https://docs.github.com/en/rest/actions",
+        "provider_key": "actions"
+      },
+      "operation_cells": [
+        {
+          "operation": "observe",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["api", "webhook", "poll"],
+          "required_grants": [
+            {
+              "kind": "permission",
+              "name": "actions",
+              "access": "read",
+              "resource_scope": "installation"
+            }
+          ],
+          "evidence_refs": ["github-actions-rest"]
+        }
+      ]
+    }
+  ]
+}

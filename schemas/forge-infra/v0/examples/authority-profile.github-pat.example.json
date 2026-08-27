@@ -1,0 +1,35 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "authority_profile_id": "github-personal-access-token",
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted",
+    "base_uri": "https://github.com",
+    "offering": "github.com"
+  },
+  "revision": "2026-08-27",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "github-pat-auth",
+      "source_uri": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "authority_class": "personal_access_token",
+  "native_name": "GitHub personal access token",
+  "principal_scope": "user",
+  "resource_selection": "provider_defined",
+  "acquisition": {
+    "mode": "operator_handoff",
+    "mechanism": "user-token-settings",
+    "operator_uri_template": "https://github.com/settings/tokens",
+    "expected_public_receipt_fields": ["token_fingerprint"],
+    "evidence_refs": ["github-pat-auth"]
+  },
+  "grant_model": "provider_defined",
+  "grant_catalog_uri": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens",
+  "secret_delivery": "out_of_band",
+  "lifecycle_operations": ["issue", "rotate", "revoke"]
+}

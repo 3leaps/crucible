@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/forge-object-ref.schema.json",
+  "title": "Portable forge object reference",
+  "description": "Stable locator for one provider-native forge object. Access credentials and consumer-specific record links are not object identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "ref_id",
+    "catalog_ref",
+    "provider_context",
+    "capability_id",
+    "native_id"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "ref_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "catalog_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/catalogRef"
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "capability_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+    },
+    "native_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "repository_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Provider-native namespace/repository path when the object is repository-scoped."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional human-facing retrieval URL; never the object identity."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

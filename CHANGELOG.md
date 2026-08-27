@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Portable Forge Infrastructure Contract (draft).** Add the
+  `forge-infra/v0` seven-lane contract, canonical capability catalog,
+  evidence-backed provider and authority profiles, digest-bound binding plans,
+  non-secret transition receipts, time-bounded verification receipts, object
+  references, examples, rejects, and cross-document controls.
+- **ADR-0009: forge infrastructure contract.** Record the separation of
+  neutral forge capabilities, provider-native mappings, authority control, and
+  live assurance.
+- **Forge-infra reader guide.** Add a mechanics companion covering the
+  information model, seven lanes, and sibling-contract boundaries.
+
 ## [0.1.29] - 2026-08-24
 
 ### Added

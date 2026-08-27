@@ -1,0 +1,39 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "authority_profile_id": "github-app-installation",
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted",
+    "base_uri": "https://github.com",
+    "offering": "github.com"
+  },
+  "revision": "2026-08-27",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "github-app-auth",
+      "source_uri": "https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "authority_class": "application_installation",
+  "native_name": "GitHub App installation access token",
+  "principal_scope": "installation",
+  "resource_selection": "selected",
+  "acquisition": {
+    "mode": "api",
+    "mechanism": "app-manifest-conversion-then-maintainer-install",
+    "expected_public_receipt_fields": ["app_id", "client_id", "app_slug", "installation_id"],
+    "limitations": [
+      "The maintainer approves installation and repository selection.",
+      "Account permissions such as gists are outside the installation principal."
+    ],
+    "evidence_refs": ["github-app-auth"]
+  },
+  "grant_model": "permission_map",
+  "grant_catalog_uri": "https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps",
+  "secret_delivery": "out_of_band",
+  "lifecycle_operations": ["install", "issue", "rotate", "introspect", "revoke"],
+  "default_ttl_seconds": 3600
+}

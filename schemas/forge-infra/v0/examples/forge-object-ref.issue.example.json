@@ -1,0 +1,20 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "ref_id": "example-issue-reference",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted",
+    "base_uri": "https://github.com",
+    "offering": "github.com"
+  },
+  "capability_id": "forge.resource.issue",
+  "native_id": "42",
+  "repository_path": "example/repository",
+  "url": "https://github.com/example/repository/issues/42",
+  "created_at": "2026-08-27T01:30:00Z"
+}

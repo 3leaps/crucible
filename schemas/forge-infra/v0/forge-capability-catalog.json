@@ -1,0 +1,134 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "catalog_id": "forge-neutral-v0",
+  "revision": "0.0.0-draft",
+  "updated_at": "2026-08-27T01:30:00Z",
+  "neutral_capabilities": [
+    {
+      "capability_id": "forge.resource.issue",
+      "title": "Issue or work item",
+      "description": "Provider-native issue or work-item resource.",
+      "lane": "l4_forge_resources",
+      "kind": "resource",
+      "portability": "portable",
+      "operations": ["discover", "read", "create", "update"]
+    },
+    {
+      "capability_id": "forge.resource.snippet",
+      "title": "Snippet or gist",
+      "description": "Provider-native short-form content resource outside the repository tree.",
+      "lane": "l4_forge_resources",
+      "kind": "resource",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "update", "delete"]
+    },
+    {
+      "capability_id": "forge.repository.remote",
+      "title": "Hosted repository container",
+      "description": "Provider-hosted repository lifecycle and governance container. Git object and ref operations remain native git.",
+      "lane": "l3_native_git",
+      "kind": "governance",
+      "portability": "portable",
+      "operations": ["discover", "read", "create", "update", "delete", "administer"]
+    },
+    {
+      "capability_id": "forge.repository.content",
+      "title": "Repository content",
+      "description": "Read and mutate repository tree content through native git or a provider contents API. The contract resolves authority and interaction mode; it does not model git objects or commands.",
+      "lane": "l3_native_git",
+      "kind": "resource",
+      "portability": "portable",
+      "operations": ["read", "create", "update", "delete"]
+    },
+    {
+      "capability_id": "forge.automation.workflow_definition",
+      "title": "Workflow or pipeline definition",
+      "description": "Provider-hosted automation definition that may be dispatched into a run.",
+      "lane": "l5_automation",
+      "kind": "automation",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "update", "delete", "execute"]
+    },
+    {
+      "capability_id": "forge.automation.workflow_run",
+      "title": "Workflow or pipeline run",
+      "description": "One provider-hosted automation execution and its observable result.",
+      "lane": "l5_automation",
+      "kind": "automation",
+      "portability": "convergent",
+      "operations": ["discover", "read", "cancel", "observe"]
+    },
+    {
+      "capability_id": "forge.execution.runner",
+      "title": "Automation runner",
+      "description": "Execution capacity registered with the forge automation system.",
+      "lane": "l5_automation",
+      "kind": "execution",
+      "portability": "convergent",
+      "operations": ["discover", "read", "administer"]
+    },
+    {
+      "capability_id": "forge.signal.commit_status",
+      "title": "Commit status",
+      "description": "Provider-native status associated with a source revision.",
+      "lane": "l6_events_telemetry",
+      "kind": "automation",
+      "portability": "portable",
+      "operations": ["read", "create", "update"]
+    },
+    {
+      "capability_id": "forge.signal.check",
+      "title": "Structured revision check",
+      "description": "Rich check result with annotations and lifecycle distinct from a commit status.",
+      "lane": "l6_events_telemetry",
+      "kind": "automation",
+      "portability": "provider_extension",
+      "operations": ["read", "create", "update"]
+    },
+    {
+      "capability_id": "forge.artifact.package",
+      "title": "Package",
+      "description": "Package or container artifact hosted by the provider.",
+      "lane": "l4_forge_resources",
+      "kind": "artifact",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "delete"]
+    },
+    {
+      "capability_id": "forge.artifact.release",
+      "title": "Release",
+      "description": "Named release and associated assets.",
+      "lane": "l4_forge_resources",
+      "kind": "artifact",
+      "portability": "portable",
+      "operations": ["discover", "read", "create", "update", "delete"]
+    },
+    {
+      "capability_id": "forge.resource.wiki",
+      "title": "Wiki",
+      "description": "Forge-hosted documentation collection associated with a repository or project.",
+      "lane": "l4_forge_resources",
+      "kind": "resource",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "update", "delete"]
+    },
+    {
+      "capability_id": "forge.governance.environment",
+      "title": "Deployment environment",
+      "description": "Named environment and its deployment governance controls.",
+      "lane": "l4_forge_resources",
+      "kind": "governance",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "update", "administer"]
+    },
+    {
+      "capability_id": "forge.event.subscription",
+      "title": "Provider event subscription",
+      "description": "Provider-side configuration that routes selected forge events to a callback or other delivery mechanism.",
+      "lane": "l6_events_telemetry",
+      "kind": "event",
+      "portability": "convergent",
+      "operations": ["discover", "read", "create", "update", "delete", "administer"]
+    }
+  ]
+}

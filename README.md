@@ -110,6 +110,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
+│   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)

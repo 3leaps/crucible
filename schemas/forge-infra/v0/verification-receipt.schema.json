@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/verification-receipt.schema.json",
+  "title": "Forge binding verification receipt",
+  "description": "Time-bounded observation of live grants, capability checks, and drift for one authority binding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "verification_receipt_id",
+    "binding_receipt_ref",
+    "binding_plan_ref",
+    "binding_plan_action_seq",
+    "catalog_ref",
+    "provider_context",
+    "authority_profile_id",
+    "target",
+    "verified_at",
+    "valid_until",
+    "outcome",
+    "methods",
+    "expected_grants",
+    "observed_grants",
+    "missing_grants",
+    "unexpected_grants",
+    "capability_checks"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "verification_receipt_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "binding_receipt_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "binding_plan_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingPlanRef"
+    },
+    "binding_plan_action_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "catalog_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/catalogRef"
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "authority_profile_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "target": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/structureRef"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["conformant", "drift", "denied", "revoked", "expired", "unknown"]
+    },
+    "methods": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "permission_introspection",
+          "provider_claim",
+          "dry_run",
+          "live_probe",
+          "operator_attestation"
+        ]
+      }
+    },
+    "expected_grants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+      }
+    },
+    "observed_grants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+      }
+    },
+    "missing_grants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+      }
+    },
+    "unexpected_grants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+      }
+    },
+    "capability_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability_id", "operation", "result"],
+        "properties": {
+          "capability_id": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+          },
+          "operation": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["allowed", "denied", "unknown"]
+          },
+          "evidence_ref": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+          }
+        }
+      }
+    },
+    "auth_session_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "conformant"
+          }
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "missing_grants": {
+            "maxItems": 0
+          },
+          "unexpected_grants": {
+            "maxItems": 0
+          },
+          "capability_checks": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "result": {
+                  "const": "allowed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "drift"
+          }
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "anyOf": [
+          {
+            "properties": {
+              "missing_grants": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "properties": {
+              "unexpected_grants": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "properties": {
+              "capability_checks": {
+                "contains": {
+                  "properties": {
+                    "result": {
+                      "enum": ["denied", "unknown"]
+                    }
+                  },
+                  "required": ["result"]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

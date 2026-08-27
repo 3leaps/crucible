@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/provider-profile.schema.json",
+  "title": "Curated forge provider profile",
+  "description": "Evidence-backed mapping from provider-native infrastructure to neutral forge capabilities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "provider_profile_id",
+    "catalog_ref",
+    "provider_context",
+    "revision",
+    "observed_at",
+    "evidence",
+    "mappings"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "provider_profile_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "catalog_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/catalogRef"
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/evidence"
+      }
+    },
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability_id", "native_feature", "operation_cells"],
+        "properties": {
+          "capability_id": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+          },
+          "native_feature": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "documentation_uri": {
+                "type": "string",
+                "format": "uri"
+              },
+              "provider_key": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "operation_cells": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation",
+                "authority_profile_id",
+                "availability",
+                "required_grants",
+                "evidence_refs"
+              ],
+              "properties": {
+                "operation": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+                },
+                "authority_profile_id": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+                },
+                "availability": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/availability"
+                },
+                "interaction_modes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/interactionMode"
+                  }
+                },
+                "required_grants": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+                  }
+                },
+                "evidence_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+                  }
+                },
+                "limitations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "fallback_capability_id": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "availability": {
+                        "enum": ["supported", "partial", "emulated"]
+                      }
+                    },
+                    "required": ["availability"]
+                  },
+                  "then": {
+                    "required": ["interaction_modes"]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

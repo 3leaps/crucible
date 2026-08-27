@@ -1,0 +1,10 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "ref_id": "reject-missing-provider",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "capability_id": "forge.resource.issue",
+  "native_id": "1"
+}

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/binding-receipt.schema.json",
+  "title": "Portable non-secret forge authority binding receipt",
+  "description": "Immutable evidence of one registration, install, consent, bind, rotation, revocation, or teardown transition. Credential material is always out of band.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "binding_receipt_id",
+    "provider_context",
+    "authority_profile_id",
+    "binding_plan_ref",
+    "binding_plan_action_seq",
+    "history_basis",
+    "idempotency_key",
+    "policy_decision_ref",
+    "transition",
+    "outcome",
+    "subject",
+    "occurred_at"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "binding_receipt_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "previous_receipt_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "authority_profile_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "binding_plan_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingPlanRef"
+    },
+    "binding_plan_action_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "history_basis": {
+      "type": "string",
+      "enum": ["planned", "imported"]
+    },
+    "idempotency_key": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "policy_decision_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "transition": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingTransition"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["succeeded", "partial", "failed", "unknown"]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "user",
+            "application",
+            "installation",
+            "organization",
+            "group",
+            "project",
+            "repository",
+            "job",
+            "runner",
+            "event_subscription"
+          ]
+        },
+        "id": {
+          "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+        }
+      }
+    },
+    "target": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/structureRef"
+    },
+    "public_identifiers": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "not": {
+          "pattern": "(?:secret|token|password|private_key|pem)$"
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "resource_bindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/structureRef"
+      }
+    },
+    "grants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+      }
+    },
+    "auth_session_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "binding_plan_action_seq": {
+            "minimum": 2
+          }
+        },
+        "required": ["binding_plan_action_seq"]
+      },
+      "then": {
+        "required": ["previous_receipt_ref"]
+      }
+    }
+  ]
+}
