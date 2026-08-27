@@ -98,6 +98,7 @@ Reusable templates and reference materials.
 
 Current release documentation.
 
+- [v0.1.30.md](releases/v0.1.30.md) - Portable forge-infrastructure contract
 - [v0.1.17.md](releases/v0.1.17.md) - Baseline release, data artifact metadata hardening, and repository guidance alignment
 
 ## Design Principles

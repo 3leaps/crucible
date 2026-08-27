@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.30] - 2026-08-27
+
 ### Added
 
 - **Portable Forge Infrastructure Contract (draft).** Add the
@@ -19,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   live assurance.
 - **Forge-infra reader guide.** Add a mechanics companion covering the
   information model, seven lanes, and sibling-contract boundaries.
+
+### Changed
+
+- **Validation coverage.** `make check` now runs the forge-infra control
+  battery (examples, structural and semantic rejects, policy-input and
+  bind-chain invariants) and the forge-infra contract manifest.
 
 ## [0.1.29] - 2026-08-24
 
@@ -982,7 +990,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.29...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.30...HEAD
+[0.1.30]: https://github.com/3leaps/crucible/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/3leaps/crucible/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/3leaps/crucible/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/3leaps/crucible/compare/v0.1.25...v0.1.27
