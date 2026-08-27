@@ -13,13 +13,13 @@ For detailed release content, see [docs/releases/](docs/releases/).
 **A portable forge-infrastructure contract for resolving capabilities, binding
 authority, and verifying live grants without wrapping a provider CLI.**
 
-- **Portable forge-infra family** — `forge-infra/v0` defines a seven-lane
+- **Portable forge-infra family (draft)** — `forge-infra/v0` defines a seven-lane
   model: intent/resolution, authority control, native git, forge resources,
   automation, events/telemetry, and assurance. Neutral capabilities stay
   separate from curated provider profiles.
 - **Non-secret bind and verify** — digest-bound binding plans, transition
-  receipts, and time-bounded verification receipts carry identifiers and grant
-  names only. Secrets stay out of band.
+  receipts, and time-bounded verification receipts carry non-secret
+  identifiers, grant names, and observations. Secrets stay out of band.
 - **Reader guide** — a mechanics companion walks the information model, four
   coupled concerns, and sibling-contract boundaries.
 - **Executable contract coverage** — examples, structural and semantic
