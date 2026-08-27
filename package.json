@@ -1,6 +1,6 @@
 {
   "name": "@3leaps/crucible",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "private": true,
   "description": "Lightweight standards and specifications for 3leaps open source projects",
   "type": "module",
@@ -12,7 +12,12 @@
   "devDependencies": {
     "prettier": "^3.4.0"
   },
-  "keywords": ["3leaps", "standards", "specifications", "ssot"],
+  "keywords": [
+    "3leaps",
+    "standards",
+    "specifications",
+    "ssot"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/3leaps/crucible"

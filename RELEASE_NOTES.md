@@ -8,6 +8,28 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.30 (2026-08-27)
+
+**A portable forge-infrastructure contract for resolving capabilities, binding
+authority, and verifying live grants without wrapping a provider CLI.**
+
+- **Portable forge-infra family (draft)** — `forge-infra/v0` defines a seven-lane
+  model: intent/resolution, authority control, native git, forge resources,
+  automation, events/telemetry, and assurance. Neutral capabilities stay
+  separate from curated provider profiles.
+- **Non-secret bind and verify** — digest-bound binding plans, transition
+  receipts, and time-bounded verification receipts carry non-secret
+  identifiers, grant names, and observations. Secrets stay out of band.
+- **Reader guide** — a mechanics companion walks the information model, four
+  coupled concerns, and sibling-contract boundaries.
+- **Executable contract coverage** — examples, structural and semantic
+  rejects, policy-input and bind-chain controls, and the contract manifest run
+  through the repository quality gates.
+
+See [docs/releases/v0.1.30.md](docs/releases/v0.1.30.md).
+
+---
+
 ## v0.1.29 (2026-08-24)
 
 **A portable project-work contract for exchanging ready work and project
