@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/authority-profile.schema.json",
+  "title": "Forge authority acquisition profile",
+  "description": "Provider-specific, non-secret description of an authority kind, its acquisition path, grant model, resource scope, and lifecycle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "authority_profile_id",
+    "provider_context",
+    "revision",
+    "observed_at",
+    "evidence",
+    "authority_class",
+    "native_name",
+    "principal_scope",
+    "acquisition",
+    "grant_model",
+    "secret_delivery",
+    "lifecycle_operations"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "authority_profile_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/evidence"
+      }
+    },
+    "authority_class": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/authorityClass"
+    },
+    "native_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_scope": {
+      "type": "string",
+      "enum": [
+        "anonymous",
+        "user",
+        "organization",
+        "group",
+        "project",
+        "repository",
+        "installation",
+        "instance",
+        "job"
+      ]
+    },
+    "resource_selection": {
+      "type": "string",
+      "enum": ["none", "single", "selected", "all_in_scope", "provider_defined"]
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "mechanism", "evidence_refs"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["api", "operator_handoff", "automatic", "unsupported"]
+        },
+        "mechanism": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator_uri_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_public_receipt_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "operator_handoff"
+              }
+            },
+            "required": ["mode"]
+          },
+          "then": {
+            "required": ["operator_uri_template"]
+          }
+        }
+      ]
+    },
+    "grant_model": {
+      "type": "string",
+      "enum": [
+        "permission_map",
+        "oauth_scopes",
+        "token_scopes",
+        "role_binding",
+        "unscoped_principal",
+        "provider_defined"
+      ]
+    },
+    "grant_catalog_uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "secret_delivery": {
+      "const": "out_of_band"
+    },
+    "lifecycle_operations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["authorize", "install", "issue", "refresh", "rotate", "introspect", "revoke"]
+      }
+    },
+    "default_ttl_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -115,6 +115,10 @@ The schema lives under the `auth/v0/` path namespace; `v0` may change without no
 regardless of the repository's lifecycle phase. Pin to a specific commit (and SHA256)
 for stability.
 
+An auth-session artifact is value-stripped expiry and provenance metadata. It
+is not a `contract: forge-infra/v0` binding receipt and MUST NOT carry forge
+binding, installation, repository, or provider-object identifiers.
+
 ## Governance / validation split
 
 - **Crucible owns the contract.** Source of truth for the schema, `schema_version`,

@@ -1,0 +1,15 @@
+{
+  "capability": "contract: forge-infra/v0",
+  "entry_schema": "capability-catalog.schema.json",
+  "catalog": "forge-capability-catalog.json",
+  "object_schemas": {
+    "authority_profile": "authority-profile.schema.json",
+    "binding_plan": "binding-plan.schema.json",
+    "binding_receipt": "binding-receipt.schema.json",
+    "common": "common.schema.json",
+    "forge_object_ref": "forge-object-ref.schema.json",
+    "provider_profile": "provider-profile.schema.json",
+    "requirement_profile": "requirement-profile.schema.json",
+    "verification_receipt": "verification-receipt.schema.json"
+  }
+}

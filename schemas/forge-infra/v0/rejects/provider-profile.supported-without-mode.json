@@ -1,0 +1,39 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "provider_profile_id": "reject-supported-without-mode",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted"
+  },
+  "revision": "reject",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "issues-doc",
+      "source_uri": "https://docs.github.com/en/rest/issues/issues",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "mappings": [
+    {
+      "capability_id": "forge.resource.issue",
+      "native_feature": {
+        "name": "Issues"
+      },
+      "operation_cells": [
+        {
+          "operation": "create",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "required_grants": [],
+          "evidence_refs": ["issues-doc"]
+        }
+      ]
+    }
+  ]
+}

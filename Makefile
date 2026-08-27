@@ -326,6 +326,8 @@ lint-config: lint-role-prompts lint-coverage-attestation ## Validate config data
 		sh scripts/test-service-job-controls.sh || exit 1; \
 		echo "    Project-work controls..."; \
 		sh scripts/test-project-work-controls.sh || exit 1; \
+		echo "    Forge-infra controls..."; \
+		sh scripts/test-forge-infra-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/data-artifact/v0/contract.json \
@@ -334,7 +336,8 @@ lint-config: lint-role-prompts lint-coverage-attestation ## Validate config data
 			schemas/review-journal/v0/contract.json \
 			schemas/agent-wait/v0/contract.json \
 			schemas/service-job/v0/contract.json \
-			schemas/project-work/v0/contract.json || exit 1; \
+			schemas/project-work/v0/contract.json \
+			schemas/forge-infra/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
 	fi

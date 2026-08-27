@@ -176,6 +176,9 @@ identity reference, never a credential). Optional: `causation_id`,
   That is not a second waiter.
 - **`contract: data-artifact/v0`** — event payloads are artifact or message
   refs, not embedded bytes.
+- **`contract: forge-infra/v0`** — forge event subscription is distinct from
+  delivery. A forge integration may surface a payload reference through one
+  aggregate waiter; this contract does not create the provider subscription.
 
 ## Validation Requirements
 

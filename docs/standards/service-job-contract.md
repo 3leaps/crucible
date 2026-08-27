@@ -228,6 +228,10 @@ stdlib-only materializer and refuses `jq -S` as the oracle.
 - **`contract: data-artifact/v0`** — inputs and outputs are artifact refs
   that may carry descriptor identity, representation, profile, media type,
   and digest.
+- **`contract: forge-infra/v0`** — side-effecting authority acquisition,
+  binding, verification, rotation, revocation, and teardown may execute as
+  digest- and idempotency-bound service jobs. The forge plan and receipts
+  remain forge-infra artifacts.
 
 ## Validation Requirements
 

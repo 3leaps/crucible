@@ -1,0 +1,40 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "provider_profile_id": "reject-unknown-capability",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "provider_context": {
+    "provider_id": "github",
+    "context_id": "github.com",
+    "deployment_kind": "hosted"
+  },
+  "revision": "reject",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "example-doc",
+      "source_uri": "https://docs.github.com/",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "mappings": [
+    {
+      "capability_id": "forge.resource.unknown",
+      "native_feature": {
+        "name": "Unknown feature"
+      },
+      "operation_cells": [
+        {
+          "operation": "read",
+          "authority_profile_id": "github-app-installation",
+          "availability": "supported",
+          "interaction_modes": ["api"],
+          "required_grants": [],
+          "evidence_refs": ["example-doc"]
+        }
+      ]
+    }
+  ]
+}

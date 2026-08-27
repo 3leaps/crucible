@@ -256,6 +256,9 @@ dead-letter file rather than dropping silently.
 - **Logging baselines** — the envelope's severity enum and correlation-id
   conventions follow the common structured-logging practice so events and
   logs join cleanly downstream.
+- **`contract: forge-infra/v0`** — a local webhook receiver or provider
+  integration may be represented as a process run. Forge subscription
+  management and provider delivery semantics remain outside process-run.
 
 ## Validation Requirements
 

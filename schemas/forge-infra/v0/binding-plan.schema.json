@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/binding-plan.schema.json",
+  "title": "Forge authority binding plan",
+  "description": "Digest-bound resolution of provider-neutral requirements into provider capabilities, authority actions, and policy-input facts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "binding_plan_id",
+    "catalog_ref",
+    "requirement_profile_ref",
+    "provider_profile_ref",
+    "provider_context",
+    "target",
+    "created_at",
+    "plan_spec",
+    "plan_spec_digest"
+  ],
+  "properties": {
+    "capabilities": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilities"
+    },
+    "binding_plan_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "catalog_ref": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/catalogRef"
+    },
+    "requirement_profile_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_profile_id", "digest"],
+      "properties": {
+        "requirement_profile_id": {
+          "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+        },
+        "digest": {
+          "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "provider_profile_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_profile_id", "revision"],
+      "properties": {
+        "provider_profile_id": {
+          "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "provider_context": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/providerContext"
+    },
+    "target": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/structureRef"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "plan_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolutions", "authority_actions", "policy_input", "gaps"],
+      "properties": {
+        "resolutions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capability_id",
+              "operation",
+              "authority_profile_id",
+              "disposition",
+              "resolution",
+              "required_grants"
+            ],
+            "properties": {
+              "capability_id": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+              },
+              "operation": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+              },
+              "authority_profile_id": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": ["required", "preferred", "allowed", "forbidden"]
+              },
+              "resolution": {
+                "type": "string",
+                "enum": ["satisfied", "partial", "unsatisfied", "unknown"]
+              },
+              "required_grants": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+                }
+              },
+              "interaction_modes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/interactionMode"
+                }
+              },
+              "limitations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "authority_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seq", "action", "authority_profile_id", "execution_mode"],
+            "properties": {
+              "seq": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "action": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingAction"
+              },
+              "authority_profile_id": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+              },
+              "execution_mode": {
+                "type": "string",
+                "enum": ["api", "operator_handoff", "automatic", "service_job", "unsupported"]
+              },
+              "service_offer_ref": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+              },
+              "produces_transition": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingTransition"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "execution_mode": {
+                      "const": "service_job"
+                    }
+                  },
+                  "required": ["execution_mode"]
+                },
+                "then": {
+                  "required": ["service_offer_ref"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "const": "verify"
+                    }
+                  },
+                  "required": ["action"]
+                },
+                "then": {
+                  "not": {
+                    "required": ["produces_transition"]
+                  }
+                },
+                "else": {
+                  "required": ["produces_transition"]
+                }
+              }
+            ]
+          }
+        },
+        "policy_input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actor_ref", "target", "requested_operations", "authority_actions"],
+          "properties": {
+            "actor_ref": {
+              "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+            },
+            "target": {
+              "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/structureRef"
+            },
+            "requested_operations": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "capability_id",
+                  "operation",
+                  "authority_profile_id",
+                  "required_grants"
+                ],
+                "properties": {
+                  "capability_id": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+                  },
+                  "operation": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+                  },
+                  "authority_profile_id": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+                  },
+                  "required_grants": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/grant"
+                    }
+                  }
+                }
+              }
+            },
+            "authority_actions": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["seq", "action", "authority_profile_id", "execution_mode"],
+                "properties": {
+                  "seq": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "action": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingAction"
+                  },
+                  "authority_profile_id": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+                  },
+                  "execution_mode": {
+                    "type": "string",
+                    "enum": ["api", "operator_handoff", "automatic", "service_job", "unsupported"]
+                  },
+                  "service_offer_ref": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+                  },
+                  "produces_transition": {
+                    "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/bindingTransition"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capability_id", "operation", "reason"],
+            "properties": {
+              "capability_id": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+              },
+              "operation": {
+                "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "plan_spec_digest": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/sha256",
+      "description": "RFC 8785 SHA-256 digest of plan_spec."
+    }
+  }
+}

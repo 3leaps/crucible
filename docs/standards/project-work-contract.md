@@ -193,6 +193,9 @@ classifier dimension.
   published bag. Do not invent a second ledger wrapper.
 - **review-journal** — relied-upon review events. Not the work ledger.
 - **agent-wait** — live wait/poll. Not a packet field.
+- **forge-infra** — forge issues may project or provide an interaction lane
+  for project work, but a provider-native issue is not automatically a
+  portable work packet or the authoritative progress ledger.
 
 ## Out Of Scope For v0
 

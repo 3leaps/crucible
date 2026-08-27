@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:forge-infra/v0/capability-catalog.schema.json",
+  "title": "Neutral forge capability catalog",
+  "description": "Provider-neutral vocabulary for infrastructure capabilities above git.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capabilities", "catalog_id", "revision", "neutral_capabilities"],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "contract: forge-infra/v0"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "catalog_id": {
+      "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/opaqueId"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "neutral_capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capability_id",
+          "title",
+          "description",
+          "lane",
+          "kind",
+          "portability",
+          "operations"
+        ],
+        "properties": {
+          "capability_id": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+          },
+          "parent_id": {
+            "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/capabilityId"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lane": {
+            "type": "string",
+            "enum": ["l3_native_git", "l4_forge_resources", "l5_automation", "l6_events_telemetry"]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["resource", "automation", "event", "execution", "artifact", "governance"]
+          },
+          "portability": {
+            "type": "string",
+            "enum": ["portable", "convergent", "provider_extension"]
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "contract:forge-infra/v0/common.schema.json#/$defs/operation"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

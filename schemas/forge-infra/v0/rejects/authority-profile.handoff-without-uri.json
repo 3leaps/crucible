@@ -1,0 +1,29 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "authority_profile_id": "reject-handoff-without-uri",
+  "provider_context": {
+    "provider_id": "gitlab",
+    "context_id": "gitlab.com",
+    "deployment_kind": "hosted"
+  },
+  "revision": "reject",
+  "observed_at": "2026-08-27T01:30:00Z",
+  "evidence": [
+    {
+      "evidence_id": "oauth-doc",
+      "source_uri": "https://docs.gitlab.com/integration/oauth_provider/",
+      "checked_at": "2026-08-27T01:30:00Z"
+    }
+  ],
+  "authority_class": "oauth_user_grant",
+  "native_name": "OAuth user grant",
+  "principal_scope": "user",
+  "acquisition": {
+    "mode": "operator_handoff",
+    "mechanism": "user-application-settings",
+    "evidence_refs": ["oauth-doc"]
+  },
+  "grant_model": "oauth_scopes",
+  "secret_delivery": "out_of_band",
+  "lifecycle_operations": ["authorize", "refresh", "revoke"]
+}

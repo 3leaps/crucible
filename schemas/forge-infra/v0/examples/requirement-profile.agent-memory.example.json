@@ -1,0 +1,36 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "requirement_profile_id": "long-running-agent-memory",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "title": "Long-running agent memory",
+  "description": "Portable forge requirements for a git-backed information archive with observable indexing automation.",
+  "requirements": [
+    {
+      "capability_id": "forge.resource.issue",
+      "operations": ["read", "create", "update"],
+      "disposition": "preferred",
+      "notes": "Issues may provide collaborative intake and review around repository-backed records."
+    },
+    {
+      "capability_id": "forge.automation.workflow_run",
+      "operations": ["observe"],
+      "disposition": "required",
+      "notes": "Indexing and validation must be observable and replayable."
+    },
+    {
+      "capability_id": "forge.event.subscription",
+      "operations": ["create"],
+      "disposition": "allowed",
+      "notes": "Polling remains a valid fallback when callback operations are unavailable."
+    },
+    {
+      "capability_id": "forge.resource.snippet",
+      "operations": ["create"],
+      "disposition": "forbidden",
+      "notes": "Detached snippets are not the authority store."
+    }
+  ]
+}

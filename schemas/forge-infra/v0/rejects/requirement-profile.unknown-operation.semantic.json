@@ -1,0 +1,16 @@
+{
+  "capabilities": ["contract: forge-infra/v0"],
+  "requirement_profile_id": "reject-unknown-operation",
+  "catalog_ref": {
+    "catalog_id": "forge-neutral-v0",
+    "revision": "0.0.0-draft"
+  },
+  "title": "Reject operation outside neutral definition",
+  "requirements": [
+    {
+      "capability_id": "forge.resource.issue",
+      "operations": ["execute"],
+      "disposition": "required"
+    }
+  ]
+}

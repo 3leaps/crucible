@@ -42,6 +42,7 @@ Run-books and adoption guides — the mechanics companion to the standards.
 
 - [running-a-fierce-collaboration-review.md](guides/running-a-fierce-collaboration-review.md) - Executable steps for the fierce-collaboration review standard
 - [composing-a-review-panel.md](guides/composing-a-review-panel.md) - Assembling review seats and panels: the five-layer composition model, harness classes, framing blocks, and preflight
+- [using-the-forge-infrastructure-contract.md](guides/using-the-forge-infrastructure-contract.md) - Reader tour of `forge-infra/v0`: information model, seven lanes, and sibling contracts
 - [agentic-interface-adoption.md](guides/agentic-interface-adoption.md) - Adopting the role catalog and attribution baseline
 - [multi-org-github-cli-auth.md](guides/multi-org-github-cli-auth.md) - GitHub CLI auth across orgs
 
@@ -59,6 +60,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [agent-wait-contract.md](standards/agent-wait-contract.md) - Portable wait/poll contract for one aggregate waiter per consuming seat
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
+- [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [project-work-contract.md](standards/project-work-contract.md) - Portable ready-packet, project-state, control-record, and progress-ledger contract
 - [data-artifact-contract-examples.md](standards/data-artifact-contract-examples.md) - Source-neutral stress cases and producer adoption preview template
@@ -81,6 +83,8 @@ Decision and governance records (ADR / PDR / …) — see the [decisions index](
 - [ADR-0001](decisions/ADR-0001-schema-config-versioning.md) - Schema and config versioning
 - [ADR-0002](decisions/ADR-0002-keymaterial-fingerprint-portable-contract.md) - Key-material fingerprint contract as a portable schema (proposed)
 - [ADR-0003](decisions/ADR-0003-decision-record-taxonomy.md) - Decision & governance record taxonomy (the \*DR family)
+- [ADR-0008](decisions/ADR-0008-project-work-contract.md) - Portable project-work companion contract (proposed)
+- [ADR-0009](decisions/ADR-0009-forge-infrastructure-contract.md) - Neutral forge capabilities and curated provider profiles (proposed)
 - [PDR-0001](decisions/PDR-0001-adopt-data-pipeline-principles.md) - Adopt the data-pipeline engineering principles
 
 ### [Catalog](catalog/)
@@ -122,6 +126,8 @@ Current release documentation.
 | CI/CD Baseline           | `crucible.3leaps.dev/operations/ci-baseline`                              |
 | Stream Output            | `crucible.3leaps.dev/sop/stream-output`                                   |
 | Auth Session Artifact    | `crucible.3leaps.dev/standards/auth-session-artifact`                     |
+| Forge Infrastructure     | `crucible.3leaps.dev/standards/forge-infrastructure-contract`             |
+| Using Forge Infra        | `crucible.3leaps.dev/guides/using-the-forge-infrastructure-contract`      |
 | Data Sensitivity         | `crucible.3leaps.dev/standards/data-sensitivity-classification`           |
 | Classifiers Framework    | `crucible.3leaps.dev/standards/classifiers-framework`                     |
 | Volatility               | `crucible.3leaps.dev/standards/volatility-classification`                 |
