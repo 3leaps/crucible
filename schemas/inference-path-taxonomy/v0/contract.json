@@ -1,0 +1,11 @@
+{
+  "capability": "contract: inference-path-taxonomy/v0",
+  "entry_schema": "inference-path-taxonomy.schema.json",
+  "object_schemas": {
+    "party": "party.schema.json",
+    "model_family": "model-family.schema.json",
+    "model_pin": "model-pin.schema.json",
+    "path_identity": "path-identity.schema.json"
+  },
+  "status": "proposed"
+}

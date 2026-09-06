@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:inference-path-taxonomy/v0/path-identity.schema.json",
+  "title": "Inference Path Identity",
+  "description": "A declared model, route, endpoint, region, and access identity. It contains no observations, health claims, probe origins, account identities, or product-local aliases.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "kind",
+    "path_id",
+    "revision",
+    "route",
+    "execution_host_mode",
+    "endpoint_ref",
+    "access_class",
+    "source_evidence",
+    "identity_digest"
+  ],
+  "properties": {
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "kind": { "const": "path_identity" },
+    "path_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Stable opaque identity. Product-local display aliases are not path IDs."
+    },
+    "revision": { "$ref": "#/$defs/revision" },
+    "model_family_ref": { "$ref": "#/$defs/ref" },
+    "model_pin_ref": { "$ref": "#/$defs/ref" },
+    "route": {
+      "type": "array",
+      "description": "Ordered declared route segments. Array order is semantic.",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/routeSegment" }
+    },
+    "execution_host_mode": {
+      "enum": ["declared", "router_selected"]
+    },
+    "endpoint_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Symbolic product or API surface identifier, not a secret-bearing URL."
+    },
+    "service_region": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Declared service region. This is distinct from the probe or scout origin."
+    },
+    "access_class": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "maxLength": 96,
+      "description": "Access or account class without an account identifier. Unknown classes use the literal unknown."
+    },
+    "source_evidence": { "$ref": "#/$defs/sourceEvidence" },
+    "identity_digest": { "$ref": "#/$defs/identityDigest" }
+  },
+  "anyOf": [
+    { "required": ["model_family_ref"] },
+    { "required": ["model_pin_ref"] }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "execution_host_mode": { "const": "declared" } },
+        "required": ["execution_host_mode"]
+      },
+      "then": {
+        "properties": {
+          "route": {
+            "contains": {
+              "type": "object",
+              "required": ["role"],
+              "properties": { "role": { "const": "execution_host" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "execution_host_mode": { "const": "router_selected" } },
+        "required": ["execution_host_mode"]
+      },
+      "then": {
+        "properties": {
+          "route": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "required": ["role"],
+                "properties": { "role": { "const": "execution_host" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "contract: inference-path-taxonomy/v0" }
+    },
+    "revision": { "type": "integer", "minimum": 1 },
+    "ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "routeSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "party_ref"],
+      "properties": {
+        "role": {
+          "enum": ["router", "broker", "execution_host", "harness"]
+        },
+        "party_ref": { "$ref": "#/$defs/ref" },
+        "surface_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_uri"],
+      "properties": {
+        "source_uri": { "type": "string", "format": "uri" },
+        "published_at": { "type": "string", "format": "date-time" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "anyOf": [{ "required": ["published_at"] }, { "required": ["observed_at"] }]
+    },
+    "identityDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:inference-path-taxonomy/v0/model-family.schema.json",
+  "title": "Inference Model Family",
+  "description": "An author-scoped model family. This is not a provider request string or an assertion that differently named pins are equivalent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "kind",
+    "model_family_id",
+    "revision",
+    "author_party_ref",
+    "slug",
+    "display_name",
+    "identity_digest"
+  ],
+  "properties": {
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "kind": { "const": "model_family" },
+    "model_family_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Foundation-owned opaque family identifier."
+    },
+    "revision": { "$ref": "#/$defs/revision" },
+    "author_party_ref": { "$ref": "#/$defs/ref" },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "identity_digest": { "$ref": "#/$defs/identityDigest" }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "contract: inference-path-taxonomy/v0" }
+    },
+    "revision": { "type": "integer", "minimum": 1 },
+    "ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "identityDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}
