@@ -1,0 +1,20 @@
+{
+  "semantic_layer": {
+    "id": "application-control/v0-semantics",
+    "version": "0.1.0"
+  },
+  "conforming": [
+    "complete-workbench.json",
+    "button-interaction.json"
+  ],
+  "negative": {
+    "enabled-without-policy.json": "SEM-C15",
+    "mutation-missing-replay-guards.json": "SEM-C06",
+    "unknown-operation.json": "SEM-C04",
+    "payload-contract-mismatch.json": "SEM-C05",
+    "catalog-mode-mismatch.json": "SEM-C09",
+    "decision-from-ui.json": "SEM-C14",
+    "duplicate-operation-id.json": "SEM-C01",
+    "unknown-information-source.json": "SEM-C12"
+  }
+}

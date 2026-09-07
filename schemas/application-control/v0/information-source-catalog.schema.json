@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/information-source-catalog.schema.json",
+  "title": "Application Information Source Catalog v0",
+  "description": "Exhaustive inventory of application information emitters and readable state. Delivery mode is explicit so low-value values may be scraped instead of streamed.",
+  "type": "object",
+  "required": [
+    "catalog_schema",
+    "application",
+    "catalog_version",
+    "sources"
+  ],
+  "properties": {
+    "catalog_schema": {
+      "const": "contract:application-control/v0/information-source-catalog.schema.json"
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "catalog_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+(\\.[0-9]+){0,2}$"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payload-contract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "mode",
+        "payload",
+        "classification",
+        "provenance",
+        "freshness",
+        "retention",
+        "replay"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/token"
+        },
+        "surface_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          },
+          "description": "Application surfaces that emit or display this source. Omit when the source is available only through a programmatic adapter."
+        },
+        "mode": {
+          "enum": [
+            "event",
+            "snapshot",
+            "scrape",
+            "sample",
+            "client_derived"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/payload-contract"
+        },
+        "classification": {
+          "enum": [
+            "public",
+            "internal",
+            "sensitive",
+            "restricted"
+          ]
+        },
+        "provenance": {
+          "enum": [
+            "application",
+            "operating_system",
+            "controller",
+            "derived"
+          ]
+        },
+        "freshness": {
+          "type": "object",
+          "required": [
+            "maximum_age_ms"
+          ],
+          "properties": {
+          "maximum_age_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "suggested_interval_ms": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 9007199254740991
+          }
+          },
+          "additionalProperties": false
+        },
+        "retention": {
+          "enum": [
+            "none",
+            "bounded",
+            "durable"
+          ]
+        },
+        "replay": {
+          "enum": [
+            "none",
+            "cursor",
+            "snapshot_then_cursor"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

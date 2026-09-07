@@ -1,0 +1,4 @@
+{
+  "replace": "evidence",
+  "fixture": "../../control-evidence/negative/decision-from-ui.json"
+}

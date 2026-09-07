@@ -1,0 +1,26 @@
+{
+  "catalog_schema": "contract:application-control/v0/operation-catalog.schema.json",
+  "application": "example.worker",
+  "catalog_version": "v1",
+  "operations": [
+    {
+      "operation_id": "task.refresh",
+      "target_kind": "task",
+      "effect": "mutate",
+      "required_capability": "task.refresh",
+      "confirmation": "never",
+      "idempotency": "required",
+      "precondition": "generation_optional",
+      "request": {
+        "schema": "https://schemas.example.test/worker/task-refresh-request-v1.json",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "result": {
+        "schema": "https://schemas.example.test/worker/task-refresh-result-v1.json",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "outcomes": ["applied", "conflict", "denied"],
+      "emitted_sources": ["task.refresh.completed"]
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/observation-message.schema.json",
+  "title": "Application Observation Message v0",
+  "description": "One emitted observation. Scrape and client-derived catalog entries are read or computed by a client and are never represented as emitted messages.",
+  "type": "object",
+  "required": [
+    "observation_schema",
+    "observation_id",
+    "application",
+    "instance_id",
+    "source_id",
+    "mode",
+    "occurred_at",
+    "recorded_at",
+    "provenance",
+    "payload"
+  ],
+  "properties": {
+    "observation_schema": {
+      "const": "contract:application-control/v0/observation-message.schema.json"
+    },
+    "observation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "instance_id": {
+      "$ref": "#/$defs/token"
+    },
+    "source_id": {
+      "$ref": "#/$defs/token"
+    },
+    "mode": {
+      "enum": [
+        "event",
+        "snapshot",
+        "sample"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cursor": {
+      "$ref": "#/$defs/token"
+    },
+    "gap": {
+      "type": "object",
+      "required": [
+        "detected",
+        "recoverable"
+      ],
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source",
+        "assurance"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "application",
+            "operating_system",
+            "controller",
+            "derived"
+          ]
+        },
+        "assurance": {
+          "enum": [
+            "asserted",
+            "observed",
+            "verified"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256",
+        "value"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    }
+  },
+  "additionalProperties": false
+}

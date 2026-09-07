@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/control-evidence.schema.json",
+  "title": "Application Control Evidence v0",
+  "description": "Append-oriented evidence for the interaction, request, authorization decision, and application effect stages. A stage attests only what its source could observe.",
+  "type": "object",
+  "required": [
+    "evidence_schema",
+    "evidence_id",
+    "request_id",
+    "application",
+    "instance_id",
+    "operation_id",
+    "stage",
+    "source",
+    "occurred_at",
+    "recorded_at",
+    "assurance",
+    "fact"
+  ],
+  "properties": {
+    "evidence_schema": {
+      "const": "contract:application-control/v0/control-evidence.schema.json"
+    },
+    "evidence_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "instance_id": {
+      "$ref": "#/$defs/token"
+    },
+    "operation_id": {
+      "$ref": "#/$defs/token"
+    },
+    "surface_ref": {
+      "$ref": "#/$defs/token",
+      "description": "Required by the semantic layer for interaction evidence; identifies the exact user-interface surface."
+    },
+    "stage": {
+      "enum": [
+        "interaction",
+        "request",
+        "decision",
+        "effect"
+      ]
+    },
+    "source": {
+      "enum": [
+        "user_interface",
+        "controller",
+        "policy_engine",
+        "application"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "assurance": {
+      "enum": [
+        "asserted",
+        "observed",
+        "verified"
+      ]
+    },
+    "predecessor_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "fact": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256",
+        "value"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    }
+  },
+  "additionalProperties": false
+}

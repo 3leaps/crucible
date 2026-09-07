@@ -1,0 +1,27 @@
+{
+  "catalog_schema": "contract:application-control/v0/operation-catalog.schema.json",
+  "application": "example.workbench",
+  "catalog_version": "v1",
+  "operations": [
+    {
+      "operation_id": "workspace.layout.set",
+      "surface_refs": [
+        "button.layout.apply"
+      ],
+      "target_kind": "workspace",
+      "effect": "mutate",
+      "required_capability": "workspace.layout.write",
+      "confirmation": "policy",
+      "idempotency": "required",
+      "precondition": "generation_required",
+      "result": {
+        "schema": "https://schemas.example.test/workbench/layout-set-result-v1.json",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "outcomes": [
+        "applied"
+      ],
+      "emitted_sources": []
+    }
+  ]
+}

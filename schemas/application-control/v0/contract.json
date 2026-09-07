@@ -1,0 +1,13 @@
+{
+  "capability": "contract: application-control/v0",
+  "entry_schema": "application-descriptor.schema.json",
+  "object_schemas": {
+    "operation_catalog": "operation-catalog.schema.json",
+    "information_source_catalog": "information-source-catalog.schema.json",
+    "control_message": "control-message.schema.json",
+    "observation_message": "observation-message.schema.json",
+    "control_evidence": "control-evidence.schema.json",
+    "control_policy": "control-policy.schema.json"
+  },
+  "status": "proposed"
+}

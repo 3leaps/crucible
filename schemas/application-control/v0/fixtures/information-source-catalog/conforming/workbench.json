@@ -1,0 +1,44 @@
+{
+  "catalog_schema": "contract:application-control/v0/information-source-catalog.schema.json",
+  "application": "example.workbench",
+  "catalog_version": "v1",
+  "sources": [
+    {
+      "source_id": "workspace.layout.changed",
+      "surface_refs": [
+        "workspace.layout"
+      ],
+      "mode": "event",
+      "payload": {
+        "schema": "https://schemas.example.test/workbench/layout-changed-v1.json",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "classification": "internal",
+      "provenance": "application",
+      "freshness": {
+        "maximum_age_ms": 1000
+      },
+      "retention": "bounded",
+      "replay": "cursor"
+    },
+    {
+      "source_id": "status.clock",
+      "surface_refs": [
+        "status.clock"
+      ],
+      "mode": "scrape",
+      "payload": {
+        "schema": "https://schemas.example.test/workbench/clock-v1.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "classification": "public",
+      "provenance": "application",
+      "freshness": {
+        "maximum_age_ms": 60000,
+        "suggested_interval_ms": 60000
+      },
+      "retention": "none",
+      "replay": "none"
+    }
+  ]
+}

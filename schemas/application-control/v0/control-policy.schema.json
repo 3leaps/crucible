@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/control-policy.schema.json",
+  "title": "Application Control Policy v0",
+  "description": "Thin authorization input for a local application control boundary. Issuance, enrollment, signature, revocation, expiry, and offline lifecycle are intentionally outside this shared v0 contract.",
+  "type": "object",
+  "required": [
+    "policy_schema",
+    "policy_id",
+    "policy_version",
+    "provenance",
+    "rules",
+    "audit"
+  ],
+  "properties": {
+    "policy_schema": {
+      "const": "contract:application-control/v0/control-policy.schema.json"
+    },
+    "policy_id": {
+      "$ref": "#/$defs/token"
+    },
+    "policy_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "authority",
+        "source_ref"
+      ],
+      "properties": {
+        "authority": {
+          "$ref": "#/$defs/token"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+      "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/control-rule"
+          },
+          {
+            "$ref": "#/$defs/observation-rule"
+          }
+        ]
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "required",
+        "minimum_assurance"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "minimum_assurance": {
+          "enum": [
+            "asserted",
+            "observed",
+            "verified"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selector": {
+      "type": "object",
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/token"
+        },
+        "value": {
+          "$ref": "#/$defs/token"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "max_requests_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "max_concurrent_requests": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "control-rule": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "kind",
+        "effect",
+        "subjects",
+        "applications",
+        "operations",
+        "targets",
+        "confirmation"
+      ],
+      "properties": {
+        "rule_id": {
+          "$ref": "#/$defs/token"
+        },
+        "kind": {
+          "const": "control"
+        },
+        "effect": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "applications": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "confirmation": {
+          "enum": [
+            "inherit",
+            "required",
+            "forbidden"
+          ]
+        },
+        "bounds": {
+          "$ref": "#/$defs/bounds"
+        }
+      },
+      "additionalProperties": false
+    },
+    "observation-rule": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "kind",
+        "effect",
+        "subjects",
+        "applications",
+        "information_sources"
+      ],
+      "properties": {
+        "rule_id": {
+          "$ref": "#/$defs/token"
+        },
+        "kind": {
+          "const": "observe"
+        },
+        "effect": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "applications": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        },
+        "information_sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        },
+        "bounds": {
+          "$ref": "#/$defs/bounds"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

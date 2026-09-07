@@ -1,0 +1,64 @@
+{
+  "policy_schema": "contract:application-control/v0/control-policy.schema.json",
+  "policy_id": "local-maintainer",
+  "policy_version": 1,
+  "provenance": {
+    "authority": "application-maintainer",
+    "source_ref": "local-startup-configuration"
+  },
+  "rules": [
+    {
+      "rule_id": "allow-layout",
+      "kind": "control",
+      "effect": "allow",
+      "subjects": [
+        {
+          "kind": "local_peer",
+          "value": "maintainer"
+        }
+      ],
+      "applications": [
+        "example.workbench"
+      ],
+      "operations": [
+        "workspace.layout.set"
+      ],
+      "targets": [
+        {
+          "kind": "workspace",
+          "value": "primary"
+        }
+      ],
+      "confirmation": "inherit",
+      "bounds": {
+        "max_requests_per_minute": 30,
+        "max_concurrent_requests": 1
+      }
+    },
+    {
+      "rule_id": "allow-clock-read",
+      "kind": "observe",
+      "effect": "allow",
+      "subjects": [
+        {
+          "kind": "local_peer",
+          "value": "maintainer"
+        }
+      ],
+      "applications": [
+        "example.workbench"
+      ],
+      "information_sources": [
+        "status.clock"
+      ],
+      "bounds": {
+        "max_requests_per_minute": 60,
+        "max_concurrent_requests": 1
+      }
+    }
+  ],
+  "audit": {
+    "required": true,
+    "minimum_assurance": "observed"
+  }
+}

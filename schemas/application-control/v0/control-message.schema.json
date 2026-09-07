@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/control-message.schema.json",
+  "title": "Application Control Message v0",
+  "description": "Transport-neutral request and result envelopes for an application-level operation. Caller-supplied principal identity is intentionally absent; the receiving trust boundary binds authenticated identity.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    }
+  ],
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256",
+        "value"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Digest of the schema artifact, not of value."
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/token"
+        },
+        "id": {
+          "$ref": "#/$defs/token"
+        }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "control_schema",
+        "type",
+        "request_id",
+        "application",
+        "instance_id",
+        "operation_id",
+        "target",
+        "payload"
+      ],
+      "properties": {
+        "control_schema": {
+          "const": "contract:application-control/v0/control-message.schema.json"
+        },
+        "type": {
+          "const": "request"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "application": {
+          "$ref": "#/$defs/token"
+        },
+        "instance_id": {
+          "$ref": "#/$defs/token"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/token"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256,
+      "pattern": "^[^\\x00-\\x20\\x7F]+$"
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "control_schema",
+        "type",
+        "request_id",
+        "application",
+        "instance_id",
+        "operation_id",
+        "decision",
+        "effect",
+        "generation",
+        "policy_ref",
+        "result_hash",
+        "payload"
+      ],
+      "properties": {
+        "control_schema": {
+          "const": "contract:application-control/v0/control-message.schema.json"
+        },
+        "type": {
+          "const": "result"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "application": {
+          "$ref": "#/$defs/token"
+        },
+        "instance_id": {
+          "$ref": "#/$defs/token"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/token"
+        },
+        "decision": {
+          "enum": [
+            "allowed",
+            "denied",
+            "confirmation_required"
+          ]
+        },
+        "effect": {
+          "enum": [
+            "applied",
+            "not_applied",
+            "unknown"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/sha256"
+        },
+        "result_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "original_result_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "catalog_schema": "contract:application-control/v0/information-source-catalog.schema.json",
+  "application": "example.worker",
+  "catalog_version": "v1",
+  "sources": [
+    {
+      "source_id": "task.refresh.completed",
+      "mode": "event",
+      "payload": {
+        "schema": "https://schemas.example.test/worker/task-refresh-completed-v1.json",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "classification": "internal",
+      "provenance": "application",
+      "freshness": {
+        "maximum_age_ms": 604800000
+      },
+      "retention": "bounded",
+      "replay": "cursor"
+    }
+  ]
+}
