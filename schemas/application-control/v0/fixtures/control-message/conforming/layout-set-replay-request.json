@@ -1,7 +1,7 @@
 {
   "control_schema": "contract:application-control/v0/control-message.schema.json",
   "type": "request",
-  "request_id": "3af5c5bb-5ea2-4a89-85b3-d4d4c5703fa9",
+  "request_id": "819f8694-e45a-4af8-81b6-7729f93462ab",
   "application": "example.workbench",
   "instance_id": "workbench-01",
   "operation_id": "workspace.layout.set",

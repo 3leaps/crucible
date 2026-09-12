@@ -8,7 +8,7 @@
   },
   "rules": [
     {
-      "rule_id": "allow-secret-read",
+      "rule_id": "allow-layout-read",
       "kind": "observe",
       "effect": "allow",
       "subjects": [
@@ -21,10 +21,10 @@
         "example.workbench"
       ],
       "capabilities": [
-        "unlisted.secret.read"
+        "unrelated.read"
       ],
       "information_sources": [
-        "unlisted.secret"
+        "workspace.layout.changed"
       ]
     }
   ],

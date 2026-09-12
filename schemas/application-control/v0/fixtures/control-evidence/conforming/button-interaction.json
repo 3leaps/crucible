@@ -5,6 +5,10 @@
   "application": "example.workbench",
   "instance_id": "workbench-01",
   "operation_id": "workspace.layout.set",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
   "surface_ref": "button.layout.apply",
   "stage": "interaction",
   "source": "user_interface",

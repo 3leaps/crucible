@@ -1,0 +1,45 @@
+{
+  "catalog_schema": "contract:application-control/v0/information-source-catalog.schema.json",
+  "application": "example.workbench",
+  "catalog_version": "v1",
+  "sources": [
+    {
+      "source_id": "workspace.layout.changed",
+      "mode": "event",
+      "payload": {
+        "schema": "https://schemas.example.test/workbench/layout-changed-v1.json",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "classification": "internal",
+      "provenance": "application",
+      "required_capability": "workspace.layout.read",
+      "eligible_consumers": [
+        "native_ui"
+      ],
+      "freshness": {
+        "maximum_age_ms": 1000
+      },
+      "delivery": {
+        "ordering": "per_instance",
+        "coalescing": "forbidden",
+        "gap": "snapshot_resync"
+      },
+      "availability": {
+        "stale": {
+          "kind": "explicit",
+          "value": "stale"
+        },
+        "unknown": {
+          "kind": "explicit",
+          "value": "unknown"
+        },
+        "unavailable": {
+          "kind": "explicit",
+          "value": "unavailable"
+        }
+      },
+      "retention": "bounded",
+      "replay": "cursor"
+    }
+  ]
+}

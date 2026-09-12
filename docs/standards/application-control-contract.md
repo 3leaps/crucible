@@ -113,12 +113,25 @@ local peer state.
 Mutating and destructive operations require an idempotency key and canonical
 request fingerprint. Operations whose catalog entry requires compare-and-set
 also carry the expected application generation. Reusing an idempotency key with
-a different fingerprint is rejected; a valid replay returns the original
-result identity.
+a different canonical request projection or fingerprint is rejected; a valid
+replay returns the original result identity.
+
+The canonical projection is the entire request except the top-level
+`request_id` and `request_fingerprint`. Canonical JSON v0 admits null,
+booleans, strings, interoperable integers, arrays, and string-keyed objects,
+with sorted object members, preserved array order, UTF-8 strings, and no
+insignificant whitespace or Unicode normalization. The fingerprint is SHA-256
+over the contract domain string, a NUL separator, and the canonical projection.
+The machine-readable semantic contract defines the exact escaping and integer
+rules. A receiver computes this value before authorization or replay lookup and
+compares it with the caller's claim; it never trusts the claim itself.
 
 Result records distinguish authorization decision from application effect.
 Receipt or validation does not imply authorization, and authorization does not
-imply that the effect was applied.
+imply that the effect was applied. The result binds the authenticated,
+server-authored principal reference, target, evaluated policy, replay identity,
+and before/after application generation. Principal identity remains absent from
+requests.
 
 ## Complete information-source inventory
 
@@ -131,8 +144,11 @@ Each source declares:
 
 - stable source identity and any application surface references;
 - exact payload schema and digest;
-- classification and provenance;
-- delivery mode;
+- classification, provenance, and exact read capability;
+- eligible consumer or adapter kinds;
+- projection and redaction rules, units, bounded dimensions, and cardinality;
+- explicit stale, unknown, and unavailable representations;
+- delivery mode plus ordering, coalescing, and gap behavior;
 - freshness and suggested collection cadence;
 - retention and replay behavior.
 
@@ -172,7 +188,12 @@ Control evidence records four distinct stages:
 Each evidence producer attests only the stage it can observe. A user interface
 cannot assert an authorization decision or application effect. An interaction
 record uses the same request and operation identifiers as the downstream
-exchange and names the exact `surface_ref`.
+exchange and names the exact `surface_ref`. The authenticated adapter, policy
+engine, and application bind later stages to the server-authored principal
+reference and the applicable target, replay, policy, and generation
+correlation. Each operation catalog entry pins the fact payload contract for
+every supported evidence stage, so an evidence record cannot self-declare its
+fact type.
 
 Aggregate metrics use bounded operation and surface dimensions. Request
 parameters, object identifiers, names, paths, prompts, credentials, and

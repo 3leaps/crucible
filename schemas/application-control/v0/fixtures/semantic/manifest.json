@@ -1,7 +1,7 @@
 {
   "semantic_layer": {
     "id": "application-control/v0-semantics",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "conforming": [
     "complete-workbench.json",
@@ -10,11 +10,19 @@
   "negative": {
     "enabled-without-policy.json": "SEM-C15",
     "mutation-missing-replay-guards.json": "SEM-C06",
+    "request-fingerprint-mismatch.json": "SEM-C17",
+    "replay-payload-mutation.json": "SEM-C07",
+    "result-correlation-mismatch.json": "SEM-C08",
     "unknown-operation.json": "SEM-C04",
     "payload-contract-mismatch.json": "SEM-C05",
     "catalog-mode-mismatch.json": "SEM-C09",
+    "event-without-gap-semantics.json": "SEM-C09",
+    "ineligible-consumer.json": "SEM-C09",
     "decision-from-ui.json": "SEM-C14",
+    "effect-correlation-mismatch.json": "SEM-C14",
+    "fact-contract-mismatch.json": "SEM-C14",
     "duplicate-operation-id.json": "SEM-C01",
-    "unknown-information-source.json": "SEM-C12"
+    "unknown-information-source.json": "SEM-C12",
+    "source-capability-mismatch.json": "SEM-C12"
   }
 }

@@ -1,0 +1,4 @@
+{
+  "replace": "evidence",
+  "fixture": "../../control-evidence/negative/effect-correlation-mismatch.json"
+}

@@ -12,12 +12,20 @@ failures=0
 is_semantic_negative() {
     case "$1" in
         application-descriptor/enabled-without-policy.json | \
+            information-source-catalog/event-without-gap-semantics.json | \
             control-evidence/decision-from-ui.json | \
             control-message/mutation-missing-replay-guards.json | \
             control-message/payload-contract-mismatch.json | \
+            control-message/request-fingerprint-mismatch.json | \
+            control-message/replay-payload-mutation.json | \
+            control-message/result-correlation-mismatch.json | \
+            control-evidence/effect-correlation-mismatch.json | \
+            control-evidence/fact-contract-mismatch.json | \
             control-message/unknown-operation.json | \
             control-policy/unknown-information-source.json | \
             observation-message/catalog-mode-mismatch.json | \
+            observation-message/ineligible-consumer.json | \
+            control-policy/source-capability-mismatch.json | \
             operation-catalog/duplicate-operation-id.json)
             return 0
             ;;

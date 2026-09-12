@@ -4,6 +4,7 @@
   "information_source_catalog": "../../information-source-catalog/conforming/workbench.json",
   "policy": "../../control-policy/conforming/local-maintainer.json",
   "request": "../../control-message/conforming/layout-set-request.json",
+  "replay_request": "../../control-message/conforming/layout-set-replay-request.json",
   "result": "../../control-message/conforming/layout-set-result.json",
   "observation": "../../observation-message/conforming/layout-changed.json",
   "evidence": "../../control-evidence/conforming/effect-applied.json"

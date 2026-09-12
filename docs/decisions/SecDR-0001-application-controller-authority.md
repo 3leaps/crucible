@@ -3,7 +3,7 @@ id: "SecDR-0001"
 title: "Application controller authority"
 status: "proposed"
 date: "2026-09-06"
-last_updated: "2026-09-06"
+last_updated: "2026-09-11"
 deciders:
   - "@3leapsdave"
   - "entarch"
@@ -56,12 +56,18 @@ authorization covers subscriptions, snapshots, scrapes, and samples.
 
 Mutating and destructive operations require an idempotency key and canonical
 request fingerprint. Operations that require compare-and-set also require an
-expected application generation. A reused key with a different fingerprint is
-rejected; a valid replay returns the original result identity.
+expected application generation. The receiver computes the fingerprint from
+the contract-defined canonical projection before authorization or replay
+lookup and constant-time compares it with the caller's claim. A reused key
+with a different projection or fingerprint is rejected; a valid replay returns
+the original result identity.
 
 Evidence records interaction, request, decision, and effect as distinct stages.
 Each source attests only a stage it can observe. Decision and effect are never
-inferred from a button press or request receipt.
+inferred from a button press or request receipt. Results and post-interaction
+evidence bind the server-authored principal reference to target, evaluated
+policy, replay identity, and before/after generation as applicable. Evidence
+facts validate against contracts pinned by the operation catalog.
 
 The shared policy schema remains deliberately thin. Product or deployment
 profiles own policy issuance, signatures, enrollment, expiry, revocation,
@@ -80,6 +86,8 @@ authorization.
   product operation schemas.
 - Implementations preserve authenticated connection context outside the
   caller-controlled request body.
+- Caller-provided fingerprints cannot become the replay or authorization
+  authority.
 - Auditors can distinguish intent, admission, and actual effect.
 - Managed lifecycle interoperability remains downstream until independent
   deployments establish a portable contract.

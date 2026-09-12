@@ -17,8 +17,7 @@
       "provenance": "application",
       "required_capability": "workspace.layout.read",
       "eligible_consumers": [
-        "native_ui",
-        "local_cli"
+        "native_ui"
       ],
       "projection": {
         "rule": "workspace.layout.redacted.v1",
@@ -36,9 +35,9 @@
         "maximum_age_ms": 1000
       },
       "delivery": {
-        "ordering": "per_instance",
-        "coalescing": "forbidden",
-        "gap": "snapshot_resync"
+        "ordering": "not_applicable",
+        "coalescing": "not_applicable",
+        "gap": "not_applicable"
       },
       "availability": {
         "stale": {
@@ -56,54 +55,6 @@
       },
       "retention": "bounded",
       "replay": "cursor"
-    },
-    {
-      "source_id": "status.clock",
-      "surface_refs": [
-        "status.clock"
-      ],
-      "mode": "scrape",
-      "payload": {
-        "schema": "https://schemas.example.test/workbench/clock-v1.json",
-        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
-      },
-      "classification": "public",
-      "provenance": "application",
-      "required_capability": "status.clock.read",
-      "eligible_consumers": [
-        "native_ui",
-        "metrics_scraper"
-      ],
-      "projection": {
-        "rule": "status.clock.aggregate.v1",
-        "redaction": "aggregate",
-        "units": "milliseconds",
-        "dimensions": [],
-        "maximum_cardinality": 1
-      },
-      "freshness": {
-        "maximum_age_ms": 60000,
-        "suggested_interval_ms": 60000
-      },
-      "delivery": {
-        "ordering": "not_applicable",
-        "coalescing": "not_applicable",
-        "gap": "not_applicable"
-      },
-      "availability": {
-        "stale": {
-          "kind": "explicit",
-          "value": "stale"
-        },
-        "unknown": {
-          "kind": "null"
-        },
-        "unavailable": {
-          "kind": "omitted"
-        }
-      },
-      "retention": "none",
-      "replay": "none"
     }
   ]
 }

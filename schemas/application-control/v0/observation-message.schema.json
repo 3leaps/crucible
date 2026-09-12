@@ -10,6 +10,7 @@
     "application",
     "instance_id",
     "source_id",
+    "consumer_kind",
     "mode",
     "occurred_at",
     "recorded_at",
@@ -32,6 +33,10 @@
     },
     "source_id": {
       "$ref": "#/$defs/token"
+    },
+    "consumer_kind": {
+      "$ref": "#/$defs/token",
+      "description": "Authenticated adapter or consumer kind receiving this projection. The source catalog must list it as eligible."
     },
     "mode": {
       "enum": [

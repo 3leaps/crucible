@@ -3,7 +3,7 @@ id: "DDR-0001"
 title: "Application control data contract"
 status: "proposed"
 date: "2026-09-06"
-last_updated: "2026-09-06"
+last_updated: "2026-09-11"
 deciders:
   - "@3leapsdave"
   - "entarch"
@@ -51,7 +51,8 @@ omit surface references.
 Each operation declares its target kind, effect class, capability,
 confirmation posture, idempotency and precondition requirements, exact request
 and result payload contracts, possible outcomes, and emitted information
-sources.
+sources. It also pins the fact payload contract for every evidence stage the
+operation can produce.
 
 The information-source catalog is exhaustive for application state emitters,
 readable values, notifications, measurements, and parallel telemetry. Each
@@ -66,6 +67,12 @@ source declares one delivery mode:
 Only events, snapshots, and samples produce observation messages. A clock or
 similarly cheap continuously changing value normally uses scrape or
 client-derived delivery rather than emitting on every tick.
+
+Every source also declares its exact read capability, eligible consumer or
+adapter kinds, projection and redaction rule, units, bounded dimensions and
+cardinality, explicit stale/unknown/unavailable representations, and ordering,
+coalescing, and gap behavior. These fields make authorization and delivery
+behavior machine-checkable rather than prose inferred.
 
 Product payloads remain closed under their own schemas. The portable envelope
 carries the payload schema identifier, SHA-256 artifact digest, and value.
@@ -83,6 +90,9 @@ negative fixtures.
 - Information can be streamed selectively without losing discoverability.
 - Content-addressed payload contracts prevent a stable identifier from hiding
   a changed shape.
+- Evidence facts cannot self-declare a schema outside the operation catalog.
+- Source projection, availability, and delivery behavior can fail closed when
+  an adapter or policy does not match the catalog.
 - Consumers must implement both structural JSON Schema validation and semantic
   validation.
 - Application profiles must update catalogs and fixtures whenever their

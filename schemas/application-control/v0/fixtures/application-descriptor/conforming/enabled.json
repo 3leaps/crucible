@@ -11,16 +11,16 @@
   "operation_catalog": {
     "schema": "contract:application-control/v0/operation-catalog.schema.json",
     "uri": "https://schemas.example.test/workbench/operation-catalog-v1.json",
-    "sha256": "341f61f2226caa16b2fe286fb65fa08a8bcf0e1e92f30bc5c83145e9b1910d93"
+    "sha256": "c955a8cc5d78c6fd304117baa4911e4743a257254c901086d1fb3e618360ad1e"
   },
   "information_source_catalog": {
     "schema": "contract:application-control/v0/information-source-catalog.schema.json",
     "uri": "https://schemas.example.test/workbench/information-source-catalog-v1.json",
-    "sha256": "7bd7bb5c42aef973ee5c4b92f9d3bd3c9d96f8b0aea4530eaa5786d98940d0e2"
+    "sha256": "0fa845ccd285adc316870027eb06d816ae8710eaeb3f70bd6dfa52ad4a76e364"
   },
   "policy": {
     "schema": "contract:application-control/v0/control-policy.schema.json",
     "uri": "https://schemas.example.test/workbench/control-policy-v1.json",
-    "sha256": "2b63d31f4677fb17156daa41e1c4f1f58c91637bbc04b53b2e74590c895d0ddf"
+    "sha256": "29d6b7185f67b522f116ca3b2d25502993c4e5df11651342a1a0e9204e19ea60"
   }
 }

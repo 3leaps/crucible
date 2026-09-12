@@ -1,6 +1,6 @@
 {
   "evidence_schema": "contract:application-control/v0/control-evidence.schema.json",
-  "evidence_id": "be790fad-4519-4cbb-952e-e880d61520d0",
+  "evidence_id": "625205f2-903c-43ef-88f0-c6a4a18fb95d",
   "request_id": "3af5c5bb-5ea2-4a89-85b3-d4d4c5703fa9",
   "application": "example.workbench",
   "instance_id": "workbench-01",
@@ -25,11 +25,10 @@
   "recorded_at": "2026-09-05T15:10:00.011Z",
   "assurance": "verified",
   "fact": {
-    "schema": "https://schemas.example.test/workbench/layout-effect-v1.json",
-    "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "schema": "https://schemas.example.test/workbench/unlisted-effect-v1.json",
+    "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
     "value": {
-      "effect": "applied",
-      "generation": 13
+      "effect": "applied"
     }
   }
 }

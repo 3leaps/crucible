@@ -11,6 +11,7 @@
     "application",
     "instance_id",
     "operation_id",
+    "target",
     "stage",
     "source",
     "occurred_at",
@@ -39,6 +40,33 @@
     "operation_id": {
       "$ref": "#/$defs/token"
     },
+    "target": {
+      "$ref": "#/$defs/target"
+    },
+    "principal_ref": {
+      "$ref": "#/$defs/token",
+      "description": "Opaque, redacted reference authored by the authenticated adapter or server. Caller-authored request content is never a principal source."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256,
+      "pattern": "^[^\\x00-\\x20\\x7F]+$"
+    },
+    "request_fingerprint": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy": {
+      "$ref": "#/$defs/policy-correlation"
+    },
+    "generation_before": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generation_after": {
+      "type": "integer",
+      "minimum": 1
+    },
     "surface_ref": {
       "$ref": "#/$defs/token",
       "description": "Required by the semantic layer for interaction evidence; identifies the exact user-interface surface."
@@ -53,9 +81,9 @@
     },
     "source": {
       "enum": [
-        "user_interface",
-        "controller",
-        "policy_engine",
+          "user_interface",
+          "authenticated_adapter",
+          "policy_engine",
         "application"
       ]
     },
@@ -106,7 +134,109 @@
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/token"
+        },
+        "id": {
+          "$ref": "#/$defs/token"
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy-correlation": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/token"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "request",
+              "decision",
+              "effect"
+            ]
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "required": [
+          "principal_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "decision",
+              "effect"
+            ]
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "required": [
+          "policy"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "effect"
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "required": [
+          "generation_before",
+          "generation_after"
+        ]
+      }
+    }
+  ],
   "additionalProperties": false
 }

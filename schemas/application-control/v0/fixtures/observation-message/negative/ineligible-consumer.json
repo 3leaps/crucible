@@ -1,10 +1,10 @@
 {
   "observation_schema": "contract:application-control/v0/observation-message.schema.json",
-  "observation_id": "6c349ddd-1d69-453c-849d-2e53d6ddb24f",
+  "observation_id": "fa37e8f9-1f4c-4863-8af1-1c9016f7e637",
   "application": "example.workbench",
   "instance_id": "workbench-01",
   "source_id": "workspace.layout.changed",
-  "consumer_kind": "native_ui",
+  "consumer_kind": "unlisted_gateway",
   "mode": "event",
   "occurred_at": "2026-09-05T15:10:00Z",
   "recorded_at": "2026-09-05T15:10:00.010Z",

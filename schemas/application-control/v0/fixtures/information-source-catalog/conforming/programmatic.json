@@ -12,8 +12,44 @@
       },
       "classification": "internal",
       "provenance": "application",
+      "required_capability": "task.refresh.read",
+      "eligible_consumers": [
+        "local_cli",
+        "sdk"
+      ],
+      "projection": {
+        "rule": "task.refresh.redacted.v1",
+        "redaction": "opaque_reference",
+        "units": "state",
+        "dimensions": [
+          {
+            "name": "task",
+            "maximum_cardinality": 1024
+          }
+        ],
+        "maximum_cardinality": 1024
+      },
       "freshness": {
         "maximum_age_ms": 604800000
+      },
+      "delivery": {
+        "ordering": "per_source",
+        "coalescing": "bounded_batch",
+        "gap": "explicit"
+      },
+      "availability": {
+        "stale": {
+          "kind": "explicit",
+          "value": "stale"
+        },
+        "unknown": {
+          "kind": "explicit",
+          "value": "unknown"
+        },
+        "unavailable": {
+          "kind": "explicit",
+          "value": "unavailable"
+        }
       },
       "retention": "bounded",
       "replay": "cursor"

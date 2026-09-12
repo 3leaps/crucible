@@ -67,7 +67,12 @@
         "payload",
         "classification",
         "provenance",
+        "required_capability",
+        "eligible_consumers",
+        "projection",
         "freshness",
+        "delivery",
+        "availability",
         "retention",
         "replay"
       ],
@@ -113,6 +118,63 @@
             "derived"
           ]
         },
+        "required_capability": {
+          "$ref": "#/$defs/token",
+          "description": "Exact read capability required before this source may be projected to a consumer."
+        },
+        "eligible_consumers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          },
+          "description": "Closed adapter or consumer kinds eligible to receive this projection. Eligibility never grants the required capability."
+        },
+        "projection": {
+          "type": "object",
+          "required": [
+            "rule",
+            "redaction",
+            "units",
+            "dimensions",
+            "maximum_cardinality"
+          ],
+          "properties": {
+            "rule": {
+              "$ref": "#/$defs/token",
+              "description": "Stable product-defined projection rule applied before delivery."
+            },
+            "redaction": {
+              "enum": [
+                "none",
+                "drop",
+                "mask",
+                "opaque_reference",
+                "aggregate",
+                "product_defined"
+              ]
+            },
+            "units": {
+              "$ref": "#/$defs/token"
+            },
+            "dimensions": {
+              "type": "array",
+              "maxItems": 32,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/dimension"
+              }
+            },
+            "maximum_cardinality": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          },
+          "additionalProperties": false
+        },
         "freshness": {
           "type": "object",
           "required": [
@@ -132,6 +194,59 @@
           },
           "additionalProperties": false
         },
+        "delivery": {
+          "type": "object",
+          "required": [
+            "ordering",
+            "coalescing",
+            "gap"
+          ],
+          "properties": {
+            "ordering": {
+              "enum": [
+                "not_applicable",
+                "per_source",
+                "per_instance"
+              ]
+            },
+            "coalescing": {
+              "enum": [
+                "forbidden",
+                "latest",
+                "bounded_batch",
+                "not_applicable"
+              ]
+            },
+            "gap": {
+              "enum": [
+                "explicit",
+                "snapshot_resync",
+                "not_applicable"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "availability": {
+          "type": "object",
+          "required": [
+            "stale",
+            "unknown",
+            "unavailable"
+          ],
+          "properties": {
+            "stale": {
+              "$ref": "#/$defs/state-representation"
+            },
+            "unknown": {
+              "$ref": "#/$defs/state-representation"
+            },
+            "unavailable": {
+              "$ref": "#/$defs/state-representation"
+            }
+          },
+          "additionalProperties": false
+        },
         "retention": {
           "enum": [
             "none",
@@ -147,6 +262,71 @@
           ]
         }
       },
+      "additionalProperties": false
+    },
+    "dimension": {
+      "type": "object",
+      "required": [
+        "name",
+        "maximum_cardinality"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/token"
+        },
+        "maximum_cardinality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "additionalProperties": false
+    },
+    "state-representation": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "explicit",
+            "null",
+            "omitted",
+            "not_applicable"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/token",
+          "description": "Payload discriminator used when kind is explicit."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "explicit"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     }
   },

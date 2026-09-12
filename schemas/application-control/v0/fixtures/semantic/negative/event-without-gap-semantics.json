@@ -1,0 +1,4 @@
+{
+  "replace": "information_source_catalog",
+  "fixture": "../../information-source-catalog/negative/event-without-gap-semantics.json"
+}

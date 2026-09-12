@@ -33,6 +33,10 @@ and enforcement. The shared family standardizes discovery, catalog shapes,
 request/result correlation, replay-safe mutation inputs, observation
 provenance, and decision/effect evidence.
 
+The receiver recomputes every mutation fingerprint using the exact canonical
+JSON v0 algorithm in `semantic-validation.md` before authorization or replay
+lookup. A caller-provided fingerprint is only a claim.
+
 An application may adapt these messages to an existing command transport. The
 adapter does not change the contract's semantics and must not turn an open
 transport argument bag into an unversioned operation API.
@@ -66,6 +70,10 @@ authorization decision, and application effect remain separate evidence stages.
 Other parallel state or measurement emitters belong in the information-source
 catalog.
 
+Each operation also pins the payload contract for every evidence stage it can
+produce. Evidence facts are validated against those catalog entries rather
+than accepted as open, self-declared types.
+
 ## Information delivery
 
 The catalog separates information semantics from delivery:
@@ -83,6 +91,12 @@ changing display normally belongs to `scrape` or `client_derived`, not an event
 stream. Streaming is therefore explicit and selective rather than an automatic
 consequence of instrumenting a source.
 
+Each source additionally declares its exact read capability, eligible consumer
+or adapter kinds, projection and redaction rule, units, bounded dimensions and
+cardinality, explicit stale/unknown/unavailable representations, and ordering,
+coalescing, and gap behavior. Consumer eligibility does not grant the read
+capability.
+
 Stream producers expose sequence or cursor information when replay is
 advertised. Consumers treat gaps as first-class state and use a cataloged
 snapshot or scrape path to recover.
@@ -92,8 +106,11 @@ snapshot or scrape path to recover.
 A request never supplies its own principal. The receiver binds authenticated
 identity at the trust boundary, resolves the active policy, evaluates denials
 before allows, applies confirmation and rate bounds, and records decision and
-effect separately. Policy covers both control operations and access to
-information sources, including subscriptions, snapshots, scrapes, and samples.
+effect separately. Results and post-interaction evidence carry the
+server-authored principal reference plus target, policy, replay, and
+before/after-generation correlation. Policy covers both control operations and
+access to information sources, including subscriptions, snapshots, scrapes,
+and samples.
 
 The startup circuit breaker belongs to the product profile. A disabled product
 advertises a null control endpoint and does not listen. Enabling a listener

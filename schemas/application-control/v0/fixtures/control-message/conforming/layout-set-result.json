@@ -5,10 +5,22 @@
   "application": "example.workbench",
   "instance_id": "workbench-01",
   "operation_id": "workspace.layout.set",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
+  "principal_ref": "principal-7f3a",
+  "idempotency_key": "layout-primary-20260905-01",
+  "request_fingerprint": "fac012bdc82895d4024f7d2e0bf003dc4044f22bf0888734c6a78f39260a84fc",
   "decision": "allowed",
   "effect": "applied",
-  "generation": 13,
-  "policy_ref": "2b63d31f4677fb17156daa41e1c4f1f58c91637bbc04b53b2e74590c895d0ddf",
+  "generation_before": 12,
+  "generation_after": 13,
+  "policy": {
+    "id": "local-maintainer",
+    "version": 1,
+    "sha256": "29d6b7185f67b522f116ca3b2d25502993c4e5df11651342a1a0e9204e19ea60"
+  },
   "result_hash": "6666666666666666666666666666666666666666666666666666666666666666",
   "payload": {
     "schema": "https://schemas.example.test/workbench/layout-set-result-v1.json",

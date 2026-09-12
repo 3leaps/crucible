@@ -87,6 +87,7 @@
         "precondition",
         "request",
         "result",
+        "evidence",
         "outcomes",
         "emitted_sources"
       ],
@@ -144,6 +145,31 @@
         },
         "result": {
           "$ref": "#/$defs/payload-contract"
+        },
+        "evidence": {
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "interaction": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "request": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "decision": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "effect": {
+              "$ref": "#/$defs/payload-contract"
+            }
+          },
+          "required": [
+            "request",
+            "decision",
+            "effect"
+          ],
+          "additionalProperties": false,
+          "description": "Stage-specific fact contracts accepted by control-evidence. Interaction may be omitted for programmatic-only operations."
         },
         "outcomes": {
           "type": "array",

@@ -48,7 +48,12 @@
       "applications": [
         "example.workbench"
       ],
+      "capabilities": [
+        "workspace.layout.read",
+        "status.clock.read"
+      ],
       "information_sources": [
+        "workspace.layout.changed",
         "status.clock"
       ],
       "bounds": {

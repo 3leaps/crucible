@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import hmac
 import json
 import pathlib
 import sys
@@ -23,13 +24,24 @@ ARTIFACTS = {
     "control-policy": FAMILY / "control-policy.schema.json",
 }
 SEMANTIC_LAYER_ID = "application-control/v0-semantics"
-SEMANTIC_LAYER_VERSION = "0.1.0"
+SEMANTIC_LAYER_VERSION = "0.2.0"
+FINGERPRINT_DOMAIN = b"application-control/v0/request-fingerprint\x00"
+MAX_SAFE_INTEGER = 9007199254740991
 
 failures: list[str] = []
 
 
+def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object member: {key}")
+        result[key] = value
+    return result
+
+
 def load(path: pathlib.Path) -> Any:
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(), object_pairs_hook=unique_object)
 
 
 def fail(message: str) -> None:
@@ -49,6 +61,73 @@ def duplicate(values: list[Any]) -> bool:
     return len(values) != len(set(values))
 
 
+def canonical_json_v0(value: Any) -> bytes:
+    """Return the contract's canonical JSON v0 bytes.
+
+    The control profile deliberately accepts only null, booleans, strings,
+    safe integers, arrays, and string-keyed objects. This keeps the portable
+    fingerprint algorithm exact without depending on a language's float
+    serializer.
+    """
+
+    def validate(item: Any) -> None:
+        if item is None or isinstance(item, (bool, str)):
+            return
+        if isinstance(item, int):
+            if abs(item) > MAX_SAFE_INTEGER:
+                raise ValueError("integer outside interoperable range")
+            return
+        if isinstance(item, list):
+            for child in item:
+                validate(child)
+            return
+        if isinstance(item, dict):
+            if not all(isinstance(key, str) for key in item):
+                raise ValueError("object key is not a string")
+            for key, child in item.items():
+                key.encode("utf-8")
+                validate(child)
+            return
+        raise ValueError("fractional numbers are not canonical JSON v0")
+
+    validate(value)
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def request_projection(request: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in request.items()
+        if key not in {"request_id", "request_fingerprint"}
+    }
+
+
+def request_fingerprint(request: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        FINGERPRINT_DOMAIN + canonical_json_v0(request_projection(request))
+    ).hexdigest()
+
+
+def fingerprint_matches(claim: Any, request: dict[str, Any]) -> bool:
+    return isinstance(claim, str) and hmac.compare_digest(
+        claim, request_fingerprint(request)
+    )
+
+
+try:
+    json.loads('{"duplicate":1,"duplicate":2}', object_pairs_hook=unique_object)
+except ValueError:
+    ok("canonical JSON duplicate-member rejection")
+else:
+    fail("canonical JSON duplicate-member rejection is not enforced")
+
+
 def semantic_violations(bundle: dict[str, Any]) -> list[str]:
     violations: list[str] = []
     descriptor = bundle["descriptor"]
@@ -59,6 +138,7 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
     result = bundle["result"]
     observation = bundle["observation"]
     evidence = bundle["evidence"]
+    replay_request = bundle.get("replay_request")
 
     operations = operations_doc.get("operations", [])
     sources = sources_doc.get("sources", [])
@@ -122,11 +202,40 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
             }
             if not required.issubset(request):
                 violations.append("SEM-C06")
+            else:
+                try:
+                    if not fingerprint_matches(
+                        request.get("request_fingerprint"), request
+                    ):
+                        violations.append("SEM-C17")
+                except (TypeError, UnicodeError, ValueError):
+                    violations.append("SEM-C17")
             if (
                 operation.get("precondition") == "generation_required"
                 and "expected_generation" not in request
             ):
                 violations.append("SEM-C06")
+
+    if isinstance(replay_request, dict):
+        try:
+            replay_claim_valid = fingerprint_matches(
+                replay_request.get("request_fingerprint"), replay_request
+            )
+        except (TypeError, UnicodeError, ValueError):
+            replay_claim_valid = False
+        if not replay_claim_valid:
+            violations.append("SEM-C17")
+        if replay_request.get("idempotency_key") == request.get("idempotency_key"):
+            try:
+                same_projection = canonical_json_v0(
+                    request_projection(replay_request)
+                ) == canonical_json_v0(request_projection(request))
+            except (TypeError, UnicodeError, ValueError):
+                same_projection = False
+            if not same_projection or replay_request.get(
+                "request_fingerprint"
+            ) != request.get("request_fingerprint"):
+                violations.append("SEM-C07")
 
     result_operation = operation_by_id.get(result.get("operation_id"))
     if result_operation:
@@ -141,6 +250,12 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
     ):
         violations.append("SEM-C08")
     descriptor_policy = descriptor.get("policy")
+    policy_hash = bundle.get("_artifact_sha256", {}).get("policy")
+    policy_correlation = {
+        "id": policy.get("policy_id"),
+        "version": policy.get("policy_version"),
+        "sha256": policy_hash,
+    }
     if (
         any(
             result.get(field) != request.get(field)
@@ -152,9 +267,23 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
             )
         )
         or not isinstance(descriptor_policy, dict)
-        or result.get("policy_ref") != descriptor_policy.get("sha256")
+        or descriptor_policy.get("sha256") != policy_hash
+        or result.get("target") != request.get("target")
+        or result.get("policy") != policy_correlation
+        or (
+            "expected_generation" in request
+            and result.get("generation_before") != request.get("expected_generation")
+        )
+        or not isinstance(result.get("generation_after"), int)
+        or result.get("generation_after", 0) < result.get("generation_before", 0)
     ):
         violations.append("SEM-C08")
+    if result_operation and result_operation.get("idempotency") == "required":
+        if any(
+            result.get(field) != request.get(field)
+            for field in ("idempotency_key", "request_fingerprint")
+        ):
+            violations.append("SEM-C08")
 
     source = source_by_id.get(observation.get("source_id"))
     if source is None:
@@ -169,6 +298,22 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
             or payload.get("schema") != expected.get("schema")
             or payload.get("sha256") != expected.get("sha256")
             or provenance.get("source") != source.get("provenance")
+            or observation.get("consumer_kind")
+            not in source.get("eligible_consumers", [])
+        ):
+            violations.append("SEM-C09")
+        delivery = source.get("delivery", {})
+        if source.get("mode") == "event" and (
+            delivery.get("ordering") == "not_applicable"
+            or delivery.get("coalescing") == "not_applicable"
+            or delivery.get("gap") == "not_applicable"
+            or "sequence" not in observation
+            or "gap" not in observation
+        ):
+            violations.append("SEM-C09")
+        if source.get("mode") != "event" and (
+            delivery.get("ordering") != "not_applicable"
+            or delivery.get("gap") != "not_applicable"
         ):
             violations.append("SEM-C09")
         if source.get("replay") != "none" and "cursor" not in observation:
@@ -201,10 +346,19 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
         ).issubset(source_by_id):
             violations.append("SEM-C12")
             break
+        if rule.get("kind") == "observe":
+            capabilities = set(rule.get("capabilities", []))
+            if any(
+                source_by_id[source_id].get("required_capability") not in capabilities
+                for source_id in rule.get("information_sources", [])
+                if source_id in source_by_id
+            ):
+                violations.append("SEM-C12")
+                break
 
     valid_evidence_sources = {
         "interaction": "user_interface",
-        "request": "controller",
+        "request": "authenticated_adapter",
         "decision": "policy_engine",
         "effect": "application",
     }
@@ -220,7 +374,44 @@ def semantic_violations(bundle: dict[str, Any]) -> list[str]:
         )
     ):
         violations.append("SEM-C14")
+    if evidence.get("target") != request.get("target"):
+        violations.append("SEM-C14")
+    stage = evidence.get("stage")
+    if stage in {"request", "decision", "effect"} and (
+        evidence.get("principal_ref") != result.get("principal_ref")
+    ):
+        violations.append("SEM-C14")
+    if (
+        operation
+        and operation.get("idempotency") == "required"
+        and stage
+        in {
+            "request",
+            "decision",
+            "effect",
+        }
+    ):
+        if any(
+            evidence.get(field) != request.get(field)
+            for field in ("idempotency_key", "request_fingerprint")
+        ):
+            violations.append("SEM-C14")
+    if stage in {"decision", "effect"} and evidence.get("policy") != result.get(
+        "policy"
+    ):
+        violations.append("SEM-C14")
+    if stage == "effect" and any(
+        evidence.get(field) != result.get(field)
+        for field in ("generation_before", "generation_after")
+    ):
+        violations.append("SEM-C14")
     evidence_operation = operation_by_id.get(evidence.get("operation_id"), {})
+    evidence_contract = evidence_operation.get("evidence", {}).get(stage, {})
+    evidence_fact = evidence.get("fact", {})
+    if evidence_fact.get("schema") != evidence_contract.get(
+        "schema"
+    ) or evidence_fact.get("sha256") != evidence_contract.get("sha256"):
+        violations.append("SEM-C14")
     if evidence.get("stage") == "interaction":
         if evidence.get("surface_ref") not in evidence_operation.get(
             "surface_refs", []

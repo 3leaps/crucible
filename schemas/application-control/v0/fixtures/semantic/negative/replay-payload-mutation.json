@@ -1,0 +1,4 @@
+{
+  "replace": "replay_request",
+  "fixture": "../../control-message/negative/replay-payload-mutation.json"
+}
