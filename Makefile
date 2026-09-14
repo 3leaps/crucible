@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -243,7 +243,7 @@ lint-schemas: ## Validate JSON Schema files against meta-schema
 		echo "[!!] goneat not found, skipping schema validation"; \
 	fi
 
-lint-config: lint-role-prompts lint-coverage-attestation ## Validate config data files against schemas
+lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy ## Validate config data files against schemas
 	@echo "[..] Validating config data files..."
 	@if command -v goneat >/dev/null 2>&1; then \
 		for f in config/agentic/roles/*.yaml; do \
@@ -340,6 +340,7 @@ lint-config: lint-role-prompts lint-coverage-attestation ## Validate config data
 			schemas/agent-wait/v0/contract.json \
 			schemas/service-job/v0/contract.json \
 			schemas/project-work/v0/contract.json \
+			schemas/inference-path-taxonomy/v0/contract.json \
 			schemas/forge-infra/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping config validation"; \
@@ -359,6 +360,14 @@ lint-coverage-attestation: ## Run coverage-attestation negative controls
 		sh scripts/test-coverage-attestation-controls.sh; \
 	else \
 		echo "[--] goneat not found, skipping coverage-attestation controls"; \
+	fi
+
+lint-inference-path-taxonomy: ## Run inference-path-taxonomy controls
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Inference-path-taxonomy controls (examples pass, rejects fail)..."; \
+		sh scripts/test-inference-path-taxonomy-controls.sh; \
+	else \
+		echo "[--] goneat not found, skipping inference-path-taxonomy controls"; \
 	fi
 
 build: check ## Build artifacts (validation is the build for standards repo)

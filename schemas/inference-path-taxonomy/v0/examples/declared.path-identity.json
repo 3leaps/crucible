@@ -1,0 +1,23 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "path_identity",
+  "path_id": "path.example.host.text-v1.paid",
+  "revision": 1,
+  "model_pin_ref": "model-pin.example.router.text-v1@1",
+  "route": [
+    {
+      "role": "execution_host",
+      "party_ref": "party.example.host@1",
+      "surface_ref": "api.responses"
+    }
+  ],
+  "execution_host_mode": "declared",
+  "endpoint_ref": "api.responses",
+  "service_region": "us-east",
+  "access_class": "paid",
+  "source_evidence": {
+    "source_uri": "https://example.invalid/docs/direct-host",
+    "published_at": "2026-09-06T00:00:00Z"
+  },
+  "identity_digest": "sha256:24572a073846af99b93f3aa567549223c314b56d82a66ba2defd3d9341b4cb4a"
+}

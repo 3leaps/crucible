@@ -1,0 +1,9 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "party",
+  "party_id": "party.example.author",
+  "revision": 1,
+  "display_name": "Example Model Author",
+  "roles": ["model_author"],
+  "identity_digest": "sha256:bc7c6a2a0ce4652f45245eeb60cb68c291d66116e093348e9e9187d5f28b1a02"
+}

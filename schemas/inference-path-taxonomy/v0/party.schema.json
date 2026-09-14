@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:inference-path-taxonomy/v0/party.schema.json",
+  "title": "Inference Party",
+  "description": "A stable organization or product-party identity and the roles it may represent. Roles are capabilities, not availability, authority, account ownership, or billing claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "kind",
+    "party_id",
+    "revision",
+    "display_name",
+    "roles",
+    "identity_digest"
+  ],
+  "properties": {
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "kind": { "const": "party" },
+    "party_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Stable opaque party identifier. Consumers compare it for equality and do not parse it."
+    },
+    "revision": { "$ref": "#/$defs/revision" },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "aliases": {
+      "type": "array",
+      "description": "Source-scoped aliases. Use namespace otel.gen_ai.provider.name for matching OpenTelemetry well-known provider values.",
+      "items": { "$ref": "#/$defs/alias" },
+      "uniqueItems": true
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["model_author", "execution_host", "router", "broker", "harness"]
+      }
+    },
+    "identity_digest": { "$ref": "#/$defs/identityDigest" }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "contract: inference-path-taxonomy/v0" }
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Immutable record revision. A changed identity is published as a new revision."
+    },
+    "alias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "value"],
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+        },
+        "value": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "identityDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 of the RFC 8785 canonical form of the record's frozen identity fields, as defined by semantic-validation.md."
+    }
+  }
+}

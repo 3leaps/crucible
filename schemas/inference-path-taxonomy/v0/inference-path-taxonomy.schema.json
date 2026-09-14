@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:inference-path-taxonomy/v0/inference-path-taxonomy.schema.json",
+  "title": "Inference Path Taxonomy Record",
+  "description": "Closed record union for the proposed contract: inference-path-taxonomy/v0 family.",
+  "type": "object",
+  "required": ["capabilities", "kind"],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "contract: inference-path-taxonomy/v0" }
+    },
+    "kind": {
+      "enum": ["party", "model_family", "model_pin", "path_identity"]
+    }
+  },
+  "oneOf": [
+    { "$ref": "contract:inference-path-taxonomy/v0/party.schema.json" },
+    { "$ref": "contract:inference-path-taxonomy/v0/model-family.schema.json" },
+    { "$ref": "contract:inference-path-taxonomy/v0/model-pin.schema.json" },
+    { "$ref": "contract:inference-path-taxonomy/v0/path-identity.schema.json" }
+  ]
+}

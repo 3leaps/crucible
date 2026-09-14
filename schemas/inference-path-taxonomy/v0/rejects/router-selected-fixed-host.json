@@ -1,0 +1,25 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "path_identity",
+  "path_id": "path.example.invalid-router-selection",
+  "revision": 1,
+  "model_pin_ref": "model-pin.example.router.text-v1@1",
+  "route": [
+    {
+      "role": "router",
+      "party_ref": "party.example.router@1"
+    },
+    {
+      "role": "execution_host",
+      "party_ref": "party.example.host@1"
+    }
+  ],
+  "execution_host_mode": "router_selected",
+  "endpoint_ref": "api.chat-completions",
+  "access_class": "public",
+  "source_evidence": {
+    "source_uri": "https://example.invalid/docs/routing",
+    "observed_at": "2026-09-06T00:00:00Z"
+  },
+  "identity_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+}

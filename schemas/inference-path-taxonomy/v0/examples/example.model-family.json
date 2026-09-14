@@ -1,0 +1,10 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "model_family",
+  "model_family_id": "model-family.example.text",
+  "revision": 1,
+  "author_party_ref": "party.example.author@1",
+  "slug": "example-text",
+  "display_name": "Example Text",
+  "identity_digest": "sha256:7c8e4e18dd3411d27c4fa22c507995306bfa6d85ad8ca3d2d76a885086f9fe01"
+}
