@@ -1,0 +1,14 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "model_pin",
+  "model_pin_id": "model-pin.example.missing-family",
+  "revision": 1,
+  "source_party_ref": "party.example.router@1",
+  "model_id": "example-author/example-text-v1",
+  "resolution_state": "resolved",
+  "source_evidence": {
+    "source_uri": "https://example.invalid/models/example-author/example-text-v1",
+    "published_at": "2026-09-06T00:00:00Z"
+  },
+  "identity_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+}

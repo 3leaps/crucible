@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:inference-path-taxonomy/v0/model-pin.schema.json",
+  "title": "Inference Model Pin",
+  "description": "An exact source-native model identifier, optionally mapped to an author-scoped family when evidence supports the mapping.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "kind",
+    "model_pin_id",
+    "revision",
+    "source_party_ref",
+    "model_id",
+    "resolution_state",
+    "source_evidence",
+    "identity_digest"
+  ],
+  "properties": {
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "kind": { "const": "model_pin" },
+    "model_pin_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "revision": { "$ref": "#/$defs/revision" },
+    "source_party_ref": { "$ref": "#/$defs/ref" },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "not": { "enum": ["unknown", "indeterminate"] },
+      "description": "The source's exact opaque identifier, including namespace or revision syntax when the source supplies it."
+    },
+    "canonical_model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "A canonical identifier only when the source itself publishes one."
+    },
+    "family_ref": { "$ref": "#/$defs/ref" },
+    "resolution_state": {
+      "enum": ["resolved", "unknown", "indeterminate"],
+      "description": "State of the optional family mapping. Unknown is expressed here, never as a fabricated model_id."
+    },
+    "source_evidence": { "$ref": "#/$defs/sourceEvidence" },
+    "identity_digest": { "$ref": "#/$defs/identityDigest" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "resolution_state": { "const": "resolved" } },
+        "required": ["resolution_state"]
+      },
+      "then": { "required": ["family_ref"] },
+      "else": { "not": { "required": ["family_ref"] } }
+    }
+  ],
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "contract: inference-path-taxonomy/v0" }
+    },
+    "revision": { "type": "integer", "minimum": 1 },
+    "ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_uri"],
+      "properties": {
+        "source_uri": { "type": "string", "format": "uri" },
+        "published_at": { "type": "string", "format": "date-time" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "anyOf": [{ "required": ["published_at"] }, { "required": ["observed_at"] }]
+    },
+    "identityDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

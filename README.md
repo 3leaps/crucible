@@ -112,6 +112,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── data-artifact/v0/      # Portable data artifact contract
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
+│   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
 │   └── service-job/v0/        # Portable service job contract

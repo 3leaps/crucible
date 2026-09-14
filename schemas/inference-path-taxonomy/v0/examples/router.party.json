@@ -1,0 +1,15 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "party",
+  "party_id": "party.example.router",
+  "revision": 1,
+  "display_name": "Example Router",
+  "aliases": [
+    {
+      "namespace": "otel.gen_ai.provider.name",
+      "value": "example"
+    }
+  ],
+  "roles": ["router"],
+  "identity_digest": "sha256:0c199e2769d0302081d5c63d692ac496f31f7f46ed199583ec461d51ea15f627"
+}

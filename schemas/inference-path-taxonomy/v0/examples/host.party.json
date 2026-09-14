@@ -1,0 +1,9 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "party",
+  "party_id": "party.example.host",
+  "revision": 1,
+  "display_name": "Example Execution Host",
+  "roles": ["execution_host"],
+  "identity_digest": "sha256:1a20261e5a69f11e9578fc1cf92fcc784d629975231c7afe8173e9a5628bc560"
+}

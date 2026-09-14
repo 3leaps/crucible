@@ -1,0 +1,15 @@
+{
+  "capabilities": ["contract: inference-path-taxonomy/v0"],
+  "kind": "model_pin",
+  "model_pin_id": "model-pin.example.invalid-unresolved-family",
+  "revision": 1,
+  "source_party_ref": "party.example.router@1",
+  "model_id": "opaque-preview-2026-09",
+  "family_ref": "model-family.example.text@1",
+  "resolution_state": "indeterminate",
+  "source_evidence": {
+    "source_uri": "https://example.invalid/models/opaque-preview-2026-09",
+    "observed_at": "2026-09-06T00:00:00Z"
+  },
+  "identity_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
