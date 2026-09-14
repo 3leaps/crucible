@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/operation-catalog.schema.json",
+  "title": "Application Operation Catalog v0",
+  "description": "Exhaustive machine-readable inventory of application controls. Every user-visible control surface must map to one operation or explicitly document that it is non-controllable.",
+  "type": "object",
+  "required": [
+    "catalog_schema",
+    "application",
+    "catalog_version",
+    "operations"
+  ],
+  "properties": {
+    "catalog_schema": {
+      "const": "contract:application-control/v0/operation-catalog.schema.json"
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "catalog_version": {
+      "$ref": "#/$defs/version"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    },
+    "non_controllable_surfaces": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/non-controllable"
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+(\\.[0-9]+){0,2}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payload-contract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "operation_id",
+        "target_kind",
+        "effect",
+        "required_capability",
+        "confirmation",
+        "idempotency",
+        "precondition",
+        "request",
+        "result",
+        "evidence",
+        "outcomes",
+        "emitted_sources"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/token"
+        },
+        "surface_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          },
+          "description": "User-visible control surfaces that dispatch this operation. Omit for operations exposed only through programmatic adapters."
+        },
+        "target_kind": {
+          "$ref": "#/$defs/token"
+        },
+        "effect": {
+          "enum": [
+            "read",
+            "navigate",
+            "mutate",
+            "destructive"
+          ]
+        },
+        "required_capability": {
+          "$ref": "#/$defs/token"
+        },
+        "confirmation": {
+          "enum": [
+            "never",
+            "policy",
+            "always"
+          ]
+        },
+        "idempotency": {
+          "enum": [
+            "not_applicable",
+            "optional",
+            "required"
+          ]
+        },
+        "precondition": {
+          "enum": [
+            "none",
+            "generation_optional",
+            "generation_required"
+          ]
+        },
+        "request": {
+          "$ref": "#/$defs/payload-contract"
+        },
+        "result": {
+          "$ref": "#/$defs/payload-contract"
+        },
+        "evidence": {
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "interaction": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "request": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "decision": {
+              "$ref": "#/$defs/payload-contract"
+            },
+            "effect": {
+              "$ref": "#/$defs/payload-contract"
+            }
+          },
+          "required": [
+            "request",
+            "decision",
+            "effect"
+          ],
+          "additionalProperties": false,
+          "description": "Stage-specific fact contracts accepted by control-evidence. Interaction may be omitted for programmatic-only operations."
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        },
+        "emitted_sources": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "non-controllable": {
+      "type": "object",
+      "required": [
+        "surface_ref",
+        "reason"
+      ],
+      "properties": {
+        "surface_ref": {
+          "$ref": "#/$defs/token"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

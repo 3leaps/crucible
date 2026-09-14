@@ -1,0 +1,22 @@
+{
+  "control_schema": "contract:application-control/v0/control-message.schema.json",
+  "type": "request",
+  "request_id": "67cbdac2-bfde-4534-9a28-b42ba789f0a3",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "operation_id": "workspace.layout.set",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
+  "idempotency_key": "layout-primary-20260905-01",
+  "expected_generation": 12,
+  "request_fingerprint": "a5564a2fb340b0b24259fc085ab54b59168b7c2c240e3d99019b442163b91af7",
+  "payload": {
+    "schema": "https://schemas.example.test/workbench/layout-set-request-v1.json",
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "value": {
+      "layout": "grid"
+    }
+  }
+}

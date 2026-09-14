@@ -1,0 +1,4 @@
+{
+  "replace": "policy",
+  "fixture": "../../control-policy/negative/source-capability-mismatch.json"
+}

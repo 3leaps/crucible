@@ -1,0 +1,4 @@
+{
+  "replace": "operation_catalog",
+  "fixture": "../../operation-catalog/negative/duplicate-operation-id.json"
+}

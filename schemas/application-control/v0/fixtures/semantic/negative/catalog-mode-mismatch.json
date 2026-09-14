@@ -1,0 +1,4 @@
+{
+  "replace": "observation",
+  "fixture": "../../observation-message/negative/catalog-mode-mismatch.json"
+}

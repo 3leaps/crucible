@@ -1,0 +1,4 @@
+{
+  "replace": "observation",
+  "fixture": "../../observation-message/negative/ineligible-consumer.json"
+}

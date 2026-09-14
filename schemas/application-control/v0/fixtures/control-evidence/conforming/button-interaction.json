@@ -1,0 +1,25 @@
+{
+  "evidence_schema": "contract:application-control/v0/control-evidence.schema.json",
+  "evidence_id": "d82a6e16-3d4f-4f88-863f-f898378c21cc",
+  "request_id": "3af5c5bb-5ea2-4a89-85b3-d4d4c5703fa9",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "operation_id": "workspace.layout.set",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
+  "surface_ref": "button.layout.apply",
+  "stage": "interaction",
+  "source": "user_interface",
+  "occurred_at": "2026-09-05T15:09:59.990Z",
+  "recorded_at": "2026-09-05T15:10:00Z",
+  "assurance": "observed",
+  "fact": {
+    "schema": "https://schemas.example.test/workbench/interaction-v1.json",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "value": {
+      "activation": "press"
+    }
+  }
+}

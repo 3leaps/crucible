@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/application-descriptor.schema.json",
+  "title": "Application Control Descriptor v0",
+  "description": "Discovery descriptor for one controllable application instance. The descriptor advertises immutable catalog identities; it does not grant authority.",
+  "type": "object",
+  "required": [
+    "descriptor_schema",
+    "capabilities",
+    "application",
+    "instance_id",
+    "generation",
+    "control_endpoint",
+    "operation_catalog",
+    "information_source_catalog",
+    "policy"
+  ],
+  "properties": {
+    "descriptor_schema": {
+      "const": "contract:application-control/v0/application-descriptor.schema.json"
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "contains": {
+        "const": "contract: application-control/v0"
+      }
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "instance_id": {
+      "$ref": "#/$defs/token"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "control_endpoint": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/endpoint"
+        }
+      ],
+      "description": "Null when the control circuit breaker is disabled."
+    },
+    "operation_catalog": {
+      "$ref": "#/$defs/operation-catalog-ref"
+    },
+    "information_source_catalog": {
+      "$ref": "#/$defs/information-source-catalog-ref"
+    },
+    "policy": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/policy-ref"
+        }
+      ],
+      "description": "Active policy artifact, if control is enabled. Presence is not proof of authorization."
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation-catalog-ref": {
+      "type": "object",
+      "required": [
+        "schema",
+        "uri",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "contract:application-control/v0/operation-catalog.schema.json"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "information-source-catalog-ref": {
+      "type": "object",
+      "required": [
+        "schema",
+        "uri",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "contract:application-control/v0/information-source-catalog.schema.json"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy-ref": {
+      "type": "object",
+      "required": [
+        "schema",
+        "uri",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "contract:application-control/v0/control-policy.schema.json"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "endpoint": {
+      "type": "object",
+      "required": [
+        "transport",
+        "address"
+      ],
+      "properties": {
+        "transport": {
+          "enum": [
+            "unix",
+            "named_pipe",
+            "https"
+          ]
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

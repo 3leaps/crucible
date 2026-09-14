@@ -1,0 +1,60 @@
+{
+  "catalog_schema": "contract:application-control/v0/operation-catalog.schema.json",
+  "application": "example.workbench",
+  "catalog_version": "v1",
+  "operations": [
+    {
+      "operation_id": "workspace.layout.set",
+      "surface_refs": [
+        "button.layout.apply",
+        "menu.view.apply-layout"
+      ],
+      "target_kind": "workspace",
+      "effect": "mutate",
+      "required_capability": "workspace.layout.write",
+      "confirmation": "policy",
+      "idempotency": "required",
+      "precondition": "generation_required",
+      "request": {
+        "schema": "https://schemas.example.test/workbench/layout-set-request-v1.json",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "result": {
+        "schema": "https://schemas.example.test/workbench/layout-set-result-v1.json",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "evidence": {
+        "interaction": {
+          "schema": "https://schemas.example.test/workbench/interaction-v1.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "request": {
+          "schema": "https://schemas.example.test/workbench/request-v1.json",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "decision": {
+          "schema": "https://schemas.example.test/workbench/decision-v1.json",
+          "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "effect": {
+          "schema": "https://schemas.example.test/workbench/layout-effect-v1.json",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      },
+      "outcomes": [
+        "applied",
+        "conflict",
+        "denied"
+      ],
+      "emitted_sources": [
+        "workspace.layout.changed"
+      ]
+    }
+  ],
+  "non_controllable_surfaces": [
+    {
+      "surface_ref": "status.clock",
+      "reason": "Display-only state; read through the cataloged clock source."
+    }
+  ]
+}

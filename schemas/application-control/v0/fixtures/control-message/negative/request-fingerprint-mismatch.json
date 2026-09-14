@@ -1,0 +1,22 @@
+{
+  "control_schema": "contract:application-control/v0/control-message.schema.json",
+  "type": "request",
+  "request_id": "0c7ab11d-d468-45f1-a466-1678cb0783d3",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "operation_id": "workspace.layout.set",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
+  "idempotency_key": "layout-primary-20260905-01",
+  "expected_generation": 12,
+  "request_fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+  "payload": {
+    "schema": "https://schemas.example.test/workbench/layout-set-request-v1.json",
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "value": {
+      "layout": "focus"
+    }
+  }
+}

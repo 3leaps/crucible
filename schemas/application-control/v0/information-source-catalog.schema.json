@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:application-control/v0/information-source-catalog.schema.json",
+  "title": "Application Information Source Catalog v0",
+  "description": "Exhaustive inventory of application information emitters and readable state. Delivery mode is explicit so low-value values may be scraped instead of streamed.",
+  "type": "object",
+  "required": [
+    "catalog_schema",
+    "application",
+    "catalog_version",
+    "sources"
+  ],
+  "properties": {
+    "catalog_schema": {
+      "const": "contract:application-control/v0/information-source-catalog.schema.json"
+    },
+    "application": {
+      "$ref": "#/$defs/token"
+    },
+    "catalog_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+(\\.[0-9]+){0,2}$"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payload-contract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "sha256"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "mode",
+        "payload",
+        "classification",
+        "provenance",
+        "required_capability",
+        "eligible_consumers",
+        "projection",
+        "freshness",
+        "delivery",
+        "availability",
+        "retention",
+        "replay"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/token"
+        },
+        "surface_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          },
+          "description": "Application surfaces that emit or display this source. Omit when the source is available only through a programmatic adapter."
+        },
+        "mode": {
+          "enum": [
+            "event",
+            "snapshot",
+            "scrape",
+            "sample",
+            "client_derived"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/payload-contract"
+        },
+        "classification": {
+          "enum": [
+            "public",
+            "internal",
+            "sensitive",
+            "restricted"
+          ]
+        },
+        "provenance": {
+          "enum": [
+            "application",
+            "operating_system",
+            "controller",
+            "derived"
+          ]
+        },
+        "required_capability": {
+          "$ref": "#/$defs/token",
+          "description": "Exact read capability required before this source may be projected to a consumer."
+        },
+        "eligible_consumers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/token"
+          },
+          "description": "Closed adapter or consumer kinds eligible to receive this projection. Eligibility never grants the required capability."
+        },
+        "projection": {
+          "type": "object",
+          "required": [
+            "rule",
+            "redaction",
+            "units",
+            "dimensions",
+            "maximum_cardinality"
+          ],
+          "properties": {
+            "rule": {
+              "$ref": "#/$defs/token",
+              "description": "Stable product-defined projection rule applied before delivery."
+            },
+            "redaction": {
+              "enum": [
+                "none",
+                "drop",
+                "mask",
+                "opaque_reference",
+                "aggregate",
+                "product_defined"
+              ]
+            },
+            "units": {
+              "$ref": "#/$defs/token"
+            },
+            "dimensions": {
+              "type": "array",
+              "maxItems": 32,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/dimension"
+              }
+            },
+            "maximum_cardinality": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          },
+          "additionalProperties": false
+        },
+        "freshness": {
+          "type": "object",
+          "required": [
+            "maximum_age_ms"
+          ],
+          "properties": {
+          "maximum_age_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "suggested_interval_ms": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 9007199254740991
+          }
+          },
+          "additionalProperties": false
+        },
+        "delivery": {
+          "type": "object",
+          "required": [
+            "ordering",
+            "coalescing",
+            "gap"
+          ],
+          "properties": {
+            "ordering": {
+              "enum": [
+                "not_applicable",
+                "per_source",
+                "per_instance"
+              ]
+            },
+            "coalescing": {
+              "enum": [
+                "forbidden",
+                "latest",
+                "bounded_batch",
+                "not_applicable"
+              ]
+            },
+            "gap": {
+              "enum": [
+                "explicit",
+                "snapshot_resync",
+                "not_applicable"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "availability": {
+          "type": "object",
+          "required": [
+            "stale",
+            "unknown",
+            "unavailable"
+          ],
+          "properties": {
+            "stale": {
+              "$ref": "#/$defs/state-representation"
+            },
+            "unknown": {
+              "$ref": "#/$defs/state-representation"
+            },
+            "unavailable": {
+              "$ref": "#/$defs/state-representation"
+            }
+          },
+          "additionalProperties": false
+        },
+        "retention": {
+          "enum": [
+            "none",
+            "bounded",
+            "durable"
+          ]
+        },
+        "replay": {
+          "enum": [
+            "none",
+            "cursor",
+            "snapshot_then_cursor"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "dimension": {
+      "type": "object",
+      "required": [
+        "name",
+        "maximum_cardinality"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/token"
+        },
+        "maximum_cardinality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "additionalProperties": false
+    },
+    "state-representation": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "explicit",
+            "null",
+            "omitted",
+            "not_applicable"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/token",
+          "description": "Payload discriminator used when kind is explicit."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "explicit"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

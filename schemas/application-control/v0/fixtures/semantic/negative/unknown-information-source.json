@@ -1,0 +1,4 @@
+{
+  "replace": "policy",
+  "fixture": "../../control-policy/negative/unknown-information-source.json"
+}

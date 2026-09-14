@@ -1,0 +1,4 @@
+{
+  "replace": "request",
+  "fixture": "../../control-message/negative/unknown-operation.json"
+}

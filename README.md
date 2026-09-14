@@ -87,7 +87,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   ├── python.md          # Python coding standards
 │   │   ├── rust.md            # Rust coding standards
 │   │   └── typescript.md      # TypeScript coding standards
-│   ├── decisions/             # Decision & governance records (ADR/PDR/EPR)
+│   ├── decisions/             # Decision & governance records (the *DR family)
 │   ├── operations/
 │   │   ├── ci-baseline.md     # CI/CD patterns and gotchas
 │   │   └── upstream-sync-guide.md  # How to vendor crucible content
@@ -103,6 +103,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   └── stream-output.md   # stdout/stderr discipline for CLI tools
 │   └── standards/             # Classification + portable contracts
 ├── schemas/                   # JSON schemas for validation
+│   ├── application-control/v0/  # Portable application control and observation
 │   ├── agentic/v0/            # Role prompt schema
 │   ├── ailink/v0/             # AILink prompt/response schemas
 │   ├── auth/v0/               # Session artifact schema
@@ -242,11 +243,17 @@ This repository **directly informs** 3leaps projects and can be **referenced by*
 
 ## Schemas
 
-JSON schemas carry a canonical `$id` under the `schemas.3leaps.dev` namespace:
+JSON schemas normally carry a canonical `$id` under the
+`schemas.3leaps.dev` namespace:
 
 ```
 https://schemas.3leaps.dev/<topic>/v0/<schema>.schema.json
 ```
+
+Portable companion contracts may instead use a hostless `contract:` logical
+identifier. The schema registry remains the retrieval origin; retrieval address
+does not replace logical identity. See
+[ADR-0007](docs/decisions/ADR-0007-separate-documentation-and-schema-registry-origins.md).
 
 > A hosted endpoint at that domain is **planned** (targeted for v0.1.x). Until then,
 > fetch schemas from GitHub (raw) and vendor a pinned copy with documented provenance —

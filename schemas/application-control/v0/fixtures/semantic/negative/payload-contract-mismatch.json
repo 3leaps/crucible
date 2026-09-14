@@ -1,0 +1,4 @@
+{
+  "replace": "request",
+  "fixture": "../../control-message/negative/payload-contract-mismatch.json"
+}

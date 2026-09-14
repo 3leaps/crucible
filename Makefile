@@ -328,8 +328,11 @@ lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-tax
 		sh scripts/test-project-work-controls.sh || exit 1; \
 		echo "    Forge-infra controls..."; \
 		sh scripts/test-forge-infra-controls.sh || exit 1; \
+		echo "    Application-control controls..."; \
+		sh scripts/test-application-control-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
+			schemas/application-control/v0/contract.json \
 			schemas/data-artifact/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
 			schemas/process-run/v0/contract.json \

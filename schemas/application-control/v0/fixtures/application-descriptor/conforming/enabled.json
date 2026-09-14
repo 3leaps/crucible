@@ -1,0 +1,26 @@
+{
+  "descriptor_schema": "contract:application-control/v0/application-descriptor.schema.json",
+  "capabilities": ["contract: application-control/v0"],
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "generation": 12,
+  "control_endpoint": {
+    "transport": "unix",
+    "address": "/var/run/example-workbench/control.sock"
+  },
+  "operation_catalog": {
+    "schema": "contract:application-control/v0/operation-catalog.schema.json",
+    "uri": "https://schemas.example.test/workbench/operation-catalog-v1.json",
+    "sha256": "c955a8cc5d78c6fd304117baa4911e4743a257254c901086d1fb3e618360ad1e"
+  },
+  "information_source_catalog": {
+    "schema": "contract:application-control/v0/information-source-catalog.schema.json",
+    "uri": "https://schemas.example.test/workbench/information-source-catalog-v1.json",
+    "sha256": "0fa845ccd285adc316870027eb06d816ae8710eaeb3f70bd6dfa52ad4a76e364"
+  },
+  "policy": {
+    "schema": "contract:application-control/v0/control-policy.schema.json",
+    "uri": "https://schemas.example.test/workbench/control-policy-v1.json",
+    "sha256": "29d6b7185f67b522f116ca3b2d25502993c4e5df11651342a1a0e9204e19ea60"
+  }
+}

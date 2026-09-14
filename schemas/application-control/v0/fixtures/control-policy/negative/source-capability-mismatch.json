@@ -1,0 +1,35 @@
+{
+  "policy_schema": "contract:application-control/v0/control-policy.schema.json",
+  "policy_id": "local-maintainer",
+  "policy_version": 1,
+  "provenance": {
+    "authority": "application-maintainer",
+    "source_ref": "local-startup-configuration"
+  },
+  "rules": [
+    {
+      "rule_id": "allow-layout-read",
+      "kind": "observe",
+      "effect": "allow",
+      "subjects": [
+        {
+          "kind": "local_peer",
+          "value": "maintainer"
+        }
+      ],
+      "applications": [
+        "example.workbench"
+      ],
+      "capabilities": [
+        "unrelated.read"
+      ],
+      "information_sources": [
+        "workspace.layout.changed"
+      ]
+    }
+  ],
+  "audit": {
+    "required": true,
+    "minimum_assurance": "observed"
+  }
+}

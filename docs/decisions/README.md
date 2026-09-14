@@ -52,6 +52,9 @@ Examples:
 | [ADR-0007](ADR-0007-separate-documentation-and-schema-registry-origins.md) | Separate Crucible Documentation and Schema Registry Origins        | proposed | 2026-08-19 |
 | [ADR-0008](ADR-0008-project-work-contract.md)                              | Portable Project Work as a Companion Contract                      | proposed | 2026-08-21 |
 | [ADR-0009](ADR-0009-forge-infrastructure-contract.md)                      | Separate Neutral Forge Capabilities from Curated Provider Profiles | proposed | 2026-08-27 |
+| [ADR-0010](ADR-0010-application-control-contract.md)                       | Application Control and Observation as a Portable Contract         | proposed | 2026-09-06 |
+| [DDR-0001](DDR-0001-application-control-data-contract.md)                  | Application Control Data Contract                                  | proposed | 2026-09-06 |
+| [SecDR-0001](SecDR-0001-application-controller-authority.md)               | Application Controller Authority                                   | proposed | 2026-09-06 |
 | [PDR-0001](PDR-0001-adopt-data-pipeline-principles.md)                     | Adopt the Data-Pipeline Engineering Principles                     | accepted | 2026-06-29 |
 | [PDR-0002](PDR-0002-worktree-per-task.md)                                  | One git worktree per concurrent task                               | accepted | 2026-06-29 |
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                             | Role portfolio tiering: core, supplemental, deprecated             | accepted | 2026-06-29 |

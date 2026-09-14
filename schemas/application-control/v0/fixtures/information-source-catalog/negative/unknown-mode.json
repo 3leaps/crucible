@@ -1,0 +1,25 @@
+{
+  "catalog_schema": "contract:application-control/v0/information-source-catalog.schema.json",
+  "application": "example.workbench",
+  "catalog_version": "v1",
+  "sources": [
+    {
+      "source_id": "status.clock",
+      "surface_refs": [
+        "status.clock"
+      ],
+      "mode": "continuous",
+      "payload": {
+        "schema": "https://schemas.example.test/workbench/clock-v1.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "classification": "public",
+      "provenance": "application",
+      "freshness": {
+        "maximum_age_ms": 60000
+      },
+      "retention": "none",
+      "replay": "none"
+    }
+  ]
+}

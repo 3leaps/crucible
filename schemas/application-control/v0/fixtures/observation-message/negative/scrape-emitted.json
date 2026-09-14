@@ -1,0 +1,21 @@
+{
+  "observation_schema": "contract:application-control/v0/observation-message.schema.json",
+  "observation_id": "6c349ddd-1d69-453c-849d-2e53d6ddb24f",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "source_id": "status.clock",
+  "mode": "scrape",
+  "occurred_at": "2026-09-05T15:10:00Z",
+  "recorded_at": "2026-09-05T15:10:00Z",
+  "provenance": {
+    "source": "application",
+    "assurance": "observed"
+  },
+  "payload": {
+    "schema": "https://schemas.example.test/workbench/clock-v1.json",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "value": {
+      "display": "15:10"
+    }
+  }
+}

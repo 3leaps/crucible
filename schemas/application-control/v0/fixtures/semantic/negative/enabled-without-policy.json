@@ -1,0 +1,4 @@
+{
+  "replace": "descriptor",
+  "fixture": "../../application-descriptor/negative/enabled-without-policy.json"
+}

@@ -1,0 +1,20 @@
+{
+  "control_schema": "contract:application-control/v0/control-message.schema.json",
+  "type": "request",
+  "request_id": "3af5c5bb-5ea2-4a89-85b3-d4d4c5703fa9",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "operation_id": "workspace.shutdown.force",
+  "target": {
+    "kind": "workspace",
+    "id": "primary"
+  },
+  "idempotency_key": "shutdown-primary-20260905",
+  "expected_generation": 12,
+  "request_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+  "payload": {
+    "schema": "https://schemas.example.test/workbench/shutdown-request-v1.json",
+    "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+    "value": {}
+  }
+}

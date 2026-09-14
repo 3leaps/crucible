@@ -1,0 +1,4 @@
+{
+  "replace": "request",
+  "fixture": "../../control-message/negative/mutation-missing-replay-guards.json"
+}

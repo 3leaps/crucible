@@ -1,0 +1,29 @@
+{
+  "observation_schema": "contract:application-control/v0/observation-message.schema.json",
+  "observation_id": "6c349ddd-1d69-453c-849d-2e53d6ddb24f",
+  "application": "example.workbench",
+  "instance_id": "workbench-01",
+  "source_id": "workspace.layout.changed",
+  "consumer_kind": "native_ui",
+  "mode": "event",
+  "occurred_at": "2026-09-05T15:10:00Z",
+  "recorded_at": "2026-09-05T15:10:00.010Z",
+  "sequence": 41,
+  "cursor": "layout-41",
+  "gap": {
+    "detected": false,
+    "recoverable": true
+  },
+  "provenance": {
+    "source": "application",
+    "assurance": "observed"
+  },
+  "payload": {
+    "schema": "https://schemas.example.test/workbench/layout-changed-v1.json",
+    "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "value": {
+      "layout": "focus",
+      "generation": 13
+    }
+  }
+}

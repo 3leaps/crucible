@@ -1,0 +1,4 @@
+{
+  "replace": "result",
+  "fixture": "../../control-message/negative/result-correlation-mismatch.json"
+}
