@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.31] - 2026-09-17
+
+### Added
+
+- **Inference path taxonomy (proposed).** Add `inference-path-taxonomy/v0` for
+  party identities, model families, exact source-native model pins, and
+  declared inference paths, with examples, rejects, and semantic controls.
+- **Application control and observation contract (proposed).** Add
+  `application-control/v0` schemas, conformance fixtures, semantic validation,
+  the reader-facing contract standard, and ADR-0010, DDR-0001, and SecDR-0001.
+
+### Changed
+
+- **Release-signing key pin.** Rotate the committed OpenPGP public key used by
+  the release workflow to verify newly created annotated tags before
+  publication.
+- **Verified development bootstrap.** Pin sfetch v0.4.12 and its immutable,
+  digest-checked verification engine; install sfetch and Goneat v0.6.0
+  repo-locally without trusting ambient PATH tools.
+- **CI toolchain.** Align check and release jobs on the v0.5.6 glibc runner,
+  which carries Goneat v0.6.0.
+
 ## [0.1.30] - 2026-08-27
 
 ### Added
@@ -990,7 +1012,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.30...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.31...HEAD
+[0.1.31]: https://github.com/3leaps/crucible/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/3leaps/crucible/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/3leaps/crucible/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/3leaps/crucible/compare/v0.1.27...v0.1.28

@@ -27,6 +27,7 @@ Crucible is a lightweight standards baseline covering:
 | Observability | Structured logging baseline                      |
 | AI Agents     | Attribution guidance and reusable role prompts   |
 | Security      | Secure commit policy for sensitive repos         |
+| Contracts     | Portable schemas and semantic control families   |
 | Classifiers   | 7 orthogonal data classification dimensions      |
 | Operations    | CI/CD patterns, stream output policy (SOP)       |
 | Decisions     | ADR framework for architecture decision records  |

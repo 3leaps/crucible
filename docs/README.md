@@ -58,9 +58,11 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 
 - [auth-session-artifact.md](standards/auth-session-artifact.md) - Non-secret auth session metadata contract (acquirer ⇄ inspector)
 - [agent-wait-contract.md](standards/agent-wait-contract.md) - Portable wait/poll contract for one aggregate waiter per consuming seat
+- [application-control-contract.md](standards/application-control-contract.md) - Portable application discovery, control, observation, and evidence contract
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
+- [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [project-work-contract.md](standards/project-work-contract.md) - Portable ready-packet, project-state, control-record, and progress-ledger contract
 - [data-artifact-contract-examples.md](standards/data-artifact-contract-examples.md) - Source-neutral stress cases and producer adoption preview template
@@ -85,6 +87,9 @@ Decision and governance records (ADR / PDR / …) — see the [decisions index](
 - [ADR-0003](decisions/ADR-0003-decision-record-taxonomy.md) - Decision & governance record taxonomy (the \*DR family)
 - [ADR-0008](decisions/ADR-0008-project-work-contract.md) - Portable project-work companion contract (proposed)
 - [ADR-0009](decisions/ADR-0009-forge-infrastructure-contract.md) - Neutral forge capabilities and curated provider profiles (proposed)
+- [ADR-0010](decisions/ADR-0010-application-control-contract.md) - Portable application control and observation contract (proposed)
+- [DDR-0001](decisions/DDR-0001-application-control-data-contract.md) - Application control data contract (proposed)
+- [SecDR-0001](decisions/SecDR-0001-application-controller-authority.md) - Application controller authority (proposed)
 - [PDR-0001](decisions/PDR-0001-adopt-data-pipeline-principles.md) - Adopt the data-pipeline engineering principles
 
 ### [Catalog](catalog/)
@@ -98,6 +103,7 @@ Reusable templates and reference materials.
 
 Current release documentation.
 
+- [v0.1.31.md](releases/v0.1.31.md) - Inference paths, application control, and verified toolchain
 - [v0.1.30.md](releases/v0.1.30.md) - Portable forge-infrastructure contract
 - [v0.1.17.md](releases/v0.1.17.md) - Baseline release, data artifact metadata hardening, and repository guidance alignment
 
@@ -127,6 +133,7 @@ Current release documentation.
 | CI/CD Baseline           | `crucible.3leaps.dev/operations/ci-baseline`                              |
 | Stream Output            | `crucible.3leaps.dev/sop/stream-output`                                   |
 | Auth Session Artifact    | `crucible.3leaps.dev/standards/auth-session-artifact`                     |
+| Application Control      | `crucible.3leaps.dev/standards/application-control-contract`              |
 | Forge Infrastructure     | `crucible.3leaps.dev/standards/forge-infrastructure-contract`             |
 | Using Forge Infra        | `crucible.3leaps.dev/guides/using-the-forge-infrastructure-contract`      |
 | Data Sensitivity         | `crucible.3leaps.dev/standards/data-sensitivity-classification`           |

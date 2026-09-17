@@ -420,9 +420,8 @@ for case in probes:
 print("    [ok] RFC 8785 reject cases (numbers, duplicates, lone surrogates)")
 print("    [ok] RFC 8785 string-byte probes (U+2028/U+2029 unescaped)")
 '
-if python3 scripts/rfc8785-canonicalize.py >/dev/null 2>"$tmpd/dup.err" <<'JSON'; then
-{"a":1,"a":2}
-JSON
+if printf '%s\n' '{"a":1,"a":2}' |
+    python3 scripts/rfc8785-canonicalize.py >/dev/null 2>"$tmpd/dup.err"; then
     echo "    [!!] duplicate object members were accepted" >&2
     exit 1
 fi

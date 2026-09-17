@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.30](https://img.shields.io/badge/version-0.1.30-blue)
+![Version: 0.1.31](https://img.shields.io/badge/version-0.1.31-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -103,7 +103,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   └── stream-output.md   # stdout/stderr discipline for CLI tools
 │   └── standards/             # Classification + portable contracts
 ├── schemas/                   # JSON schemas for validation
-│   ├── application-control/v0/  # Portable application control and observation
+│   ├── application-control/v0/  # Portable application control and observation (proposed)
 │   ├── agentic/v0/            # Role prompt schema
 │   ├── ailink/v0/             # AILink prompt/response schemas
 │   ├── auth/v0/               # Session artifact schema
