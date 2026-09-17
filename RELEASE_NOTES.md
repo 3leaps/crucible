@@ -8,6 +8,32 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.31 (2026-09-17)
+
+**Portable identities for inference paths, a deny-by-default application
+control contract, and a verified development toolchain.**
+
+- **Inference path taxonomy (proposed)** — `inference-path-taxonomy/v0`
+  separates parties, model families, exact source-native model pins, and
+  declared routes without claiming observed execution, health, or billing
+  identity.
+- **Application control and observation (proposed)** —
+  `application-control/v0` defines transport-neutral discovery, catalogs,
+  replay-safe requests, observations, and decision/effect evidence while
+  keeping hosted content sessions outside the control boundary. ADR-0010,
+  DDR-0001, and SecDR-0001 record its architecture, data, and authority model.
+- **Release-signing key rotation** — the committed OpenPGP public-key pin now
+  matches the current signing key. The release workflow verifies annotated tags
+  against this pin before publication.
+- **Verified development bootstrap** — sfetch is pinned to v0.4.12 and installed
+  through an immutable, digest-checked verification engine; Goneat is pinned to
+  v0.6.0. Check and release jobs use the v0.5.6 glibc runner carrying the same
+  Goneat release.
+
+See [docs/releases/v0.1.31.md](docs/releases/v0.1.31.md).
+
+---
+
 ## v0.1.30 (2026-08-27)
 
 **A portable forge-infrastructure contract for resolving capabilities, binding

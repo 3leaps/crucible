@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test test-bootstrap-engine-verification fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -24,16 +24,26 @@ VERSION := $(shell cat VERSION 2>/dev/null || echo "dev")
 # Tool installation directory
 # Bootstrap installs to repo-local bin/ by default
 BIN_DIR := $(CURDIR)/bin
+SFETCH_CACHE_DIR ?= $(CURDIR)/.cache/sfetch
+# Prefer repo-local bootstrap pins in every recipe and child control script.
+export PATH := $(BIN_DIR):$(PATH)
 
-# Pinned tool versions (minimum - won't downgrade existing installs)
-SFETCH_VERSION := latest
-GONEAT_VERSION ?= v0.5.1
+# Pinned tool versions (repo-local bootstrap; never float)
+SFETCH_VERSION := v0.4.12
+# Immutable sfetch revision containing bootstrap-sfetch-verified.sh, coupled to
+# SFETCH_VERSION through the engine's fail-closed supported-version range.
+SFETCH_ENGINE_SHA := bd0e7a0e68ef5a3dc7cda862fc74e4e8bc5125f8
+SFETCH_ENGINE_SHA256 := 6114b7b6c1b4f01b5dcab55de635127301a09bc456eb9094656810300b363532
+SFETCH_ENGINE_REPO := 3leaps/sfetch
+GONEAT_VERSION ?= v0.6.0
 
 # Tool paths
-# sfetch: repo-local (trust anchor) or PATH
-# goneat: user-space PATH only (like prettier, biome, ruff)
-SFETCH = $(shell [ -x "$(BIN_DIR)/sfetch" ] && echo "$(BIN_DIR)/sfetch" || command -v sfetch 2>/dev/null)
-GONEAT = $(shell command -v goneat 2>/dev/null)
+# Bootstrap installs trust-chain tools repo-locally. Quality targets prefer those
+# exact pins but retain PATH fallback for an already-provisioned environment.
+SFETCH_LOCAL := $(BIN_DIR)/sfetch
+GONEAT_LOCAL := $(BIN_DIR)/goneat
+SFETCH = $(shell [ -x "$(SFETCH_LOCAL)" ] && echo "$(SFETCH_LOCAL)" || command -v sfetch 2>/dev/null)
+GONEAT = $(shell [ -x "$(GONEAT_LOCAL)" ] && echo "$(GONEAT_LOCAL)" || command -v goneat 2>/dev/null)
 
 # -----------------------------------------------------------------------------
 # Default and Help
@@ -58,7 +68,7 @@ help: ## Show available targets
 	@echo "  version         Print current version"
 	@echo "  precommit       Pre-commit checks (assess + schema validation)"
 	@echo "  prepush         Pre-push checks (assess + schema validation)"
-	@echo "  deps-check      Check dev dependencies for cooling violations"
+	@echo "  deps-check      Check dependencies for cooling-policy violations"
 	@echo ""
 	@echo "Version management:"
 	@echo "  version-set     Set version (make version-set V=x.y.z)"
@@ -80,7 +90,8 @@ help: ## Show available targets
 # Bootstrap - Trust Anchor Chain
 # -----------------------------------------------------------------------------
 #
-# Trust chain: curl -> sfetch -> goneat -> other tools
+# Trust chain: curl -> digest-pinned verification engine -> sfetch -> goneat
+#              -> other tools
 #
 # sfetch (3leaps/sfetch) is the trust anchor - a minimal, auditable binary fetcher.
 # goneat (fulmenhq/goneat) is installed via sfetch and manages additional tooling.
@@ -100,42 +111,48 @@ bootstrap: ## Install required tools (sfetch -> goneat -> others)
 	fi
 	@echo "[ok] curl found"
 	@echo ""
-	@# Step 1: Install sfetch (trust anchor)
+	@# Step 1: Install the exact sfetch pin through the verified bootstrap engine.
 	@mkdir -p "$(BIN_DIR)"
-	@if [ ! -x "$(BIN_DIR)/sfetch" ] && ! command -v sfetch >/dev/null 2>&1; then \
-		echo "[..] Installing sfetch (trust anchor)..."; \
-		curl -fsSL https://github.com/3leaps/sfetch/releases/download/$(SFETCH_VERSION)/install-sfetch.sh | bash -s -- --dest "$(BIN_DIR)"; \
-	else \
-		echo "[ok] sfetch already installed"; \
+	@if [ "$(FORCE)" = "1" ]; then rm -f "$(SFETCH_LOCAL)" "$(GONEAT_LOCAL)"; fi
+	@if [ -x "$(SFETCH_LOCAL)" ] && [ "$$($(SFETCH_LOCAL) --version 2>&1 | head -n1)" != "sfetch $(patsubst v%,%,$(SFETCH_VERSION))" ]; then \
+		echo "[..] Repo-local sfetch does not match $(SFETCH_VERSION); reinstalling..."; \
+		rm -f "$(SFETCH_LOCAL)"; \
 	fi
-	@# Verify sfetch
-	@SFETCH_BIN=""; \
-	if [ -x "$(BIN_DIR)/sfetch" ]; then SFETCH_BIN="$(BIN_DIR)/sfetch"; \
-	elif command -v sfetch >/dev/null 2>&1; then SFETCH_BIN="$$(command -v sfetch)"; fi; \
-	if [ -z "$$SFETCH_BIN" ]; then echo "[!!] sfetch installation failed"; exit 1; fi; \
-	echo "[ok] sfetch: $$SFETCH_BIN"
+	@if [ ! -x "$(SFETCH_LOCAL)" ]; then \
+		echo "[..] Installing sfetch $(SFETCH_VERSION) with verified engine @ $(SFETCH_ENGINE_SHA)..."; \
+		./scripts/install-sfetch-verified.sh \
+			--version "$(SFETCH_VERSION)" \
+			--dir "$(BIN_DIR)" \
+			--engine-sha "$(SFETCH_ENGINE_SHA)" \
+			--engine-sha256 "$(SFETCH_ENGINE_SHA256)" \
+			--repo "$(SFETCH_ENGINE_REPO)"; \
+	fi
+	@if [ ! -x "$(SFETCH_LOCAL)" ]; then echo "[!!] sfetch installation failed (expected $(SFETCH_LOCAL))"; exit 1; fi
+	@if [ "$$($(SFETCH_LOCAL) --version 2>&1 | head -n1)" != "sfetch $(patsubst v%,%,$(SFETCH_VERSION))" ]; then \
+		echo "[!!] sfetch version mismatch after bootstrap"; exit 1; \
+	fi
+	@echo "[ok] sfetch: $$($(SFETCH_LOCAL) --version 2>&1 | head -n1) ($(SFETCH_LOCAL))"
 	@echo ""
 	@# Step 2: Install goneat via sfetch
-	@SFETCH_BIN=""; \
-	if [ -x "$(BIN_DIR)/sfetch" ]; then SFETCH_BIN="$(BIN_DIR)/sfetch"; \
-	elif command -v sfetch >/dev/null 2>&1; then SFETCH_BIN="$$(command -v sfetch)"; fi; \
-	if [ "$(FORCE)" = "1" ] || ! command -v goneat >/dev/null 2>&1; then \
-		echo "[..] Installing goneat $(GONEAT_VERSION) via sfetch (user-space)..."; \
-		$$SFETCH_BIN --repo fulmenhq/goneat --tag $(GONEAT_VERSION); \
-	else \
-		echo "[ok] goneat already installed"; \
+	@if [ -x "$(GONEAT_LOCAL)" ] && ! "$(GONEAT_LOCAL)" version 2>&1 | head -n1 | grep -Fq "$(GONEAT_VERSION)"; then \
+		echo "[..] Repo-local goneat does not match $(GONEAT_VERSION); reinstalling..."; \
+		rm -f "$(GONEAT_LOCAL)"; \
 	fi
-	@# Verify goneat (user-space only, not repo-local)
-	@if command -v goneat >/dev/null 2>&1; then \
-		echo "[ok] goneat: $$(goneat version 2>&1 | head -n1)"; \
-	else \
-		echo "[!!] goneat installation failed"; exit 1; \
+	@if [ ! -x "$(GONEAT_LOCAL)" ]; then \
+		echo "[..] Installing goneat $(GONEAT_VERSION) via verified sfetch..."; \
+		"$(SFETCH_LOCAL)" --repo fulmenhq/goneat --tag "$(GONEAT_VERSION)" \
+			--dest-dir "$(BIN_DIR)" --cache-dir "$(SFETCH_CACHE_DIR)" --require-minisign; \
 	fi
+	@if [ ! -x "$(GONEAT_LOCAL)" ]; then echo "[!!] goneat installation failed (expected $(GONEAT_LOCAL))"; exit 1; fi
+	@if ! "$(GONEAT_LOCAL)" version 2>&1 | head -n1 | grep -Fq "$(GONEAT_VERSION)"; then \
+		echo "[!!] goneat version mismatch after bootstrap"; exit 1; \
+	fi
+	@echo "[ok] goneat: $$($(GONEAT_LOCAL) version 2>&1 | head -n1) ($(GONEAT_LOCAL))"
 	@echo ""
 	@# Step 3: Install foundation tools via goneat
 	@echo "[..] Installing foundation tools via goneat..."
-	@goneat doctor tools --scope foundation --install --install-package-managers --yes --no-cooling 2>/dev/null || \
-	goneat doctor tools --install --yes 2>/dev/null || \
+	@"$(GONEAT_LOCAL)" doctor tools --scope foundation --install --install-package-managers --yes --no-cooling 2>/dev/null || \
+	 "$(GONEAT_LOCAL)" doctor tools --install --yes 2>/dev/null || \
 	echo "[!!] goneat doctor tools not available, skipping"
 	@echo ""
 	@# Step 4: Verify bun is available (required for 3leaps development)
@@ -160,8 +177,9 @@ bootstrap: ## Install required tools (sfetch -> goneat -> others)
 	@echo ""
 	@echo "Ensure $(BIN_DIR) is in your PATH, or tools will be found automatically."
 
-bootstrap-force: ## Force reinstall all tools
-	@$(MAKE) bootstrap FORCE=1
+bootstrap-force: ## Force reinstall repo-local sfetch and goneat
+	@rm -f "$(SFETCH_LOCAL)" "$(GONEAT_LOCAL)"
+	@$(MAKE) bootstrap
 
 tools: ## Verify external tools are available
 	@echo "Verifying tools..."
@@ -172,15 +190,17 @@ tools: ## Verify external tools are available
 		echo "[!!] bun not found (required - run 'make bootstrap')"; \
 	fi
 	@# Check sfetch
-	@if [ -x "$(BIN_DIR)/sfetch" ]; then \
-		echo "[ok] sfetch: $(BIN_DIR)/sfetch"; \
+	@if [ -x "$(SFETCH_LOCAL)" ]; then \
+		echo "[ok] sfetch: $(SFETCH_LOCAL)"; \
 	elif command -v sfetch >/dev/null 2>&1; then \
 		echo "[ok] sfetch: $$(command -v sfetch)"; \
 	else \
 		echo "[!!] sfetch not found (run 'make bootstrap')"; \
 	fi
-	@# Check goneat (user-space)
-	@if command -v goneat >/dev/null 2>&1; then \
+	@# Check goneat
+	@if [ -x "$(GONEAT_LOCAL)" ]; then \
+		echo "[ok] goneat: $$($(GONEAT_LOCAL) version 2>&1 | head -n1)"; \
+	elif command -v goneat >/dev/null 2>&1; then \
 		echo "[ok] goneat: $$(goneat version 2>&1 | head -n1)"; \
 	else \
 		echo "[!!] goneat not found - run 'make bootstrap'"; \
@@ -194,10 +214,13 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
-test: ## Run release-control negative tests
+test: test-bootstrap-engine-verification ## Run release-control negative tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
+
+test-bootstrap-engine-verification: ## Prove engine digest failure prevents execution
+	@./scripts/test-bootstrap-engine-verification.sh
 
 fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."
@@ -243,7 +266,9 @@ lint-schemas: ## Validate JSON Schema files against meta-schema
 		echo "[!!] goneat not found, skipping schema validation"; \
 	fi
 
-lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy ## Validate config data files against schemas
+lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy lint-config-data lint-contracts ## Validate config data files against schemas
+
+lint-config-data: ## Validate configuration and example data
 	@echo "[..] Validating config data files..."
 	@if command -v goneat >/dev/null 2>&1; then \
 		for f in config/agentic/roles/*.yaml; do \
@@ -308,8 +333,6 @@ lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-tax
 			done < "$$f"; \
 			rm -rf "$$tmpd"; \
 		done; \
-		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
-		sh scripts/test-review-journal-controls.sh || exit 1; \
 		for f in schemas/agent-wait/v0/examples/*.json schemas/agent-wait/v0/examples/outcomes/*.json; do \
 			[ -f "$$f" ] || continue; \
 			echo "    Validating $$f..."; \
@@ -320,6 +343,14 @@ lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-tax
 			echo "    Validating $$f..."; \
 			goneat validate data --schema-file schemas/service-job/v0/service-job-message.schema.json --data "$$f" || exit 1; \
 		done; \
+	else \
+		echo "[!!] goneat not found, skipping config validation"; \
+	fi
+
+lint-contracts: ## Run contract controls and validate manifests
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
+		sh scripts/test-review-journal-controls.sh || exit 1; \
 		echo "    Agent-wait controls..."; \
 		sh scripts/test-agent-wait-controls.sh || exit 1; \
 		echo "    Service-job controls..."; \
@@ -343,7 +374,7 @@ lint-config: lint-role-prompts lint-coverage-attestation lint-inference-path-tax
 			schemas/inference-path-taxonomy/v0/contract.json \
 			schemas/forge-infra/v0/contract.json || exit 1; \
 	else \
-		echo "[!!] goneat not found, skipping config validation"; \
+		echo "[!!] goneat not found, skipping contract validation"; \
 	fi
 
 lint-role-prompts: ## Run role-prompt negative controls
@@ -423,11 +454,10 @@ prepush: ## Run pre-push checks (goneat assess --fail-on low + schema validation
 	@$(MAKE) lint-schemas lint-config
 	@echo "[ok] Pre-push checks passed"
 
-deps-check: ## Check dev dependencies for cooling violations
-	@echo "Checking dev dependencies..."
+deps-check: ## Check dependencies for cooling-policy violations
+	@echo "Checking dependency cooling policy..."
 	@if command -v goneat >/dev/null 2>&1; then \
-		goneat dependencies check --cooling-days 7 --dev-deps-only 2>/dev/null || \
-		echo "[--] Dependency cooling check not available"; \
+		goneat dependencies --cooling; \
 	else \
 		echo "[--] goneat not found, skipping dependency check"; \
 	fi
