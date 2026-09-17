@@ -16,6 +16,7 @@ dist/
 
 # Bootstrap tools (installed via make bootstrap)
 bin/
+/.cache/
 
 # Environment and secrets
 .env

@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test test-bootstrap-engine-verification fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -68,7 +68,7 @@ help: ## Show available targets
 	@echo "  version         Print current version"
 	@echo "  precommit       Pre-commit checks (assess + schema validation)"
 	@echo "  prepush         Pre-push checks (assess + schema validation)"
-	@echo "  deps-check      Check dev dependencies for cooling violations"
+	@echo "  deps-check      Check dependencies for cooling-policy violations"
 	@echo ""
 	@echo "Version management:"
 	@echo "  version-set     Set version (make version-set V=x.y.z)"
@@ -120,17 +120,12 @@ bootstrap: ## Install required tools (sfetch -> goneat -> others)
 	fi
 	@if [ ! -x "$(SFETCH_LOCAL)" ]; then \
 		echo "[..] Installing sfetch $(SFETCH_VERSION) with verified engine @ $(SFETCH_ENGINE_SHA)..."; \
-		engine="$$(mktemp "$${TMPDIR:-/tmp}/bootstrap-sfetch-verified.XXXXXX")"; \
-		trap 'rm -f "$$engine"' EXIT HUP INT TERM; \
-		curl -fsSL "https://raw.githubusercontent.com/$(SFETCH_ENGINE_REPO)/$(SFETCH_ENGINE_SHA)/scripts/bootstrap-sfetch-verified.sh" -o "$$engine"; \
-		if command -v sha256sum >/dev/null 2>&1; then \
-			echo "$(SFETCH_ENGINE_SHA256)  $$engine" | sha256sum -c -; \
-		elif command -v shasum >/dev/null 2>&1; then \
-			echo "$(SFETCH_ENGINE_SHA256)  $$engine" | shasum -a 256 -c; \
-		else \
-			echo "[!!] sha256sum or shasum is required to verify the sfetch engine"; exit 1; \
-		fi; \
-		bash "$$engine" --version "$(SFETCH_VERSION)" --dir "$(BIN_DIR)"; \
+		./scripts/install-sfetch-verified.sh \
+			--version "$(SFETCH_VERSION)" \
+			--dir "$(BIN_DIR)" \
+			--engine-sha "$(SFETCH_ENGINE_SHA)" \
+			--engine-sha256 "$(SFETCH_ENGINE_SHA256)" \
+			--repo "$(SFETCH_ENGINE_REPO)"; \
 	fi
 	@if [ ! -x "$(SFETCH_LOCAL)" ]; then echo "[!!] sfetch installation failed (expected $(SFETCH_LOCAL))"; exit 1; fi
 	@if [ "$$($(SFETCH_LOCAL) --version 2>&1 | head -n1)" != "sfetch $(patsubst v%,%,$(SFETCH_VERSION))" ]; then \
@@ -219,10 +214,13 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
-test: ## Run release-control negative tests
+test: test-bootstrap-engine-verification ## Run release-control negative tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
+
+test-bootstrap-engine-verification: ## Prove engine digest failure prevents execution
+	@./scripts/test-bootstrap-engine-verification.sh
 
 fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."
