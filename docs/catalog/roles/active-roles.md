@@ -15,30 +15,30 @@ it does not duplicate the full prompts.
 
 ## Approved roles
 
-| Role                                                      | Use it when                                                                                   | Keep distinct from                                    |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`devlead`](../../../config/agentic/roles/devlead.yaml)   | Implementing or repairing software and its tests                                              | `devrev`, which independently reviews the result      |
-| [`devrev`](../../../config/agentic/roles/devrev.yaml)     | Independently reviewing correctness, contracts, failure behavior, and test strategy           | `secrev`, whose primary lens is security              |
-| [`secrev`](../../../config/agentic/roles/secrev.yaml)     | Independently assessing security, privacy, supply-chain, and trust risk                       | `secops`, which operates controls and infrastructure  |
-| [`cxotech`](../../../config/agentic/roles/cxotech.yaml)   | Choosing product direction, product-architecture bets, and priorities                         | `entarch`, which protects technical coherence         |
-| [`entarch`](../../../config/agentic/roles/entarch.yaml)   | Governing cross-system boundaries, contracts, compatibility, and architecture coherence       | `cxotech`, which owns product-side choices            |
-| [`uxdev`](../../../config/agentic/roles/uxdev.yaml)       | Designing and implementing interactive terminal, desktop, mobile, or web experiences          | `devlead` for general implementation                  |
-| [`dataeng`](../../../config/agentic/roles/dataeng.yaml)   | Building and operating data models, pipelines, migrations, lineage, and quality controls      | `analyst`, which uses evidence to answer questions    |
-| [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml) | Developing evidence-grounded positioning, messaging, and audience narrative                   | `strategist`, which advises on strategic posture      |
-| [`dispatch`](../../../config/agentic/roles/dispatch.yaml) | Routing work and preserving handoffs across an agent estate                                   | `projectmgr`, which defines and controls project work |
-| [`infoarch`](../../../config/agentic/roles/infoarch.yaml) | Structuring documentation, schemas, terminology, and information systems                      | `entarch` for cross-system technical decisions        |
-| [`releng`](../../../config/agentic/roles/releng.yaml)     | Engineering a genuinely complex release, publication, signing, provenance, or platform system | `devlead` for routine CI and release work             |
+| Role                                                      | Use it when                                                                                   | Keep distinct from                                   |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [`devlead`](../../../config/agentic/roles/devlead.yaml)   | Implementing or repairing software and its tests                                              | `devrev`, which independently reviews the result     |
+| [`devrev`](../../../config/agentic/roles/devrev.yaml)     | Independently reviewing correctness, contracts, failure behavior, and test strategy           | `secrev`, whose primary lens is security             |
+| [`secrev`](../../../config/agentic/roles/secrev.yaml)     | Independently assessing security, privacy, supply-chain, and trust risk                       | `secops`, which operates controls and infrastructure |
+| [`cxotech`](../../../config/agentic/roles/cxotech.yaml)   | Choosing product direction, product-architecture bets, and priorities                         | `entarch`, which protects technical coherence        |
+| [`entarch`](../../../config/agentic/roles/entarch.yaml)   | Governing cross-system boundaries, contracts, compatibility, and architecture coherence       | `cxotech`, which owns product-side choices           |
+| [`uxdev`](../../../config/agentic/roles/uxdev.yaml)       | Designing and implementing interactive terminal, desktop, mobile, or web experiences          | `devlead` for general implementation                 |
+| [`dataeng`](../../../config/agentic/roles/dataeng.yaml)   | Building and operating data models, pipelines, migrations, lineage, and quality controls      | `analyst`, which uses evidence to answer questions   |
+| [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml) | Developing evidence-grounded positioning, messaging, and audience narrative                   | `strategist`, which advises on strategic posture     |
+| [`dispatch`](../../../config/agentic/roles/dispatch.yaml) | Routing work and preserving handoffs across an agent estate                                   | `projectmgr`, which lands the stated unit of work    |
+| [`infoarch`](../../../config/agentic/roles/infoarch.yaml) | Structuring documentation, schemas, terminology, and information systems                      | `entarch` for cross-system technical decisions       |
+| [`releng`](../../../config/agentic/roles/releng.yaml)     | Engineering a genuinely complex release, publication, signing, provenance, or platform system | `devlead` for routine CI and release work            |
 
 ## Draft roles
 
-| Role                                                          | Use it when                                                                                                        | Review focus before approval                                                                  |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| [`analyst`](../../../config/agentic/roles/analyst.yaml)       | Turning a defined question and evidence into reproducible findings with explicit uncertainty                       | Stress-test web and social-source research, analytical assurance, and handoff to `strategist` |
-| [`strategist`](../../../config/agentic/roles/strategist.yaml) | Developing strategic diagnosis, plausible futures, options, trade-offs, and recommendations                        | Verify that advice does not absorb accountable product, technical, or human decisions         |
-| [`watcher`](../../../config/agentic/roles/watcher.yaml)       | Monitoring a bounded surface, handling documented routine conditions, and escalating uncertainty                   | Validate polling, cursor, retry, deadman, and low-cost/local-model operation                  |
-| [`delegate`](../../../config/agentic/roles/delegate.yaml)     | Assisting one or more principals through privileged access to communications, calendars, and commitments           | Prove compartment isolation and separate read, action, and disclosure grants                  |
-| [`secops`](../../../config/agentic/roles/secops.yaml)         | Curating and operating identities, infrastructure, security controls, and technology assets with privileged access | Prove custodianship grants, rollback, emergency powers, and operator-reviewer separation      |
-| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Turning an approved objective into ready tasks, dependencies, milestones, ownership, and delivery state            | Verify clean handoffs to `dispatch` without absorbing product or technical authority          |
+| Role                                                          | Use it when                                                                                                        | Review focus before approval                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [`analyst`](../../../config/agentic/roles/analyst.yaml)       | Turning a defined question and evidence into reproducible findings with explicit uncertainty                       | Stress-test web and social-source research, analytical assurance, and handoff to `strategist`          |
+| [`strategist`](../../../config/agentic/roles/strategist.yaml) | Developing strategic diagnosis, plausible futures, options, trade-offs, and recommendations                        | Verify that advice does not absorb accountable product, technical, or human decisions                  |
+| [`watcher`](../../../config/agentic/roles/watcher.yaml)       | Monitoring a bounded surface, handling documented routine conditions, and escalating uncertainty                   | Validate polling, cursor, retry, deadman, and low-cost/local-model operation                           |
+| [`delegate`](../../../config/agentic/roles/delegate.yaml)     | Assisting one or more principals through privileged access to communications, calendars, and commitments           | Prove compartment isolation and separate read, action, and disclosure grants                           |
+| [`secops`](../../../config/agentic/roles/secops.yaml)         | Curating and operating identities, infrastructure, security controls, and technology assets with privileged access | Prove custodianship grants, rollback, emergency powers, and operator-reviewer separation               |
+| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Landing a stated release arc or other quantifiable unit of work: critical path, risk, reshape, owners, readiness   | Verify exact-state, folded HOLDs, successor checks, and GO teeth without absorbing dispatch or cxotech |
 
 ## Common operating chains
 
@@ -48,7 +48,7 @@ Product and technology:
 
 Implementation:
 
-`projectmgr prepares work → dispatch routes → devlead implements → devrev reviews`
+`projectmgr lands the stated unit of work → dispatch routes → devlead implements → devrev reviews`
 
 Monitoring and advice:
 

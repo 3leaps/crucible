@@ -13,7 +13,7 @@ measure of a role's importance or authority.
 
 The default implementation loop is:
 
-`cxotech chooses product direction ↔ entarch protects technical coherence → projectmgr prepares work → dispatch routes → devlead implements → devrev reviews`
+`cxotech chooses product direction ↔ entarch protects technical coherence → projectmgr lands the stated unit of work → dispatch routes → devlead implements → devrev reviews`
 
 `secrev` joins wherever security or trust boundaries warrant it. Supplemental
 roles provide specialist work without changing the accountable decision owner.
@@ -48,7 +48,7 @@ are evaluated separately; multiple principals' grants remain compartmented.
 | [Watcher](watcher.yaml)                               | `watcher`    | automation | Bounded monitoring, routine triage, and escalation                  |
 | [Delegated Assistant](delegate.yaml)                  | `delegate`   | governance | Compartmented assistance under explicit principal grants            |
 | [Security and Infrastructure Operations](secops.yaml) | `secops`     | automation | Privileged asset curation and security operations                   |
-| [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Tasking, project state, dependencies, milestones, and risk          |
+| [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Land a stated unit of work: exact state, gates, owners, GO          |
 | [Dispatch Coordinator](dispatch.yaml)                 | `dispatch`   | governance | Estate routing, handoffs, coordination health, and operator tooling |
 | [Information Architect](infoarch.yaml)                | `infoarch`   | agentic    | Documentation, schemas, and information structure                   |
 | [Release Engineering](releng.yaml)                    | `releng`     | automation | Complex release, publication, signing, provenance, and CI systems   |
@@ -83,7 +83,7 @@ the canonical migration path.
 | Monitor a bounded surface                | watcher      | dispatch, analyst, secrev                          |
 | Assist with privileged communications    | delegate     | principals, secrev, projectmgr                     |
 | Operate privileged infrastructure        | secops       | secrev, entarch, maintainers                       |
-| Plan and control project work            | projectmgr   | dispatch for routing                               |
+| Land a release arc or other unit of work | projectmgr   | dispatch for routing; cxotech for path             |
 | Route sessions and maintain coordination | dispatch     | projectmgr or accountable owner                    |
 | Engineer a complex release system        | releng       | devlead, secrev, maintainers                       |
 
