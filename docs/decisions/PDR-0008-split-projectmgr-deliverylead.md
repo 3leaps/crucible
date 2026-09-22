@@ -80,6 +80,6 @@ Tier remains default adoption guidance per PDR-0003. Both `projectmgr` and
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                          | Updated By |
-| ---------- | ------------- | ---------------------------------------------------------------- | ---------- |
-| 2026-09-22 | → proposed    | Split panel chairing from projectbook delivery governance        | infoarch   |
+| Date       | Status Change | Summary                                                   | Updated By |
+| ---------- | ------------- | --------------------------------------------------------- | ---------- |
+| 2026-09-22 | → proposed    | Split panel chairing from projectbook delivery governance | infoarch   |

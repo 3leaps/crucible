@@ -33,12 +33,12 @@ are evaluated separately; multiple principals' grants remain compartmented.
 The sitting governance stack is ordered by horizon, not by authority. Escalate
 up the table only when the current role's lane is genuinely exceeded.
 
-| Role           | Timeline           | Scope                                  | Key question                                         |
-| -------------- | ------------------ | -------------------------------------- | ---------------------------------------------------- |
-| `dispatch`     | Minutes–days       | Thin session routing and handoff       | What context does the next session need?             |
-| `projectmgr`   | Days–program       | Standing program/panel thread chair    | Is the initiative moving, owned, and unstuck?        |
-| `deliverylead` | Sprint–quarter     | Projectbook, WIP, capacity, forecast   | When do we ship, and does capacity match commitment? |
-| `cxotech`      | Strategic (6–18mo) | Path, ADR, and directional conflict    | Should we build this, and which pattern?             |
+| Role           | Timeline           | Scope                                | Key question                                         |
+| -------------- | ------------------ | ------------------------------------ | ---------------------------------------------------- |
+| `dispatch`     | Minutes–days       | Thin session routing and handoff     | What context does the next session need?             |
+| `projectmgr`   | Days–program       | Standing program/panel thread chair  | Is the initiative moving, owned, and unstuck?        |
+| `deliverylead` | Sprint–quarter     | Projectbook, WIP, capacity, forecast | When do we ship, and does capacity match commitment? |
+| `cxotech`      | Strategic (6–18mo) | Path, ADR, and directional conflict  | Should we build this, and which pattern?             |
 
 ## Core roles
 
@@ -84,23 +84,23 @@ the canonical migration path.
 
 ## Selection guide
 
-| Need                                          | Primary role | Escalation or partner                           |
-| --------------------------------------------- | ------------ | ----------------------------------------------- |
-| Implement or fix software                     | devlead      | devrev; secrev when security-sensitive          |
-| Review correctness or test strategy           | devrev       | devlead for intent; secrev for security         |
-| Make a product bet                            | cxotech      | entarch for technical consequences              |
-| Protect shared architecture or contracts      | entarch      | cxotech for product-priority conflicts          |
-| Design and implement an interface             | uxdev        | devlead, cxotech, secrev                        |
-| Build or operate data systems                 | dataeng      | analyst, entarch, secrev                        |
-| Produce decision-support evidence             | analyst      | independent assurance; strategist for implications |
-| Develop strategic choices                     | strategist   | analyst, cxotech, entarch                       |
-| Monitor a bounded surface                     | watcher      | dispatch, analyst, secrev                       |
-| Assist with privileged communications         | delegate     | principals, secrev, projectmgr                  |
-| Operate privileged infrastructure             | secops       | secrev, entarch, maintainers                    |
-| Chair a standing program or panel thread      | projectmgr   | dispatch for routing; deliverylead for forecast |
-| Govern projectbook, WIP, capacity, or ship date | deliverylead | projectmgr for thread status; cxotech for path |
-| Route sessions and maintain coordination      | dispatch     | projectmgr or accountable owner                 |
-| Engineer a complex release system             | releng       | devlead, secrev, maintainers                    |
+| Need                                            | Primary role | Escalation or partner                              |
+| ----------------------------------------------- | ------------ | -------------------------------------------------- |
+| Implement or fix software                       | devlead      | devrev; secrev when security-sensitive             |
+| Review correctness or test strategy             | devrev       | devlead for intent; secrev for security            |
+| Make a product bet                              | cxotech      | entarch for technical consequences                 |
+| Protect shared architecture or contracts        | entarch      | cxotech for product-priority conflicts             |
+| Design and implement an interface               | uxdev        | devlead, cxotech, secrev                           |
+| Build or operate data systems                   | dataeng      | analyst, entarch, secrev                           |
+| Produce decision-support evidence               | analyst      | independent assurance; strategist for implications |
+| Develop strategic choices                       | strategist   | analyst, cxotech, entarch                          |
+| Monitor a bounded surface                       | watcher      | dispatch, analyst, secrev                          |
+| Assist with privileged communications           | delegate     | principals, secrev, projectmgr                     |
+| Operate privileged infrastructure               | secops       | secrev, entarch, maintainers                       |
+| Chair a standing program or panel thread        | projectmgr   | dispatch for routing; deliverylead for forecast    |
+| Govern projectbook, WIP, capacity, or ship date | deliverylead | projectmgr for thread status; cxotech for path     |
+| Route sessions and maintain coordination        | dispatch     | projectmgr or accountable owner                    |
+| Engineer a complex release system               | releng       | devlead, secrev, maintainers                       |
 
 ## Usage
 
