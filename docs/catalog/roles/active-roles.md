@@ -15,20 +15,19 @@ it does not duplicate the full prompts.
 
 ## Approved roles
 
-| Role                                                              | Use it when                                                                                   | Keep distinct from                                        |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| [`devlead`](../../../config/agentic/roles/devlead.yaml)           | Implementing or repairing software and its tests                                              | `devrev`, which independently reviews the result          |
-| [`devrev`](../../../config/agentic/roles/devrev.yaml)             | Independently reviewing correctness, contracts, failure behavior, and test strategy           | `secrev`, whose primary lens is security                  |
-| [`secrev`](../../../config/agentic/roles/secrev.yaml)             | Independently assessing security, privacy, supply-chain, and trust risk                       | `secops`, which operates controls and infrastructure      |
-| [`cxotech`](../../../config/agentic/roles/cxotech.yaml)           | Choosing product direction, product-architecture bets, and priorities                         | `entarch` for coherence; `projectmgr` for thread chairing |
-| [`entarch`](../../../config/agentic/roles/entarch.yaml)           | Governing cross-system boundaries, contracts, compatibility, and architecture coherence       | `cxotech`, which owns product-side choices                |
-| [`uxdev`](../../../config/agentic/roles/uxdev.yaml)               | Designing and implementing interactive terminal, desktop, mobile, or web experiences          | `devlead` for general implementation                      |
-| [`dataeng`](../../../config/agentic/roles/dataeng.yaml)           | Building and operating data models, pipelines, migrations, lineage, and quality controls      | `analyst`, which uses evidence to answer questions        |
-| [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml)         | Developing evidence-grounded positioning, messaging, and audience narrative                   | `strategist`, which advises on strategic posture          |
-| [`dispatch`](../../../config/agentic/roles/dispatch.yaml)         | Thin session routing and handoff across an agent estate (minutes–days)                        | `projectmgr`, which chairs the standing thread            |
-| [`deliverylead`](../../../config/agentic/roles/deliverylead.yaml) | Projectbook, WIP, capacity, and ship-forecast governance (sprint–quarter)                     | `projectmgr` for thread chairing; `cxotech` for path/ADR  |
-| [`infoarch`](../../../config/agentic/roles/infoarch.yaml)         | Structuring documentation, schemas, terminology, and information systems                      | `entarch` for cross-system technical decisions            |
-| [`releng`](../../../config/agentic/roles/releng.yaml)             | Engineering a genuinely complex release, publication, signing, provenance, or platform system | `devlead` for routine CI and release work                 |
+| Role                                                      | Use it when                                                                                   | Keep distinct from                                   |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [`devlead`](../../../config/agentic/roles/devlead.yaml)   | Implementing or repairing software and its tests                                              | `devrev`, which independently reviews the result     |
+| [`devrev`](../../../config/agentic/roles/devrev.yaml)     | Independently reviewing correctness, contracts, failure behavior, and test strategy           | `secrev`, whose primary lens is security             |
+| [`secrev`](../../../config/agentic/roles/secrev.yaml)     | Independently assessing security, privacy, supply-chain, and trust risk                       | `secops`, which operates controls and infrastructure |
+| [`cxotech`](../../../config/agentic/roles/cxotech.yaml)   | Choosing product direction, product-architecture bets, and priorities                         | `entarch`, which protects technical coherence        |
+| [`entarch`](../../../config/agentic/roles/entarch.yaml)   | Governing cross-system boundaries, contracts, compatibility, and architecture coherence       | `cxotech`, which owns product-side choices           |
+| [`uxdev`](../../../config/agentic/roles/uxdev.yaml)       | Designing and implementing interactive terminal, desktop, mobile, or web experiences          | `devlead` for general implementation                 |
+| [`dataeng`](../../../config/agentic/roles/dataeng.yaml)   | Building and operating data models, pipelines, migrations, lineage, and quality controls      | `analyst`, which uses evidence to answer questions   |
+| [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml) | Developing evidence-grounded positioning, messaging, and audience narrative                   | `strategist`, which advises on strategic posture     |
+| [`dispatch`](../../../config/agentic/roles/dispatch.yaml) | Routing work and preserving handoffs across an agent estate                                   | `projectmgr`, which lands the stated unit of work    |
+| [`infoarch`](../../../config/agentic/roles/infoarch.yaml) | Structuring documentation, schemas, terminology, and information systems                      | `entarch` for cross-system technical decisions       |
+| [`releng`](../../../config/agentic/roles/releng.yaml)     | Engineering a genuinely complex release, publication, signing, provenance, or platform system | `devlead` for routine CI and release work            |
 
 ## Draft roles
 
@@ -39,7 +38,7 @@ it does not duplicate the full prompts.
 | [`watcher`](../../../config/agentic/roles/watcher.yaml)       | Monitoring a bounded surface, handling documented routine conditions, and escalating uncertainty                   | Validate polling, cursor, retry, deadman, and low-cost/local-model operation                  |
 | [`delegate`](../../../config/agentic/roles/delegate.yaml)     | Assisting one or more principals through privileged access to communications, calendars, and commitments           | Prove compartment isolation and separate read, action, and disclosure grants                  |
 | [`secops`](../../../config/agentic/roles/secops.yaml)         | Curating and operating identities, infrastructure, security controls, and technology assets with privileged access | Prove custodianship grants, rollback, emergency powers, and operator-reviewer separation      |
-| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Chairing standing program/panel threads: status, next actions, owners, stuck detection                             | Keep distinct from `dispatch`, `deliverylead`, and `cxotech`                                  |
+| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Landing a stated release arc or other quantifiable unit of work: critical path, risk, reshape, owners, readiness   | Verify delivery substance without absorbing dispatch routing or cxotech path/ADR              |
 
 ## Common operating chains
 
@@ -49,10 +48,7 @@ Product and technology:
 
 Implementation:
 
-`projectmgr chairs the standing thread → dispatch routes sessions → devlead implements → devrev reviews`
-
-`deliverylead` joins when sprint–quarter WIP, capacity, or ship forecast needs
-projectbook governance.
+`projectmgr lands the stated unit of work → dispatch routes → devlead implements → devrev reviews`
 
 Monitoring and advice:
 
@@ -68,18 +64,6 @@ Privileged infrastructure:
 
 These are composable patterns, not mandatory panels. Use the smallest set of
 roles that covers the work's real decision and risk boundaries.
-
-## Governance timeline
-
-Sitting governance is ordered by horizon. Escalate up the table only when the
-current role's lane is exceeded.
-
-| Role           | Timeline           | Scope                                |
-| -------------- | ------------------ | ------------------------------------ |
-| `dispatch`     | Minutes–days       | Thin session routing and handoff     |
-| `projectmgr`   | Days–program       | Standing program/panel thread chair  |
-| `deliverylead` | Sprint–quarter     | Projectbook, WIP, capacity, forecast |
-| `cxotech`      | Strategic (6–18mo) | Path, ADR, and directional conflict  |
 
 ## Role is not deployment authority
 
@@ -100,5 +84,5 @@ obligations.
 
 ## Deprecated names
 
-`qa` and `cicd` remain resolvable only as migration adapters.
+`qa`, `deliverylead`, and `cicd` remain resolvable only as migration adapters.
 See the [full catalog](README.md#deprecated) for replacements.

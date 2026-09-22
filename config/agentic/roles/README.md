@@ -13,12 +13,10 @@ measure of a role's importance or authority.
 
 The default implementation loop is:
 
-`cxotech chooses product direction ↔ entarch protects technical coherence → projectmgr chairs the standing thread → dispatch routes sessions → devlead implements → devrev reviews`
+`cxotech chooses product direction ↔ entarch protects technical coherence → projectmgr lands the stated unit of work → dispatch routes → devlead implements → devrev reviews`
 
-`deliverylead` joins when sprint–quarter WIP, capacity, or ship forecast needs
-projectbook governance. `secrev` joins wherever security or trust boundaries
-warrant it. Supplemental roles provide specialist work without changing the
-accountable decision owner.
+`secrev` joins wherever security or trust boundaries warrant it. Supplemental
+roles provide specialist work without changing the accountable decision owner.
 
 For monitoring and advisory work:
 
@@ -27,18 +25,6 @@ For monitoring and advisory work:
 For privileged human coordination, `delegate` assists only through explicit,
 principal-specific grants. Access, action authority, and disclosure authority
 are evaluated separately; multiple principals' grants remain compartmented.
-
-## Governance timeline
-
-The sitting governance stack is ordered by horizon, not by authority. Escalate
-up the table only when the current role's lane is genuinely exceeded.
-
-| Role           | Timeline           | Scope                                | Key question                                         |
-| -------------- | ------------------ | ------------------------------------ | ---------------------------------------------------- |
-| `dispatch`     | Minutes–days       | Thin session routing and handoff     | What context does the next session need?             |
-| `projectmgr`   | Days–program       | Standing program/panel thread chair  | Is the initiative moving, owned, and unstuck?        |
-| `deliverylead` | Sprint–quarter     | Projectbook, WIP, capacity, forecast | When do we ship, and does capacity match commitment? |
-| `cxotech`      | Strategic (6–18mo) | Path, ADR, and directional conflict  | Should we build this, and which pattern?             |
 
 ## Core roles
 
@@ -51,32 +37,32 @@ up the table only when the current role's lane is genuinely exceeded.
 
 ## Supplemental roles
 
-| Role                                                  | Slug           | Category   | Purpose                                                                     |
-| ----------------------------------------------------- | -------------- | ---------- | --------------------------------------------------------------------------- |
-| [Enterprise Architect](entarch.yaml)                  | `entarch`      | governance | Technology-side architecture and contract coherence                         |
-| [UX Developer](uxdev.yaml)                            | `uxdev`        | agentic    | User-centered interactive design and implementation                         |
-| [Data Engineering](dataeng.yaml)                      | `dataeng`      | analytics  | Data architecture, pipelines, quality, lineage, and operations              |
-| [Product Marketing](prodmktg.yaml)                    | `prodmktg`     | marketing  | Positioning, messaging, and audience narrative                              |
-| [Analyst](analyst.yaml)                               | `analyst`      | analytics  | Evidence, methods, uncertainty, and decision-ready findings                 |
-| [Strategist](strategist.yaml)                         | `strategist`   | consulting | Strategic diagnosis, foresight, choices, and advice                         |
-| [Watcher](watcher.yaml)                               | `watcher`      | automation | Bounded monitoring, routine triage, and escalation                          |
-| [Delegated Assistant](delegate.yaml)                  | `delegate`     | governance | Compartmented assistance under explicit principal grants                    |
-| [Security and Infrastructure Operations](secops.yaml) | `secops`       | automation | Privileged asset curation and security operations                           |
-| [Project Manager](projectmgr.yaml)                    | `projectmgr`   | governance | Standing program/panel chair: status, next actions, owners, stuck detection |
-| [Delivery Lead](deliverylead.yaml)                    | `deliverylead` | governance | Projectbook, WIP, capacity, and ship forecast (sprint–quarter)              |
-| [Dispatch Coordinator](dispatch.yaml)                 | `dispatch`     | governance | Thin session routing, handoffs, and coordination-tool stewardship           |
-| [Information Architect](infoarch.yaml)                | `infoarch`     | agentic    | Documentation, schemas, and information structure                           |
-| [Release Engineering](releng.yaml)                    | `releng`       | automation | Complex release, publication, signing, provenance, and CI systems           |
+| Role                                                  | Slug         | Category   | Purpose                                                             |
+| ----------------------------------------------------- | ------------ | ---------- | ------------------------------------------------------------------- |
+| [Enterprise Architect](entarch.yaml)                  | `entarch`    | governance | Technology-side architecture and contract coherence                 |
+| [UX Developer](uxdev.yaml)                            | `uxdev`      | agentic    | User-centered interactive design and implementation                 |
+| [Data Engineering](dataeng.yaml)                      | `dataeng`    | analytics  | Data architecture, pipelines, quality, lineage, and operations      |
+| [Product Marketing](prodmktg.yaml)                    | `prodmktg`   | marketing  | Positioning, messaging, and audience narrative                      |
+| [Analyst](analyst.yaml)                               | `analyst`    | analytics  | Evidence, methods, uncertainty, and decision-ready findings         |
+| [Strategist](strategist.yaml)                         | `strategist` | consulting | Strategic diagnosis, foresight, choices, and advice                 |
+| [Watcher](watcher.yaml)                               | `watcher`    | automation | Bounded monitoring, routine triage, and escalation                  |
+| [Delegated Assistant](delegate.yaml)                  | `delegate`   | governance | Compartmented assistance under explicit principal grants            |
+| [Security and Infrastructure Operations](secops.yaml) | `secops`     | automation | Privileged asset curation and security operations                   |
+| [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Land a stated unit of work: critical path, risk, owners, readiness  |
+| [Dispatch Coordinator](dispatch.yaml)                 | `dispatch`   | governance | Estate routing, handoffs, coordination health, and operator tooling |
+| [Information Architect](infoarch.yaml)                | `infoarch`   | agentic    | Documentation, schemas, and information structure                   |
+| [Release Engineering](releng.yaml)                    | `releng`     | automation | Complex release, publication, signing, provenance, and CI systems   |
 
 Draft roles remain supplemental but should not be represented as approved until
 their `status` changes after review.
 
 ## Deprecated roles
 
-| Role                          | Slug   | Replacement                                                                 |
-| ----------------------------- | ------ | --------------------------------------------------------------------------- |
-| [Quality Assurance](qa.yaml)  | `qa`   | `devrev` plus task-specific acceptance criteria; `devlead` implements tests |
-| [CI/CD Automation](cicd.yaml) | `cicd` | `devlead`; add `releng` only for complex release systems                    |
+| Role                               | Slug           | Replacement                                                                 |
+| ---------------------------------- | -------------- | --------------------------------------------------------------------------- |
+| [Quality Assurance](qa.yaml)       | `qa`           | `devrev` plus task-specific acceptance criteria; `devlead` implements tests |
+| [Delivery Lead](deliverylead.yaml) | `deliverylead` | `projectmgr`                                                                |
+| [CI/CD Automation](cicd.yaml)      | `cicd`         | `devlead`; add `releng` only for complex release systems                    |
 
 Deprecated prompts retain migration scope, escalation, and exclusions but do
 not declare independent outputs or authority. Their `replaced_by` entries are
@@ -84,23 +70,22 @@ the canonical migration path.
 
 ## Selection guide
 
-| Need                                            | Primary role | Escalation or partner                              |
-| ----------------------------------------------- | ------------ | -------------------------------------------------- |
-| Implement or fix software                       | devlead      | devrev; secrev when security-sensitive             |
-| Review correctness or test strategy             | devrev       | devlead for intent; secrev for security            |
-| Make a product bet                              | cxotech      | entarch for technical consequences                 |
-| Protect shared architecture or contracts        | entarch      | cxotech for product-priority conflicts             |
-| Design and implement an interface               | uxdev        | devlead, cxotech, secrev                           |
-| Build or operate data systems                   | dataeng      | analyst, entarch, secrev                           |
-| Produce decision-support evidence               | analyst      | independent assurance; strategist for implications |
-| Develop strategic choices                       | strategist   | analyst, cxotech, entarch                          |
-| Monitor a bounded surface                       | watcher      | dispatch, analyst, secrev                          |
-| Assist with privileged communications           | delegate     | principals, secrev, projectmgr                     |
-| Operate privileged infrastructure               | secops       | secrev, entarch, maintainers                       |
-| Chair a standing program or panel thread        | projectmgr   | dispatch for routing; deliverylead for forecast    |
-| Govern projectbook, WIP, capacity, or ship date | deliverylead | projectmgr for thread status; cxotech for path     |
-| Route sessions and maintain coordination        | dispatch     | projectmgr or accountable owner                    |
-| Engineer a complex release system               | releng       | devlead, secrev, maintainers                       |
+| Need                                     | Primary role | Escalation or partner                              |
+| ---------------------------------------- | ------------ | -------------------------------------------------- |
+| Implement or fix software                | devlead      | devrev; secrev when security-sensitive             |
+| Review correctness or test strategy      | devrev       | devlead for intent; secrev for security            |
+| Make a product bet                       | cxotech      | entarch for technical consequences                 |
+| Protect shared architecture or contracts | entarch      | cxotech for product-priority conflicts             |
+| Design and implement an interface        | uxdev        | devlead, cxotech, secrev                           |
+| Build or operate data systems            | dataeng      | analyst, entarch, secrev                           |
+| Produce decision-support evidence        | analyst      | independent assurance; strategist for implications |
+| Develop strategic choices                | strategist   | analyst, cxotech, entarch                          |
+| Monitor a bounded surface                | watcher      | dispatch, analyst, secrev                          |
+| Assist with privileged communications    | delegate     | principals, secrev, projectmgr                     |
+| Operate privileged infrastructure        | secops       | secrev, entarch, maintainers                       |
+| Land a release arc or other unit of work | projectmgr   | dispatch for routing; cxotech for path             |
+| Route sessions and maintain coordination | dispatch     | projectmgr or accountable owner                    |
+| Engineer a complex release system        | releng       | devlead, secrev, maintainers                       |
 
 ## Usage
 

@@ -2,7 +2,7 @@
 slug: dispatch
 name: Dispatch Coordinator
 description: Estate-aware routing, handoffs, coordination health, and stewardship of coordination operations
-version: 1.2.0
+version: 1.1.0
 author: infoarch
 status: approved
 tier: supplemental
@@ -28,13 +28,8 @@ context: |
   that visibility does not grant project, technical, or strategic authority.
 
   Distinct from:
-  - projectmgr: Default chair for standing program and panel threads
-    (days–program): status, next actions, owners, stuck detection. Dispatch
-    only routes sessions (minutes–days) and does not chair the initiative.
-  - deliverylead: Projectbook and sprint–quarter delivery governance (WIP,
-    capacity, ship forecast). Dispatch does not own delivery mechanics.
-  - cxotech: Chooses path, writes ADRs, and breaks directional conflicts.
-    Dispatch has no decision authority.
+  - projectmgr: Lands a stated unit of work through critical path, risk, owners,
+    and readiness. Dispatch only routes sessions and returns coordination state.
   - watcher: Owns a bounded watch. Dispatch owns estate-level routing and
     coordination health.
 outputs:

@@ -62,7 +62,6 @@ Examples:
 | [PDR-0005](PDR-0005-adopt-fierce-collaboration-review.md)                  | Adopt the fierce-collaboration multi-agent review process          | proposed | 2026-07-23 |
 | [PDR-0006](PDR-0006-shipping-charter.md)                                   | Crucible ships no consumer-linked code                             | accepted | 2026-07-28 |
 | [PDR-0007](PDR-0007-curate-role-catalog.md)                                | Curate the role catalog around proven decision boundaries          | accepted | 2026-08-19 |
-| [PDR-0008](PDR-0008-split-projectmgr-deliverylead.md)                      | Split projectmgr and deliverylead on the governance timeline       | proposed | 2026-09-22 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)            | Published Artifacts Carry an Integral Dependency Graph             | accepted | 2026-07-22 |
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)                        | Gates Assert on Resolved State and Are Proven Able to Fail         | accepted | 2026-07-20 |
 | [EPR-0003](EPR-0003-claim-integrity.md)                                    | Durable Claims Assert on What Exists and Move When It Moves        | proposed | 2026-07-27 |

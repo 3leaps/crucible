@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Governance role split.** Reposition `projectmgr` as the days–program
-  standing program/panel chair and restore `deliverylead` as approved
-  supplemental projectbook / sprint–quarter delivery governance. Insert
-  `projectmgr` between `dispatch` and `deliverylead` on the governance
-  timeline. See [PDR-0008](docs/decisions/PDR-0008-split-projectmgr-deliverylead.md).
+- **projectmgr delivery substance.** Reshape the draft `projectmgr` prompt
+  around landing a stated release arc or other quantifiable unit of work
+  (critical path, risk, reshape/re-risk, owners, readiness). No required
+  project methodology. `deliverylead` remains deprecated in favor of
+  `projectmgr`. Inference pins stay on the adopting estate, not in this
+  catalog.
 
 ## [0.1.31] - 2026-09-17
 

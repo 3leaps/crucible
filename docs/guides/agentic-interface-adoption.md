@@ -113,23 +113,22 @@ cp ../crucible/config/agentic/roles/devrev.yaml \
 
 ### Available Roles
 
-| Role          | Slug           | Use When                                       |
-| ------------- | -------------- | ---------------------------------------------- |
-| Dev Lead      | `devlead`      | Writing features, fixing bugs, implementation  |
-| Dev Review    | `devrev`       | Code review, four-eyes audit                   |
-| Info Arch     | `infoarch`     | Documentation, schemas, standards              |
-| Sec Review    | `secrev`       | Security analysis, vulnerability review        |
-| UX Dev        | `uxdev`        | Interactive experience implementation          |
-| Analyst       | `analyst`      | Evidence, methods, and findings                |
-| Strategist    | `strategist`   | Strategic options and recommendations          |
-| Data Eng      | `dataeng`      | Data systems, quality, and lineage             |
-| Watcher       | `watcher`      | Bounded monitoring and escalation              |
-| Delegate      | `delegate`     | Privileged assistance under explicit grants    |
-| Sec Ops       | `secops`       | Privileged infrastructure and asset operations |
-| Project Mgr   | `projectmgr`   | Standing program/panel chair, next actions     |
-| Delivery Lead | `deliverylead` | Projectbook, WIP, capacity, ship forecast      |
-| Rel Eng       | `releng`       | Complex release and publication systems        |
-| Dispatch      | `dispatch`     | Thin session routing and handoff               |
+| Role        | Slug         | Use When                                       |
+| ----------- | ------------ | ---------------------------------------------- |
+| Dev Lead    | `devlead`    | Writing features, fixing bugs, implementation  |
+| Dev Review  | `devrev`     | Code review, four-eyes audit                   |
+| Info Arch   | `infoarch`   | Documentation, schemas, standards              |
+| Sec Review  | `secrev`     | Security analysis, vulnerability review        |
+| UX Dev      | `uxdev`      | Interactive experience implementation          |
+| Analyst     | `analyst`    | Evidence, methods, and findings                |
+| Strategist  | `strategist` | Strategic options and recommendations          |
+| Data Eng    | `dataeng`    | Data systems, quality, and lineage             |
+| Watcher     | `watcher`    | Bounded monitoring and escalation              |
+| Delegate    | `delegate`   | Privileged assistance under explicit grants    |
+| Sec Ops     | `secops`     | Privileged infrastructure and asset operations |
+| Project Mgr | `projectmgr` | Land a stated unit of work, not ceremony       |
+| Rel Eng     | `releng`     | Complex release and publication systems        |
+| Dispatch    | `dispatch`   | Estate routing and coordination                |
 
 ### Recommended by Repository Type
 

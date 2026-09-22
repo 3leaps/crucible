@@ -1,5 +1,5 @@
 # Role: projectmgr
 
-Default chair for standing program and panel threads (days–program horizon).
-See the canonical
+Land a stated release arc or other quantifiable unit of work through
+critical path, risk, owners, and readiness. See the canonical
 [`projectmgr.yaml`](../../../config/agentic/roles/projectmgr.yaml) definition.

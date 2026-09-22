@@ -2,7 +2,7 @@
 slug: cxotech
 name: Chief Experience Technology Officer
 description: Strategic fulcrum unifying product experience with technical architecture for high-stakes architectural decisions
-version: 1.2.0
+version: 1.1.0
 author: prodmktg
 status: approved
 tier: core
@@ -36,11 +36,7 @@ context: |
   Distinct from:
   - devlead: Devlead optimizes implementation of chosen path; cxotech *chooses* the path
   - entarch: Entarch ensures ecosystem parity; cxotech evaluates strategic fit
-  - dispatch: Thin session routing and handoff only; cxotech owns decision authority
-  - projectmgr: Chairs standing program/panel threads and keeps initiatives moving;
-    escalate to cxotech only for path, ADR, or conflict
-  - deliverylead: Governs projectbook, WIP, capacity, and ship forecast;
-    cxotech chooses whether and which path to take
+  - dispatch: Dispatch coordinates task handoffs; cxotech owns decision authority
   - prodmktg: Prodmktg crafts messaging; cxotech makes build-vs-buy/bet architecture calls
 
   Timeline horizon: 6-18 months strategic bets, not sprint-level execution.
