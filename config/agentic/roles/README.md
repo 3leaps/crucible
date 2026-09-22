@@ -48,7 +48,7 @@ are evaluated separately; multiple principals' grants remain compartmented.
 | [Watcher](watcher.yaml)                               | `watcher`    | automation | Bounded monitoring, routine triage, and escalation                  |
 | [Delegated Assistant](delegate.yaml)                  | `delegate`   | governance | Compartmented assistance under explicit principal grants            |
 | [Security and Infrastructure Operations](secops.yaml) | `secops`     | automation | Privileged asset curation and security operations                   |
-| [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Land a stated unit of work: critical path, risk, owners, readiness  |
+| [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Land a stated unit of work: exact state, gates, owners, GO          |
 | [Dispatch Coordinator](dispatch.yaml)                 | `dispatch`   | governance | Estate routing, handoffs, coordination health, and operator tooling |
 | [Information Architect](infoarch.yaml)                | `infoarch`   | agentic    | Documentation, schemas, and information structure                   |
 | [Release Engineering](releng.yaml)                    | `releng`     | automation | Complex release, publication, signing, provenance, and CI systems   |

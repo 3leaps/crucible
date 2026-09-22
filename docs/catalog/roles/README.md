@@ -30,7 +30,7 @@ set.
 - [`watcher`](../../../config/agentic/roles/watcher.yaml) — bounded monitoring
 - [`delegate`](../../../config/agentic/roles/delegate.yaml) — privileged, compartmented assistance
 - [`secops`](../../../config/agentic/roles/secops.yaml) — privileged infrastructure and asset operations
-- [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) — land a stated unit of work
+- [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) — land a stated unit of work with exact state and GO
 - [`dispatch`](../../../config/agentic/roles/dispatch.yaml) — estate routing
 - [`infoarch`](../../../config/agentic/roles/infoarch.yaml) — information structure
 - [`releng`](../../../config/agentic/roles/releng.yaml) — complex release systems

@@ -11,7 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **projectmgr delivery substance.** Reshape the draft `projectmgr` prompt
   around landing a stated release arc or other quantifiable unit of work
-  (critical path, risk, reshape/re-risk, owners, readiness). No required
+  (critical path, risk, reshape/re-risk, owners, readiness). Encode
+  inspectable state, gated completion sequences, folded HOLDs, earned
+  successor acceptance, precise residuals, GO teeth on irreversible steps,
+  delta-after-first-reconvene, and inactivity ownership. No required
   project methodology. `deliverylead` remains deprecated in favor of
   `projectmgr`. Inference pins stay on the adopting estate, not in this
   catalog.
