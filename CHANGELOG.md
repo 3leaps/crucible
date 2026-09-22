@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Governance role split.** Reposition `projectmgr` as the days–program
+  standing program/panel chair and restore `deliverylead` as approved
+  supplemental projectbook / sprint–quarter delivery governance. Insert
+  `projectmgr` between `dispatch` and `deliverylead` on the governance
+  timeline. See [PDR-0008](docs/decisions/PDR-0008-split-projectmgr-deliverylead.md).
+
 ## [0.1.31] - 2026-09-17
 
 ### Added

@@ -1,4 +1,5 @@
 # Role: projectmgr
 
-Project control, task shaping, dependencies, and delivery visibility. See the
-canonical [`projectmgr.yaml`](../../../config/agentic/roles/projectmgr.yaml) definition.
+Default chair for standing program and panel threads (days–program horizon).
+See the canonical
+[`projectmgr.yaml`](../../../config/agentic/roles/projectmgr.yaml) definition.

@@ -3,7 +3,7 @@ id: "PDR-0007"
 title: "Curate the role catalog around proven decision boundaries"
 status: "accepted"
 date: "2026-08-19"
-last_updated: "2026-08-19"
+last_updated: "2026-09-22"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -16,6 +16,7 @@ tags:
   - "agentic"
 relates-to:
   - "PDR-0003 role portfolio tiering"
+  - "PDR-0008 split projectmgr and deliverylead"
   - "role-prompt schema v0"
 ---
 
@@ -82,6 +83,9 @@ to human approval.
 - Retain deprecated `cicd`; routine automation belongs to `devlead`, with
   `releng` reserved for complex release systems.
 - Deprecate `deliverylead`; use `projectmgr` for reusable project control.
+  **Revised by [PDR-0008](PDR-0008-split-projectmgr-deliverylead.md):** keep
+  both roles. `projectmgr` chairs standing program/panel threads;
+  `deliverylead` remains the projectbook / sprint–quarter delivery governor.
 
 ### 5. Make authority and outputs explicit
 
@@ -122,3 +126,4 @@ In `v0`, `extends` records provenance only and does not imply merge semantics.
 | Date       | Status Change | Summary                                                                                 | Updated By  |
 | ---------- | ------------- | --------------------------------------------------------------------------------------- | ----------- |
 | 2026-08-19 | → accepted    | Curate the role catalog and update PDR-0003 portfolio assignments while retaining tiers | @3leapsdave |
+| 2026-09-22 | accepted      | Point §4's `deliverylead` deprecation at PDR-0008, which restores the split             | infoarch    |

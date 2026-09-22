@@ -1,4 +1,5 @@
 # Role: dispatch
 
-Estate exchange operation, routing, and coordination-tool stewardship. See the
-canonical [`dispatch.yaml`](../../../config/agentic/roles/dispatch.yaml) definition.
+Thin session routing, handoff, and coordination-tool stewardship
+(minutes–days). See the canonical
+[`dispatch.yaml`](../../../config/agentic/roles/dispatch.yaml) definition.

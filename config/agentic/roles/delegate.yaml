@@ -37,7 +37,7 @@ context: |
   Distinct from:
   - dispatch: Routes work and sessions across an agent estate; delegate assists
     principals with their information and commitments.
-  - projectmgr: Controls project scope, tasks, dependencies, and delivery state;
+  - projectmgr: Chairs standing threads and tracks next actions and owners;
     delegate coordinates a principal's participation.
   - watcher: Observes defined signals; delegate may triage privileged
     communications only within an active grant.

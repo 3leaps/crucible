@@ -176,15 +176,15 @@ Baseline role prompts for AI-assisted development sessions. Each role shapes how
 | `watcher`      | supplemental | automation | Bounded monitoring and escalation        |
 | `delegate`     | supplemental | governance | Privileged, compartmented assistance     |
 | `secops`       | supplemental | automation | Privileged infrastructure operations     |
-| `projectmgr`   | supplemental | governance | Project tasking, state, and risk         |
-| `infoarch`     | supplemental | agentic    | Documentation, schemas                   |
-| `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage    |
-| `prodmktg`     | supplemental | marketing  | Product positioning and messaging        |
-| `releng`       | supplemental | automation | Complex release systems                  |
-| `dispatch`     | supplemental | governance | Estate routing and coordination          |
-| `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance |
-| `deliverylead` | deprecated   | governance | Retired — use `projectmgr`               |
-| `cicd`         | deprecated   | automation | Retired — use `releng` + `devlead`       |
+| `projectmgr`   | supplemental | governance | Program/panel chair, status, next actions |
+| `deliverylead` | supplemental | governance | Projectbook, WIP, capacity, ship forecast |
+| `infoarch`     | supplemental | agentic    | Documentation, schemas                    |
+| `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage     |
+| `prodmktg`     | supplemental | marketing  | Product positioning and messaging         |
+| `releng`       | supplemental | automation | Complex release systems                   |
+| `dispatch`     | supplemental | governance | Thin session routing and handoff          |
+| `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance  |
+| `cicd`         | deprecated   | automation | Retired — use `releng` + `devlead`        |
 
 See [config/agentic/roles/README.md](config/agentic/roles/README.md) for full catalog and usage.
 

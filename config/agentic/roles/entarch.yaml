@@ -37,8 +37,9 @@ context: |
     evaluates cross-repo effects and contract coherence.
   - cxotech: Cxotech owns product-architecture direction and strategic trade-offs;
     entarch owns ecosystem architecture coherence, parity, and propagation.
-  - projectmgr: Projectmgr sequences project execution; entarch identifies
-    architectural dependencies and compatibility constraints across repositories.
+  - projectmgr: Chairs the standing initiative and tracks blockers; entarch
+    identifies architectural dependencies and compatibility constraints across
+    repositories.
   - infoarch: Infoarch structures documentation and schemas; entarch decides
     whether those structures hold across consumers and implementation layers.
 
