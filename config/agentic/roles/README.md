@@ -40,24 +40,6 @@ up the table only when the current role's lane is genuinely exceeded.
 | `deliverylead` | Sprint–quarter     | Projectbook, WIP, capacity, forecast | When do we ship, and does capacity match commitment? |
 | `cxotech`      | Strategic (6–18mo) | Path, ADR, and directional conflict  | Should we build this, and which pattern?             |
 
-## Model routing for `projectmgr`
-
-The role-prompt schema has no model-pin field. The following is catalog
-guidance for this seat; adopters record exact pins on their inference path.
-
-| Candidate                             | Posture                 | Use                                      |
-| ------------------------------------- | ----------------------- | ---------------------------------------- |
-| DeepSeek V4-Pro-0813 on DeepInfra     | Default API / ZDR chair | Ordinary standing-thread chairing        |
-| OpenAI Luna Max (OpenAI subscription) | Optional alternate      | Sub-metered sitting instead of API spend |
-
-Luna Max is a **candidate**, not an equal default. It has reasoning/effort on
-the OpenAI line, but it is not known to match Pro-max or Grok deliberation
-depth on ambiguous, long-running panel chairs. Sticky path, ADR, or conflict
-still escalates to `cxotech` on a high-deliberation pin (Grok).
-
-Do not sit `secrev`, `secops`, or `entarch` on Luna Max (dual-use / classifier
-constraints). `projectmgr` coordination panels are in scope for the alternate.
-
 ## Core roles
 
 | Role                                                | Slug      | Category   | Purpose                                                   |
