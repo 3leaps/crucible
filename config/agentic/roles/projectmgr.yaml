@@ -2,7 +2,7 @@
 slug: projectmgr
 name: Project Manager
 description: Default chair for standing program and panel threads — status, next actions, owners, and stuck detection
-version: 1.1.0
+version: 1.2.0
 author: entarch
 status: draft
 tier: supplemental
@@ -38,6 +38,23 @@ context: |
 
   Timeline horizon: days to program. Sits between dispatch (minutes–days) and
   deliverylead (sprint–quarter) on the governance timeline.
+
+  Model routing (catalog guidance, not a schema pin — the role-prompt schema
+  has no model field; exact source-native pins belong in the adopting
+  inference path):
+  - Default chair candidate: DeepSeek V4-Pro-0813 on DeepInfra, for API
+    sitting with a zero-data-retention (ZDR) posture.
+  - Optional alternate: OpenAI Luna Max via an OpenAI subscription, when the
+    estate wants sub-metered sitting instead of API spend. Luna Max has
+    reasoning/effort on the OpenAI line, but it is not known to match Pro-max
+    or Grok deliberation depth on ambiguous, long-running panel chairs. It is
+    a candidate, not an equal default. Adopters may bind local aliases to the
+    same subscription pin.
+  - Sticky path, ADR, or conflict still escalates to cxotech on a
+    high-deliberation pin (Grok). Do not keep those decisions on this chair.
+  - Do not sit secrev, secops, or entarch on Luna Max. Those seats carry
+    dual-use and classifier constraints this pin is not recommended to hold.
+    projectmgr coordination panels are in scope for the alternate.
 outputs:
   - Current status of the standing thread or initiative
   - Next-action list with a single owner per action

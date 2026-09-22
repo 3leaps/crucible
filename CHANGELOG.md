@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   supplemental projectbook / sprint–quarter delivery governance. Insert
   `projectmgr` between `dispatch` and `deliverylead` on the governance
   timeline. See [PDR-0008](docs/decisions/PDR-0008-split-projectmgr-deliverylead.md).
+- **projectmgr model routing.** Document DeepSeek V4-Pro-0813 on DeepInfra as
+  the default API/ZDR chair candidate and OpenAI Luna Max as an optional
+  sub-metered alternate. Luna Max is a candidate, not an equal default; path,
+  ADR, and conflict still escalate to `cxotech`. Do not sit `secrev`,
+  `secops`, or `entarch` on Luna Max.
 
 ## [0.1.31] - 2026-09-17
 
