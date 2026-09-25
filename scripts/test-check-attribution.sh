@@ -49,6 +49,7 @@ expect_stderr_grep() {
         cat "${tmp}/stderr" >&2
         exit 1
     fi
+    echo "[ok] ${description}"
 }
 
 python3 "${checker}" >/dev/null 2>&1 && {
@@ -214,5 +215,120 @@ EOF
 expect_exit 0 "github-pr reads the event file" \
     python3 "${checker}" github-pr --event-file "${tmp}/event.json" \
     --roles-dir "${roles_dir}"
+
+footer >"${tmp}/footer-only.txt"
+expect_exit 0 "footer-only snippet does not need a leading blank line" \
+    python3 "${checker}" check --roles-dir "${roles_dir}" "${tmp}/footer-only.txt"
+
+examples_dir="${tmp}/examples"
+mkdir -p "${examples_dir}"
+
+cat >"${examples_dir}/good.md" <<'EOF'
+# Good examples
+
+A complete commit-message example:
+
+```
+feat(demo): add example
+
+Body of the change.
+
+Role: devlead
+Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+Committer-of-Record: @3leapsdave
+```
+
+A footer-only snippet:
+
+```
+Role: devlead
+Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+Committer-of-Record: @3leapsdave
+```
+EOF
+
+cat >"${examples_dir}/bad.md" <<'EOF'
+# Bad example
+
+```
+feat(demo): add example
+
+Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+Role: devlead
+Committer-of-Record: @3leapsdave
+```
+EOF
+
+cat >"${examples_dir}/skipped.md" <<'EOF'
+# Counter-examples that must not fail the scan
+
+<!-- attribution: invalid-example -->
+```
+Role: bravo-devlead
+Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+Committer-of-Record: @3leapsdave
+```
+
+```attribution-invalid
+Role: agent-devlead
+Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+Committer-of-Record: @3leapsdave
+```
+EOF
+
+cat >"${examples_dir}/roles.yaml" <<'EOF'
+examples:
+  - type: commit
+    title: Feature implementation
+    content: |
+      feat(demo): add example
+
+      Body of the change.
+
+      Role: devlead
+      Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+      Committer-of-Record: @3leapsdave
+
+  - type: commit
+    title: Leaky team prefix
+    # attribution: invalid-example
+    content: |
+      feat(demo): add example
+
+      Role: bravo-devlead
+      Co-authored-by: Grok 4.6 <noreply@3leaps.dev>
+      Committer-of-Record: @3leapsdave
+EOF
+
+expect_exit 0 "markdown mode accepts good fenced examples" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}/good.md"
+expect_exit 0 "markdown mode expands a quoted glob" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}/good.*"
+expect_exit 1 "markdown mode fails a bad fenced example" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}/bad.md"
+expect_stderr_grep "bad.md:[0-9]+:" "markdown failure reports file:line"
+expect_stderr_grep "Role, Co-authored-by, Committer-of-Record" \
+    "markdown failure names the wrong-order reason"
+expect_exit 0 "markdown mode skips marked counter-examples" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}/skipped.md"
+expect_stderr_grep "skip:.*attribution: invalid-example" \
+    "HTML skip comment is reported"
+expect_stderr_grep "skip:.*attribution-invalid" \
+    "info-string skip is reported"
+expect_exit 0 "markdown mode extracts YAML block-scalar examples" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}/roles.yaml"
+expect_stderr_grep "skip:.*attribution: invalid-example" \
+    "YAML hash skip is reported"
+expect_exit 1 "markdown mode scans a directory and fails on a bad block" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${examples_dir}"
+expect_exit 0 "attribution-footer.md examples follow the new rule" \
+    python3 "${checker}" check --markdown --roles-dir "${roles_dir}" \
+    "${script_dir}/../docs/repository/attribution-footer.md"
 
 echo "[ok] attribution footer controls passed"

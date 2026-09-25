@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Attribution footer check.** Add `scripts/check-attribution.py` (check,
-  append, commit-msg hook, GitHub Action entry), a composite action and
-  reusable workflow that fail a PR whose body does not end with the required
-  trailer, and `docs/repository/attribution-footer.md` with caller and hook
-  install snippets. The 3leaps baseline footer is `Role`, then
-  `Co-authored-by`, then `Committer-of-Record: @3leapsdave`.
+  including `--markdown` example extraction, append, commit-msg hook, GitHub
+  Action entry), a composite action and reusable workflow that fail a PR
+  whose body does not end with the required trailer, and
+  `docs/repository/attribution-footer.md` with caller and hook install
+  snippets. The 3leaps baseline footer is `Role`, then `Co-authored-by`,
+  then `Committer-of-Record: @3leapsdave`.
 
 ### Changed
 

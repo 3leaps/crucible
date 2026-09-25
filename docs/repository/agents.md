@@ -6,11 +6,10 @@ Pattern for AI agent collaboration in 3leaps repositories.
 
 ## Related Standards
 
-| Standard                                       | Purpose                                 |
-| ---------------------------------------------- | --------------------------------------- |
-| [agent-identity.md](agent-identity.md)         | AI contribution attribution             |
-| [commit-style.md](commit-style.md)             | Commit attribution patterns             |
-| [attribution-footer.md](attribution-footer.md) | Footer checker, hook, and GitHub Action |
+| Standard                               | Purpose                     |
+| -------------------------------------- | --------------------------- |
+| [agent-identity.md](agent-identity.md) | AI contribution attribution |
+| [commit-style.md](commit-style.md)     | Commit attribution patterns |
 
 ## Required Files
 
@@ -62,8 +61,7 @@ See [AI attribution guidance](https://crucible.3leaps.dev/repository/agent-ident
 - Run `make check-all`
 - Verify tests pass
 - Use proper attribution (see [commit-style](commit-style.md))
-- End the commit message and the PR body with the three-line footer
-  ([attribution-footer.md](attribution-footer.md))
+- Include Committer-of-Record trailer for AI-assisted commits
 
 ## DO / DO NOT
 

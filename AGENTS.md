@@ -50,11 +50,6 @@ attribution format documented in
 [`docs/repository/commit-style.md`](docs/repository/commit-style.md), and keep
 role labels generic, such as `devlead`, `devrev`, `secrev`, or `docs`.
 
-Every commit message and every PR body must end with the three-line footer
-enforced by [`scripts/check-attribution.py`](scripts/check-attribution.py).
-See [`docs/repository/attribution-footer.md`](docs/repository/attribution-footer.md)
-for the local hook and the reusable GitHub check.
-
 ## Roles
 
 Role prompt templates live in [`config/agentic/roles/`](config/agentic/roles/)
@@ -79,8 +74,6 @@ decision.
 - [MAINTAINERS.md](MAINTAINERS.md) - Maintainer accountability
 - [docs/repository/commit-style.md](docs/repository/commit-style.md) - Commit
   conventions and attribution
-- [docs/repository/attribution-footer.md](docs/repository/attribution-footer.md) -
-  Footer checker, hook, and GitHub Action
 - [docs/repository/agents.md](docs/repository/agents.md) - Agent collaboration
   file pattern
 - [config/agentic/roles/README.md](config/agentic/roles/README.md) - Role prompt

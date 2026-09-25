@@ -18,6 +18,7 @@ Portable to macOS, Linux, and GitHub-hosted runners (Python 3.9+).
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -91,6 +92,26 @@ SLUG_RE = re.compile(r"^[a-z][a-z0-9]*$")
 COAUTHOR_RE = re.compile(
     r"^(?P<name>.+?) <noreply@(?P<domain>[A-Za-z0-9.-]+)>$"
 )
+EXAMPLE_TRAILER_RE = re.compile(
+    r"^(?:Role|Committer-of-Record|Co-authored-by)\s*:",
+    re.IGNORECASE | re.MULTILINE,
+)
+SKIP_HTML_RE = re.compile(
+    r"<!--\s*attribution:\s*invalid-example\s*-->",
+    re.IGNORECASE,
+)
+SKIP_HASH_RE = re.compile(
+    r"#\s*attribution:\s*invalid-example\b",
+    re.IGNORECASE,
+)
+INFO_SKIP_RE = re.compile(r"(?:^|\s)attribution-invalid(?:\s|$)", re.IGNORECASE)
+EXAMPLE_SUFFIXES = {".md", ".markdown", ".yml", ".yaml"}
+OPEN_FENCE_RE = re.compile(
+    r"^(?P<indent> *)(?P<fence>`{3,}|~{3,})(?P<info>.*)$"
+)
+YAML_SCALAR_RE = re.compile(
+    r"^(?P<indent> *)(?P<key>[^:\n#][^:\n]*):\s*(?P<bar>[|>][+-]?)\s*(?:#.*)?$"
+)
 
 EXAMPLE_FOOTER = (
     f"{CANONICAL_ROLE_KEY}: devlead\n"
@@ -113,6 +134,17 @@ class Finding:
     line_no: int | None = None
     got: str | None = None
     expected: str | None = None
+    path: str | None = None
+
+
+@dataclass
+class ExtractedExample:
+    path: str
+    opening_line: int
+    content_start: int
+    text: str
+    skip: bool
+    skip_reason: str = ""
 
 
 @dataclass
@@ -219,7 +251,14 @@ def example_footer_block() -> str:
 
 
 def format_finding(finding: Finding) -> str:
-    location = f"line {finding.line_no}: " if finding.line_no is not None else ""
+    if finding.path and finding.line_no is not None:
+        location = f"{finding.path}:{finding.line_no}: "
+    elif finding.path:
+        location = f"{finding.path}: "
+    elif finding.line_no is not None:
+        location = f"line {finding.line_no}: "
+    else:
+        location = ""
     lines = [f"{finding.severity}: {location}{finding.message}"]
     if finding.got is not None:
         lines.append(f"  got:      {finding.got}")
@@ -234,19 +273,24 @@ def emit_github_annotation(finding: Finding) -> None:
     if finding.severity not in {"error", "warning", "notice"}:
         return
     message = finding.message.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
-    extra = ""
+    parts: list[str] = []
+    if finding.path:
+        parts.append(f"file={finding.path}")
     if finding.line_no is not None:
-        extra = f",line={finding.line_no}"
+        parts.append(f"line={finding.line_no}")
+    extra = f" {','.join(parts)}" if parts else ""
     sys.stderr.write(f"::{finding.severity}{extra}::{message}\n")
 
 
-def print_result(result: CheckResult, *, source: str | None = None) -> None:
+def print_result(
+    result: CheckResult, *, source: str | None = None, show_example: bool = True
+) -> None:
     if source:
         sys.stderr.write(f"checking {source}\n")
     for finding in result.findings:
         emit_github_annotation(finding)
         sys.stderr.write(format_finding(finding) + "\n")
-    if not result.ok:
+    if not result.ok and show_example:
         sys.stderr.write("\n" + example_footer_block())
 
 
@@ -429,7 +473,8 @@ def check_text(
         return result
 
     role_line_no = parsed[0][0]
-    if role_line_no <= 1 or lines[role_line_no - 2] != "":
+    preceding_content = any(line != "" for line in lines[: role_line_no - 1])
+    if preceding_content and (role_line_no <= 1 or lines[role_line_no - 2] != ""):
         result.add(
             "error",
             "attribution footer must be preceded by a blank line",
@@ -455,6 +500,243 @@ def check_text(
             validate_committer(value, line_no, result)
 
     return result
+
+
+def looks_like_attribution_example(text: str) -> bool:
+    return EXAMPLE_TRAILER_RE.search(text) is not None
+
+
+def preceding_skip_reason(lines: list[str], opening_index: int) -> str | None:
+    for index in range(opening_index - 1, -1, -1):
+        previous = lines[index].strip()
+        if previous == "":
+            continue
+        if SKIP_HTML_RE.search(previous) or SKIP_HASH_RE.search(previous):
+            return "attribution: invalid-example"
+        return None
+    return None
+
+
+def extract_fenced_examples(path: str, text: str) -> tuple[list[ExtractedExample], list[tuple[int, int]]]:
+    lines = text.split("\n")
+    examples: list[ExtractedExample] = []
+    ranges: list[tuple[int, int]] = []
+    index = 0
+    while index < len(lines):
+        match = OPEN_FENCE_RE.match(lines[index])
+        if match is None:
+            index += 1
+            continue
+        fence = match.group("fence")
+        marker = fence[0]
+        minimum = len(fence)
+        indent = match.group("indent")
+        info = match.group("info").strip()
+        opening_line = index + 1
+        index += 1
+        body: list[str] = []
+        closed = False
+        close_re = re.compile(
+            rf"^{re.escape(indent)}{re.escape(marker)}{{{minimum},}}[ \t]*$"
+        )
+        while index < len(lines):
+            if close_re.match(lines[index]):
+                closed = True
+                break
+            body.append(lines[index])
+            index += 1
+        if not closed:
+            break
+        closing_line = index + 1
+        ranges.append((opening_line, closing_line))
+        block = "\n".join(body)
+        if looks_like_attribution_example(block):
+            skip_reason = preceding_skip_reason(lines, opening_line - 1)
+            if skip_reason is None and INFO_SKIP_RE.search(info):
+                skip_reason = "attribution-invalid"
+            examples.append(
+                ExtractedExample(
+                    path=path,
+                    opening_line=opening_line,
+                    content_start=opening_line + 1,
+                    text=block,
+                    skip=skip_reason is not None,
+                    skip_reason=skip_reason or "",
+                )
+            )
+        index += 1
+    return examples, ranges
+
+
+def extract_yaml_scalar_examples(
+    path: str, text: str, skip_ranges: list[tuple[int, int]] | None = None
+) -> list[ExtractedExample]:
+    lines = text.split("\n")
+    examples: list[ExtractedExample] = []
+    index = 0
+    while index < len(lines):
+        match = YAML_SCALAR_RE.match(lines[index])
+        if match is None:
+            index += 1
+            continue
+        key_indent = len(match.group("indent"))
+        opening_line = index + 1
+        if skip_ranges and any(
+            start <= opening_line <= end for start, end in skip_ranges
+        ):
+            index += 1
+            continue
+        index += 1
+        body: list[str] = []
+        while index < len(lines):
+            line = lines[index]
+            if line.strip() == "":
+                body.append(line)
+                index += 1
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= key_indent:
+                break
+            body.append(line)
+            index += 1
+        while body and body[-1].strip() == "":
+            body.pop()
+        if not body:
+            continue
+        content_indents = [
+            len(line) - len(line.lstrip(" ")) for line in body if line.strip()
+        ]
+        pad = min(content_indents) if content_indents else 0
+        dedented = "\n".join(
+            line[pad:] if len(line) >= pad else line for line in body
+        )
+        if not looks_like_attribution_example(dedented):
+            continue
+        skip_reason = preceding_skip_reason(lines, opening_line - 1)
+        examples.append(
+            ExtractedExample(
+                path=path,
+                opening_line=opening_line,
+                content_start=opening_line + 1,
+                text=dedented,
+                skip=skip_reason is not None,
+                skip_reason=skip_reason or "",
+            )
+        )
+    return examples
+
+
+def extract_examples(path: str, text: str) -> list[ExtractedExample]:
+    found, fence_ranges = extract_fenced_examples(path, text)
+    found.extend(extract_yaml_scalar_examples(path, text, fence_ranges))
+    found.sort(key=lambda item: item.opening_line)
+    return found
+
+
+def expand_example_targets(paths: Sequence[str]) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def add(path: Path) -> None:
+        if path.is_dir():
+            for child in sorted(path.rglob("*")):
+                if child.is_file() and child.suffix.lower() in EXAMPLE_SUFFIXES:
+                    add(child)
+            return
+        if not path.is_file():
+            return
+        key = str(path.resolve())
+        if key in seen:
+            return
+        seen.add(key)
+        found.append(str(path))
+
+    for raw in paths:
+        if raw == "-":
+            if "-" not in seen:
+                seen.add("-")
+                found.append("-")
+            continue
+        candidate = Path(raw)
+        if candidate.exists():
+            add(candidate)
+            continue
+        matches = glob.glob(raw, recursive=True)
+        if not matches:
+            sys.stderr.write(f"error: path not found: {raw}\n")
+            raise SystemExit(EXIT_INPUT)
+        for match in sorted(matches):
+            add(Path(match))
+    return found
+
+
+def relocate_result(
+    result: CheckResult, path: str, content_start: int
+) -> CheckResult:
+    for finding in result.findings:
+        finding.path = path
+        if finding.line_no is not None:
+            finding.line_no = content_start + finding.line_no - 1
+        else:
+            finding.line_no = content_start
+    return result
+
+
+def cmd_check_examples(args: argparse.Namespace) -> int:
+    try:
+        targets = expand_example_targets(args.paths)
+    except SystemExit as exc:
+        message = str(exc)
+        if message and message not in {"2", "4"}:
+            sys.stderr.write(message + "\n")
+        code = exc.code
+        return int(code) if isinstance(code, int) else EXIT_INPUT
+
+    known = load_known_roles(resolve_roles_dir(args.roles_dir))
+    checked = 0
+    skipped = 0
+    failed = False
+    for target in targets:
+        label = "stdin" if target == "-" else target
+        try:
+            text = read_source(target)
+        except SystemExit as exc:
+            message = str(exc)
+            if message:
+                sys.stderr.write(message + "\n")
+            return EXIT_INPUT
+        examples = extract_examples(label, text)
+        for example in examples:
+            if example.skip:
+                skipped += 1
+                sys.stderr.write(
+                    f"skip: {example.path}:{example.opening_line} "
+                    f"({example.skip_reason})\n"
+                )
+                continue
+            checked += 1
+            result = check_text(
+                example.text, mode=args.mode, known_roles=known
+            )
+            relocate_result(result, example.path, example.content_start)
+            source = f"{example.path}:{example.opening_line}"
+            print_result(result, source=source, show_example=False)
+            if not result.ok:
+                failed = True
+    if checked == 0 and skipped == 0:
+        sys.stderr.write("notice: no attribution examples found\n")
+        return EXIT_OK
+    if failed:
+        sys.stderr.write(
+            f"error: attribution example check failed "
+            f"({checked} checked, {skipped} skipped)\n"
+        )
+        sys.stderr.write("\n" + example_footer_block())
+        return EXIT_CHECK
+    sys.stderr.write(
+        f"ok: attribution examples ({checked} checked, {skipped} skipped)\n"
+    )
+    return EXIT_OK
 
 
 def read_source(path: str) -> str:
@@ -533,22 +815,31 @@ def resolve_roles_dir(explicit: str | None) -> Path | None:
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    source = args.path
-    try:
-        text = read_source(source)
-    except SystemExit as exc:
-        message = str(exc)
-        if message:
-            sys.stderr.write(message + "\n")
-        return EXIT_INPUT
+    if args.markdown:
+        return cmd_check_examples(args)
     known = load_known_roles(resolve_roles_dir(args.roles_dir))
-    label = "stdin" if source == "-" else source
-    result = check_text(text, mode=args.mode, known_roles=known)
-    print_result(result, source=label)
-    if result.ok:
+    failed = False
+    any_ok = False
+    for source in args.paths:
+        try:
+            text = read_source(source)
+        except SystemExit as exc:
+            message = str(exc)
+            if message:
+                sys.stderr.write(message + "\n")
+            return EXIT_INPUT
+        label = "stdin" if source == "-" else source
+        result = check_text(text, mode=args.mode, known_roles=known)
+        print_result(result, source=label)
+        if result.ok:
+            any_ok = True
+        else:
+            failed = True
+    if failed:
+        return EXIT_CHECK
+    if any_ok:
         sys.stderr.write("ok: attribution footer\n")
-        return EXIT_OK
-    return EXIT_CHECK
+    return EXIT_OK
 
 
 def cmd_append(args: argparse.Namespace) -> int:
@@ -835,7 +1126,16 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
 
     check = sub.add_parser("check", help="validate a commit message or PR body")
-    check.add_argument("path", help="file to check, or - for stdin")
+    check.add_argument(
+        "paths",
+        nargs="+",
+        help="file to check, or - for stdin; with --markdown, files, directories, or globs",
+    )
+    check.add_argument(
+        "--markdown",
+        action="store_true",
+        help="extract and check attribution examples from Markdown/YAML files",
+    )
     check.add_argument(
         "--mode",
         choices=("pr-body", "commit"),
