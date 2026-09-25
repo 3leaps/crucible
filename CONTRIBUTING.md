@@ -58,7 +58,9 @@ AI agents are welcome contributors under human supervision. If contributing via 
 
 1. Read [AGENTS.md](AGENTS.md) for operational protocols
 2. Follow attribution patterns in [docs/repository/agent-identity.md](docs/repository/agent-identity.md)
-3. Include `Committer-of-Record` trailer identifying the supervising human
+3. End every commit message **and** every PR body with the three-line
+   attribution footer (`Role`, `Co-authored-by`, `Committer-of-Record`). See
+   [docs/repository/attribution-footer.md](docs/repository/attribution-footer.md)
 4. Ensure a human maintainer reviews before merge
 
 ### Quality Checks
