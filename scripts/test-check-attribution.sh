@@ -183,6 +183,16 @@ expect_exit 0 "commit mode allows extra trailing Co-authored-by" \
 expect_exit 0 "trailing HTML comments are ignored" \
     python3 "${checker}" check --roles-dir "${roles_dir}" "${tmp}/html-comment.txt"
 
+{
+    printf '%s\n' "feat(demo): add example" ""
+    footer
+    printf '%s\n' "" \
+        "<!-- CURSOR_AGENT_PR_BODY_END -->" \
+        "<div><a href=\"https://example.com\"><img alt=\"Open in Web\"></a></div>"
+} >"${tmp}/html-badge.txt"
+expect_exit 0 "trailing HTML badge markup is ignored" \
+    python3 "${checker}" check --roles-dir "${roles_dir}" "${tmp}/html-badge.txt"
+
 valid_message | expect_exit 0 "stdin check" \
     python3 "${checker}" check --roles-dir "${roles_dir}" -
 

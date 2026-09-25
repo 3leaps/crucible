@@ -168,6 +168,20 @@ def strip_html_comments(text: str) -> str:
     return "".join(pieces)
 
 
+def is_html_chrome(line: str) -> bool:
+    """True for markup-only lines (review-tool badges, wrapper tags)."""
+    stripped = line.strip()
+    return stripped.startswith("<") and ">" in stripped
+
+
+def display_line(line: str) -> str:
+    """Return trailer-relevant text, or empty if the line is ignored."""
+    stripped = line.rstrip()
+    if stripped.strip() == "" or is_html_chrome(stripped):
+        return ""
+    return stripped
+
+
 def normalize_text(text: str) -> str:
     if text.startswith("\ufeff"):
         text = text[1:]
@@ -246,8 +260,8 @@ def render_footer(role: str, model: str, domain: str, committer: str) -> str:
 
 def split_body_and_trailing_trailers(text: str) -> tuple[str, list[str]]:
     normalized = normalize_text(text)
-    lines = normalized.split("\n")
-    while lines and lines[-1].strip() == "":
+    lines = [display_line(line) for line in normalized.split("\n")]
+    while lines and lines[-1] == "":
         lines.pop()
     footer_start = len(lines)
     while footer_start > 0:
@@ -371,7 +385,7 @@ def check_text(
     result = CheckResult(ok=True)
     roles = known_roles if known_roles is not None else load_known_roles(None)
     normalized = normalize_text(text)
-    lines = [line.rstrip() for line in normalized.split("\n")]
+    lines = [display_line(line) for line in normalized.split("\n")]
     while lines and lines[-1] == "":
         lines.pop()
 

@@ -36,18 +36,21 @@ of the three required trailers.
 ## What the check enforces
 
 The last three non-empty lines, in this order, are `Role`, `Co-authored-by`,
-and `Committer-of-Record`, preceded by a blank line.
+and `Committer-of-Record`, preceded by a blank line. HTML comments are stripped
+before the scan, so PR-template and review-wrapper comments after the footer
+pass. Markup-only lines (for example a trailing badge `<div>`) are ignored the
+same way.
 
-| Rule                     | Result                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------ |
-| Trailing whitespace/CRLF | Ignored (GitHub UI PR bodies often arrive as CRLF)                                         |
-| HTML comments            | Stripped before the scan, so PR-template and review-wrapper comments after the footer pass |
-| `agent-*` role           | Fail                                                                                       |
-| Team-prefixed role       | Fail (`<nato-team>-<role>`, for example `bravo-devlead`)                                   |
-| Unknown catalog slug     | Warning, not failure (`wright`, `docs`, and other seat-local slugs)                        |
-| Co-authored-by key case  | Accepted (`Co-Authored-By` is a notice); canonical spelling is `Co-authored-by`            |
-| Co-authored-by value     | Non-empty model name and exactly `<noreply@DOMAIN>` with DOMAIN in the four allowed hosts  |
-| Committer-of-Record      | Exactly `@3leapsdave`                                                                      |
+| Rule                     | Result                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Trailing whitespace/CRLF | Ignored (GitHub UI PR bodies often arrive as CRLF)                                        |
+| HTML comments and tags   | Comments stripped; markup-only lines (PR-template / review-tool badges) ignored           |
+| `agent-*` role           | Fail                                                                                      |
+| Team-prefixed role       | Fail (`<nato-team>-<role>`, for example `bravo-devlead`)                                  |
+| Unknown catalog slug     | Warning, not failure (`wright`, `docs`, and other seat-local slugs)                       |
+| Co-authored-by key case  | Accepted (`Co-Authored-By` is a notice); canonical spelling is `Co-authored-by`           |
+| Co-authored-by value     | Non-empty model name and exactly `<noreply@DOMAIN>` with DOMAIN in the four allowed hosts |
+| Committer-of-Record      | Exactly `@3leapsdave`                                                                     |
 
 Trailer keys are matched case-insensitively because git trailers are
 case-insensitive.
