@@ -25,9 +25,9 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
 
 CANONICAL_ROLE_KEY = "Role"
 CANONICAL_COAUTHOR_KEY = "Co-authored-by"
@@ -84,14 +84,12 @@ TEAM_NAMES = (
 )
 
 TEAM_PREFIX_RE = re.compile(
-    r"^(?:%s)-.+" % "|".join(re.escape(name) for name in TEAM_NAMES),
+    rf"^(?:{'|'.join(re.escape(name) for name in TEAM_NAMES)})-.+",
     re.IGNORECASE,
 )
 AGENT_PREFIX_RE = re.compile(r"^agent-", re.IGNORECASE)
 SLUG_RE = re.compile(r"^[a-z][a-z0-9]*$")
-COAUTHOR_RE = re.compile(
-    r"^(?P<name>.+?) <noreply@(?P<domain>[A-Za-z0-9.-]+)>$"
-)
+COAUTHOR_RE = re.compile(r"^(?P<name>.+?) <noreply@(?P<domain>[A-Za-z0-9.-]+)>$")
 EXAMPLE_TRAILER_RE = re.compile(
     r"^(?:Role|Committer-of-Record|Co-authored-by)\s*:",
     re.IGNORECASE | re.MULTILINE,
@@ -106,9 +104,7 @@ SKIP_HASH_RE = re.compile(
 )
 INFO_SKIP_RE = re.compile(r"(?:^|\s)attribution-invalid(?:\s|$)", re.IGNORECASE)
 EXAMPLE_SUFFIXES = {".md", ".markdown", ".yml", ".yaml"}
-OPEN_FENCE_RE = re.compile(
-    r"^(?P<indent> *)(?P<fence>`{3,}|~{3,})(?P<info>.*)$"
-)
+OPEN_FENCE_RE = re.compile(r"^(?P<indent> *)(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 YAML_SCALAR_RE = re.compile(
     r"^(?P<indent> *)(?P<key>[^:\n#][^:\n]*):\s*(?P<bar>[|>][+-]?)\s*(?:#.*)?$"
 )
@@ -215,8 +211,7 @@ def display_line(line: str) -> str:
 
 
 def normalize_text(text: str) -> str:
-    if text.startswith("\ufeff"):
-        text = text[1:]
+    text = text.removeprefix("\ufeff")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = strip_html_comments(text)
     return text
@@ -320,7 +315,9 @@ def split_body_and_trailing_trailers(text: str) -> tuple[str, list[str]]:
     return "\n".join(body_lines), lines[footer_start:]
 
 
-def validate_role(value: str, known_roles: set[str], line_no: int, result: CheckResult) -> None:
+def validate_role(
+    value: str, known_roles: set[str], line_no: int, result: CheckResult
+) -> None:
     if AGENT_PREFIX_RE.match(value):
         result.add(
             "error",
@@ -388,8 +385,7 @@ def validate_coauthor(value: str, line_no: int, result: CheckResult) -> None:
     if domain not in ALLOWED_DOMAINS:
         result.add(
             "error",
-            f"Co-authored-by domain {domain!r} is not allowed; "
-            f"use one of {domains}",
+            f"Co-authored-by domain {domain!r} is not allowed; use one of {domains}",
             line_no=line_no,
             got=f"{CANONICAL_COAUTHOR_KEY}: {value}",
             expected=expected,
@@ -517,7 +513,9 @@ def preceding_skip_reason(lines: list[str], opening_index: int) -> str | None:
     return None
 
 
-def extract_fenced_examples(path: str, text: str) -> tuple[list[ExtractedExample], list[tuple[int, int]]]:
+def extract_fenced_examples(
+    path: str, text: str
+) -> tuple[list[ExtractedExample], list[tuple[int, int]]]:
     lines = text.split("\n")
     examples: list[ExtractedExample] = []
     ranges: list[tuple[int, int]] = []
@@ -607,9 +605,7 @@ def extract_yaml_scalar_examples(
             len(line) - len(line.lstrip(" ")) for line in body if line.strip()
         ]
         pad = min(content_indents) if content_indents else 0
-        dedented = "\n".join(
-            line[pad:] if len(line) >= pad else line for line in body
-        )
+        dedented = "\n".join(line[pad:] if len(line) >= pad else line for line in body)
         if not looks_like_attribution_example(dedented):
             continue
         skip_reason = preceding_skip_reason(lines, opening_line - 1)
@@ -670,9 +666,7 @@ def expand_example_targets(paths: Sequence[str]) -> list[str]:
     return found
 
 
-def relocate_result(
-    result: CheckResult, path: str, content_start: int
-) -> CheckResult:
+def relocate_result(result: CheckResult, path: str, content_start: int) -> CheckResult:
     for finding in result.findings:
         finding.path = path
         if finding.line_no is not None:
@@ -715,9 +709,7 @@ def cmd_check_examples(args: argparse.Namespace) -> int:
                 )
                 continue
             checked += 1
-            result = check_text(
-                example.text, mode=args.mode, known_roles=known
-            )
+            result = check_text(example.text, mode=args.mode, known_roles=known)
             relocate_result(result, example.path, example.content_start)
             source = f"{example.path}:{example.opening_line}"
             print_result(result, source=source, show_example=False)
@@ -774,7 +766,12 @@ def parse_domain(domain: str) -> str:
 
 
 def parse_role_arg(role: str) -> str:
-    if not role or not SLUG_RE.match(role) or AGENT_PREFIX_RE.match(role) or TEAM_PREFIX_RE.match(role):
+    if (
+        not role
+        or not SLUG_RE.match(role)
+        or AGENT_PREFIX_RE.match(role)
+        or TEAM_PREFIX_RE.match(role)
+    ):
         sys.stderr.write(
             "error: --role must be a bare lowercase slug "
             "(not agent-* and not team-prefixed)\n"
@@ -848,9 +845,7 @@ def cmd_append(args: argparse.Namespace) -> int:
     domain = parse_domain(args.domain)
     committer = args.committer
     if committer != CANONICAL_COMMITTER:
-        sys.stderr.write(
-            f"error: --committer must be exactly {CANONICAL_COMMITTER}\n"
-        )
+        sys.stderr.write(f"error: --committer must be exactly {CANONICAL_COMMITTER}\n")
         return EXIT_USAGE
     source = args.path
     try:
@@ -883,7 +878,9 @@ def cmd_commit_msg(args: argparse.Namespace) -> int:
     role = args.role or env_or_none("ATTRIBUTION_ROLE")
     model = args.model or env_or_none("ATTRIBUTION_MODEL")
     domain = args.domain or env_or_none("ATTRIBUTION_DOMAIN")
-    committer = args.committer or env_or_none("ATTRIBUTION_COMMITTER") or CANONICAL_COMMITTER
+    committer = (
+        args.committer or env_or_none("ATTRIBUTION_COMMITTER") or CANONICAL_COMMITTER
+    )
     try:
         text = read_source(path)
     except SystemExit as exc:
