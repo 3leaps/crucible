@@ -1,0 +1,108 @@
+name: Attribution footer
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_call:
+    inputs:
+      check-commits:
+        description: >
+          Also validate each PR commit message. Extra trailing Co-authored-by lines are tolerated in commit mode.
+        type: boolean
+        default: false
+
+# pull_request (not pull_request_target): untrusted PR code never runs with
+# base-branch secrets. The PR body is read from $GITHUB_EVENT_PATH inside the
+# script, never interpolated into a shell script via ${{ }}.
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Checkout this repository
+        if: github.repository == '3leaps/crucible'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve 3leaps/crucible ref
+        if: github.repository != '3leaps/crucible'
+        id: crucible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          api = os.environ["GITHUB_API_URL"].rstrip("/")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          run_id = os.environ["GITHUB_RUN_ID"]
+          token = os.environ.get("GH_TOKEN") or ""
+          url = f"{api}/repos/{repo}/actions/runs/{run_id}"
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "3leaps-crucible-attribution-footer",
+                  "Authorization": f"Bearer {token}",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request) as response:
+                  payload = json.loads(response.read().decode("utf-8"))
+          except (urllib.error.URLError, json.JSONDecodeError) as exc:
+              sys.stderr.write(f"error: cannot resolve called workflow SHA: {exc}\n")
+              sys.stderr.write(
+                  "Call the composite action directly:\n"
+                  "  uses: 3leaps/crucible/.github/actions/check-attribution@<sha>\n"
+              )
+              sys.exit(1)
+
+          resolved = ""
+          for workflow in payload.get("referenced_workflows") or []:
+              path = str(workflow.get("path") or "")
+              if "3leaps/crucible/.github/workflows/" in path and "check-attribution" in path:
+                  resolved = str(workflow.get("sha") or "")
+                  break
+          if not resolved:
+              sys.stderr.write(
+                  "error: referenced_workflows did not include this reusable workflow\n"
+                  "Pin the composite action by tag or SHA instead of this workflow.\n"
+              )
+              sys.exit(1)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"ref={resolved}\n")
+          PY
+
+      - name: Checkout pinned 3leaps/crucible
+        if: github.repository != '3leaps/crucible'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          repository: 3leaps/crucible
+          ref: ${{ steps.crucible.outputs.ref }}
+          persist-credentials: false
+
+      - name: Check attribution footer
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CHECK_COMMITS: ${{ github.repository == '3leaps/crucible' || inputs.check-commits == true }}
+        run: |
+          set -euo pipefail
+          python3 scripts/check-attribution.py github-pr
