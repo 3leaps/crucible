@@ -49,6 +49,20 @@ def require_windows_python(arch, python_platform):
         raise ValueError(f"expected native Python {expected}, got {python_platform}")
 
 
+def require_portable_path(path):
+    reserved = {"CON", "PRN", "AUX", "NUL"} | {
+        f"{prefix}{number}" for prefix in ("COM", "LPT") for number in range(1, 10)
+    }
+    for part in path.split("/"):
+        if (
+            not part
+            or re.search(r'[<>:"\\|?*\x00-\x1f]', part)
+            or part.endswith((".", " "))
+            or part.split(".")[0].upper() in reserved
+        ):
+            raise ValueError(f"path cannot be checked out on Windows: {path}")
+
+
 def verify(expected_os, expected_arch):
     require_identity(
         expected_os,
@@ -77,6 +91,19 @@ def verify(expected_os, expected_arch):
 
 
 class IdentityTests(unittest.TestCase):
+    def test_tracked_paths_are_windows_portable(self):
+        paths = subprocess.check_output(["git", "ls-files", "-z"], text=True)
+        for path in paths.split("\0"):
+            if path:
+                with self.subTest(path=path):
+                    require_portable_path(path)
+
+    def test_nonportable_paths_refused(self):
+        require_portable_path("schemas/service-job/sj-admit-1.json")
+        for path in ("fixtures/msg:1.json", "fixtures/CON.json", "a/b.", "a/b "):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                require_portable_path(path)
+
     def test_supported_native_hosts(self):
         for host in (
             ("linux", "amd64", "Linux", "x86_64"),

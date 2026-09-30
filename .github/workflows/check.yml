@@ -121,6 +121,8 @@ jobs:
       - name: Install verified toolchain and pinned native check tools
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
+          # The signed installer uses this only for GitHub API requests.
+          SFETCH_GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/install-ci-native-tools.sh
       - name: Verify native identity and toolchain
         env:
