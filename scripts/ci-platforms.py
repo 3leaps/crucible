@@ -120,7 +120,11 @@ def install_source():
     if os.environ.get("GONEAT_ACQUISITION") != "source":
         raise ValueError("source acquisition must be explicitly selected")
     require_identity(
-        "windows", "arm64", platform.system(), platform.machine(), struct.calcsize("P") * 8
+        "windows",
+        "arm64",
+        platform.system(),
+        platform.machine(),
+        struct.calcsize("P") * 8,
     )
     require_windows_python("arm64", sysconfig.get_platform())
     pins = source_pins()
@@ -148,13 +152,20 @@ def install_source():
         raise ValueError(f"unexpected source-build compiler/host: {actual}")
     module = f"{pins['module']}@{pins['version']}"
     metadata = json.loads(
-        subprocess.check_output(["go", "mod", "download", "-json", module], text=True, env=env)
+        subprocess.check_output(
+            ["go", "mod", "download", "-json", module], text=True, env=env
+        )
     )
     require_source_download(metadata, pins)
-    print(f"[ok] source module/checksums {module}; compiler {pins['compiler']}", flush=True)
+    print(
+        f"[ok] source module/checksums {module}; compiler {pins['compiler']}",
+        flush=True,
+    )
     subprocess.run(["go", "install", module], check=True, env=env)
     binary = str(Path("bin/goneat.exe").resolve())
-    metadata = subprocess.check_output(["go", "version", "-m", binary], text=True, env=env)
+    metadata = subprocess.check_output(
+        ["go", "version", "-m", binary], text=True, env=env
+    )
     print(metadata, end="")
     require_source_build(metadata, pins)
 
@@ -179,8 +190,13 @@ def verify(expected_os, expected_arch):
     print(output, end="")
     if route == "source":
         pins = source_pins()
-        if not output.startswith("goneat dev\n") or f"Module: {version}" not in output.splitlines():
-            raise ValueError("source build must retain truthful dev banner/module identity")
+        if (
+            not output.startswith("goneat dev\n")
+            or f"Module: {version}" not in output.splitlines()
+        ):
+            raise ValueError(
+                "source build must retain truthful dev banner/module identity"
+            )
         binary = shutil.which("goneat")
         if not binary:
             raise ValueError("source executable not found")
@@ -212,8 +228,10 @@ class IdentityTests(unittest.TestCase):
     def test_source_checksums_and_build_metadata(self):
         pins = source_pins()
         download = {
-            "Path": pins["module"], "Version": pins["version"],
-            "Sum": pins["sum"], "GoModSum": pins["go_mod_sum"],
+            "Path": pins["module"],
+            "Version": pins["version"],
+            "Sum": pins["sum"],
+            "GoModSum": pins["go_mod_sum"],
         }
         require_source_download(download, pins)
         for key in download:
@@ -251,7 +269,7 @@ class IdentityTests(unittest.TestCase):
                     )
                     with self.assertRaises(PermissionError):
                         if path == directory:
-                            list(path.iterdir())
+                            (path / "ok.json").read_bytes()
                         else:
                             path.read_bytes()
                 finally:

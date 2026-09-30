@@ -32,7 +32,24 @@ def set_access(path, deny):
     if os.name == "nt":
         sid = windows_sid()
         args = ["/deny", f"{sid}:(RX)"] if deny else ["/remove:d", sid]
-        subprocess.run(["icacls.exe", str(path), *args], check=True)
+        targets = [path]
+        if path.name == "unreadable-dir":
+            child = path / "ok.json"
+            if child.is_symlink():
+                raise ValueError("permission fixture member must not be a symlink")
+            # Windows can still enumerate a denied directory. Deny the known
+            # disposable record too so a directory-target validator cannot read it.
+            targets.insert(0, child)
+        try:
+            for target in targets:
+                subprocess.run(["icacls.exe", str(target), *args], check=True)
+        except subprocess.CalledProcessError:
+            if deny:
+                for target in targets:
+                    subprocess.run(
+                        ["icacls.exe", str(target), "/remove:d", sid], check=False
+                    )
+            raise
     else:
         os.chmod(path, 0 if deny else (0o700 if path.is_dir() else 0o600))
 
@@ -40,8 +57,10 @@ def set_access(path, deny):
 def assert_unreadable(path):
     try:
         if path.is_dir():
-            with os.scandir(path) as entries:
-                list(entries)
+            # Test inaccessible directory contents, not an OS-specific promise
+            # that directory-name enumeration is denied.
+            with (path / "ok.json").open("rb") as stream:
+                stream.read(1)
         else:
             with path.open("rb") as stream:
                 stream.read(1)
