@@ -8,6 +8,8 @@ fi
 
 failures=0
 
+# Native Windows jq otherwise emits CRLF; shell filename lists require LF.
+
 fail() {
     failures=$((failures + 1))
     printf '    [!!] %s: %s\n' "$1" "$2" >&2
@@ -21,12 +23,12 @@ for manifest_path in "$@"; do
         continue
     fi
 
-    if ! capability=$(jq -r 'if (.capability | type) == "string" then .capability else "" end' "$manifest_path"); then
+    if ! capability=$(jq -b -r 'if (.capability | type) == "string" then .capability else "" end' "$manifest_path"); then
         fail "$manifest_path" "invalid JSON"
         continue
     fi
 
-    if ! entry_schema=$(jq -r 'if (.entry_schema | type) == "string" then .entry_schema else "" end' "$manifest_path"); then
+    if ! entry_schema=$(jq -b -r 'if (.entry_schema | type) == "string" then .entry_schema else "" end' "$manifest_path"); then
         fail "$manifest_path" "invalid JSON"
         continue
     fi
@@ -63,7 +65,7 @@ for manifest_path in "$@"; do
         continue
     fi
 
-    if ! advertised_capability=$(jq -r '.properties.capabilities.contains.const // ""' "$entry_path"); then
+    if ! advertised_capability=$(jq -b -r '.properties.capabilities.contains.const // ""' "$entry_path"); then
         fail "$manifest_path" "entry_schema target is invalid JSON: $entry_schema"
         continue
     fi
@@ -73,7 +75,7 @@ for manifest_path in "$@"; do
     fi
 
     manifest_dir="$(dirname "$manifest_path")"
-    catalog=$(jq -r 'if (.catalog | type) == "string" then .catalog else "" end' "$manifest_path")
+    catalog=$(jq -b -r 'if (.catalog | type) == "string" then .catalog else "" end' "$manifest_path")
     if [ -n "$catalog" ]; then
         case "$catalog" in
             /* | *../* | *'\'* | */*)
@@ -92,7 +94,7 @@ for manifest_path in "$@"; do
         esac
     fi
 
-    if ! object_schemas=$(jq -r '
+    if ! object_schemas=$(jq -b -r '
         if .object_schemas == null then empty
         elif ((.object_schemas | type) == "object"
           and all(.object_schemas[]; type == "string"))
@@ -116,11 +118,11 @@ for manifest_path in "$@"; do
             fail "$manifest_path" "object schema target is missing: $object_schema"
             continue
         fi
-        if ! object_capability=$(jq -r '.properties.capabilities.contains.const // ""' "$object_path"); then
+        if ! object_capability=$(jq -b -r '.properties.capabilities.contains.const // ""' "$object_path"); then
             fail "$manifest_path" "object schema is invalid JSON: $object_schema"
             continue
         fi
-        object_schema_id=$(jq -r 'if (."$id" | type) == "string" then ."$id" else "" end' "$object_path")
+        object_schema_id=$(jq -b -r 'if (."$id" | type) == "string" then ."$id" else "" end' "$object_path")
         capability_path=${capability#contract: }
         case "$object_schema_id" in
             "contract:$capability_path/"*) object_id_matches=true ;;

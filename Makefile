@@ -371,6 +371,7 @@ lint-contracts: ## Run contract controls and validate manifests
 		sh scripts/test-forge-infra-controls.sh || exit 1; \
 		echo "    Application-control controls..."; \
 		sh scripts/test-application-control-controls.sh || exit 1; \
+		sh scripts/test-contract-manifest-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/application-control/v0/contract.json \
