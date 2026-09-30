@@ -15,7 +15,8 @@ require_command() {
 }
 
 expected_policy_json() {
-    jq -cnS \
+    # The pinned fingerprint includes an LF terminator on every platform.
+    jq -b -cnS \
         --arg repository "${EXPECTED_REPOSITORY}" \
         --arg ruleset_name "${EXPECTED_RULESET_NAME}" \
         '{

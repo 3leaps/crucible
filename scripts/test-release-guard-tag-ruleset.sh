@@ -92,6 +92,21 @@ if [[ "${policy_attestation}" != "${expected_attestation}" ]]; then
     echo "error: canonical policy fingerprint changed unexpectedly" >&2
     exit 1
 fi
+# Require stable byte transport at the producer, not a host-specific hash pin.
+binary_attestation="$(
+    jq() {
+        if [ "${1:-}" != -b ]; then
+            echo 'error: canonical policy producer omitted jq binary mode' >&2
+            return 2
+        fi
+        command jq "$@"
+    }
+    expected_policy_attestation
+)"
+if [[ "$binary_attestation" != "$expected_attestation" ]]; then
+    echo 'error: binary-mode policy fingerprint control failed' >&2
+    exit 1
+fi
 if ! [[ "${policy_attestation}" =~ ^Tag-Publish-Policy-SHA256:\ [0-9a-f]{64}$ ]]; then
     echo "error: malformed expected policy attestation" >&2
     exit 1
