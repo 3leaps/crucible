@@ -8,6 +8,11 @@ checker="${script_dir}/check-attribution.py"
 roles_dir="${script_dir}/../config/agentic/roles"
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
+# MSYS does not translate wildcard arguments for native Python. Keep the quoted
+# glob control intact by giving all fixture paths a native Windows root.
+if [ "${OS:-}" = Windows_NT ]; then
+    tmp="$(cygpath -m "$tmp")"
+fi
 
 footer() {
     local role="${1:-devlead}"
