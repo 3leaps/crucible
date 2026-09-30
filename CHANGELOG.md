@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Native platform checks.** Require quality checks on Linux amd64/arm64,
+  Darwin arm64, and Windows amd64/arm64 before CI or release verification succeeds.
+
 - **Development toolchain.** Advance the verified Goneat bootstrap pin to
   v0.6.1 and both CI glibc tools-runner pins to v0.5.7.
 

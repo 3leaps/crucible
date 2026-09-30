@@ -5,13 +5,24 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  linux:
+    name: linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-latest-arm64-s
+            arch: arm64
     container:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
@@ -27,12 +38,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          for tool in goneat python3 yamlfmt yamllint prettier jq yq rg shfmt checkmake actionlint; do
+            command -v "$tool"
+          done
+          python3 scripts/ci-platforms.py verify linux "$EXPECTED_ARCH"
           yamlfmt --version
           yamllint --version
           prettier --version
           jq --version
           yq --version
           rg --version
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
 
       - name: Run quality checks
         shell: bash
@@ -46,3 +63,87 @@ jobs:
           set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git diff --exit-code || (echo "Formatting changed files. Run 'make fmt' and commit." && exit 1)
+
+  native:
+    name: native (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+            setup_arch: arm64
+          - runner: windows-latest
+            os: windows
+            arch: amd64
+            setup_arch: x64
+          - runner: windows-latest-arm64-s
+            os: windows
+            arch: arm64
+            setup_arch: arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Preserve repository LF bytes on Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up native Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
+        with:
+          go-version: "1.26.6"
+          architecture: ${{ matrix.setup_arch }}
+          cache: false
+      - name: Set up native Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
+        with:
+          python-version: "3.13.15"
+          architecture: ${{ matrix.setup_arch }}
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
+        with:
+          node-version: "22.23.3"
+      - name: Install macOS shell prerequisites
+        if: runner.os == 'macOS'
+        run: brew install coreutils jq ripgrep make
+      - name: Install Windows shell prerequisites
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install make jq ripgrep --yes --no-progress
+      - name: Install verified toolchain and pinned native check tools
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: bash scripts/install-ci-native-tools.sh
+      - name: Verify native identity and toolchain
+        env:
+          EXPECTED_OS: ${{ matrix.os }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: python scripts/ci-platforms.py verify "$EXPECTED_OS" "$EXPECTED_ARCH"
+      - name: Run all quality checks
+        run: make check SHELL=bash BIN_DIR="$(pwd)/bin"
+      - name: Verify no tracked changes
+        run: git diff --exit-code
+
+  check:
+    name: check
+    if: always()
+    needs: [linux, native]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout aggregate gate
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Require every native platform
+        env:
+          LINUX_RESULT: ${{ needs.linux.result }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+        run: python3 scripts/ci-platforms.py gate "$LINUX_RESULT" "$NATIVE_RESULT"

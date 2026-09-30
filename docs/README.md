@@ -35,6 +35,7 @@ Logging, metrics, and operational visibility.
 Operational guides for maintainers and implementers.
 
 - [ci-baseline.md](operations/ci-baseline.md) - CI/CD patterns and gotchas
+- [ci-platforms.md](operations/ci-platforms.md) - Native platform quality and release gates
 - [upstream-sync-guide.md](operations/upstream-sync-guide.md) - Vendoring crucible content
 
 ### [Guides](guides/)

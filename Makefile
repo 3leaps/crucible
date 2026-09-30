@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-ci-platforms fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -40,8 +40,9 @@ GONEAT_VERSION ?= v0.6.1
 # Tool paths
 # Bootstrap installs trust-chain tools repo-locally. Quality targets prefer those
 # exact pins but retain PATH fallback for an already-provisioned environment.
-SFETCH_LOCAL := $(BIN_DIR)/sfetch
-GONEAT_LOCAL := $(BIN_DIR)/goneat
+EXE_SUFFIX := $(if $(filter Windows_NT,$(OS)),.exe,)
+SFETCH_LOCAL := $(BIN_DIR)/sfetch$(EXE_SUFFIX)
+GONEAT_LOCAL := $(BIN_DIR)/goneat$(EXE_SUFFIX)
 SFETCH = $(shell [ -x "$(SFETCH_LOCAL)" ] && echo "$(SFETCH_LOCAL)" || command -v sfetch 2>/dev/null)
 GONEAT = $(shell [ -x "$(GONEAT_LOCAL)" ] && echo "$(GONEAT_LOCAL)" || command -v goneat 2>/dev/null)
 
@@ -96,7 +97,7 @@ help: ## Show available targets
 # sfetch (3leaps/sfetch) is the trust anchor - a minimal, auditable binary fetcher.
 # goneat (fulmenhq/goneat) is installed via sfetch and manages additional tooling.
 
-bootstrap: ## Install required tools (sfetch -> goneat -> others)
+bootstrap-release-tools: ## Install verified repo-local sfetch and goneat only
 	@echo "Bootstrapping crucible development environment..."
 	@echo ""
 	@# Step 0: Verify curl is available (required trust anchor)
@@ -149,6 +150,7 @@ bootstrap: ## Install required tools (sfetch -> goneat -> others)
 	fi
 	@echo "[ok] goneat: $$($(GONEAT_LOCAL) version 2>&1 | head -n1) ($(GONEAT_LOCAL))"
 	@echo ""
+bootstrap: bootstrap-release-tools ## Install required tools (sfetch -> goneat -> others)
 	@# Step 3: Install foundation tools via goneat
 	@echo "[..] Installing foundation tools via goneat..."
 	@"$(GONEAT_LOCAL)" doctor tools --scope foundation --install --install-package-managers --yes --no-cooling 2>/dev/null || \
@@ -214,7 +216,7 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
-test: test-bootstrap-engine-verification test-check-attribution ## Run release-control and attribution-footer tests
+test: test-bootstrap-engine-verification test-check-attribution test-ci-platforms ## Run release-control and attribution-footer tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
@@ -224,6 +226,9 @@ test-bootstrap-engine-verification: ## Prove engine digest failure prevents exec
 
 test-check-attribution: ## Validate the attribution footer checker
 	@./scripts/test-check-attribution.sh
+
+test-ci-platforms: ## Prove native identity checks fail closed
+	@python3 scripts/ci-platforms.py self-test
 
 fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."

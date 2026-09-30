@@ -9,6 +9,9 @@ permissions:
   contents: read
 
 jobs:
+  verify-platforms:
+    uses: ./.github/workflows/check.yml
+
   verify:
     runs-on: ubuntu-latest
     container:
@@ -94,7 +97,7 @@ jobs:
     #
     # Runs outside the tools-runner container: the assertion needs the GitHub
     # CLI, which that image does not carry.
-    needs: verify
+    needs: [verify, verify-platforms]
     runs-on: ubuntu-latest
     outputs:
       tag_object_sha: ${{ steps.verify_tag.outputs.tag_object_sha }}
