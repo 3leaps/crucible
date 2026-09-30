@@ -1,0 +1,28 @@
+name: Check attribution footer
+description: >
+  Fail a pull request whose body does not end with the 3leaps attribution footer. Optionally check each commit message too.
+inputs:
+  check-commits:
+    description: >
+      If true, also validate each commit message on the PR. Commit mode tolerates extra trailing Co-authored-by lines that GitHub may append on squash.
+    required: false
+    default: "false"
+  github-token:
+    description: Token used only when check-commits is true, to list PR commits.
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - name: Check attribution footer
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CHECK_COMMITS: ${{ inputs.check-commits }}
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        action_root="$(cd "${GITHUB_ACTION_PATH}/../../.." && pwd)"
+        python3 "${action_root}/scripts/check-attribution.py" github-pr \
+          --roles-dir "${action_root}/config/agentic/roles"

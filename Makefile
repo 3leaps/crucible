@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-force tools check test test-bootstrap-engine-verification fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -59,7 +59,7 @@ help: ## Show available targets
 	@echo "  help            Show this help message"
 	@echo "  bootstrap       Install tools (sfetch -> goneat -> others)"
 	@echo "  check           Run non-mutating quality checks"
-	@echo "  test            Run release-control negative tests"
+	@echo "  test            Run release-control and attribution-footer tests"
 	@echo "  fmt             Apply the goneat assessment policy"
 	@echo "  lint            Run goneat lint and schema validation"
 	@echo "  lint-schemas    Validate JSON Schema files against meta-schema"
@@ -214,13 +214,16 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
-test: test-bootstrap-engine-verification ## Run release-control negative tests
+test: test-bootstrap-engine-verification test-check-attribution ## Run release-control and attribution-footer tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
 
 test-bootstrap-engine-verification: ## Prove engine digest failure prevents execution
 	@./scripts/test-bootstrap-engine-verification.sh
+
+test-check-attribution: ## Validate the attribution footer checker
+	@./scripts/test-check-attribution.sh
 
 fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."

@@ -18,6 +18,7 @@ Repository structure, automation, and collaboration patterns.
 
 - [makefile-minimum.md](repository/makefile-minimum.md) - Required make targets
 - [commit-style.md](repository/commit-style.md) - Commit message format
+- [attribution-footer.md](repository/attribution-footer.md) - Footer check, hook, and GitHub Action
 - [secure-commits.md](repository/secure-commits.md) - Security-sensitive commit policy
 - [frontmatter.md](repository/frontmatter.md) - Document frontmatter metadata
 - [agents.md](repository/agents.md) - AI agent collaboration
