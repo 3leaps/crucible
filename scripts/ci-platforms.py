@@ -5,6 +5,7 @@ import json
 import os
 import platform
 import re
+import runpy
 import shutil
 import struct
 import subprocess
@@ -13,6 +14,7 @@ import sysconfig
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -212,6 +214,41 @@ def verify(expected_os, expected_arch):
 
 
 class IdentityTests(unittest.TestCase):
+    def test_windows_acl_restore_and_rollback_order(self):
+        helper = runpy.run_path("scripts/test-fixture-access.py")["set_access"]
+        with tempfile.TemporaryDirectory(prefix="crucible-acl-order-") as work:
+            directory = Path(work) / "unreadable-dir"
+            directory.mkdir()
+            child = directory / "ok.json"
+            child.write_bytes(b"fixture\n")
+            calls = []
+
+            def run(args, check):
+                calls.append(args)
+                if len(calls) == 2 and args[2] == "/deny":
+                    raise subprocess.CalledProcessError(5, args)
+
+            mocks = {
+                "os": SimpleNamespace(name="nt"),
+                "windows_sid": lambda: "*S-1-5-21-1",
+                "subprocess": SimpleNamespace(
+                    run=run, CalledProcessError=subprocess.CalledProcessError
+                ),
+            }
+            with patch.dict(helper.__globals__, mocks):
+                helper(directory, False)
+                self.assertEqual(
+                    [call[1] for call in calls], [str(directory), str(child)]
+                )
+                calls.clear()
+                with self.assertRaises(subprocess.CalledProcessError):
+                    helper(directory, True)
+                self.assertEqual(
+                    [call[1] for call in calls],
+                    [str(child), str(directory), str(directory), str(child)],
+                )
+                self.assertEqual([call[2] for call in calls[2:]], ["/remove:d"] * 2)
+
     def test_source_route_is_explicit_and_bounded(self):
         with patch.dict(os.environ, {"GONEAT_ACQUISITION": "release"}):
             with self.assertRaises(ValueError):

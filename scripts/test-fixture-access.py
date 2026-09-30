@@ -40,12 +40,15 @@ def set_access(path, deny):
             # Windows can still enumerate a denied directory. Deny the known
             # disposable record too so a directory-target validator cannot read it.
             targets.insert(0, child)
+        # Restore directory access before touching its member's ACL.
+        if not deny:
+            targets.reverse()
         try:
             for target in targets:
                 subprocess.run(["icacls.exe", str(target), *args], check=True)
         except subprocess.CalledProcessError:
             if deny:
-                for target in targets:
+                for target in reversed(targets):
                     subprocess.run(
                         ["icacls.exe", str(target), "/remove:d", sid], check=False
                     )
