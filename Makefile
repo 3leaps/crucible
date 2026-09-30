@@ -218,6 +218,17 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
+.PHONY: check-contracts contract-tools
+check-contracts: ## Validate supported contracts and native input behavior
+	@$(MAKE) contract-tools
+	@$(MAKE) lint-schemas lint-config test-ci-platforms
+	@echo "[ok] All contract checks passed"
+
+contract-tools: ## Fail closed when a required contract-validation tool is missing
+	@for tool in goneat python3 jq make sha256sum cmp; do \
+		command -v "$$tool" >/dev/null 2>&1 || { echo "[!!] $$tool required for contract checks"; exit 1; }; \
+	done
+
 test: test-bootstrap-engine-verification test-check-attribution test-ci-platforms ## Run release-control and attribution-footer tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh

@@ -44,9 +44,12 @@ def require_identity(expected_os, expected_arch, actual_os, actual_arch, bits):
         )
 
 
-def require_results(linux, native):
-    if linux != "success" or native != "success":
-        raise ValueError(f"all five platforms required: linux={linux}, native={native}")
+def require_results(quality, linux, native):
+    if any(result != "success" for result in (quality, linux, native)):
+        raise ValueError(
+            f"quality and all five platforms required: "
+            f"quality={quality}, linux={linux}, native={native}"
+        )
 
 
 def require_windows_python(arch, python_platform):
@@ -355,11 +358,26 @@ class IdentityTests(unittest.TestCase):
                 require_identity(*host)
 
     def test_all_platform_results_required(self):
-        require_results("success", "success")
+        require_results("success", "success", "success")
         for status in ("failure", "cancelled", "skipped", "", "unknown"):
-            for results in ((status, "success"), ("success", status)):
+            for index in range(3):
+                results = ["success"] * 3
+                results[index] = status
                 with self.subTest(results=results), self.assertRaises(ValueError):
                     require_results(*results)
+
+    def test_gate_cli_requires_quality_result(self):
+        for results, expected in (
+            (["success", "success"], 2),
+            (["success", "success", "success"], 0),
+            (["skipped", "success", "success"], 1),
+        ):
+            with self.subTest(results=results):
+                actual = subprocess.run(
+                    [sys.executable, "scripts/ci-platforms.py", "gate", *results],
+                    capture_output=True,
+                )
+                self.assertEqual(actual.returncode, expected)
 
     def test_windows_interpreter_architecture(self):
         require_windows_python("amd64", "win-amd64")
@@ -382,15 +400,19 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(IdentityTests)
         )
         return 0 if result.wasSuccessful() else 1
-    if len(sys.argv) != 4 or sys.argv[1] not in {"verify", "gate"}:
+    command = sys.argv[1:2]
+    if not (
+        (command == ["verify"] and len(sys.argv) == 4)
+        or (command == ["gate"] and len(sys.argv) == 5)
+    ):
         print(
-            "usage: ci-platforms.py verify OS ARCH | gate LINUX NATIVE | self-test",
+            "usage: ci-platforms.py verify OS ARCH | gate QUALITY LINUX NATIVE | self-test",
             file=sys.stderr,
         )
         return 2
     try:
         if sys.argv[1] == "gate":
-            require_results(sys.argv[2], sys.argv[3])
+            require_results(*sys.argv[2:])
         else:
             verify(sys.argv[2], sys.argv[3])
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
