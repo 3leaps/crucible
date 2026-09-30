@@ -112,7 +112,7 @@ resolve_live_ruleset() {
     local ruleset_pages ruleset_ids ruleset_count ruleset_id ruleset_json
     ruleset_pages="$(gh api --paginate --slurp \
         "repos/${EXPECTED_REPOSITORY}/rulesets?per_page=100")"
-    ruleset_ids="$(jq -r \
+    ruleset_ids="$(jq -b -r \
         --arg name "${EXPECTED_RULESET_NAME}" \
         'flatten | map(select(.name == $name)) | .[].id' \
         <<<"${ruleset_pages}")"
