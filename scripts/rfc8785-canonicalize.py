@@ -181,10 +181,14 @@ def main(argv: list[str]) -> int:
     if len(argv) > 2 or (len(argv) == 2 and argv[1] in {"-h", "--help"}):
         sys.stderr.write("usage: rfc8785-canonicalize.py [input.json]\n")
         return 2
-    raw = sys.stdin.read() if len(argv) == 1 else open(argv[1], encoding="utf-8").read()
     try:
+        if len(argv) == 1:
+            raw = sys.stdin.buffer.read().decode("utf-8")
+        else:
+            with open(argv[1], encoding="utf-8") as stream:
+                raw = stream.read()
         document = jcs_loads(raw)
-        sys.stdout.write(jcs_dumps(document))
+        sys.stdout.buffer.write(jcs_dumps(document).encode("utf-8"))
     except json.JSONDecodeError as exc:
         sys.stderr.write(f"jcs: invalid JSON: {exc}\n")
         return 1
