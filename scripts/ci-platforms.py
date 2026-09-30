@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Fail-closed native platform, Goneat identity, and aggregate checks for CI."""
 
+import json
 import os
 import platform
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -11,6 +13,7 @@ import sysconfig
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 def normalize_arch(value):
@@ -64,6 +67,98 @@ def require_portable_path(path):
             raise ValueError(f"path cannot be checked out on Windows: {path}")
 
 
+def repository_version():
+    pins = Path("Makefile").read_text(encoding="utf-8")
+    match = re.search(r"^GONEAT_VERSION\s*\?=\s*(v[0-9.]+)\s*$", pins, re.M)
+    if not match:
+        raise ValueError("missing exact Makefile Goneat pin")
+    return match[1]
+
+
+def source_pins():
+    pins = json.loads(Path(".github/goneat-source.json").read_text(encoding="utf-8"))
+    if pins["version"] != repository_version():
+        raise ValueError("source-build pin disagrees with Makefile")
+    return pins
+
+
+def require_acquisition(route, os_name, arch):
+    if route not in {"release", "source"}:
+        raise ValueError("unknown Goneat acquisition route")
+    if route == "source" and (os_name, arch) != ("windows", "arm64"):
+        raise ValueError("source acquisition is only selected for Windows arm64")
+
+
+def require_source_download(metadata, pins):
+    expected = {
+        "Path": pins["module"],
+        "Version": pins["version"],
+        "Sum": pins["sum"],
+        "GoModSum": pins["go_mod_sum"],
+    }
+    if metadata.get("Error") or any(metadata.get(k) != v for k, v in expected.items()):
+        raise ValueError("downloaded Go source does not match committed module pins")
+
+
+def require_source_build(metadata, pins):
+    lines = metadata.splitlines()
+    if not lines or not lines[0].endswith(": " + pins["compiler"]):
+        raise ValueError("source executable compiler does not match the pin")
+    records = [line.split() for line in lines[1:]]
+    required = [
+        ["path", pins["module"]],
+        ["mod", pins["module"], pins["version"], pins["sum"]],
+        ["build", "GOOS=windows"],
+        ["build", "GOARCH=arm64"],
+        ["build", "CGO_ENABLED=0"],
+    ]
+    if any(record not in records for record in required):
+        raise ValueError("source executable lacks exact native module/build identity")
+
+
+def install_source():
+    if os.environ.get("GONEAT_ACQUISITION") != "source":
+        raise ValueError("source acquisition must be explicitly selected")
+    require_identity(
+        "windows", "arm64", platform.system(), platform.machine(), struct.calcsize("P") * 8
+    )
+    require_windows_python("arm64", sysconfig.get_platform())
+    pins = source_pins()
+    env = os.environ.copy()
+    # Explicit authenticated Go checksum-database route; no private/direct bypass,
+    # cross compilation, toolchain auto-download or alternate acquisition fallback.
+    env.update(
+        GOPROXY="https://proxy.golang.org",
+        GOSUMDB="sum.golang.org",
+        GOPRIVATE="",
+        GONOPROXY="",
+        GONOSUMDB="",
+        GOFLAGS="",
+        GOTOOLCHAIN="local",
+        GOOS="windows",
+        GOARCH="arm64",
+        CGO_ENABLED="0",
+    )
+    if Path(env.get("GOBIN", "")).resolve() != Path("bin").resolve():
+        raise ValueError("source install must use repo-local bin")
+    actual = subprocess.check_output(
+        ["go", "env", "GOVERSION", "GOHOSTOS", "GOHOSTARCH"], text=True, env=env
+    ).splitlines()
+    if actual != [pins["compiler"], "windows", "arm64"]:
+        raise ValueError(f"unexpected source-build compiler/host: {actual}")
+    module = f"{pins['module']}@{pins['version']}"
+    metadata = json.loads(
+        subprocess.check_output(["go", "mod", "download", "-json", module], text=True, env=env)
+    )
+    require_source_download(metadata, pins)
+    print(f"[ok] source module/checksums {module}; compiler {pins['compiler']}", flush=True)
+    subprocess.run(["go", "install", module], check=True, env=env)
+    binary = str(Path("bin/goneat.exe").resolve())
+    metadata = subprocess.check_output(["go", "version", "-m", binary], text=True, env=env)
+    print(metadata, end="")
+    require_source_build(metadata, pins)
+
+
 def verify(expected_os, expected_arch):
     require_identity(
         expected_os,
@@ -77,13 +172,22 @@ def verify(expected_os, expected_arch):
         raise ValueError(f"runner metadata disagrees: RUNNER_ARCH={runner_arch}")
     if expected_os == "windows":
         require_windows_python(expected_arch, sysconfig.get_platform())
-    pins = Path("Makefile").read_text(encoding="utf-8")
-    match = re.search(r"^GONEAT_VERSION\s*\?=\s*(v[0-9.]+)\s*$", pins, re.M)
-    if not match:
-        raise ValueError("missing exact Makefile Goneat pin")
+    version = repository_version()
+    route = os.environ.get("GONEAT_ACQUISITION", "release")
+    require_acquisition(route, expected_os, expected_arch)
     output = subprocess.check_output(["goneat", "version"], text=True)
     print(output, end="")
-    if not output.splitlines() or output.splitlines()[0] != f"goneat {match[1]}":
+    if route == "source":
+        pins = source_pins()
+        if not output.startswith("goneat dev\n") or f"Module: {version}" not in output.splitlines():
+            raise ValueError("source build must retain truthful dev banner/module identity")
+        binary = shutil.which("goneat")
+        if not binary:
+            raise ValueError("source executable not found")
+        metadata = subprocess.check_output(["go", "version", "-m", binary], text=True)
+        print(metadata, end="")
+        require_source_build(metadata, pins)
+    elif not output.splitlines() or output.splitlines()[0] != f"goneat {version}":
         raise ValueError("Goneat does not match the repository pin")
     expected = f"Platform: {expected_os}/{expected_arch}"
     if expected not in output.splitlines():
@@ -92,6 +196,46 @@ def verify(expected_os, expected_arch):
 
 
 class IdentityTests(unittest.TestCase):
+    def test_source_route_is_explicit_and_bounded(self):
+        with patch.dict(os.environ, {"GONEAT_ACQUISITION": "release"}):
+            with self.assertRaises(ValueError):
+                install_source()
+        require_acquisition("source", "windows", "arm64")
+        for route, host, arch in (
+            ("fallback", "windows", "arm64"),
+            ("source", "windows", "amd64"),
+            ("source", "linux", "arm64"),
+        ):
+            with self.subTest(route=route, host=host), self.assertRaises(ValueError):
+                require_acquisition(route, host, arch)
+
+    def test_source_checksums_and_build_metadata(self):
+        pins = source_pins()
+        download = {
+            "Path": pins["module"], "Version": pins["version"],
+            "Sum": pins["sum"], "GoModSum": pins["go_mod_sum"],
+        }
+        require_source_download(download, pins)
+        for key in download:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                require_source_download({**download, key: "wrong"}, pins)
+        metadata = (
+            f"goneat.exe: {pins['compiler']}\n"
+            f"\tpath\t{pins['module']}\n"
+            f"\tmod\t{pins['module']}\t{pins['version']}\t{pins['sum']}\n"
+            "\tbuild\tGOOS=windows\n\tbuild\tGOARCH=arm64\n"
+            "\tbuild\tCGO_ENABLED=0\n"
+        )
+        require_source_build(metadata, pins)
+        for old, new in (
+            (pins["compiler"], "go1.26.8"),
+            (pins["sum"], "h1:wrong"),
+            ("GOARCH=arm64", "GOARCH=amd64"),
+            ("GOOS=windows", "GOOS=linux"),
+        ):
+            with self.subTest(old=old), self.assertRaises(ValueError):
+                require_source_build(metadata.replace(old, new), pins)
+
     def test_permission_fixture_setup_and_restore(self):
         helper = "scripts/test-fixture-access.py"
         with tempfile.TemporaryDirectory(prefix="crucible-permissions-") as work:
@@ -168,6 +312,13 @@ class IdentityTests(unittest.TestCase):
 
 
 def main():
+    if sys.argv[1:] == ["install-source"]:
+        try:
+            install_source()
+        except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        return 0
     if sys.argv[1:] == ["self-test"]:
         result = unittest.TextTestRunner().run(
             unittest.defaultTestLoader.loadTestsFromTestCase(IdentityTests)

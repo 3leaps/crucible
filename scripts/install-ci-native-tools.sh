@@ -24,7 +24,20 @@ EOF
     chmod +x "$tools/python3"
 fi
 
-make bootstrap-release-tools SHELL=bash BIN_DIR="$tools"
+case "${GONEAT_ACQUISITION:?}" in
+    release) make bootstrap-release-tools SHELL=bash BIN_DIR="$tools" ;;
+    source)
+        # Explicit Windows ARM64 lane; never a fallback from download failure.
+        test "${OS:-}" = Windows_NT
+        test "$EXPECTED_ARCH" = arm64
+        make bootstrap-sfetch SHELL=bash BIN_DIR="$tools"
+        python scripts/ci-platforms.py install-source
+        ;;
+    *)
+        echo 'error: unknown Goneat acquisition route' >&2
+        exit 1
+        ;;
+esac
 
 # These pins match the v0.5.7 runner inventory. Go verifies module checksums;
 # npm uses registry integrity metadata; pip uses the HTTPS index. These supporting

@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-ci-platforms fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-sfetch bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-ci-platforms fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -97,7 +97,7 @@ help: ## Show available targets
 # sfetch (3leaps/sfetch) is the trust anchor - a minimal, auditable binary fetcher.
 # goneat (fulmenhq/goneat) is installed via sfetch and manages additional tooling.
 
-bootstrap-release-tools: ## Install verified repo-local sfetch and goneat only
+bootstrap-sfetch: ## Install verified repo-local sfetch only
 	@echo "Bootstrapping crucible development environment..."
 	@echo ""
 	@# Step 0: Verify curl is available (required trust anchor)
@@ -114,7 +114,7 @@ bootstrap-release-tools: ## Install verified repo-local sfetch and goneat only
 	@echo ""
 	@# Step 1: Install the exact sfetch pin through the verified bootstrap engine.
 	@mkdir -p "$(BIN_DIR)"
-	@if [ "$(FORCE)" = "1" ]; then rm -f "$(SFETCH_LOCAL)" "$(GONEAT_LOCAL)"; fi
+	@if [ "$(FORCE)" = "1" ]; then rm -f "$(SFETCH_LOCAL)"; fi
 	@if [ -x "$(SFETCH_LOCAL)" ] && [ "$$($(SFETCH_LOCAL) --version 2>&1 | head -n1)" != "sfetch $(patsubst v%,%,$(SFETCH_VERSION))" ]; then \
 		echo "[..] Repo-local sfetch does not match $(SFETCH_VERSION); reinstalling..."; \
 		rm -f "$(SFETCH_LOCAL)"; \
@@ -134,7 +134,9 @@ bootstrap-release-tools: ## Install verified repo-local sfetch and goneat only
 	fi
 	@echo "[ok] sfetch: $$($(SFETCH_LOCAL) --version 2>&1 | head -n1) ($(SFETCH_LOCAL))"
 	@echo ""
+bootstrap-release-tools: bootstrap-sfetch ## Install verified repo-local sfetch and goneat only
 	@# Step 2: Install goneat via sfetch
+	@if [ "$(FORCE)" = "1" ]; then rm -f "$(GONEAT_LOCAL)"; fi
 	@if [ -x "$(GONEAT_LOCAL)" ] && ! "$(GONEAT_LOCAL)" version 2>&1 | head -n1 | grep -Fq "$(GONEAT_VERSION)"; then \
 		echo "[..] Repo-local goneat does not match $(GONEAT_VERSION); reinstalling..."; \
 		rm -f "$(GONEAT_LOCAL)"; \

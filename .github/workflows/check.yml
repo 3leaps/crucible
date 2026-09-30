@@ -76,14 +76,17 @@ jobs:
             os: darwin
             arch: arm64
             setup_arch: arm64
+            goneat_acquisition: release
           - runner: windows-latest
             os: windows
             arch: amd64
             setup_arch: x64
+            goneat_acquisition: release
           - runner: windows-latest-arm64-s
             os: windows
             arch: arm64
             setup_arch: arm64
+            goneat_acquisition: source
     defaults:
       run:
         shell: bash
@@ -123,11 +126,13 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
           # The signed installer uses this only for GitHub API requests.
           SFETCH_GITHUB_TOKEN: ${{ github.token }}
+          GONEAT_ACQUISITION: ${{ matrix.goneat_acquisition }}
         run: bash scripts/install-ci-native-tools.sh
       - name: Verify native identity and toolchain
         env:
           EXPECTED_OS: ${{ matrix.os }}
           EXPECTED_ARCH: ${{ matrix.arch }}
+          GONEAT_ACQUISITION: ${{ matrix.goneat_acquisition }}
         run: python scripts/ci-platforms.py verify "$EXPECTED_OS" "$EXPECTED_ARCH"
       - name: Run all quality checks
         run: make check SHELL=bash BIN_DIR="$(pwd)/bin"

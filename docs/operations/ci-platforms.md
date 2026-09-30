@@ -26,6 +26,20 @@ setup actions. Node's process architecture is not asserted by these controls. Th
 sfetch/Goneat chain, without invoking the broader developer package-manager
 bootstrap. Windows executable names retain their `.exe` suffix.
 
+Windows arm64 explicitly selects a native source build because the pinned Goneat
+release has no Windows arm64 archive. It still installs verified sfetch through
+`bootstrap-sfetch`, but does not attempt or fall back from a Goneat binary download.
+`.github/goneat-source.json` pins the Go module/version, module and go.mod checksums,
+and compiler. The source route uses the Go checksum database and public module
+proxy, with no private-module bypass, automatic compiler download or cross-build.
+It verifies downloaded metadata before installation and executable build metadata
+afterward, including module checksum, compiler and Windows arm64 identity.
+
+This is a checksum-verified local source build, not a minisigned upstream release
+binary. Its `goneat dev` banner is preserved; the pinned module version and build
+metadata establish source identity rather than a fabricated release banner.
+Other acquisition lanes retain their existing release-binary/container paths.
+
 `scripts/install-ci-native-tools.sh` installs versioned supporting check tools.
 Formatter/linter pins mirror the tools-runner inventory; OS shell prerequisites
 are installed through the runner's package manager, and effective tool versions
