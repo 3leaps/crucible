@@ -31,7 +31,9 @@ def set_access(path, deny):
         raise ValueError("permission fixtures must not be symlinks")
     if os.name == "nt":
         sid = windows_sid()
-        args = ["/deny", f"{sid}:(RX)"] if deny else ["/remove:d", sid]
+        # Deny file data/directory listing only. RX also denies READ_CONTROL,
+        # which can prevent icacls from reading the DACL to remove our deny ACE.
+        args = ["/deny", f"{sid}:(RD)"] if deny else ["/remove:d", sid]
         targets = [path]
         if path.name == "unreadable-dir":
             child = path / "ok.json"

@@ -61,7 +61,9 @@ support the existing shell controls on macOS and Windows; platform jobs do not
 silently omit controls.
 
 Unreadable-file/directory fixtures use POSIX modes on Unix and current-user deny
-ACLs on Windows. Directory fixtures also deny access to their known disposable
+ACLs on Windows. The deny mask covers file data/directory listing (`RD`), not
+ACL metadata (`READ_CONTROL`), so cleanup can still read and restore the DACL.
+Directory fixtures also deny access to their known disposable
 record; Windows name enumeration is not assumed to be denied. The shared test
 helper verifies that record reads are actually denied
 before invoking each normative validator, then restores fixture access. A no-op

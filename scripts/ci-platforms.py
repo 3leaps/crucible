@@ -247,6 +247,9 @@ class IdentityTests(unittest.TestCase):
                     [call[1] for call in calls],
                     [str(child), str(directory), str(directory), str(child)],
                 )
+                self.assertEqual(
+                    [call[3] for call in calls[:2]], ["*S-1-5-21-1:(RD)"] * 2
+                )
                 self.assertEqual([call[2] for call in calls[2:]], ["/remove:d"] * 2)
 
     def test_source_route_is_explicit_and_bounded(self):
