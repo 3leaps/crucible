@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import sysconfig
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -91,6 +92,31 @@ def verify(expected_os, expected_arch):
 
 
 class IdentityTests(unittest.TestCase):
+    def test_permission_fixture_setup_and_restore(self):
+        helper = "scripts/test-fixture-access.py"
+        with tempfile.TemporaryDirectory(prefix="crucible-permissions-") as work:
+            file = Path(work) / "unreadable.json"
+            file.write_bytes(b"fixture\n")
+            directory = Path(work) / "unreadable-dir"
+            directory.mkdir()
+            (directory / "ok.json").write_bytes(b"fixture\n")
+            for path in (file, directory):
+                try:
+                    subprocess.run(
+                        [sys.executable, helper, "deny", str(path)], check=True
+                    )
+                    with self.assertRaises(PermissionError):
+                        if path == directory:
+                            list(path.iterdir())
+                        else:
+                            path.read_bytes()
+                finally:
+                    subprocess.run(
+                        [sys.executable, helper, "restore", str(path)], check=True
+                    )
+            self.assertEqual(file.read_bytes(), b"fixture\n")
+            self.assertEqual((directory / "ok.json").read_bytes(), b"fixture\n")
+
     def test_tracked_paths_are_windows_portable(self):
         paths = subprocess.check_output(["git", "ls-files", "-z"], text=True)
         for path in paths.split("\0"):

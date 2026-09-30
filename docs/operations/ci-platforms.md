@@ -46,6 +46,11 @@ release-control gates, then require no tracked changes. GNU/Bash prerequisites
 support the existing shell controls on macOS and Windows; platform jobs do not
 silently omit controls.
 
+Unreadable-file/directory fixtures use POSIX modes on Unix and current-user deny
+ACLs on Windows. The shared test helper verifies that reads are actually denied
+before invoking each normative validator, then restores fixture access. A no-op
+permission change fails fixture setup rather than silently skipping that control.
+
 ## Evidence boundary
 
 Native validator execution is not adopter conformance, runtime storage durability

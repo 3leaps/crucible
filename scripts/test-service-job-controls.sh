@@ -116,23 +116,23 @@ assert_normative_target_gate() {
     fi
 
     cp "$golden" "$work/unreadable.json"
-    chmod 000 "$work/unreadable.json"
+    python3 scripts/test-fixture-access.py deny "$work/unreadable.json"
     if sh "$script" "$work/unreadable.json" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
         echo "    [!!] unreadable file was accepted by $script" >&2
-        chmod 600 "$work/unreadable.json"
+        python3 scripts/test-fixture-access.py restore "$work/unreadable.json"
         exit 1
     fi
-    chmod 600 "$work/unreadable.json"
+    python3 scripts/test-fixture-access.py restore "$work/unreadable.json"
 
     mkdir -p "$work/unreadable-dir"
     cp "$golden" "$work/unreadable-dir/ok.json"
-    chmod 000 "$work/unreadable-dir"
+    python3 scripts/test-fixture-access.py deny "$work/unreadable-dir"
     if sh "$script" "$work/unreadable-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
         echo "    [!!] unreadable directory was accepted by $script" >&2
-        chmod 700 "$work/unreadable-dir"
+        python3 scripts/test-fixture-access.py restore "$work/unreadable-dir"
         exit 1
     fi
-    chmod 700 "$work/unreadable-dir"
+    python3 scripts/test-fixture-access.py restore "$work/unreadable-dir"
 
     mkdir -p "$work/empty-dir"
     if sh "$script" "$work/empty-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
