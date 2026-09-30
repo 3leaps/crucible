@@ -20,7 +20,8 @@ publication therefore cannot proceed on a partial platform result.
 ## Toolchain
 
 Linux uses the pinned glibc tools-runner image with UID 1001. macOS and Windows
-install native Go, Python and Node through SHA-pinned setup actions. The
+install native Go and Python, plus supporting Node tooling, through SHA-pinned
+setup actions. Node's process architecture is not asserted by these controls. The
 `bootstrap-release-tools` Make target installs only the repo-local verified
 sfetch/Goneat chain, without invoking the broader developer package-manager
 bootstrap. Windows executable names retain their `.exe` suffix.
