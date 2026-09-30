@@ -35,7 +35,7 @@ SFETCH_VERSION := v0.4.12
 SFETCH_ENGINE_SHA := bd0e7a0e68ef5a3dc7cda862fc74e4e8bc5125f8
 SFETCH_ENGINE_SHA256 := 6114b7b6c1b4f01b5dcab55de635127301a09bc456eb9094656810300b363532
 SFETCH_ENGINE_REPO := 3leaps/sfetch
-GONEAT_VERSION ?= v0.6.0
+GONEAT_VERSION ?= v0.6.1
 
 # Tool paths
 # Bootstrap installs trust-chain tools repo-locally. Quality targets prefer those
