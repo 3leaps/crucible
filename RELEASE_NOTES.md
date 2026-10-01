@@ -8,6 +8,31 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.32 (2026-10-01)
+
+**Experimental immutable snapshots, enforced attribution footers, and native
+contract validation.**
+
+- **Segmented snapshots (proposed)** — `segmented-snapshot/v0` adds publication,
+  manifest, profile and verification schemas, semantic controls and conformance
+  cases for a flat immutable snapshot. Exact stored-byte identity does not prove
+  authentication, runtime custody or crash durability; adopter evidence remains
+  separate.
+- **Data-artifact clarification** — lifecycle, publication, source coverage and
+  representation guarantees remain distinct.
+- **Attribution checks** — commit messages and PR bodies use the enforced
+  three-line footer, with a checker, hook and reusable workflow.
+- **Native checks and toolchain** — full repository quality runs on Linux;
+  contract validation runs on Linux amd64/arm64, Darwin arm64 and Windows
+  amd64/arm64. Goneat advances to v0.6.1 and the glibc tools runner to v0.5.7.
+  Windows arm64 builds the pinned Goneat source with verified module checksums.
+- **Project management prompt** — the draft role emphasizes inspectable delivery
+  state, review gates and explicit authority for irreversible actions.
+
+See [docs/releases/v0.1.32.md](docs/releases/v0.1.32.md).
+
+---
+
 ## v0.1.31 (2026-09-17)
 
 **Portable identities for inference paths, a deny-by-default application

@@ -105,9 +105,9 @@ Reusable templates and reference materials.
 
 Current release documentation.
 
+- [v0.1.32.md](releases/v0.1.32.md) - Experimental segmented snapshots, attribution checks, and native contract validation
 - [v0.1.31.md](releases/v0.1.31.md) - Inference paths, application control, and verified toolchain
 - [v0.1.30.md](releases/v0.1.30.md) - Portable forge-infrastructure contract
-- [v0.1.17.md](releases/v0.1.17.md) - Baseline release, data artifact metadata hardening, and repository guidance alignment
 
 ## Design Principles
 
