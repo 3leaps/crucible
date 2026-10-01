@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Segmented snapshots (proposed).** Add the experimental
+  `segmented-snapshot/v0` publication, manifest, profile and verification schemas,
+  semantic controls, conformance cases and architecture/data decisions.
+
 - **Attribution footer check.** Add `scripts/check-attribution.py` (check,
   including `--markdown` example extraction, append, commit-msg hook, GitHub
   Action entry), a composite action and reusable workflow that fail a PR
@@ -18,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   then `Committer-of-Record: @3leapsdave`.
 
 ### Changed
+
+- Clarify data-artifact lifecycle, publication, coverage and representation
+  boundaries.
 
 - **Native platform checks.** Require quality checks on Linux amd64/arm64,
   Darwin arm64, and Windows amd64/arm64 before CI or release verification succeeds.

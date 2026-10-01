@@ -116,6 +116,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
+│   ├── segmented-snapshot/v0/ # Immutable snapshot publication and verification (proposed)
 │   └── service-job/v0/        # Portable service job contract
 └── scripts/                   # Release and automation scripts
 ```
@@ -242,6 +243,16 @@ This repository **directly informs** 3leaps projects and can be **referenced by*
 4. **Extensible** - Baseline patterns can be adopted or extended locally
 
 ## Schemas
+
+### Experimental snapshot contract
+
+The [segmented-snapshot contract](docs/standards/segmented-snapshot-contract.md)
+and [conformance cases](docs/standards/segmented-snapshot-conformance.md) define
+a proposed immutable-snapshot companion to data-artifact, with an experimental
+[schema bundle and semantic controls](schemas/segmented-snapshot/v0/README.md). See
+[ADR-0011](docs/decisions/ADR-0011-segmented-snapshot-contract.md).
+
+### Published schema assets
 
 JSON schemas normally carry a canonical `$id` under the
 `schemas.3leaps.dev` namespace:
