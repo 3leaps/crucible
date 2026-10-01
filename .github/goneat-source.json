@@ -1,0 +1,7 @@
+{
+  "module": "github.com/fulmenhq/goneat",
+  "version": "v0.6.1",
+  "sum": "h1:lnR7XaptuZG+YrcZw0YrBe4Sn0gqWVgIWUvkhsiczDI=",
+  "go_mod_sum": "h1:o6xhghajD6k9W29OBvjK29eHA8mLoBO92tVcC2a91+g=",
+  "compiler": "go1.26.6"
+}

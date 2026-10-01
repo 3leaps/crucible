@@ -9,10 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  verify-platforms:
+    uses: ./.github/workflows/check.yml
+
   verify:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.6
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7@sha256:fe525f286458a7491958f8f3b916ef1b9befb05fa2dae2e37b0c08eb84860bae
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
       options: --user 1001
     steps:
@@ -94,7 +97,7 @@ jobs:
     #
     # Runs outside the tools-runner container: the assertion needs the GitHub
     # CLI, which that image does not carry.
-    needs: verify
+    needs: [verify, verify-platforms]
     runs-on: ubuntu-latest
     outputs:
       tag_object_sha: ${{ steps.verify_tag.outputs.tag_object_sha }}

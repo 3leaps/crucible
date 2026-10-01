@@ -116,23 +116,23 @@ assert_normative_target_gate() {
     fi
 
     cp "$golden" "$work/unreadable.json"
-    chmod 000 "$work/unreadable.json"
+    python3 scripts/test-fixture-access.py deny "$work/unreadable.json"
     if sh "$script" "$work/unreadable.json" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
         echo "    [!!] unreadable file was accepted by $script" >&2
-        chmod 600 "$work/unreadable.json"
+        python3 scripts/test-fixture-access.py restore "$work/unreadable.json"
         exit 1
     fi
-    chmod 600 "$work/unreadable.json"
+    python3 scripts/test-fixture-access.py restore "$work/unreadable.json"
 
     mkdir -p "$work/unreadable-dir"
     cp "$golden" "$work/unreadable-dir/ok.json"
-    chmod 000 "$work/unreadable-dir"
+    python3 scripts/test-fixture-access.py deny "$work/unreadable-dir"
     if sh "$script" "$work/unreadable-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
         echo "    [!!] unreadable directory was accepted by $script" >&2
-        chmod 700 "$work/unreadable-dir"
+        python3 scripts/test-fixture-access.py restore "$work/unreadable-dir"
         exit 1
     fi
-    chmod 700 "$work/unreadable-dir"
+    python3 scripts/test-fixture-access.py restore "$work/unreadable-dir"
 
     mkdir -p "$work/empty-dir"
     if sh "$script" "$work/empty-dir" >/tmp/sj-tgt.out 2>/tmp/sj-tgt.err; then
@@ -370,8 +370,26 @@ for stem in values unicode-keys numbers escaping line-separators; do
         exit 1
     fi
     echo "    [ok] RFC 8785 vector: $stem"
+    # Canonical bytes must not depend on redirected Windows console encoding.
+    for encoding in ascii cp1252; do
+        PYTHONIOENCODING="$encoding" python3 scripts/rfc8785-canonicalize.py \
+            "$rfc_dir/${stem}.input.json" >"$tmpd/${stem}.encoding.jcs"
+        cmp -s "$rfc_dir/${stem}.canonical.jcs" "$tmpd/${stem}.encoding.jcs" || exit 1
+        PYTHONIOENCODING="$encoding" python3 scripts/rfc8785-canonicalize.py \
+            <"$rfc_dir/${stem}.input.json" >"$tmpd/${stem}.stdin.jcs"
+        cmp -s "$rfc_dir/${stem}.canonical.jcs" "$tmpd/${stem}.stdin.jcs" || exit 1
+    done
 done
 want_lsps=$(tr -d '[:space:]' <"$rfc_dir/line-separators.hex")
+if printf '\377' | PYTHONIOENCODING=cp1252 python3 scripts/rfc8785-canonicalize.py \
+    >"$tmpd/invalid-utf8.out" 2>"$tmpd/invalid-utf8.err"; then
+    echo "    [!!] canonicalizer accepted non-UTF-8 stdin" >&2
+    exit 1
+fi
+if [ -s "$tmpd/invalid-utf8.out" ]; then
+    echo "    [!!] invalid UTF-8 produced canonical output" >&2
+    exit 1
+fi
 got_lsps=$(python3 -c 'import pathlib,sys; sys.stdout.write(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$tmpd/line-separators.jcs")
 if [ "$got_lsps" != "$want_lsps" ]; then
     echo "    [!!] U+2028/U+2029 hex $got_lsps != $want_lsps" >&2
@@ -387,7 +405,7 @@ import json, pathlib, struct, sys
 from importlib.machinery import SourceFileLoader
 
 jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
-samples = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/ieee-samples.json").read_text())
+samples = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/ieee-samples.json").read_text(encoding="utf-8"))
 for row in samples:
     bits = int(row["ieee_hex"], 16)
     value = struct.unpack("<d", struct.pack("<Q", bits))[0]
@@ -402,7 +420,7 @@ import json, pathlib, sys
 from importlib.machinery import SourceFileLoader
 
 jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
-cases = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/rejects.json").read_text())["cases"]
+cases = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/rejects.json").read_text(encoding="utf-8"))["cases"]
 for case in cases:
     try:
         document = jcs.jcs_loads(case["json_text"])
@@ -410,7 +428,7 @@ for case in cases:
     except (ValueError, json.JSONDecodeError):
         continue
     raise SystemExit("reject case %s was accepted" % case["name"])
-probes = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/string-bytes.json").read_text())["cases"]
+probes = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/string-bytes.json").read_text(encoding="utf-8"))["cases"]
 for case in probes:
     got = jcs.jcs_dumps(jcs.jcs_loads(case["json_text"])).encode("utf-8").hex()
     if got != case["canonical_hex"]:
@@ -456,9 +474,9 @@ import json, hashlib, pathlib, sys
 sys.path.insert(0, "scripts")
 from importlib.machinery import SourceFileLoader
 jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
-spec = json.loads(pathlib.Path("schemas/service-job/v0/examples/job_submit_request.example.json").read_text())["job_spec"]
+spec = json.loads(pathlib.Path("schemas/service-job/v0/examples/job_submit_request.example.json").read_text(encoding="utf-8"))["job_spec"]
 digest = hashlib.sha256(jcs.jcs_dumps(spec).encode("utf-8")).hexdigest()
-want = pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.sha256").read_text().strip()
+want = pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.sha256").read_text(encoding="utf-8").strip()
 if digest != want:
     raise SystemExit("submit job_spec digest %s != %s" % (digest, want))
 '
@@ -480,7 +498,7 @@ import copy, hashlib, json, pathlib, sys
 from importlib.machinery import SourceFileLoader
 
 jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
-spec = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.input.json").read_text())
+spec = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.input.json").read_text(encoding="utf-8"))
 base = hashlib.sha256(jcs.jcs_dumps(spec).encode("utf-8")).hexdigest()
 
 def digest(document):

@@ -15,7 +15,8 @@ require_command() {
 }
 
 expected_policy_json() {
-    jq -cnS \
+    # The pinned fingerprint includes an LF terminator on every platform.
+    jq -b -cnS \
         --arg repository "${EXPECTED_REPOSITORY}" \
         --arg ruleset_name "${EXPECTED_RULESET_NAME}" \
         '{
@@ -111,7 +112,7 @@ resolve_live_ruleset() {
     local ruleset_pages ruleset_ids ruleset_count ruleset_id ruleset_json
     ruleset_pages="$(gh api --paginate --slurp \
         "repos/${EXPECTED_REPOSITORY}/rulesets?per_page=100")"
-    ruleset_ids="$(jq -r \
+    ruleset_ids="$(jq -b -r \
         --arg name "${EXPECTED_RULESET_NAME}" \
         'flatten | map(select(.name == $name)) | .[].id' \
         <<<"${ruleset_pages}")"
