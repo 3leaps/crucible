@@ -21,7 +21,8 @@ contract validation.**
 - **Data-artifact clarification** — lifecycle, publication, source coverage and
   representation guarantees remain distinct.
 - **Attribution checks** — commit messages and PR bodies use the enforced
-  three-line footer, with a checker, hook and reusable workflow.
+  three-line footer, with a checker, hook and reusable workflow. Current
+  documentation and all seven role-example files use the same cross-org format.
 - **Native checks and toolchain** — full repository quality runs on Linux;
   contract validation runs on Linux amd64/arm64, Darwin arm64 and Windows
   amd64/arm64. Goneat advances to v0.6.1 and the glibc tools runner to v0.5.7.

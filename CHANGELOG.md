@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Attribution guidance.** Align current documentation and all seven role-example
+  files with the enforced three-line commit and PR footer across organizations.
+
 - Clarify data-artifact lifecycle, publication, coverage and representation
   boundaries.
 
