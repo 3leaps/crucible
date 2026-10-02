@@ -56,6 +56,7 @@ Examples:
 | [ADR-0011](ADR-0011-segmented-snapshot-contract.md)                         | Immutable Segmented Snapshots as a Companion Contract              | proposed | 2026-09-30 |
 | [DDR-0001](DDR-0001-application-control-data-contract.md)                  | Application Control Data Contract                                  | proposed | 2026-09-06 |
 | [DDR-0002](DDR-0002-segmented-snapshot-identity-and-evidence.md)            | Segmented Snapshot Identity and Evidence                            | proposed | 2026-09-30 |
+| [DDR-0003](DDR-0003-portable-path-serialization-at-tool-boundaries.md)     | Portable Path Serialization at Tool Boundaries                       | proposed | 2026-10-02 |
 | [SecDR-0001](SecDR-0001-application-controller-authority.md)               | Application Controller Authority                                   | proposed | 2026-09-06 |
 | [PDR-0001](PDR-0001-adopt-data-pipeline-principles.md)                     | Adopt the Data-Pipeline Engineering Principles                     | accepted | 2026-06-29 |
 | [PDR-0002](PDR-0002-worktree-per-task.md)                                  | One git worktree per concurrent task                               | accepted | 2026-06-29 |

@@ -179,7 +179,7 @@ def check_row_schema(raw: bytes) -> None:
         for i, node in enumerate(nodes.values()):
             path = pathlib.Path(directory) / f"node-{i}.schema.json"
             path.write_bytes(emitted(node))
-            paths.append(str(path))
+            paths.append(metaschema_input_path(path))
         checked = subprocess.run(
             [
                 "goneat",
@@ -198,13 +198,23 @@ def check_row_schema(raw: bytes) -> None:
         require(metaschema_result(checked, paths), "SEM-S03")
 
 
+def metaschema_input_path(path: pathlib.PurePath) -> str:
+    """Use the tool's slash spelling without resolving filesystem aliases."""
+    return path.as_posix()
+
+
 def metaschema_result(result: subprocess.CompletedProcess, paths: list[str]) -> bool:
     """Only recognized instance-validation diagnostics can satisfy a negative."""
     try:
         records = json.loads(result.stdout)
         assert result.returncode in {0, 1} and isinstance(records, list)
         assert len(records) == len(paths)
-        assert {record["file"] for record in records} == set(paths)
+        remaining = set(paths)
+        assert len(remaining) == len(paths)
+        for record in records:
+            assert isinstance(record["file"], str) and record["file"] in remaining
+            remaining.remove(record["file"])
+        assert not remaining
         for record in records:
             assert record["schema_id"] == "json-schema-2020-12"
             assert type(record["valid"]) is bool
@@ -233,6 +243,66 @@ def metaschema_result(result: subprocess.CompletedProcess, paths: list[str]) -> 
         raise RuntimeError(
             "metaschema tool failure: " + result.stdout + result.stderr
         ) from None
+
+
+def test_metaschema_report_binding() -> None:
+    for flavor, root in (
+        (pathlib.PureWindowsPath, "C:/Users/RUNNER~1/AppData/Local/Temp"),
+        (pathlib.PurePosixPath, "/tmp"),
+    ):
+        nodes = [
+            flavor(root) / "snapshot-schema-test" / f"node-{i}.schema.json"
+            for i in range(2)
+        ]
+        paths = [metaschema_input_path(path) for path in nodes]
+        records = [
+            {"file": path, "schema_id": "json-schema-2020-12", "valid": True}
+            for path in paths
+        ]
+
+        def result(items, code=0):
+            return subprocess.CompletedProcess([], code, json.dumps(items), "")
+
+        def refused(items, expected=paths, code=0):
+            try:
+                metaschema_result(result(items, code), expected)
+            except RuntimeError:
+                return
+            raise AssertionError("malformed metaschema report accepted")
+
+        assert metaschema_result(result(records), paths)
+        assert metaschema_result(result(list(reversed(records))), paths)
+        if flavor is pathlib.PureWindowsPath:
+            refused(records, [str(path) for path in nodes])
+        else:
+            assert paths == [str(path) for path in nodes]
+        for foreign in (
+            str(flavor(root) / "other-directory" / nodes[0].name),
+            metaschema_input_path(nodes[0].with_name("other.schema.json")),
+            "D:/Users/RUNNER~1/AppData/Local/Temp/snapshot-schema-test/node-0.schema.json",
+            "C:/Users/runneradmin/AppData/Local/Temp/snapshot-schema-test/node-0.schema.json",
+        ):
+            changed = copy.deepcopy(records)
+            changed[0]["file"] = foreign
+            refused(changed)
+        refused([records[0], records[0]])
+        refused([records[0], records[0]], [paths[0], paths[0]])
+        refused(records[:-1])
+        refused(records + [records[0]])
+        for key, value in (("file", None), ("schema_id", "unknown"), ("valid", "true")):
+            changed = copy.deepcopy(records)
+            changed[0][key] = value
+            refused(changed)
+        refused(records, code=1)
+        refused(records, code=2)
+        invalid = copy.deepcopy(records)
+        invalid[0]["valid"] = False
+        refused(invalid, code=1)
+        invalid[0]["errors"] = ["(root): resolver failed"]
+        refused(invalid, code=1)
+        invalid[0]["errors"] = ["(root): fields is required"]
+        assert metaschema_result(result(invalid, 1), paths) is False
+    print("[ok] metaschema slash inputs and one-to-one report binding")
 
 
 @functools.lru_cache(maxsize=256)
@@ -544,6 +614,7 @@ def mutate(store: dict[str, bytes], request: dict, edit: dict) -> None:
 
 
 def main() -> None:
+    test_metaschema_report_binding()
     contract = parse((FAMILY / "contract.json").read_bytes())
     assert contract["capability"] == CAPABILITY
     assert contract["entry_schema"] == "snapshot-publication.schema.json"

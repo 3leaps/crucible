@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Portable path boundaries (proposed).** Add DDR-0003 for forward-slash
+  tool-facing path serialization, separate pointer fragments and strict
+  one-to-one validation-report binding.
+
 - **Segmented snapshots (proposed).** Add the experimental
   `segmented-snapshot/v0` publication, manifest, profile and verification schemas,
   semantic controls, conformance cases and architecture/data decisions.
@@ -27,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Attribution guidance.** Align current documentation and all seven role-example
   files with the enforced three-line commit and PR footer across organizations.
+
+- **Snapshot validation portability.** Separate catalog JSON pointers from
+  filesystem paths and serialize generated metaschema input paths in
+  forward-slash form. Add Windows/POSIX detecting regressions and reject duplicate,
+  foreign, missing or extra metaschema report identities.
 
 - Clarify data-artifact lifecycle, publication, coverage and representation
   boundaries.
