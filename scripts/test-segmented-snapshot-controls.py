@@ -44,8 +44,10 @@ SCHEMAS = {
     "artifact:result": FAMILY / "verification-result.schema.json",
     "artifact:descriptor": REPO
     / "schemas/data-artifact/v0/artifact-descriptor.schema.json",
-    "artifact:catalog": REPO
-    / "schemas/data-artifact/v0/artifact-descriptor.schema.json#/$defs/fieldCatalog",
+    "artifact:catalog": (
+        REPO / "schemas/data-artifact/v0/artifact-descriptor.schema.json",
+        "/$defs/fieldCatalog",
+    ),
     "artifact:coverage": REPO
     / "schemas/coverage-attestation/v0/coverage-attestation.schema.json",
 }
@@ -413,21 +415,39 @@ def verify(store: dict[str, bytes], request: dict) -> None:
     )
 
 
-def schema_check(raw: bytes, schema: pathlib.Path, tmp: pathlib.Path) -> bool:
-    tmp.write_bytes(raw)
+def schema_target(
+    target: pathlib.PurePath | tuple[pathlib.PurePath, str],
+) -> tuple[pathlib.PurePath, str | None]:
+    schema, fragment = target if isinstance(target, tuple) else (target, None)
     if "#" in str(schema):
-        filename, fragment = str(schema).split("#", 1)
-        source = parse(pathlib.Path(filename).read_bytes())
+        raise RuntimeError("schema setup failure: fragment embedded in filesystem path")
+    return schema, fragment
+
+
+def catalog_wrapper(source: dict, fragment: str) -> dict:
+    if fragment != "/$defs/fieldCatalog":
+        raise RuntimeError("schema setup failure: unsupported catalog pointer")
+    definitions = source.get("$defs")
+    if not isinstance(definitions, dict) or not isinstance(
+        definitions.get("fieldCatalog"), dict
+    ):
+        raise RuntimeError("schema setup failure: catalog pointer has no schema target")
+    if not isinstance(source.get("$schema"), str):
+        raise RuntimeError("schema setup failure: missing catalog schema dialect")
+    return {"$schema": source["$schema"], "$defs": definitions, "$ref": "#" + fragment}
+
+
+def schema_check(
+    raw: bytes,
+    target: pathlib.Path | tuple[pathlib.Path, str],
+    tmp: pathlib.Path,
+) -> bool:
+    schema, fragment = schema_target(target)
+    tmp.write_bytes(raw)
+    if fragment is not None:
+        source = parse(schema.read_bytes())
         schema = tmp.parent / "catalog-wrapper.schema.json"
-        schema.write_bytes(
-            emitted(
-                {
-                    "$schema": source["$schema"],
-                    "$defs": source["$defs"],
-                    "$ref": "#" + fragment,
-                }
-            )
-        )
+        schema.write_bytes(emitted(catalog_wrapper(source, fragment)))
     refs = ["--ref-dir", str(FAMILY)] if schema.parent == FAMILY else []
     result = subprocess.run(
         [
@@ -568,6 +588,64 @@ def main() -> None:
                             "tool failure counted as validation evidence"
                         )
         print("[ok] tool failures cannot satisfy semantic or structural negatives")
+        catalog_path, catalog_fragment = SCHEMAS["artifact:catalog"]
+        catalog_source = parse(catalog_path.read_bytes())
+        for path_type in (pathlib.PureWindowsPath, pathlib.PurePosixPath):
+            old_path = path_type(str(catalog_path) + "#" + catalog_fragment)
+            old_fragment = str(old_path).split("#", 1)[1]
+            assert (old_fragment == catalog_fragment) == (
+                path_type is pathlib.PurePosixPath
+            )
+            try:
+                schema_target(old_path)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("embedded pointer accepted as filesystem path")
+            path, fragment = schema_target((path_type(catalog_path), catalog_fragment))
+            assert "#" not in str(path)
+            assert catalog_wrapper(catalog_source, fragment)["$ref"] == (
+                "#/$defs/fieldCatalog"
+            )
+        for source, fragment in (
+            (catalog_source, r"\$defs\fieldCatalog"),
+            (catalog_source, "/$defs/missing"),
+            ({"$schema": catalog_source["$schema"], "$defs": {}}, catalog_fragment),
+            (
+                {"$schema": catalog_source["$schema"], "$defs": {"fieldCatalog": 7}},
+                catalog_fragment,
+            ),
+            ({"$defs": catalog_source["$defs"]}, catalog_fragment),
+            ({"$schema": 7, "$defs": catalog_source["$defs"]}, catalog_fragment),
+        ):
+            try:
+                catalog_wrapper(source, fragment)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("invalid catalog pointer or target accepted")
+        assert schema_check(base["artifact:catalog"], SCHEMAS["artifact:catalog"], tmp)
+        invalid_catalog = parse(base["artifact:catalog"])
+        del invalid_catalog["fields"]
+        validation_run = subprocess.run
+        catalog_reports = []
+
+        def capture_catalog_report(*args, **kwargs):
+            result = validation_run(*args, **kwargs)
+            catalog_reports.append(result)
+            return result
+
+        with mock.patch.object(subprocess, "run", side_effect=capture_catalog_report):
+            assert not schema_check(
+                emitted(invalid_catalog), SCHEMAS["artifact:catalog"], tmp
+            )
+        assert len(catalog_reports) == 1
+        catalog_report = catalog_reports[0]
+        report, _ = json.JSONDecoder().raw_decode(catalog_report.stderr.lstrip())
+        assert catalog_report.returncode == 1 and report["valid"] is False
+        assert any("fields is required" in item["message"] for item in report["errors"])
+        print("[ok] catalog fields-required raw report: " + catalog_report.stderr)
+        print("[ok] catalog pointer is OS-independent; valid/fields-required negative")
         for ref, schema in SCHEMAS.items():
             assert schema_check(base[ref], schema, tmp), (
                 f"baseline structural failure: {ref}"
