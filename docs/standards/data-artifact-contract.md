@@ -4,7 +4,7 @@ description: "Source-neutral contract for produced data artifacts, representatio
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-07-09"
+lastUpdated: "2026-09-30"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
@@ -14,6 +14,7 @@ relatedDocs:
   - "docs/standards/data-artifact-contract-examples.md"
   - "docs/standards/data-sensitivity-classification.md"
   - "docs/standards/schema-stability-classification.md"
+  - "docs/standards/segmented-snapshot-contract.md"
 audience: "implementers"
 ---
 
@@ -163,6 +164,12 @@ completeness claims — what an artifact actually covers, per scope, as
 verified — are out of scope for the descriptor and arrive via a companion
 coverage-attestation contract keyed on `artifact_id` (proposed; see
 ADR-0004).
+
+Lifecycle does not specify a storage commit protocol. A `complete` descriptor
+does not by itself prove that files were durably published; a `partial` artifact
+can nevertheless have a fully committed physical representation. Process outcome,
+publication and coverage are distinct facts supplied by their respective
+contracts and evidence.
 
 ### Grain
 
@@ -565,6 +572,25 @@ deliver an artifact and which authority may perform that operation. This
 contract governs the published bag of bytes, representations, provenance, and
 protection. Forge object references and event payload references do not replace
 a data-artifact descriptor.
+
+## Composition With Immutable Snapshots
+
+The proposed [segmented-snapshot companion](segmented-snapshot-contract.md)
+describes exact immutable manifest/member bindings, publication and verification
+semantics. It reuses this contract's artifact, grain, representation, catalog and
+protection model. It does not change this contract's fields or require existing
+producers to adopt a storage protocol.
+
+Read capabilities describe the offered access path; they do not imply independent
+verification of the entire dataset. A sharded or appendable representation does
+not, by those flags alone, promise atomic publication, durable append
+acknowledgement, replay or reader pinning. Those guarantees need their own
+profile/contract and evidence.
+
+An internal full-fidelity manifest and an export representation can have different
+protection requirements. Adding a portable descriptor cannot make unsafe native
+metadata safe to export. A boundary representation remains subject to all the
+metadata, granularity and predicate-protection rules above.
 
 ## Validation Requirements
 

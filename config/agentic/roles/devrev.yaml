@@ -121,6 +121,8 @@ examples:
       - Add test case for empty request list
 
       Role: devrev
+      Co-authored-by: <Model> <noreply@3leaps.net>
+      Committer-of-Record: @3leapsdave
 
 checklists:
   review:

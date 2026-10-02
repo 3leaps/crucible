@@ -382,10 +382,13 @@ lint-contracts: ## Run contract controls and validate manifests
 		sh scripts/test-forge-infra-controls.sh || exit 1; \
 		echo "    Application-control controls..."; \
 		sh scripts/test-application-control-controls.sh || exit 1; \
+		echo "    Segmented-snapshot controls..."; \
+		python3 scripts/test-segmented-snapshot-controls.py || exit 1; \
 		sh scripts/test-contract-manifest-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
 			schemas/application-control/v0/contract.json \
+			schemas/segmented-snapshot/v0/contract.json \
 			schemas/data-artifact/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
 			schemas/process-run/v0/contract.json \

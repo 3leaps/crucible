@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.32] - 2026-10-01
+
 ### Added
+
+- **Portable path boundaries (proposed).** Add DDR-0003 for forward-slash
+  tool-facing path serialization, separate pointer fragments and strict
+  one-to-one validation-report binding.
+
+- **Segmented snapshots (proposed).** Add the experimental
+  `segmented-snapshot/v0` publication, manifest, profile and verification schemas,
+  semantic controls, conformance cases and architecture/data decisions.
 
 - **Attribution footer check.** Add `scripts/check-attribution.py` (check,
   including `--markdown` example extraction, append, commit-msg hook, GitHub
@@ -19,8 +29,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Native platform checks.** Require quality checks on Linux amd64/arm64,
-  Darwin arm64, and Windows amd64/arm64 before CI or release verification succeeds.
+- **Attribution guidance.** Align current documentation and all seven role-example
+  files with the enforced three-line commit and PR footer across organizations.
+
+- **Snapshot validation portability.** Separate catalog JSON pointers from
+  filesystem paths and serialize generated metaschema input paths in
+  forward-slash form. Add Windows/POSIX detecting regressions and reject duplicate,
+  foreign, missing or extra metaschema report identities.
+
+- Clarify data-artifact lifecycle, publication, coverage and representation
+  boundaries.
+
+- **Native platform checks.** Require full repository quality on Linux and
+  contract validation on Linux amd64/arm64, Darwin arm64, and Windows amd64/arm64
+  before CI or release verification succeeds.
 
 - **Development toolchain.** Advance the verified Goneat bootstrap pin to
   v0.6.1 and both CI glibc tools-runner pins to v0.5.7.
@@ -1040,7 +1062,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.31...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.32...HEAD
+[0.1.32]: https://github.com/3leaps/crucible/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/3leaps/crucible/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/3leaps/crucible/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/3leaps/crucible/compare/v0.1.28...v0.1.29
