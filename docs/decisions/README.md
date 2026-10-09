@@ -69,3 +69,4 @@ Examples:
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)                        | Gates Assert on Resolved State and Are Proven Able to Fail         | accepted | 2026-07-20 |
 | [EPR-0003](EPR-0003-claim-integrity.md)                                    | Durable Claims Assert on What Exists and Move When It Moves        | proposed | 2026-07-27 |
 | [EPR-0004](EPR-0004-publication-surfaces-preserve-domains-of-concern.md)   | Publication Surfaces Preserve Domains of Concern                   | proposed | 2026-08-19 |
+| [EPR-0005](EPR-0005-test-evidence-independence.md)                         | Test Evidence Is Independent of the Implementation It Judges       | proposed | 2026-10-09 |

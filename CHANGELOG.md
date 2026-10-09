@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Test evidence independence (proposed).** Add EPR-0005: relied-upon tests
+  take expected results from a source the implementation does not determine,
+  draw specimens from a separate authority where a shared corpus exists, state
+  class invariants, and carry confirmed findings into durable specimens.
+
 - **`make release-push-tag`.** Verifies the local signed tag, requires the
   tagged commit on `origin/main` and the remote tag absent, pushes the tag ref
   and confirms the remote object. `release-tag-push` is an alias.
