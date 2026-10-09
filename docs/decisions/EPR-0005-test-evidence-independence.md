@@ -62,8 +62,10 @@ history:
    the next change can reopen it silently.
 
 What these share: **the evidence and the thing it judges have a common origin**,
-so their agreement carries no information. The failure is silent by
-construction. A self-consistent test does not misbehave; it passes.
+so their agreement is weak evidence on exactly the question that matters: whether
+the shared understanding is correct. It still catches regressions against that
+understanding; it cannot catch the understanding being wrong. The failure is
+silent by construction. A self-consistent test does not misbehave; it passes.
 
 This is the point where review most often finds slippage against a specification
 or standard. Tests are written alongside the code, by the same author, at the
@@ -78,10 +80,10 @@ the implementation, and would, if it were wrong).
 ## Principle
 
 > **A relied-upon test MUST take its expected results from a source the
-> implementation does not determine, MUST draw its specimens from an authority
-> other than the implementation's author where a shared corpus exists, MUST
-> state class invariants that every specimen inherits, and MUST turn every
-> confirmed finding into a durable specimen before the finding is closed.**
+> implementation does not determine, MUST draw its specimens from an
+> independently derived and reviewed authority where one exists, MUST state class
+> invariants that every specimen inherits, and MUST turn every confirmed finding
+> into durable executable evidence before the finding is closed.**
 
 Four obligations, each independent of language, framework, and domain:
 
@@ -97,24 +99,35 @@ _Self-check:_ **if the implementation misread the specification, would this
 expectation have been written the same way?** If yes, the test cannot detect that
 misreading.
 
-### 2. Specimens come from an authority separate from the implementation
+### 2. Specimens come from an independently derived and reviewed authority
 
-Where a shared specimen corpus exists for a domain, relied-upon tests consume it
-by pinned reference instead of constructing their own specimens. The corpus owns
-what each specimen **is** (its class and expected verdict). The consumer proves
-it treats each specimen correctly.
+Independence is a property of **derivation and review**, not of location or
+authorship alone. A specimen authority is independent when what each specimen
+**is** (its class and expected verdict) is derived from a source the
+implementation does not determine, and is reviewed against that source by
+someone other than the implementation's author. Moving specimens written from
+the implementation's own assumptions into another repository, or under another
+name, does not make them independent.
+
+Where such an authority exists for a domain, relied-upon tests consume it by
+pinned reference rather than constructing their own specimens. The authority
+owns what each specimen is. The consumer proves it treats each specimen
+correctly.
 
 Two consequences follow:
 
-- **A detector does not manufacture the material it judges**, persisted or in
-  memory, real or synthetic. A component whose job is to recognize a class of
-  artifact gains no evidence from artifacts it made itself.
-- **An unavailable corpus is a failure, never a skip.** This is EPR-0002
+- **A component that judges a class of artifact should not be the source of
+  the specimens it is judged against.** Specimens it generates inherit its
+  assumptions, so they are weak evidence that it recognizes the class
+  correctly. Whether a given repository forbids such generation outright is a
+  repository decision, recorded in its own PDR.
+- **An unavailable authority is a failure, never a skip.** This is EPR-0002
   obligation 2 applied to specimens: a missing corpus is absent evidence.
 
-Where no shared corpus exists yet, locally constructed specimens are permitted
-as an explicitly **transitional** state, named as such with an owner and a
-trigger (EPR-0003 obligation 1). They are not a conforming end state.
+Where no independent authority exists yet, locally constructed specimens are
+permitted as an explicitly **transitional** state, named as such with an owner
+and a trigger, in the form EPR-0003 (proposed) sets out for aspirational
+claims. They are not a conforming end state.
 
 ### 3. Class invariants are stated, and every specimen inherits them
 
@@ -124,11 +137,13 @@ ever produces outcome Y*; *no specimen of class X passes gate Z*. The invariants
 are driven by class membership, so a new specimen is covered on arrival without
 an author writing its expectation correctly.
 
-### 4. A confirmed finding becomes a specimen before it is closed
+### 4. A confirmed finding becomes durable executable evidence before it is closed
 
-When review or field use demonstrates a defect, the demonstrating input is added
-to the specimen authority (or, transitionally, to the local tests) together with
-its class. Before the finding is closed, the new specimen is shown to **fail
+When review or field use demonstrates a defect, the finding is closed by
+durable executable evidence. Usually that is the demonstrating input, added to
+the specimen authority (or, transitionally, to the local tests) together with
+its class. Where the defect is closed by a class invariant rather than a
+specimen, the evidence is the control-of-the-control described below. Before the finding is closed, the new specimen is shown to **fail
 against the pre-fix implementation** and pass against the fix. The baseline is
 built from its own checkout of the pre-fix revision, not by stashing or reverting
 working-tree changes, which can remove the new test along with the fix.
@@ -152,7 +167,8 @@ longer fails there when the rule is removed.
 system being judged. A test needs both: a gate proven able to fail, fed evidence
 that could disagree with the implementation.
 
-The citation is one-directional, following EPR-0003's precedent. EPR-0002 is
+The citation is one-directional, following the precedent set by EPR-0003
+(proposed). EPR-0002 is
 accepted and is not edited to cite this record. **More-specific-wins:** where a
 question concerns the assertion itself (resolved state, absence, negative
 control, exemptions), EPR-0002 governs.
@@ -186,7 +202,9 @@ quietly become permanent.
 ## Graduation condition
 
 This record graduates from proposed to accepted when a conforming reference
-implementation exists in a repository **other than crucible**, comprising:
+implementation exists in a repository **other than crucible**, with landed,
+pinned evidence against every obligation and a declared coverage boundary,
+comprising:
 
 1. tests whose expectations trace to a cited specification or an independently
    maintained manifest, and not to the code under test;
@@ -195,8 +213,8 @@ implementation exists in a repository **other than crucible**, comprising:
 3. class invariants that a newly added specimen inherits without per-specimen
    expectations, declared by the specimen authority in a form the consumer
    enforces exactly, with a check that fails when the two disagree;
-4. at least one confirmed finding carried into the corpus, with its control
-   against the pre-fix revision recorded;
+4. at least one confirmed finding carried into durable executable evidence,
+   with its control against the pre-fix revision recorded;
 5. negative controls for (2) and (3), per EPR-0002 obligation 3: a missing or
    wrong-pin corpus is shown to fail the run, and a specimen given a violating
    verdict is shown to fail its class invariant.
@@ -206,6 +224,10 @@ synthetic fixture corpus are being brought into this shape: the detector's tests
 move to the corpus by pinned reference, and adversarial review findings become
 corpus specimens. Until that work lands and meets every item above, it is a plan,
 and this record does not cite it as conformance.
+
+A separate repository is necessary for that implementation but is not, by
+itself, proof of independence; the evidence must show independent derivation
+and review of the specimen authority.
 
 **Not evidence.** A review panel that catches self-consistent tests does not
 discharge this condition. It shows that reviewers work, not that the evidence is
@@ -261,3 +283,4 @@ stated layering keeps both citable.
 | Date       | Status Change | Summary                                                       | Updated By |
 | ---------- | ------------- | ------------------------------------------------------------- | ---------- |
 | 2026-10-09 | → proposed    | Draft: expectations, specimens, class invariants, findings    | devlead    |
+| 2026-10-09 | (proposed)    | Independence is derivation and review, not location; EPR-0003 cited as precedent; Obl. 4 allows control-of-the-control | devlead (entarch review) |
