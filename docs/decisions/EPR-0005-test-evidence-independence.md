@@ -137,6 +137,13 @@ That last step is EPR-0002 obligation 3 applied to the regression itself. A
 regression test that was never observed failing on the defect it names is
 configured, not proven.
 
+Where a finding is closed by a new **class invariant** rather than a new
+specimen, no single specimen may be able to discriminate it: a conforming
+specimen passes with or without the rule. The evidence is then a
+**control-of-the-control**. Construct a specimen that violates only the new
+rule, show it fails at that rule's assertion, and show the same specimen no
+longer fails there when the rule is removed.
+
 ## Relationship to EPR-0002 and EPR-0003 (layering, stated to avoid dual authority)
 
 [EPR-0002](EPR-0002-verification-gate-integrity.md) governs whether a gate's
@@ -186,7 +193,8 @@ implementation exists in a repository **other than crucible**, comprising:
 2. specimens consumed by pinned reference from a corpus maintained separately
    from the consuming implementation, with an unavailable corpus failing the run;
 3. class invariants that a newly added specimen inherits without per-specimen
-   expectations;
+   expectations, declared by the specimen authority in a form the consumer
+   enforces exactly, with a check that fails when the two disagree;
 4. at least one confirmed finding carried into the corpus, with its control
    against the pre-fix revision recorded;
 5. negative controls for (2) and (3), per EPR-0002 obligation 3: a missing or
