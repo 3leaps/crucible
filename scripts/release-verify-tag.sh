@@ -45,13 +45,12 @@ main() {
     fi
 
     echo "Verifying tag signature: $tag"
-    if git verify-tag "$tag" 2>/dev/null; then
-        echo ""
-        echo "[ok] Tag verified: $tag"
-    else
+    if ! git verify-tag "$tag" 2>/dev/null; then
         echo "error: tag verification failed for $tag" >&2
         exit 1
     fi
+    # The same pinned-key check the release workflow applies before publication.
+    ./scripts/verify-pinned-tag.sh "$tag"
 }
 
 main "$@"

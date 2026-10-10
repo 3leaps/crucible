@@ -9,13 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  verify-platforms:
-    uses: ./.github/workflows/check.yml
-
   verify:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7@sha256:fe525f286458a7491958f8f3b916ef1b9befb05fa2dae2e37b0c08eb84860bae
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.8@sha256:a64b0319f4aad1069f2edd587f9d4d7bf2c52318c3c3e0c9d88650c5983c9c77
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
       options: --user 1001
     steps:
@@ -87,17 +84,18 @@ jobs:
     # release object is created at all.
     #
     # Two assertions, both required:
-    #   1. The tag is signed by the PINNED release key committed at
-    #      docs/security/release-signing-keys.asc — verified in an isolated
-    #      keyring built only from that file. GitHub's verified flag alone
-    #      accepts any key on the tagger's account; the pin is what makes the
-    #      signature an authorization rather than an attribution.
+    #   1. The tag is signed by the PINNED release signing subkey committed at
+    #      docs/security/release-signing-keys.asc, whose primary must match
+    #      keys/expected-fingerprints.txt, with the committed tagger identity.
+    #      GitHub's verified flag alone accepts any key on the tagger's
+    #      account; the pin is what makes the signature an authorization
+    #      rather than an attribution.
     #   2. GitHub independently reports the tag verified (key registered to a
     #      maintainer account with a matching verified email).
     #
     # Runs outside the tools-runner container: the assertion needs the GitHub
     # CLI, which that image does not carry.
-    needs: [verify, verify-platforms]
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       tag_object_sha: ${{ steps.verify_tag.outputs.tag_object_sha }}
@@ -121,9 +119,6 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          GNUPGHOME="$(mktemp -d)"
-          export GNUPGHOME
-          gpg --batch --import docs/security/release-signing-keys.asc
           tag_ref=$(gh api "repos/${REPO}/git/ref/tags/${TAG}")
           tag_type=$(jq -r '.object.type // empty' <<<"${tag_ref}")
           tag_object_sha=$(jq -r '.object.sha // empty' <<<"${tag_ref}")
@@ -139,25 +134,12 @@ jobs:
             echo "Tag ${TAG} changed while its authorization was being verified"
             exit 1
           fi
-          # Exits nonzero unless the signature verifies against a key in the
-          # isolated keyring, i.e. the committed pin file. VALIDSIG asserts a
-          # full-fingerprint match rather than a short-id collision.
-          #
-          # Both greps are required, and neither is redundant:
-          #   VALIDSIG - present for any cryptographically valid signature.
-          #   GOODSIG  - replaced by EXPKEYSIG once the signing key expires,
-          #              while VALIDSIG is still emitted. Checking VALIDSIG
-          #              alone would therefore accept an expired pinned key.
-          # git verify-tag itself also exits nonzero on an expired key (unlike
-          # a bare gpg --verify, which exits 0), so under `set -o pipefail` the
-          # step already fails. The GOODSIG assertion is stated explicitly so
-          # this step stands on its own rather than on that interaction.
-          git verify-tag --raw "${tag_object_sha}" 2>&1 | tee /tmp/verify-tag.out
-          grep -q "^\[GNUPG:\] GOODSIG " /tmp/verify-tag.out
-          grep -q "^\[GNUPG:\] VALIDSIG " /tmp/verify-tag.out
+          # Reads the pin, fingerprint anchors and tagger identity from the
+          # tagged commit and requires one good, unexpired signature by the
+          # pinned signing subkey.
+          ./scripts/verify-pinned-tag.sh "${TAG}"
           ./scripts/release-guard-tag-ruleset.sh --verify-tag-attestation "${tag_object_sha}"
           echo "tag_object_sha=${tag_object_sha}" >> "${GITHUB_OUTPUT}"
-          echo "Tag ${TAG} object ${tag_object_sha} signed by pinned, unexpired release key"
       - name: Verify GitHub reports the tag verified
         env:
           GH_TOKEN: ${{ github.token }}

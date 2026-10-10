@@ -9,11 +9,11 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-sfetch bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-ci-platforms fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-sfetch bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-portability fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
-.PHONY: release-tag release-verify-tag release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
+.PHONY: release-tag release-verify-tag release-push-tag release-tag-push release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -35,7 +35,7 @@ SFETCH_VERSION := v0.4.12
 SFETCH_ENGINE_SHA := bd0e7a0e68ef5a3dc7cda862fc74e4e8bc5125f8
 SFETCH_ENGINE_SHA256 := 6114b7b6c1b4f01b5dcab55de635127301a09bc456eb9094656810300b363532
 SFETCH_ENGINE_REPO := 3leaps/sfetch
-GONEAT_VERSION ?= v0.6.1
+GONEAT_VERSION ?= v0.6.2
 
 # Tool paths
 # Bootstrap installs trust-chain tools repo-locally. Quality targets prefer those
@@ -221,7 +221,7 @@ check: fmt-check lint test ## Run all quality checks without modifying files
 .PHONY: check-contracts contract-tools
 check-contracts: ## Validate supported contracts and native input behavior
 	@$(MAKE) contract-tools
-	@$(MAKE) lint-schemas lint-config test-ci-platforms
+	@$(MAKE) lint-schemas lint-config test-portability
 	@echo "[ok] All contract checks passed"
 
 contract-tools: ## Fail closed when a required contract-validation tool is missing
@@ -229,7 +229,7 @@ contract-tools: ## Fail closed when a required contract-validation tool is missi
 		command -v "$$tool" >/dev/null 2>&1 || { echo "[!!] $$tool required for contract checks"; exit 1; }; \
 	done
 
-test: test-bootstrap-engine-verification test-check-attribution test-ci-platforms ## Run release-control and attribution-footer tests
+test: test-bootstrap-engine-verification test-check-attribution test-portability ## Run release-control and attribution-footer tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
@@ -240,8 +240,8 @@ test-bootstrap-engine-verification: ## Prove engine digest failure prevents exec
 test-check-attribution: ## Validate the attribution footer checker
 	@./scripts/test-check-attribution.sh
 
-test-ci-platforms: ## Prove native identity checks fail closed
-	@python3 scripts/ci-platforms.py self-test
+test-portability: ## Prove tracked paths and permission fixtures work on Windows
+	@python3 scripts/test-portability.py
 
 fmt: ## Format files using the repository goneat assessment policy
 	@echo "Formatting..."
@@ -557,6 +557,11 @@ release-tag: ## Create signed git tag with safety checks
 
 release-verify-tag: ## Verify signed tag signature
 	@./scripts/release-verify-tag.sh
+
+release-push-tag: ## Verify and push the signed version tag, then confirm the remote tag
+	@./scripts/release-push-tag.sh
+
+release-tag-push: release-push-tag
 
 release-guard-tag-version: ## Verify tag matches VERSION file
 	@./scripts/release-guard-tag-version.sh

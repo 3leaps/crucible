@@ -236,8 +236,7 @@ main() {
     echo "[ok] Created and verified signed tag: $tag"
     echo ""
     echo "Next steps:"
-    echo "  git push origin main"
-    echo "  git push origin $tag"
+    echo "  make release-push-tag"
 }
 
 main "$@"

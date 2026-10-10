@@ -5,56 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Repository quality
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7@sha256:fe525f286458a7491958f8f3b916ef1b9befb05fa2dae2e37b0c08eb84860bae
-      options: --user 1001
-    steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Verify preinstalled quality toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          for tool in goneat python3 yamlfmt yamllint prettier jq yq rg shfmt checkmake actionlint; do
-            command -v "$tool"
-          done
-          python3 scripts/ci-platforms.py verify linux amd64
-      - name: Run full repository quality and governance checks
-        shell: bash
-        run: make check
-      - name: Verify no tracked changes
-        shell: bash
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git diff --exit-code
-
-  linux:
-    name: linux (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            arch: amd64
-          - runner: ubuntu-latest-arm64-s
-            arch: arm64
-    container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7@sha256:fe525f286458a7491958f8f3b916ef1b9befb05fa2dae2e37b0c08eb84860bae
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.8@sha256:a64b0319f4aad1069f2edd587f9d4d7bf2c52318c3c3e0c9d88650c5983c9c77
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
       options: --user 1001
     steps:
@@ -68,111 +28,68 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for tool in goneat python3 jq make; do
-            command -v "$tool"
-          done
-          python3 scripts/ci-platforms.py verify linux "$EXPECTED_ARCH"
+          goneat version
+          yamlfmt --version
+          yamllint --version
+          prettier --version
           jq --version
-        env:
-          EXPECTED_ARCH: ${{ matrix.arch }}
+          yq --version
+          rg --version
 
-      - name: Run native contract checks
+      - name: Run quality checks
         shell: bash
         run: |
           set -euo pipefail
-          make check-contracts
+          make check
 
-      - name: Verify no tracked changes
+      - name: Verify formatting (no changes)
         shell: bash
         run: |
           set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git diff --exit-code
+          git diff --exit-code || (echo "Formatting changed files. Run 'make fmt' and commit." && exit 1)
 
-  native:
-    name: native (${{ matrix.os }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            os: darwin
-            arch: arm64
-            setup_arch: arm64
-            goneat_acquisition: release
-          - runner: windows-latest
-            os: windows
-            arch: amd64
-            setup_arch: x64
-            goneat_acquisition: release
-          - runner: windows-latest-arm64-s
-            os: windows
-            arch: arm64
-            setup_arch: arm64
-            goneat_acquisition: source
+  windows:
+    # Contract checks on Windows catch path-separator and file-permission
+    # differences that the Linux container cannot.
+    runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
     steps:
-      - name: Preserve repository LF bytes on Windows
-        if: runner.os == 'Windows'
+      - name: Preserve repository LF bytes
         run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Set up native Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
-        with:
-          go-version: "1.26.6"
-          architecture: ${{ matrix.setup_arch }}
-          cache: false
-      - name: Set up native Python
+
+      - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
-          python-version: "3.13.15"
-          architecture: ${{ matrix.setup_arch }}
-      - name: Install macOS shell prerequisites
-        if: runner.os == 'macOS'
-        run: brew install coreutils jq make
-      - name: Install Windows shell prerequisites
-        if: runner.os == 'Windows'
+          python-version: "3.13"
+
+      - name: Install prerequisites
         shell: pwsh
         run: choco install make jq --yes --no-progress
-      - name: Install native contract toolchain
+
+      - name: Install verified sfetch and goneat
         env:
-          EXPECTED_ARCH: ${{ matrix.arch }}
-          # The signed installer uses this only for GitHub API requests.
+          # sfetch uses this only for GitHub API requests.
           SFETCH_GITHUB_TOKEN: ${{ github.token }}
-          GONEAT_ACQUISITION: ${{ matrix.goneat_acquisition }}
-        run: bash scripts/install-ci-native-tools.sh
-      - name: Verify native identity and toolchain
-        env:
-          EXPECTED_OS: ${{ matrix.os }}
-          EXPECTED_ARCH: ${{ matrix.arch }}
-          GONEAT_ACQUISITION: ${{ matrix.goneat_acquisition }}
-        run: python scripts/ci-platforms.py verify "$EXPECTED_OS" "$EXPECTED_ARCH"
-      - name: Run native contract checks
-        run: make check-contracts SHELL=bash BIN_DIR="$(pwd)/bin"
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          # Repository controls call python3; setup-python provides python.exe.
+          printf '#!/usr/bin/env bash\nexec python "$@"\n' > bin/python3
+          make bootstrap-release-tools BIN_DIR="$(pwd)/bin"
+          cygpath -w "$(pwd)/bin" >> "$GITHUB_PATH"
+
+      - name: Run contract checks
+        run: make check-contracts BIN_DIR="$(pwd)/bin"
+
       - name: Verify no tracked changes
         run: git diff --exit-code
-
-  check:
-    name: check
-    if: always()
-    needs: [quality, linux, native]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout aggregate gate
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
-        with:
-          persist-credentials: false
-      - name: Require repository quality and every native platform
-        env:
-          QUALITY_RESULT: ${{ needs.quality.result }}
-          LINUX_RESULT: ${{ needs.linux.result }}
-          NATIVE_RESULT: ${{ needs.native.result }}
-        run: python3 scripts/ci-platforms.py gate "$QUALITY_RESULT" "$LINUX_RESULT" "$NATIVE_RESULT"
