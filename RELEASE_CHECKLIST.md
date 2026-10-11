@@ -117,10 +117,15 @@ git cat-file tag "v$(cat VERSION)" | grep '^Tag-Publish-Policy-SHA256: '
 
 ### 4. Push
 
+The release commit is already on `main`. Push only the tag:
+
 ```bash
-git push origin main
-git push origin v$(cat VERSION)
+make release-push-tag
 ```
+
+This verifies the local signature, requires the tagged commit to be on
+`origin/main` and the remote tag to be absent, pushes the tag ref, and confirms
+the remote tag object (and GitHub's verified flag, when `gh` is available).
 
 ## Post-Release
 
@@ -179,17 +184,28 @@ Otherwise GitHub may show "Unverified" even though `git tag -v` succeeds locally
 
 ## Release-key rotation
 
-CI publishes only tags signed by a key in the committed pin file
-`docs/security/release-signing-keys.asc` (PDR-0004 §2). When the release key
-rotates:
+CI publishes only tags that `scripts/verify-pinned-tag.sh` accepts (PDR-0004 §2).
+It reads these estate-wide files from the tagged commit, not the working tree:
 
-- [ ] Update `docs/security/release-signing-keys.asc` by reviewed PR **before**
-      pushing the first tag signed by the new key (a stale pin fails closed:
-      the release stays unpublished and `verify-signature` is red)
+| File | Holds |
+| --- | --- |
+| `docs/security/release-signing-keys.asc` | Public primary plus exactly one signing subkey |
+| `docs/security/release-minisign.pub` | Estate minisign public key |
+| `keys/expected-fingerprints.txt` | `gpg <primary fingerprint>` then `minisign <sha256 of key blob>` |
+| `config/release/tagger-identity.txt` | Required tagger name and email |
+
+The tag must carry one good, unexpired signature by the pinned signing subkey.
+`make release-verify-tag` runs the same check locally. These files are the same
+bytes across 3leaps repositories; copy them from a sibling rather than
+re-exporting. When the release key rotates:
+
+- [ ] Update the pin and `keys/expected-fingerprints.txt` together by reviewed PR
+      **before** pushing the first tag signed by the new key (a stale pin fails
+      closed: the release stays unpublished and `verify-signature` is red)
 - [ ] Upload the new public key to the maintainer GitHub account (keeps the
       secondary account-linkage assertion and the Verified badge green)
-- [ ] Remove the retired key from the pin file once no in-flight tag depends
-      on it
+- [ ] The verifier accepts exactly one signing subkey, so the pin switches
+      in the same PR; tags already pushed under the old key are unaffected
 
 **Expiry is rotation you did not schedule.** A pinned key that passes its
 expiration date fails verification exactly as a missing pin does — the release
@@ -230,6 +246,7 @@ git revert <commit-hash>
 | ------------------------------------- | ------------------------------------------------ |
 | `make release-tag`                    | Create signed git tag with all safety checks     |
 | `make release-verify-tag`             | Verify an existing signed tag                    |
+| `make release-push-tag`               | Verify, push and confirm the signed version tag  |
 | `make release-guard-tag-version`      | Verify tag matches VERSION file (CI-friendly)    |
 | `make release-guard-tag-ruleset`      | Verify live version-tag publication policy       |
 | `make release-guard-release-surfaces` | Verify release notes and changelog match VERSION |

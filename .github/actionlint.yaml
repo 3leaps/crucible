@@ -1,4 +1,0 @@
-self-hosted-runner:
-  labels:
-    - ubuntu-latest-arm64-s
-    - windows-latest-arm64-s

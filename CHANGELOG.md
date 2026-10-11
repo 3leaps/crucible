@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`make release-push-tag`.** Verifies the local signed tag, requires the
+  tagged commit on `origin/main` and the remote tag absent, pushes the tag ref
+  and confirms the remote object. `release-tag-push` is an alias.
+
+- **Release-key anchors.** Add `keys/expected-fingerprints.txt`,
+  `docs/security/release-minisign.pub` and `config/release/tagger-identity.txt`,
+  matching the other 3leaps repositories. `scripts/verify-pinned-tag.sh` reads
+  them and the pin from the tagged commit, and requires one good signature by
+  the single pinned signing subkey and the committed tagger. The release
+  workflow and `make release-verify-tag` use it.
+
+### Changed
+
+- **CI simplified.** Check runs full repository quality in the pinned Linux
+  tools-runner plus contract checks on GitHub-hosted Windows amd64. The
+  release workflow no longer re-runs Check. Removed the arm64 and macOS cells,
+  the Windows arm64 Goneat source build and its pins, and the native identity
+  checker; Windows path-portability and permission-fixture tests remain as
+  `make test-portability`.
+- **Release signing pin.** `docs/security/release-signing-keys.asc` now holds the
+  public primary and signing subkey only, byte-identical to the other 3leaps
+  repositories.
+- **Goneat v0.6.2; glibc tools runner v0.5.8**, consumed by immutable digest.
+
 ## [0.1.32] - 2026-10-01
 
 ### Added
