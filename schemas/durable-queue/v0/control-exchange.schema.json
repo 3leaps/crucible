@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-queue/v0/control-exchange.schema.json",
+  "title": "Queue Control Exchange",
+  "description": "Structural schema companion for contract: durable-queue/v0. One request or response line of the wire binding (line-delimited JSON over stdio or a local socket). The conformance harness drives every implementation through this binding. The op vocabulary is closed; unknown ops fail closed with error code unknown_op. Daemon deployments require token on every request; harness stdio mode may omit it.",
+  "oneOf": [ { "$ref": "#/$defs/request" }, { "$ref": "#/$defs/response" } ],
+  "$defs": {
+    "op": {
+      "enum": [
+        "enqueue", "claim", "extend", "ack", "nack", "fail", "fan_out",
+        "stats", "peek", "redrive", "purge", "sweep",
+        "export_ledger", "replay", "capabilities", "advance_clock"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "op"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Client correlation id, echoed on the response." },
+        "op": { "$ref": "#/$defs/op" },
+        "params": { "type": "object", "description": "Op arguments. Shapes are defined per op in the normative standard." },
+        "token": { "type": "string", "minLength": 1, "description": "Invocation key (lock-and-key), as in process-run. Required by daemon deployments." }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ok"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ok": { "type": "boolean" },
+        "result": { "description": "Present when ok=true. Op-specific." },
+        "error": { "$ref": "#/$defs/error" }
+      },
+      "allOf": [
+        { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"], "not": { "required": ["result"] } } },
+        { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["result"], "not": { "required": ["error"] } } }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "unknown_op", "invalid_params", "unauthorized", "unknown_queue",
+            "capability_unsupported", "payload_too_large", "backend_unavailable", "internal"
+          ],
+          "description": "unauthorized is the required code for a failed token check and is indistinguishable for wrong versus unknown token."
+        },
+        "message": { "type": "string", "maxLength": 1024 },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_id", "token", "attempt", "until"],
+      "description": "A lease is a value. ack, nack, extend and fail take leases, and the broker checks the fencing token on each.",
+      "properties": {
+        "message_id": { "type": "string", "minLength": 1 },
+        "token": { "type": "string", "minLength": 1, "description": "Fencing token, opaque, unique per lease. Never written to the ledger." },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "until": { "type": "string", "format": "date-time" }
+      }
+    },
+    "leaseOutcome": {
+      "enum": ["ok", "stale_lease", "unknown_message"],
+      "description": "stale_lease is an outcome, not an error: it is expected under at-least-once delivery."
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_id", "deduplicated"],
+      "properties": {
+        "message_id": { "type": "string", "minLength": 1 },
+        "deduplicated": { "type": "boolean" }
+      }
+    }
+  }
+}

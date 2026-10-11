@@ -228,6 +228,15 @@ stdlib-only materializer and refuses `jq -S` as the oracle.
 - **`contract: data-artifact/v0`** — inputs and outputs are artifact refs
   that may carry descriptor identity, representation, profile, media type,
   and digest.
+- **`contract: durable-queue/v0`** — a queue MAY transport service-job
+  messages as opaque payloads with `payload_contract: contract: service-job/v0`.
+  The queue's `idempotency_key` (scope: one queue, producer-chosen) and the
+  JobSpec `idempotency_key` (scope: digest-bound admission) are different
+  scopes and MUST NOT be conflated or copied one into the other. Queue
+  transport events (`leased`, `nacked`, `lease_expired`) do not change job
+  state; only a job message does. A job observed as `queued` MAY be the
+  payload of a queue message in state `ready` or `leased`; the job state does
+  not encode which.
 - **`contract: forge-infra/v0`** — side-effecting authority acquisition,
   binding, verification, rotation, revocation, and teardown may execute as
   digest- and idempotency-bound service jobs. The forge plan and receipts

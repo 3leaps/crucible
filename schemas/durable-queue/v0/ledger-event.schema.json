@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-queue/v0/ledger-event.schema.json",
+  "title": "Queue Ledger Event",
+  "description": "Structural schema companion for contract: durable-queue/v0. One line of the append-only NDJSON ledger. Queue state is a fold over these events. seq is monotonic per queue with no gaps and is the replay cursor. The fencing token never appears; the attempt number identifies the lease. Payloads never appear; enqueued carries a payload digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "seq", "queue", "type", "message_id", "at"],
+  "properties": {
+    "v": { "const": 0 },
+    "seq": { "type": "integer", "minimum": 1, "description": "Monotonic per queue, gap-free. A gap or regression is corruption." },
+    "queue": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+    "type": {
+      "enum": [
+        "enqueued",
+        "deduplicated",
+        "leased",
+        "extended",
+        "acked",
+        "nacked",
+        "lease_expired",
+        "dead_lettered",
+        "redriven",
+        "purged"
+      ],
+      "description": "Closed vocabulary. Unknown types are rejected by consumers that act on the ledger."
+    },
+    "message_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "at": { "type": "string", "format": "date-time", "description": "Broker clock, RFC 3339 UTC. Under a virtual clock this is deterministic." },
+    "attempt": { "type": "integer", "minimum": 1, "description": "Lease attempt number. Required on leased, extended, acked, nacked, lease_expired." },
+    "worker": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Consumer identity on leased. May reuse a process-run run_id." },
+    "lease_until": { "type": "string", "format": "date-time", "description": "Lease expiry on leased and extended." },
+    "not_before": { "type": "string", "format": "date-time", "description": "On nacked when the message returns to ready; on enqueued when delayed." },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 512, "description": "On nacked, dead_lettered, purged." },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256, "description": "On enqueued when present; on deduplicated always." },
+    "parent_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "On enqueued for fan_out children." },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "On enqueued. SHA-256 of the RFC 8785 canonical payload, or of the referenced artifact bytes when payload_ref is used."
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "enum": ["leased", "extended", "acked", "nacked", "lease_expired"] } } },
+      "then": { "required": ["attempt"] } },
+    { "if": { "properties": { "type": { "enum": ["leased", "extended"] } } },
+      "then": { "required": ["lease_until"] } },
+    { "if": { "properties": { "type": { "const": "leased" } } },
+      "then": { "required": ["worker"] } },
+    { "if": { "properties": { "type": { "enum": ["dead_lettered", "purged"] } } },
+      "then": { "required": ["reason"] } },
+    { "if": { "properties": { "type": { "const": "deduplicated" } } },
+      "then": { "required": ["idempotency_key"] } },
+    { "if": { "properties": { "type": { "const": "enqueued" } } },
+      "then": { "required": ["payload_digest"] } }
+  ]
+}

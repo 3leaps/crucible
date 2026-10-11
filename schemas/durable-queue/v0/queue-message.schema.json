@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-queue/v0/queue-message.schema.json",
+  "title": "Queue Message",
+  "description": "Structural schema companion for contract: durable-queue/v0. The message envelope as stored and delivered. The broker never interprets payload or attributes. Exactly one of payload or payload_ref is present. Message lines do not repeat the capability token; the capability profile is the discovery root.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "id", "queue", "payload_contract"],
+  "oneOf": [
+    { "required": ["payload"], "not": { "required": ["payload_ref"] } },
+    { "required": ["payload_ref"], "not": { "required": ["payload"] } }
+  ],
+  "properties": {
+    "v": { "const": 0, "description": "Envelope wire version." },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Broker-assigned message id, unique per queue for the life of the ledger. Opaque to producers and consumers."
+    },
+    "queue": { "$ref": "#/$defs/queueName" },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Producer-chosen key. A repeated key within the backend's idempotency window returns the original receipt. Scope is the queue, not the ledger. Distinct from service-job JobSpec idempotency."
+    },
+    "payload_contract": {
+      "type": "string",
+      "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$",
+      "description": "Host-less capability token naming the payload's contract (for example contract: service-job/v0). The queue carries it; it does not validate against it."
+    },
+    "payload": { "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker." },
+    "payload_ref": { "$ref": "#/$defs/artifactRef" },
+    "not_before": { "type": "string", "format": "date-time", "description": "Earliest delivery time (RFC 3339, UTC). Requires capability delay." },
+    "expires_at": { "type": "string", "format": "date-time", "description": "After this time the message is never delivered; the broker purges it with reason expired." },
+    "max_attempts": { "type": "integer", "minimum": 1, "default": 5, "description": "Attempt count at which a nack dead-letters instead of returning the message to ready." },
+    "parent_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Set on children produced by fan_out." },
+    "ordering_key": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Requires capability ordering_key. Without it, no ordering is promised." },
+    "priority": { "type": "integer", "minimum": 0, "maximum": 9, "description": "Requires capability priority. Higher is delivered first among ready messages." },
+    "trace": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$",
+      "description": "W3C traceparent, carried verbatim."
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "maxLength": 1024 },
+      "maxProperties": 32,
+      "description": "Producer-owned string attributes. The broker never interprets them."
+    }
+  },
+  "$defs": {
+    "queueName": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id"],
+      "description": "Reference to a large body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref.",
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "descriptor": { "type": "string", "minLength": 1, "description": "Path or reference to the artifact descriptor." },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

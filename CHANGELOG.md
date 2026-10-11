@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rule, register shape, verdict contract, residual classes, and close-out
   checks. Indexed from `docs/README.md` and linked from the run-book.
 
+- **Durable queue contract (proposed).** Add the experimental
+  `durable-queue/v0` family: at-least-once message envelope, fenced leases,
+  closed ledger event vocabulary with fold rules, capability profile with
+  separate build and runtime facts, and a line-delimited control exchange.
+  Ships `docs/standards/durable-queue-contract.md`, ADR-0012, golden examples,
+  one-field reject pairs, first core and fan-out behavioral vectors, and
+  `scripts/test-durable-queue-controls.sh`. Storage layouts, drivers and
+  harness runners are out of scope. The service-job standard gains a
+  composition note separating queue and JobSpec idempotency scopes.
+
 - **`make release-push-tag`.** Verifies the local signed tag, requires the
   tagged commit on `origin/main` and the remote tag absent, pushes the tag ref
   and confirms the remote object. `release-tag-push` is an alias.
