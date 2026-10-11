@@ -1,5 +1,6 @@
 {
   "id": "1",
+  "op": "ack",
   "ok": false,
   "error": {
     "message": "x"

@@ -1,0 +1,55 @@
+{
+  "name": "payload-digest",
+  "requires": [
+    "virtual_clock"
+  ],
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "The enqueued payload_digest is SHA-256 over RFC 8785 canonical bytes of the identity object. This payload exercises exponent formatting (1e21, 1e-7), negative zero, UTF-16 key ordering of U+E000 before U+10000, and raw U+2028. Any other canonicalization produces a different digest.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "c1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "𐀀": 1,
+              "": 2,
+              "big": 1e+21,
+              "small": 1e-07,
+              "nz": -0.0,
+              "u": " "
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "c1",
+      "payload_digest": "sha256:fbf6eb4ed11de8aef6b4a5e986751c0367b33acb88f6338fe6ee9a63be4bdcc3"
+    }
+  ],
+  "canonical_identity_bytes": "{\"payload\":{\"big\":1e+21,\"nz\":0,\"small\":1e-7,\"u\":\" \",\"𐀀\":1,\"\":2},\"payload_contract\":\"contract: example/v0\"}"
+}

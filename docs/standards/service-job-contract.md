@@ -230,13 +230,18 @@ stdlib-only materializer and refuses `jq -S` as the oracle.
   and digest.
 - **`contract: durable-queue/v0`** — a queue MAY transport service-job
   messages as opaque payloads with `payload_contract: contract: service-job/v0`.
-  The queue's `idempotency_key` (scope: one queue, producer-chosen) and the
-  JobSpec `idempotency_key` (scope: digest-bound admission) are different
-  scopes and MUST NOT be conflated or copied one into the other. Queue
-  transport events (`leased`, `nacked`, `lease_expired`) do not change job
-  state; only a job message does. A job observed as `queued` MAY be the
-  payload of a queue message in state `ready` or `leased`; the job state does
-  not encode which.
+  The `job_submit_request.idempotency_key` (scope: authenticated actor,
+  service, key; JobSpec content is digest-bound separately) and the queue
+  message `idempotency_key` (scope: one queue) are different scopes. An
+  adopter MAY carry the same string in both when the mapping is explicit and
+  each scope isolates its own collisions; neither key is derived from the
+  other by this contract. Queue transport events (`leased`, `nacked`,
+  `lease_expired`) and queue completion (`acked`, `dead_lettered`, `purged`)
+  never change job state and are never a service-job terminal result; only
+  a service-job message does. A job observed as `queued` MAY be the payload
+  of a queue message in state `ready` or `leased`; the job state does not
+  encode which. The queue family carries a composition example whose payload
+  validates against this contract's entry schema.
 - **`contract: forge-infra/v0`** — side-effecting authority acquisition,
   binding, verification, rotation, revocation, and teardown may execute as
   digest- and idempotency-bound service jobs. The forge plan and receipts

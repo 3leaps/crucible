@@ -1,0 +1,13 @@
+{
+  "id": "9",
+  "op": "enqueue",
+  "ok": true,
+  "result": {
+    "receipts": [
+      {
+        "message_id": "m-8841-17",
+        "outcome": "accepted"
+      }
+    ]
+  }
+}

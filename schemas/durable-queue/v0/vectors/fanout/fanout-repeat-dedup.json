@@ -1,0 +1,184 @@
+{
+  "name": "fanout-repeat-dedup",
+  "requires": [
+    "virtual_clock",
+    "atomic_fanout"
+  ],
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "A fan_out whose children repeat keys already accepted (a prior expansion that acked the parent) yields deduplicated receipts for those children; the parent lease is consumed by the first fan_out so the second returns stale_lease. Child dedup is proven by a plain enqueue retry.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "g1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$p",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 0,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 1
+      },
+      "bind": {
+        "$lp": "deliveries[0].lease"
+      }
+    },
+    {
+      "at_ms": 10,
+      "op": "fan_out",
+      "params": {
+        "parent": "$lp",
+        "children": [
+          {
+            "idempotency_key": "g1:r1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "ok",
+        "receipts": [
+          {
+            "message_id": "$c1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 20,
+      "op": "fan_out",
+      "params": {
+        "parent": "$lp",
+        "children": [
+          {
+            "idempotency_key": "g1:r1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "stale_lease",
+        "receipts": []
+      }
+    },
+    {
+      "at_ms": 30,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "g1:r1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$c1",
+            "outcome": "deduplicated"
+          }
+        ]
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "g1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 2,
+      "group_size": 1,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01Z"
+    },
+    {
+      "v": 0,
+      "seq": 3,
+      "group": 3,
+      "group_size": 2,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$c1",
+      "at": "2026-01-01T00:00:00.010Z",
+      "idempotency_key": "g1:r1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364",
+      "parent_id": "$p"
+    },
+    {
+      "v": 0,
+      "seq": 4,
+      "group": 3,
+      "group_size": 2,
+      "queue": "q",
+      "type": "acked",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1
+    },
+    {
+      "v": 0,
+      "seq": 5,
+      "group": 5,
+      "group_size": 1,
+      "queue": "q",
+      "type": "deduplicated",
+      "message_id": "$c1",
+      "at": "2026-01-01T00:00:00.030Z",
+      "idempotency_key": "g1:r1"
+    }
+  ]
+}

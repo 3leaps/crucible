@@ -19,7 +19,6 @@
     "compiled_capabilities": [
       "atomic_fanout",
       "delay",
-      "fenced_ack",
       "payload_ref",
       "long_poll",
       "virtual_clock",
@@ -28,12 +27,11 @@
   },
   "runtime": {
     "selected_backend": "example-log",
-    "durability": "group_commit",
-    "group_commit_ms": 5,
+    "failure_model": "survives_process_loss",
+    "commit_strategy": "group-commit-5ms",
     "enabled_capabilities": [
       "exactly_once",
       "delay",
-      "fenced_ack",
       "payload_ref",
       "long_poll",
       "virtual_clock"

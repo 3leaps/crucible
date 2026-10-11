@@ -1,10 +1,12 @@
 {
   "v": 0,
-  "id": "0199c2a4-7b1e-7c3a-9f2e-5d6a1b2c3d4f",
+  "id": "m-8841-18",
   "queue": "group-messages",
   "payload_contract": "contract: data-artifact/v0",
   "payload_ref": {
     "artifact_id": "artifact:body-8841",
-    "digest": "sha256:abababababababababababababababababababababababababababababababab"
+    "digest": "sha256:abababababababababababababababababababababababababababababababab",
+    "descriptor_ref": "desc:body-8841",
+    "representation_id": "json"
   }
 }

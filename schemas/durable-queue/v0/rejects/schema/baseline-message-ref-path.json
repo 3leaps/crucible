@@ -1,0 +1,10 @@
+{
+  "v": 0,
+  "id": "m-1",
+  "queue": "q",
+  "payload_contract": "contract: example/v0",
+  "payload_ref": {
+    "artifact_id": "artifact:a",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

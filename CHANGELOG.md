@@ -20,14 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks. Indexed from `docs/README.md` and linked from the run-book.
 
 - **Durable queue contract (proposed).** Add the experimental
-  `durable-queue/v0` family: at-least-once message envelope, fenced leases,
-  closed ledger event vocabulary with fold rules, capability profile with
-  separate build and runtime facts, and a line-delimited control exchange.
-  Ships `docs/standards/durable-queue-contract.md`, ADR-0012, golden examples,
-  one-field reject pairs, first core and fan-out behavioral vectors, and
-  `scripts/test-durable-queue-controls.sh`. Storage layouts, drivers and
-  harness runners are out of scope. The service-job standard gains a
-  composition note separating queue and JobSpec idempotency scopes.
+  `durable-queue/v0` family, narrowed to an audit and lifecycle fold:
+  at-least-once message envelope, queue-scoped fenced leases, closed ledger
+  vocabulary with atomic groups and fold rules, capability profile with
+  separate build and runtime facts and a guaranteed failure model, and a
+  control exchange with typed per-operation requests and results. Ships
+  `docs/standards/durable-queue-contract.md`, ADR-0012, golden examples, a
+  service-job composition example, one-field schema reject pairs, semantic
+  reject vectors, core, fan-out and canonicalization behavioral vectors,
+  `scripts/validate-durable-queue-vectors.py` and
+  `scripts/test-durable-queue-controls.sh`. Portable restore, `replay`,
+  cross-queue fan-out and tolerant conformance are deferred. The service-job
+  standard gains a composition note on idempotency scopes and transport
+  versus job completion.
 
 - **`make release-push-tag`.** Verifies the local signed tag, requires the
   tagged commit on `origin/main` and the remote tag absent, pushes the tag ref

@@ -46,10 +46,16 @@ would bake that engine's behaviour into every consumer.
 ## Decision
 
 Define `contract: durable-queue/v0` as a **logical contract only**: message
-envelope, lease with fencing token, closed ledger event vocabulary with fold
-rules, capability profile, and a line-delimited control exchange. The
-contract carries no storage layout, file format, table schema, worker
-runtime or job framework.
+envelope, queue-scoped lease with fencing token, closed ledger event
+vocabulary with atomic groups and fold rules, capability profile, and a
+line-delimited control exchange with typed per-operation requests and
+results. The contract carries no storage layout, file format, table schema,
+worker runtime or job framework.
+
+The first publication is narrowed to an **audit and lifecycle fold**. The
+ledger is an authoritative, consistently cuttable history of transitions;
+portable restore from it, a `replay` operation, cross-queue fan-out and a
+tolerant wall-clock conformance mode are deferred rather than advertised.
 
 Separate what an implementation **is** from what it **does**: the capability
 profile holds immutable build facts and effective runtime facts as distinct
@@ -58,13 +64,19 @@ harness or merely declared.
 
 Make the behavioural vectors, hand-authored from the prose, the
 language-neutral authority. An implementation's own receipts are never the
-oracle. A deterministic conformance mode under a virtual clock and a
-tolerant mode under wall clock let both owned engines and adapters over
-third-party backends declare honestly what they achieve.
+oracle. Crucible's controls validate the vectors themselves: request and
+result shapes, bindings, gap-free sequence, contiguous atomic groups, legal
+transitions, attempt correspondence and RFC 8785 identity digests. One
+conformance mode, deterministic under a virtual clock with a recorded ledger,
+is defined; backends that cannot meet it are `benchmark_only`.
+
+Fencing and keyed deduplication are core, not capabilities. The failure model
+a backend guarantees is declared independently of its commit strategy.
 
 Keep the queue's idempotency scope (per queue, by producer key) distinct from
-the service-job JobSpec idempotency scope. The service-job standard carries a
-composition note; neither contract absorbs the other.
+the service-job submit request's idempotency scope (actor, service, key). The
+same string may appear in both with an explicit mapping; the service-job
+standard carries the composition note and neither contract absorbs the other.
 
 ### Exclusions
 
@@ -105,11 +117,13 @@ release maturity.
 
 Adopters can put an embedded log, a database, a broker or a cloud queue
 behind one interface and state, through a harness-produced profile, exactly
-which guarantees hold. Moving between backends changes configuration and the
-declared capability set, not application code. The cost is that adapters over
-third-party backends must synthesize ledger events and fencing where the
-backend lacks them, and may only claim tolerant conformance. Publishing this
-proposal does not require any existing producer or consumer to change.
+which guarantees hold. Moving between backends changes configuration rather
+than application code **only when the new backend's enabled capabilities and
+failure model cover what the application requires**; the profile makes that
+check explicit. Adapters over third-party backends that cannot record a
+complete ledger or enforce fencing atomically are `benchmark_only`; a precheck
+plus an unfenced delete is not fencing. Publishing this proposal does not
+require any existing producer or consumer to change.
 
 ## References
 

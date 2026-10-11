@@ -1,0 +1,193 @@
+{
+  "name": "redrive-resets-budget",
+  "requires": [
+    "virtual_clock"
+  ],
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "redrive returns a dead message to ready with a fresh attempt budget; the attempt counter keeps increasing so lease identity stays monotonic.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            },
+            "max_attempts": 1
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 0,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 1
+      },
+      "bind": {
+        "$l1": "deliveries[0].lease"
+      }
+    },
+    {
+      "at_ms": 10,
+      "op": "fail",
+      "params": {
+        "leases": [
+          "$l1"
+        ],
+        "reason": "poison"
+      },
+      "expect": {
+        "outcomes": [
+          "ok"
+        ]
+      }
+    },
+    {
+      "at_ms": 20,
+      "op": "redrive",
+      "params": {
+        "queue": "q",
+        "message_ids": [
+          "$m1"
+        ]
+      },
+      "expect": {
+        "outcomes": [
+          "ok"
+        ]
+      }
+    },
+    {
+      "at_ms": 30,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 1,
+        "deliveries": [
+          {
+            "lease": {
+              "attempt": 2
+            }
+          }
+        ]
+      },
+      "bind": {
+        "$l2": "deliveries[0].lease"
+      }
+    },
+    {
+      "at_ms": 40,
+      "op": "ack",
+      "params": {
+        "leases": [
+          "$l2"
+        ]
+      },
+      "expect": {
+        "outcomes": [
+          "ok"
+        ]
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "k1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 2,
+      "group_size": 1,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01Z"
+    },
+    {
+      "v": 0,
+      "seq": 3,
+      "group": 3,
+      "group_size": 1,
+      "queue": "q",
+      "type": "dead_lettered",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.010Z",
+      "reason": "poison"
+    },
+    {
+      "v": 0,
+      "seq": 4,
+      "group": 4,
+      "group_size": 1,
+      "queue": "q",
+      "type": "redriven",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.020Z"
+    },
+    {
+      "v": 0,
+      "seq": 5,
+      "group": 5,
+      "group_size": 1,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.030Z",
+      "attempt": 2,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.030Z"
+    },
+    {
+      "v": 0,
+      "seq": 6,
+      "group": 6,
+      "group_size": 1,
+      "queue": "q",
+      "type": "acked",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.040Z",
+      "attempt": 2
+    }
+  ]
+}

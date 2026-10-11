@@ -1,9 +1,10 @@
 {
   "id": "8",
+  "op": "ack",
   "ok": false,
   "error": {
-    "code": "unknown_op",
-    "message": "op 'subscribe' is not in the v0 vocabulary",
+    "code": "invalid_params",
+    "message": "leases[0].queue is required",
     "retryable": false
   }
 }

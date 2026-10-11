@@ -1,0 +1,17 @@
+{
+  "id": "9",
+  "op": "enqueue",
+  "params": {
+    "queue": "group-messages",
+    "messages": [
+      {
+        "idempotency_key": "msg-8841:member-17",
+        "payload_contract": "contract: service-job/v0",
+        "payload": {
+          "note": "opaque to the queue",
+          "n": 1
+        }
+      }
+    ]
+  }
+}

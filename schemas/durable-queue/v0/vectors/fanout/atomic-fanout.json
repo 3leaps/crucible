@@ -5,7 +5,8 @@
     "atomic_fanout"
   ],
   "clock_start": "2026-01-01T00:00:00Z",
-  "description": "fan_out enqueues the children and acks the parent in one atomic step. Children carry parent_id. A crash between the two is impossible by construction; a repeated fan_out after a redelivery deduplicates the children by key.",
+  "queue": "q",
+  "description": "Happy-path ordering evidence only: fan_out appends the children's enqueued events and the parent's acked event as one atomic group, children carry parent_id and go to the parent's queue. Crash atomicity and repeated-call behaviour need their own evidence (see fanout-stale-parent and fanout-repeat-dedup).",
   "ops": [
     {
       "at_ms": 0,
@@ -26,7 +27,7 @@
         "receipts": [
           {
             "message_id": "$p",
-            "deduplicated": false
+            "outcome": "accepted"
           }
         ]
       }
@@ -71,14 +72,15 @@
         ]
       },
       "expect": {
+        "outcome": "ok",
         "receipts": [
           {
             "message_id": "$c1",
-            "deduplicated": false
+            "outcome": "accepted"
           },
           {
             "message_id": "$c2",
-            "deduplicated": false
+            "outcome": "accepted"
           }
         ]
       }
@@ -102,16 +104,20 @@
     {
       "v": 0,
       "seq": 1,
+      "group": 1,
+      "group_size": 1,
       "queue": "q",
       "type": "enqueued",
       "message_id": "$p",
       "at": "2026-01-01T00:00:00Z",
       "idempotency_key": "g1",
-      "payload_digest": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
     },
     {
       "v": 0,
       "seq": 2,
+      "group": 2,
+      "group_size": 1,
       "queue": "q",
       "type": "leased",
       "message_id": "$p",
@@ -123,28 +129,34 @@
     {
       "v": 0,
       "seq": 3,
+      "group": 3,
+      "group_size": 3,
       "queue": "q",
       "type": "enqueued",
       "message_id": "$c1",
       "at": "2026-01-01T00:00:00.010Z",
       "idempotency_key": "g1:r1",
-      "payload_digest": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364",
       "parent_id": "$p"
     },
     {
       "v": 0,
       "seq": 4,
+      "group": 3,
+      "group_size": 3,
       "queue": "q",
       "type": "enqueued",
       "message_id": "$c2",
       "at": "2026-01-01T00:00:00.010Z",
       "idempotency_key": "g1:r2",
-      "payload_digest": "sha256:363379742f80b51bdb9206579af7754911543079b9399cb3fc315fb199f476e8",
+      "payload_digest": "sha256:8d43d6dd9ea4004ecfd302ce920e093e3285ffa847dfa4ba99ce9e8c3787abe4",
       "parent_id": "$p"
     },
     {
       "v": 0,
       "seq": 5,
+      "group": 3,
+      "group_size": 3,
       "queue": "q",
       "type": "acked",
       "message_id": "$p",
@@ -154,6 +166,8 @@
     {
       "v": 0,
       "seq": 6,
+      "group": 6,
+      "group_size": 2,
       "queue": "q",
       "type": "leased",
       "message_id": "$c1",
@@ -165,6 +179,8 @@
     {
       "v": 0,
       "seq": 7,
+      "group": 6,
+      "group_size": 2,
       "queue": "q",
       "type": "leased",
       "message_id": "$c2",

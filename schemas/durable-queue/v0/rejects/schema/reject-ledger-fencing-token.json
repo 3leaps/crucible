@@ -1,6 +1,8 @@
 {
   "v": 0,
   "seq": 1,
+  "group": 1,
+  "group_size": 1,
   "queue": "q",
   "type": "leased",
   "message_id": "m-1",
@@ -8,5 +10,5 @@
   "attempt": 1,
   "worker": "w",
   "lease_until": "2026-01-01T00:00:30Z",
-  "fence_token": "opaque"
+  "token": "opaque"
 }

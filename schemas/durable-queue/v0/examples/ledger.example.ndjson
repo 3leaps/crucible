@@ -1,4 +1,5 @@
-{"v":0,"seq":41,"queue":"group-messages","type":"enqueued","message_id":"m-8841-17","at":"2026-10-11T06:59:58.120Z","idempotency_key":"msg-8841:member-17","payload_digest":"sha256:6051e20db9e3bbd4bb487f5ad04cb065ef42c4703fc20d2af451e18b6a43f499"}
-{"v":0,"seq":42,"queue":"group-messages","type":"leased","message_id":"m-8841-17","at":"2026-10-11T07:00:00.004Z","attempt":1,"worker":"w-3","lease_until":"2026-10-11T07:00:30.004Z"}
-{"v":0,"seq":43,"queue":"group-messages","type":"extended","message_id":"m-8841-17","at":"2026-10-11T07:00:20.000Z","attempt":1,"lease_until":"2026-10-11T07:00:50.000Z"}
-{"v":0,"seq":44,"queue":"group-messages","type":"acked","message_id":"m-8841-17","at":"2026-10-11T07:00:21.310Z","attempt":1}
+{"v":0,"seq":41,"group":41,"group_size":1,"queue":"group-messages","type":"enqueued","message_id":"m-8841-17","at":"2026-10-11T06:59:58.120Z","idempotency_key":"msg-8841:member-17","payload_digest":"sha256:89fab3b2aec3869369ebba678f94420afbc161fb1efd2756b3d977b6b44a73b8","not_before":"2026-10-11T07:00:00Z"}
+{"v":0,"seq":42,"group":42,"group_size":1,"queue":"group-messages","type":"leased","message_id":"m-8841-17","at":"2026-10-11T07:00:00.004Z","attempt":1,"worker":"w-3","lease_until":"2026-10-11T07:00:30.004Z"}
+{"v":0,"seq":43,"group":43,"group_size":1,"queue":"group-messages","type":"extended","message_id":"m-8841-17","at":"2026-10-11T07:00:20Z","attempt":1,"lease_until":"2026-10-11T07:00:50Z"}
+{"v":0,"seq":44,"group":44,"group_size":1,"queue":"group-messages","type":"acked","message_id":"m-8841-17","at":"2026-10-11T07:00:21.310Z","attempt":1}
+{"v":0,"seq":45,"group":45,"group_size":1,"queue":"group-messages","type":"deduplicated","message_id":"m-8841-17","at":"2026-10-11T07:00:25Z","idempotency_key":"msg-8841:member-17"}

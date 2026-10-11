@@ -4,7 +4,8 @@
     "virtual_clock"
   ],
   "clock_start": "2026-01-01T00:00:00Z",
-  "description": "One message travels enqueued, leased, acked. Deterministic mode claims ready messages in seq order.",
+  "queue": "q",
+  "description": "One message: enqueued, leased, acked. Deterministic mode delivers ready messages in seq order.",
   "ops": [
     {
       "at_ms": 0,
@@ -25,7 +26,7 @@
         "receipts": [
           {
             "message_id": "$m1",
-            "deduplicated": false
+            "outcome": "accepted"
           }
         ]
       }
@@ -66,16 +67,20 @@
     {
       "v": 0,
       "seq": 1,
+      "group": 1,
+      "group_size": 1,
       "queue": "q",
       "type": "enqueued",
       "message_id": "$m1",
       "at": "2026-01-01T00:00:00Z",
       "idempotency_key": "k1",
-      "payload_digest": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
     },
     {
       "v": 0,
       "seq": 2,
+      "group": 2,
+      "group_size": 1,
       "queue": "q",
       "type": "leased",
       "message_id": "$m1",
@@ -87,6 +92,8 @@
     {
       "v": 0,
       "seq": 3,
+      "group": 3,
+      "group_size": 1,
       "queue": "q",
       "type": "acked",
       "message_id": "$m1",

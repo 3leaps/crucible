@@ -2,81 +2,1536 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:durable-queue/v0/control-exchange.schema.json",
   "title": "Queue Control Exchange",
-  "description": "Structural schema companion for contract: durable-queue/v0. One request or response line of the wire binding (line-delimited JSON over stdio or a local socket). The conformance harness drives every implementation through this binding. The op vocabulary is closed; unknown ops fail closed with error code unknown_op. Daemon deployments require token on every request; harness stdio mode may omit it.",
-  "oneOf": [ { "$ref": "#/$defs/request" }, { "$ref": "#/$defs/response" } ],
+  "description": "Structural schema companion for contract: durable-queue/v0. One request or response line of the wire binding (line-delimited JSON over stdio or a local socket). Requests are discriminated by op with closed typed params. Responses echo op and carry a typed result or a typed error. Unknown ops fail closed with unknown_op. Daemon deployments require token on every request; harness stdio mode may omit it. replay and a tolerant conformance mode are deferred and absent from this vocabulary.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    }
+  ],
   "$defs": {
     "op": {
       "enum": [
-        "enqueue", "claim", "extend", "ack", "nack", "fail", "fan_out",
-        "stats", "peek", "redrive", "purge", "sweep",
-        "export_ledger", "replay", "capabilities", "advance_clock"
+        "enqueue",
+        "claim",
+        "extend",
+        "ack",
+        "nack",
+        "fail",
+        "fan_out",
+        "stats",
+        "peek",
+        "redrive",
+        "purge",
+        "sweep",
+        "export_ledger",
+        "capabilities",
+        "advance_clock"
       ]
     },
     "request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "op"],
+      "required": [
+        "id",
+        "op",
+        "params"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1, "description": "Client correlation id, echoed on the response." },
-        "op": { "$ref": "#/$defs/op" },
-        "params": { "type": "object", "description": "Op arguments. Shapes are defined per op in the normative standard." },
-        "token": { "type": "string", "minLength": 1, "description": "Invocation key (lock-and-key), as in process-run. Required by daemon deployments." }
-      }
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "op": {
+          "$ref": "#/$defs/op"
+        },
+        "params": {
+          "type": "object"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "op": {
+              "const": "enqueue"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "messages"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "messages": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/newMessage"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "claim"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "worker",
+                "max",
+                "lease_ms",
+                "wait_ms"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "worker": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                "lease_ms": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400000
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400000
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "extend"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "leases",
+                "lease_ms"
+              ],
+              "properties": {
+                "leases": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/lease"
+                  }
+                },
+                "lease_ms": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400000
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "ack"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "leases"
+              ],
+              "properties": {
+                "leases": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/lease"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "nack"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "leases",
+                "retry_after_ms",
+                "reason"
+              ],
+              "properties": {
+                "leases": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/lease"
+                  }
+                },
+                "retry_after_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400000
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "fail"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "leases",
+                "reason"
+              ],
+              "properties": {
+                "leases": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/lease"
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "fan_out"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "parent",
+                "children"
+              ],
+              "properties": {
+                "parent": {
+                  "$ref": "#/$defs/lease"
+                },
+                "children": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "$ref": "#/$defs/newMessage"
+                  }
+                }
+              },
+              "description": "Children are enqueued to the parent's queue. Cross-queue fan-out is deferred."
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "stats"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "peek"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "max"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "redrive"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "message_ids"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "message_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "purge"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "message_ids",
+                "reason"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "message_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "sweep"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "export_ledger"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "queue",
+                "from_seq",
+                "max"
+              ],
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "from_seq": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65536
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "capabilities"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [],
+              "properties": {}
+            }
+          },
+          "required": [
+            "params"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "advance_clock"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "by_ms"
+              ],
+              "properties": {
+                "by_ms": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400000
+                }
+              }
+            }
+          },
+          "required": [
+            "params"
+          ]
+        }
+      ]
     },
     "response": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "ok"],
+      "required": [
+        "id",
+        "op",
+        "ok"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "ok": { "type": "boolean" },
-        "result": { "description": "Present when ok=true. Op-specific." },
-        "error": { "$ref": "#/$defs/error" }
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "op": {
+          "$ref": "#/$defs/op"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "result": {
+          "type": "object"
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
       },
       "allOf": [
-        { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"], "not": { "required": ["result"] } } },
-        { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["result"], "not": { "required": ["error"] } } }
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "error"
+            ],
+            "not": {
+              "required": [
+                "result"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result"
+            ],
+            "not": {
+              "required": [
+                "error"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "enqueue"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "receipts"
+                ],
+                "properties": {
+                  "receipts": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/receipt"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "claim"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "deliveries"
+                ],
+                "properties": {
+                  "deliveries": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/delivery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "extend"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcomes"
+                ],
+                "properties": {
+                  "outcomes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/leaseOutcome"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "ack"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcomes"
+                ],
+                "properties": {
+                  "outcomes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/leaseOutcome"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "nack"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcomes"
+                ],
+                "properties": {
+                  "outcomes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/leaseOutcome"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "fail"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcomes"
+                ],
+                "properties": {
+                  "outcomes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/leaseOutcome"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "fan_out"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcome",
+                  "receipts"
+                ],
+                "properties": {
+                  "outcome": {
+                    "$ref": "#/$defs/leaseOutcome"
+                  },
+                  "receipts": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/receipt"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "stats"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ready",
+                  "delayed",
+                  "leased",
+                  "dead"
+                ],
+                "properties": {
+                  "ready": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "delayed": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "leased": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "dead": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "peek"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "messages"
+                ],
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/storedMessage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "redrive"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcomes"
+                ],
+                "properties": {
+                  "outcomes": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "ok",
+                        "unknown_message",
+                        "not_dead"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "purge"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "purged"
+                ],
+                "properties": {
+                  "purged": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "sweep"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expired",
+                  "purged"
+                ],
+                "properties": {
+                  "expired": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "purged": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "export_ledger"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "events",
+                  "consistent_cut"
+                ],
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "v",
+                        "seq",
+                        "group",
+                        "group_size",
+                        "queue",
+                        "type",
+                        "message_id",
+                        "at"
+                      ]
+                    },
+                    "description": "Each element must also validate against ledger-event.schema.json; controls enforce this."
+                  },
+                  "consistent_cut": {
+                    "type": "boolean",
+                    "description": "true when the last returned seq is a consistent cut (no later event has group <= it)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "capabilities"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "profile"
+                ],
+                "properties": {
+                  "profile": {
+                    "type": "object",
+                    "required": [
+                      "capabilities",
+                      "backend",
+                      "origin",
+                      "conformance",
+                      "ledger",
+                      "idempotency_window_ms",
+                      "build",
+                      "runtime"
+                    ],
+                    "description": "Must also validate against capability-profile.schema.json."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "advance_clock"
+              },
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "now"
+                ],
+                "properties": {
+                  "now": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "error": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code"],
+      "required": [
+        "code"
+      ],
       "properties": {
         "code": {
           "enum": [
-            "unknown_op", "invalid_params", "unauthorized", "unknown_queue",
-            "capability_unsupported", "payload_too_large", "backend_unavailable", "internal"
-          ],
-          "description": "unauthorized is the required code for a failed token check and is indistinguishable for wrong versus unknown token."
+            "unknown_op",
+            "invalid_params",
+            "unauthorized",
+            "unknown_queue",
+            "capability_unsupported",
+            "payload_too_large",
+            "backend_unavailable",
+            "internal"
+          ]
         },
-        "message": { "type": "string", "maxLength": 1024 },
-        "retryable": { "type": "boolean" }
+        "message": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "retryable": {
+          "type": "boolean"
+        }
       }
     },
     "lease": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["message_id", "token", "attempt", "until"],
-      "description": "A lease is a value. ack, nack, extend and fail take leases, and the broker checks the fencing token on each.",
+      "required": [
+        "queue",
+        "message_id",
+        "token",
+        "attempt",
+        "until"
+      ],
       "properties": {
-        "message_id": { "type": "string", "minLength": 1 },
-        "token": { "type": "string", "minLength": 1, "description": "Fencing token, opaque, unique per lease. Never written to the ledger." },
-        "attempt": { "type": "integer", "minimum": 1 },
-        "until": { "type": "string", "format": "date-time" }
-      }
+        "queue": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "A lease is a value. The queue is bound into it; the broker checks queue, message and token together on every lease operation."
     },
     "leaseOutcome": {
-      "enum": ["ok", "stale_lease", "unknown_message"],
-      "description": "stale_lease is an outcome, not an error: it is expected under at-least-once delivery."
+      "enum": [
+        "ok",
+        "stale_lease",
+        "unknown_message"
+      ],
+      "description": "stale_lease covers wrong token, wrong queue, expired or superseded lease. It is an outcome, not an error."
+    },
+    "receiptOutcome": {
+      "enum": [
+        "accepted",
+        "deduplicated",
+        "conflict"
+      ],
+      "description": "deduplicated: same key, same payload digest, within the window; message_id is the original. conflict: same key, different payload digest, within the window; nothing was accepted and message_id is the original."
     },
     "receipt": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["message_id", "deduplicated"],
+      "required": [
+        "message_id",
+        "outcome"
+      ],
       "properties": {
-        "message_id": { "type": "string", "minLength": 1 },
-        "deduplicated": { "type": "boolean" }
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "outcome": {
+          "$ref": "#/$defs/receiptOutcome"
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "lease"
+      ],
+      "properties": {
+        "message": {
+          "$ref": "#/$defs/storedMessage"
+        },
+        "lease": {
+          "$ref": "#/$defs/lease"
+        }
+      }
+    },
+    "newMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_contract"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "payload"
+          ],
+          "not": {
+            "required": [
+              "payload_ref"
+            ]
+          }
+        },
+        {
+          "required": [
+            "payload_ref"
+          ],
+          "not": {
+            "required": [
+              "payload"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Producer-chosen. Scope is the queue. Lifetime is the backend's declared idempotency window measured from the original enqueued event, independent of message state."
+        },
+        "payload_contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$",
+          "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
+        },
+        "payload": {
+          "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+        },
+        "payload_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_id",
+            "digest"
+          ],
+          "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+          "properties": {
+            "artifact_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "descriptor_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "representation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            }
+          }
+        },
+        "not_before": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Requires capability delay."
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 5
+        },
+        "ordering_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Requires capability ordering_key."
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "Requires capability priority."
+        },
+        "trace": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxProperties": 32
+        }
+      },
+      "description": "Producer input to enqueue and fan_out. Carries no broker-assigned fields."
+    },
+    "storedMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "id",
+        "queue",
+        "payload_contract"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "payload"
+          ],
+          "not": {
+            "required": [
+              "payload_ref"
+            ]
+          }
+        },
+        {
+          "required": [
+            "payload_ref"
+          ],
+          "not": {
+            "required": [
+              "payload"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "v": {
+          "const": 0
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Broker-assigned, unique per queue for the life of the ledger."
+        },
+        "queue": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "parent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Set by fan_out on children."
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Producer-chosen. Scope is the queue. Lifetime is the backend's declared idempotency window measured from the original enqueued event, independent of message state."
+        },
+        "payload_contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$",
+          "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
+        },
+        "payload": {
+          "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+        },
+        "payload_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_id",
+            "digest"
+          ],
+          "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+          "properties": {
+            "artifact_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "descriptor_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "representation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            }
+          }
+        },
+        "not_before": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Requires capability delay."
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 5
+        },
+        "ordering_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Requires capability ordering_key."
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "Requires capability priority."
+        },
+        "trace": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxProperties": 32
+        }
+      },
+      "description": "Mirror of queue-message.schema.json; controls assert the two stay identical."
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "digest"
+      ],
+      "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "descriptor_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "representation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        }
       }
     }
   }
