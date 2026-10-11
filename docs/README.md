@@ -41,6 +41,7 @@ Operational guides for maintainers and implementers.
 
 Run-books and adoption guides — the mechanics companion to the standards.
 
+- [fierce-collaboration-review-card.md](guides/fierce-collaboration-review-card.md) - The minimum conforming relied-upon review on one page
 - [running-a-fierce-collaboration-review.md](guides/running-a-fierce-collaboration-review.md) - Executable steps for the fierce-collaboration review standard
 - [composing-a-review-panel.md](guides/composing-a-review-panel.md) - Assembling review seats and panels: the five-layer composition model, harness classes, framing blocks, and preflight
 - [using-the-forge-infrastructure-contract.md](guides/using-the-forge-infrastructure-contract.md) - Reader tour of `forge-infra/v0`: information model, seven lanes, and sibling contracts
