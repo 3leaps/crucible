@@ -47,7 +47,9 @@ model exactly, so an op removed while its event is kept, a split group, a
 fabricated digest, an invented outcome or an out-of-range bind path is
 rejected as `ledger_mismatch`, `expectation_mismatch` or `binding`.
 Expectation types are strict (a boolean is not a number), `expect` is always
-an object, and a `$name` is symbolic only in message-id positions. Every
+an object, and a `$name` is symbolic only at an authorized structural path
+(receipt message ids, delivered message id and lease message id, ledger
+message_id and parent_id); the payload subtree is literal whatever its keys. Every
 capability a script exercises must be declared in `requires`
 (`capability_admission`). The model checks lease validity against the broker
 clock on every lease operation, purges expired messages before delivery, scopes

@@ -51,6 +51,8 @@ REQUIRED_VECTORS = {
         "repeated-redrive-fresh-budget",
         "expired-unswept-lease-is-stale",
         "message-expiry-before-delivery",
+        "expiry-precedence-on-lease-lapse",
+        "live-lease-survives-message-expiry",
     ],
     "fanout": [
         "atomic-fanout",
@@ -266,17 +268,11 @@ class Model:
         return mid, "accepted", ev
 
     def expire_due(self, ms: int) -> list:
+        """Expire overdue leases and purge expired messages. Precedence: a live lease is
+        never purged by expires_at (its holder may still settle); when a lease lapses on a
+        message past expires_at, lease_expired then purged(expired) form one group and the
+        attempt budget is not consulted; otherwise budget exhaustion dead-letters."""
         out = []
-        for rec in self.msgs.values():
-            if (
-                rec["state"] in ("ready", "delayed")
-                and rec["expires_ms"] is not None
-                and rec["expires_ms"] <= ms
-            ):
-                rec["state"] = "gone"
-                out.append(
-                    [{"type": "purged", "message_id": rec["id"], "reason": "expired"}]
-                )
         for rec in self.msgs.values():
             if rec["state"] == "leased" and rec["lease"]["until_ms"] <= ms:
                 evs = [
@@ -287,7 +283,12 @@ class Model:
                     }
                 ]
                 rec["lease"] = None
-                if rec["attempt"] >= rec["max_attempts"]:
+                if rec["expires_ms"] is not None and rec["expires_ms"] <= ms:
+                    rec["state"] = "gone"
+                    evs.append(
+                        {"type": "purged", "message_id": rec["id"], "reason": "expired"}
+                    )
+                elif rec["attempt"] >= rec["max_attempts"]:
                     rec["state"] = "dead"
                     evs.append(
                         {
@@ -299,6 +300,16 @@ class Model:
                 else:
                     rec["state"] = "ready"
                 out.append(evs)
+        for rec in self.msgs.values():
+            if (
+                rec["state"] in ("ready", "delayed")
+                and rec["expires_ms"] is not None
+                and rec["expires_ms"] <= ms
+            ):
+                rec["state"] = "gone"
+                out.append(
+                    [{"type": "purged", "message_id": rec["id"], "reason": "expired"}]
+                )
         return out
 
     def check_lease(self, lease: dict, ms: int):
@@ -360,6 +371,9 @@ class Model:
                 r
                 for r in ready
                 if r["not_before_ms"] is None or r["not_before_ms"] <= ms
+            ]
+            ready = [
+                r for r in ready if r["expires_ms"] is None or r["expires_ms"] > ms
             ]
             ready.sort(key=lambda r: int(r["id"][1:]))
             deliveries = []
@@ -564,14 +578,24 @@ def resolve(obj, names: dict):
     return obj
 
 
-ID_KEYS = {"message_id", "parent_id", "id"}
+SYMBOLIC_PATHS = (
+    re.compile(r"^ops\[\d+\]\.expect\.receipts\[\d+\]\.message_id$"),
+    re.compile(r"^ops\[\d+\]\.expect\.deliveries\[\d+\]\.message\.id$"),
+    re.compile(r"^ops\[\d+\]\.expect\.deliveries\[\d+\]\.lease\.message_id$"),
+    re.compile(r"^ledger\[\d+\]\.(message_id|parent_id)$"),
+)
 
 
-def match(expected, actual, names: dict, where: str, key=None) -> None:
-    """Strict structural match. A $name is symbolic only in id positions (receipt and
-    delivery message ids, ledger message_id/parent_id); everywhere else a $-string is
-    literal data. JSON types must agree exactly: a boolean is not a number."""
-    if isinstance(expected, str) and BIND_RE.match(expected) and key in ID_KEYS:
+def symbolic_ok(where: str) -> bool:
+    return any(p.match(where) for p in SYMBOLIC_PATHS)
+
+
+def match(expected, actual, names: dict, where: str) -> None:
+    """Strict structural match. A $name is symbolic only at an authorized structural
+    path (receipt message ids, delivered message id and lease message id, ledger
+    message_id/parent_id). Everywhere else, including the whole payload subtree, a
+    $-string is literal data. JSON types must agree exactly: a boolean is not a number."""
+    if isinstance(expected, str) and BIND_RE.match(expected) and symbolic_ok(where):
         if expected in names:
             if names[expected] != actual:
                 rej(
@@ -590,7 +614,7 @@ def match(expected, actual, names: dict, where: str, key=None) -> None:
         for k, val in expected.items():
             if k not in actual:
                 rej("expectation_mismatch", f"{where}.{k}: not produced by the model")
-            match(val, actual[k], names, f"{where}.{k}", k)
+            match(val, actual[k], names, f"{where}.{k}")
         return
     if isinstance(expected, list):
         if len(expected) != len(actual):
@@ -599,7 +623,7 @@ def match(expected, actual, names: dict, where: str, key=None) -> None:
                 f"{where}: expected {len(expected)} items, model produced {len(actual)}",
             )
         for i, (e, act) in enumerate(zip(expected, actual)):
-            match(e, act, names, f"{where}[{i}]", key)
+            match(e, act, names, f"{where}[{i}]")
         return
     if expected != actual:
         rej(
@@ -753,7 +777,7 @@ def check_vector(base: str, path: str) -> None:
                         "unbound_binding",
                         f"ledger[{i}].{k} {e[k]} was never bound by an op",
                     )
-                match(e[k], m[k], names, f"ledger[{i}].{k}", k)
+                match(e[k], m[k], names, f"ledger[{i}].{k}")
             elif e[k] != m[k]:
                 rej(
                     "ledger_mismatch",

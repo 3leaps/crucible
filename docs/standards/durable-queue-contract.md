@@ -118,7 +118,7 @@ Schema: `queue-message.schema.json`. Required: `v`, `id`, `queue`,
 | `payload_contract` | Host-less token naming the payload's own contract. Carried, never validated by the broker. |
 | `payload_ref` | A `contract: data-artifact/v0` reference: `artifact_id` and `digest` required, optional `descriptor_ref` and `representation_id`, all opaque tokens, never filesystem paths. Requires capability `payload_ref`. Retention and custody of the referenced bytes are the artifact's contract, not the queue's. |
 | `not_before` | Requires `delay`. The message is not ready before this time. |
-| `expires_at` | At or after this time the message is never delivered; the first `claim` or `sweep` that observes it appends `purged` with reason `expired`. |
+| `expires_at` | At or after this time the message is never delivered. Precedence: a **live lease is not affected** by `expires_at` (its holder may still `ack`, `nack`, `extend` or `fail`); a message in `ready` or `delayed` past `expires_at` is purged with reason `expired` by the first `claim` or `sweep` that observes it; when a lease **lapses** on a message past `expires_at`, `lease_expired` and `purged` form one atomic group and the attempt budget is not consulted. |
 | `max_attempts` | Default 5. The attempt at which a `nack` dead-letters instead of returning the message to ready. |
 | `parent_id` | Set by `fan_out` on children. Children are always enqueued to the parent's queue in v0. |
 | `ordering_key`, `priority` | Each requires its capability. |
@@ -257,7 +257,9 @@ Deferred, not in the vocabulary: `replay`. Lease outcomes: `ok`,
    `lease_expired` or `nacked` event for its previous attempt. A `claim` that
    finds an expired lease appends `lease_expired` and the new `leased` in one
    atomic group; a prior `sweep` is not required.
-5. **Dead-letter boundary.** Both `nack` and lease expiry consume an attempt.
+5. **Dead-letter boundary.** Message expiry takes precedence over budget
+   exhaustion: a lapsed lease on a message past `expires_at` purges rather
+   than dead-letters. Otherwise both `nack` and lease expiry consume an attempt.
    When the consumed attempt equals `max_attempts`, the `nacked` or
    `lease_expired` event and `dead_lettered` with reason `max_attempts` form
    one atomic group. `redrive` returns a dead message to ready with a fresh
@@ -340,8 +342,10 @@ script against a reference consistency model** (an in-memory fold of the
 normative rules under the virtual clock) and requiring the hand-authored
 ledger and expectations to match the model event for event, group for group.
 Expectations are typed: JSON primitive types must agree (a boolean is not a
-number), `expect` is always an object, and a `$name` is symbolic only in
-message-id positions; payload and outcome strings are literal data. A vector
+number), `expect` is always an object, and a `$name` is symbolic only at an
+authorized structural path (receipt `message_id`, delivered `message.id` and
+`lease.message_id`, ledger `message_id` and `parent_id`); the whole payload
+subtree and every outcome string are literal data regardless of key name. A vector
 must declare in `requires` every capability its script exercises
 (`atomic_fanout`, `delay`, `payload_ref`, `ordering_key`, `priority`,
 `long_poll`); an undeclared exercised capability is a checker rejection. The
