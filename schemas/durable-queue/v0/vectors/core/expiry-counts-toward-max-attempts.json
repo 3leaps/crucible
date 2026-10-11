@@ -3,6 +3,7 @@
   "requires": [
     "virtual_clock"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "A lease expiry consumes an attempt exactly as a nack does; at max_attempts the lease_expired and dead_lettered events form one atomic group.",

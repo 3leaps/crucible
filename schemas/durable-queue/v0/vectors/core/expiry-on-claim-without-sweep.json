@@ -3,6 +3,7 @@
   "requires": [
     "virtual_clock"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "A claim after lease expiry reclaims the message without a prior sweep; lease_expired is appended in the same atomic group as the new lease.",

@@ -3,6 +3,7 @@
   "requires": [
     "virtual_clock"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "One message: enqueued, leased, acked. Deterministic mode delivers ready messages in seq order.",
@@ -114,5 +115,5 @@
       "attempt": 2
     }
   ],
-  "expect_reject": "illegal_transition"
+  "expect_reject": "ledger_mismatch"
 }

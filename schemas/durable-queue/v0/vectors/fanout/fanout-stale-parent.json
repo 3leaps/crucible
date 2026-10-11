@@ -4,6 +4,7 @@
     "virtual_clock",
     "atomic_fanout"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "fan_out with an expired parent lease returns stale_lease, accepts no children, and appends nothing; the parent is redelivered and the fan-out succeeds on attempt 2.",

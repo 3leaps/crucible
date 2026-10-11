@@ -1048,19 +1048,8 @@
                   "events": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "required": [
-                        "v",
-                        "seq",
-                        "group",
-                        "group_size",
-                        "queue",
-                        "type",
-                        "message_id",
-                        "at"
-                      ]
-                    },
-                    "description": "Each element must also validate against ledger-event.schema.json; controls enforce this."
+                      "$ref": "#/$defs/ledgerEvent"
+                    }
                   },
                   "consistent_cut": {
                     "type": "boolean",
@@ -1095,18 +1084,7 @@
                 ],
                 "properties": {
                   "profile": {
-                    "type": "object",
-                    "required": [
-                      "capabilities",
-                      "backend",
-                      "origin",
-                      "conformance",
-                      "ledger",
-                      "idempotency_window_ms",
-                      "build",
-                      "runtime"
-                    ],
-                    "description": "Must also validate against capability-profile.schema.json."
+                    "$ref": "#/$defs/capabilityProfile"
                   }
                 }
               }
@@ -1302,7 +1280,7 @@
           "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
         },
         "payload": {
-          "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+          "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
         },
         "payload_ref": {
           "type": "object",
@@ -1436,7 +1414,7 @@
           "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
         },
         "payload": {
-          "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+          "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
         },
         "payload_ref": {
           "type": "object",
@@ -1533,6 +1511,423 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
         }
       }
+    },
+    "ledgerEvent": {
+      "description": "Mirror of ledger-event.schema.json; controls assert the two stay identical.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "seq",
+        "group",
+        "group_size",
+        "queue",
+        "type",
+        "message_id",
+        "at"
+      ],
+      "properties": {
+        "v": {
+          "const": 0
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "group": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "seq of the first event in this event's atomic group; equals seq for a single-event step."
+        },
+        "queue": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "type": {
+          "enum": [
+            "enqueued",
+            "deduplicated",
+            "conflicted",
+            "leased",
+            "extended",
+            "acked",
+            "nacked",
+            "lease_expired",
+            "dead_lettered",
+            "redriven",
+            "purged"
+          ],
+          "description": "Closed vocabulary. Unknown types are rejected."
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Broker clock, RFC 3339 UTC."
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "worker": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "lease_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "not_before": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "parent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "payload_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "SHA-256 over the RFC 8785 canonical bytes of the message identity object: {\"payload_contract\": ..., \"payload\": ...} or {\"payload_contract\": ..., \"payload_ref\": {\"artifact_id\": ..., \"digest\": ...}}. Scheduling fields (not_before, expires_at, max_attempts, priority, ordering_key, attributes, trace) are not bound; on a repeated key the original wins."
+        },
+        "group_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of events in this event's atomic group. A prefix ending at seq N is a consistent cut iff, for the event at N, N - group + 1 == group_size."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "leased",
+                  "extended",
+                  "acked",
+                  "nacked",
+                  "lease_expired"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "attempt"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "leased",
+                  "extended"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "lease_until"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "leased"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "nacked",
+                  "dead_lettered",
+                  "purged"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "deduplicated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "idempotency_key"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "conflicted"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "idempotency_key",
+              "payload_digest"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enqueued"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "payload_digest"
+            ]
+          }
+        }
+      ]
+    },
+    "capabilityProfile": {
+      "description": "Mirror of capability-profile.schema.json; controls assert the two stay identical.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "backend",
+        "origin",
+        "conformance",
+        "ledger",
+        "idempotency_window_ms",
+        "build",
+        "runtime"
+      ],
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "contains": {
+            "const": "contract: durable-queue/v0"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "backend": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "origin": {
+          "enum": [
+            "harness",
+            "declared"
+          ]
+        },
+        "conformance": {
+          "enum": [
+            "deterministic",
+            "benchmark_only"
+          ],
+          "description": "deterministic: virtual clock, recorded ledger, exact normalized ledger match on every core vector. benchmark_only: the backend was exercised for measurement and makes no conformance claim. A tolerant wall-clock mode is deferred and not advertised in v0."
+        },
+        "ledger": {
+          "enum": [
+            "recorded",
+            "inferred"
+          ],
+          "description": "recorded: every transition appends its events in the same atomic step. inferred: reconstructed by an adapter; not an authoritative history and not admissible for deterministic conformance."
+        },
+        "idempotency_window_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "const": "unbounded"
+            }
+          ],
+          "description": "Required. Keyed deduplication is core; this is how long a key is live from the original enqueued event."
+        },
+        "build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact",
+            "version",
+            "target",
+            "native_dependencies",
+            "compiled_backends",
+            "compiled_capabilities"
+          ],
+          "properties": {
+            "artifact": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "native_dependencies": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "compiled_backends": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              }
+            },
+            "compiled_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "transactional_enqueue",
+                  "atomic_fanout",
+                  "delay",
+                  "ordering_key",
+                  "priority",
+                  "payload_ref",
+                  "long_poll",
+                  "virtual_clock"
+                ]
+              }
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selected_backend",
+            "failure_model",
+            "enabled_capabilities"
+          ],
+          "properties": {
+            "selected_backend": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+            },
+            "failure_model": {
+              "enum": [
+                "survives_power_loss",
+                "survives_process_loss",
+                "none"
+              ],
+              "description": "The strongest failure an acknowledged enqueue or fan_out survives, as a guarantee. Independent of how the commit is implemented."
+            },
+            "commit_strategy": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Informational only (for example fsync-each-commit, group-commit-5ms, aof-everysec). Never upgrades failure_model."
+            },
+            "enabled_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "transactional_enqueue",
+                  "atomic_fanout",
+                  "delay",
+                  "ordering_key",
+                  "priority",
+                  "payload_ref",
+                  "long_poll",
+                  "virtual_clock"
+                ]
+              }
+            },
+            "configuration_digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "conformance": {
+                "const": "deterministic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ledger": {
+                "const": "recorded"
+              },
+              "origin": {
+                "const": "harness"
+              },
+              "runtime": {
+                "properties": {
+                  "enabled_capabilities": {
+                    "contains": {
+                      "const": "virtual_clock"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

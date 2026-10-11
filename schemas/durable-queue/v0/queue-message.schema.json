@@ -65,7 +65,7 @@
       "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
     },
     "payload": {
-      "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+      "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
     },
     "payload_ref": {
       "type": "object",
@@ -176,7 +176,7 @@
           "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
         },
         "payload": {
-          "description": "Opaque JSON payload. Validated by the consumer against payload_contract, never by the broker."
+          "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
         },
         "payload_ref": {
           "type": "object",

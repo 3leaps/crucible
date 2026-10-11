@@ -76,8 +76,12 @@ capability profile, which guarantees it actually provides.
 - **Keyed deduplication is core.** Every conforming backend recognizes a
   repeated `idempotency_key` for a declared window and never silently accepts
   a different message under a live key.
-- **Payload-open, envelope-governed.** The broker never reads, validates or
-  rewrites `payload` or `attributes`. The envelope is contract-governed.
+- **Payload-open, envelope-governed.** The broker never interprets, validates
+  or rewrites `payload` or `attributes`. The envelope is contract-governed.
+  The one structural precondition is that `payload` lies in the I-JSON domain
+  (RFC 7493: finite binary64-representable numbers, unique member names,
+  well-formed Unicode) so an RFC 8785 identity digest exists; a payload
+  outside it is rejected at `enqueue` with `invalid_params`.
 
 ## Capability and versioning
 
@@ -258,9 +262,16 @@ Deferred, not in the vocabulary: `replay`. Lease outcomes: `ok`,
    outcome `deduplicated` and appends a `deduplicated` audit event; a repeated
    key with a different identity digest returns the original `message_id`
    with outcome `conflict`, accepts nothing, and appends `conflicted`.
-7. **Atomic fan-out.** Under `atomic_fanout`, the children's `enqueued`
-   events and the parent's `acked` event are appended in one atomic step, in
-   that order. Without the capability, `fan_out` returns
+7. **Atomic fan-out.** Under `atomic_fanout`, each child is admitted by the
+   same rule as `enqueue` (`accepted`, `deduplicated` or `conflict`,
+   positional receipts), and all resulting child events (`enqueued`,
+   `deduplicated`, `conflicted`) plus the parent's `acked` event are appended
+   in one atomic group, children in order then the parent. A `conflict` on a
+   child does **not** abort the group: the parent is still acked and will not
+   be redelivered to retry that child; the conflicting child is not newly
+   published and the existing message's content and `parent_id` are
+   unchanged. The consumer learns the conflict from the positional receipt
+   and resolves it above the queue. Without the capability, `fan_out` returns
    `capability_unsupported` and the consumer enqueues children with
    deterministic idempotency keys derived from the parent and recipient, then
    acks the parent.
@@ -305,15 +316,24 @@ the capability they require. A vector is an op script with expected results
 and the exact expected ledger. Ids bound with `$name` are substituted from
 results; timestamps derive from `clock_start` plus each op's `at_ms`.
 
-Vector grammar: `ops[]` are requests validated against the request schema
+Vector grammar: a vector declares `min_idempotency_window_ms`, the smallest
+window under which its expectations hold. This is an **admission
+requirement** for the core suite: a profile whose declared window is smaller
+than the largest value in the core inventory cannot run the core suite and
+cannot claim deterministic conformance. Core vectors are never skipped. `ops[]` are requests validated against the request schema
 with `$name` tokens in place of ids and leases; `{"$rebind": "$l", field: v}`
 presents a bound lease with one field altered; `expect` is matched
 structurally against the typed result; `bind` captures result paths. The
 expected `ledger[]` must validate line by line, be gap-free from 1, carry
 contiguous atomic groups, bind every `$name` it uses, satisfy the fold rules
 and invariants above, and carry identity digests that match the ops. The
-crucible controls enforce all of that on the fixtures; the executing harness
-lives in the adopting repository.
+crucible controls enforce all of that on the fixtures by **executing the op
+script against a reference consistency model** (an in-memory fold of the
+normative rules under the virtual clock) and requiring the hand-authored
+ledger and expectations to match the model event for event, group for group.
+The model is a checker for fixtures, not a conformance oracle for
+implementations and not a queue; the executing harness lives in the adopting
+repository.
 
 One conformance mode is defined in v0: **deterministic**, requiring
 `virtual_clock`, `ledger: recorded` and an exact normalized ledger match on

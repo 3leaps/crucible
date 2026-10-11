@@ -4,6 +4,7 @@
     "virtual_clock",
     "delay"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "nack returns the message after retry_after_ms and counts the attempt. At max_attempts the nacked and dead_lettered events form one atomic group.",

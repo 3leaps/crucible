@@ -4,6 +4,7 @@
     "virtual_clock",
     "atomic_fanout"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "Happy-path ordering evidence only: fan_out appends the children's enqueued events and the parent's acked event as one atomic group, children carry parent_id and go to the parent's queue. Crash atomicity and repeated-call behaviour need their own evidence (see fanout-stale-parent and fanout-repeat-dedup).",

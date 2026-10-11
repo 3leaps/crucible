@@ -3,6 +3,7 @@
   "requires": [
     "virtual_clock"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "The enqueued payload_digest is SHA-256 over RFC 8785 canonical bytes of the identity object. This payload exercises exponent formatting (1e21, 1e-7), negative zero, UTF-16 key ordering of U+E000 before U+10000, and raw U+2028. Any other canonicalization produces a different digest.",

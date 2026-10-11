@@ -45,17 +45,18 @@ fixture-integrity checker with the reason named in its `expect_reject`.
 
 ## semantic/
 
+Each is a vector the consistency-model checker must reject with the reason
+in its `expect_reject`. The baseline vector passes.
+
 | Reject | Checker reason |
 | --- | --- |
-| ack-attempt-never-leased | `attempt_mismatch` |
-| unknown-op-in-script | `op_schema` |
 | empty-script | `empty_vector` |
-| seq-gap | `seq_gap` |
-| event-after-terminal | `post_terminal_transition` |
-| truncated-group | `truncated_group` |
+| unknown-op-in-script | `op_schema` |
+| duplicate-member-payload | `ingest` (strict RFC 8785 loader) |
+| payload-outside-ijson | `payload_domain` |
+| bind-path-out-of-range | `binding` |
 | unbound-id | `unbound_binding` |
-| digest-mismatch | `digest_mismatch` |
-| leased-without-prior-enqueue | `illegal_transition` |
-| redelivery-without-expiry | `illegal_transition` |
+| negative-delivery-count, negative-expected-attempt, invented-redrive-outcome | `expectation_mismatch` |
+| ack-attempt-never-leased, digest-mismatch, event-after-terminal, leased-without-prior-enqueue, redelivery-without-expiry, seq-gap, truncated-group, ack-op-removed-acked-kept, fanout-group-split | `ledger_mismatch` (hand-authored history does not match the model's) |
 
 Fixture data is synthetic. Identifiers are public-safe tokens.

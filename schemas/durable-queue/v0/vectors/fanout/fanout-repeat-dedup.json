@@ -4,6 +4,7 @@
     "virtual_clock",
     "atomic_fanout"
   ],
+  "min_idempotency_window_ms": 60000,
   "clock_start": "2026-01-01T00:00:00Z",
   "queue": "q",
   "description": "A fan_out whose children repeat keys already accepted (a prior expansion that acked the parent) yields deduplicated receipts for those children; the parent lease is consumed by the first fan_out so the second returns stale_lease. Child dedup is proven by a plain enqueue retry.",
