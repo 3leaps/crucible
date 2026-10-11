@@ -95,9 +95,9 @@ output of the code under test. Where an expectation is a judgement call that no
 source settles, the test says so, so a reader does not mistake a chosen behaviour
 for a specified one.
 
-_Self-check:_ **if the implementation misread the specification, would this
-expectation have been written the same way?** If yes, the test cannot detect that
-misreading.
+_Self-check:_ **if the implementation changed to violate the cited source, would
+this expectation stay fixed and make the test fail?** If not, the test is not
+independent evidence of that requirement.
 
 ### 2. Specimens come from an independently derived and reviewed authority
 
