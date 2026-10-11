@@ -56,7 +56,9 @@ in its `expect_reject`. The baseline vector passes.
 | payload-outside-ijson | `payload_domain` |
 | bind-path-out-of-range | `binding` |
 | unbound-id | `unbound_binding` |
-| negative-delivery-count, negative-expected-attempt, invented-redrive-outcome | `expectation_mismatch` |
+| negative-delivery-count, negative-expected-attempt, invented-redrive-outcome, boolean-delivery-count, boolean-expected-attempt, symbolic-outcome, symbolic-payload, ack-after-lease-expiry, ack-at-lease-expiry-boundary, fanout-after-parent-expiry, delivery-after-message-expiry, purge-wrong-queue, compounded-redrive-budget | `expectation_mismatch` (model produced a different result) |
+| bare-symbolic-expect | `expect_shape` |
+| fanout-without-capability, long-poll-without-capability | `capability_admission` |
 | ack-attempt-never-leased, digest-mismatch, event-after-terminal, leased-without-prior-enqueue, redelivery-without-expiry, seq-gap, truncated-group, ack-op-removed-acked-kept, fanout-group-split | `ledger_mismatch` (hand-authored history does not match the model's) |
 
 Fixture data is synthetic. Identifiers are public-safe tokens.

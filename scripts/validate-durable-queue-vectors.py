@@ -48,6 +48,9 @@ REQUIRED_VECTORS = {
         "nack-to-dead-letter",
         "expiry-counts-toward-max-attempts",
         "redrive-resets-budget",
+        "repeated-redrive-fresh-budget",
+        "expired-unswept-lease-is-stale",
+        "message-expiry-before-delivery",
     ],
     "fanout": [
         "atomic-fanout",
@@ -227,11 +230,21 @@ class Model:
             "state": "delayed" if m.get("not_before") else "ready",
             "not_before_ms": None,
             "max_attempts": m.get("max_attempts", 5),
+            "budget": m.get("max_attempts", 5),
+            "expires_ms": None,
             "attempt": 0,
             "lease": None,
             "payload": m.get("payload"),
             "key": k,
         }
+        if m.get("expires_at"):
+            rec["expires_ms"] = int(
+                (
+                    datetime.fromisoformat(m["expires_at"].replace("Z", "+00:00"))
+                    - self.start.replace(tzinfo=timezone.utc)
+                ).total_seconds()
+                * 1000
+            )
         if m.get("not_before"):
             rec["not_before_ms"] = int(
                 (
@@ -254,6 +267,16 @@ class Model:
 
     def expire_due(self, ms: int) -> list:
         out = []
+        for rec in self.msgs.values():
+            if (
+                rec["state"] in ("ready", "delayed")
+                and rec["expires_ms"] is not None
+                and rec["expires_ms"] <= ms
+            ):
+                rec["state"] = "gone"
+                out.append(
+                    [{"type": "purged", "message_id": rec["id"], "reason": "expired"}]
+                )
         for rec in self.msgs.values():
             if rec["state"] == "leased" and rec["lease"]["until_ms"] <= ms:
                 evs = [
@@ -278,7 +301,7 @@ class Model:
                 out.append(evs)
         return out
 
-    def check_lease(self, lease: dict):
+    def check_lease(self, lease: dict, ms: int):
         if not isinstance(lease, dict):
             rej("binding", f"lease is not a lease value: {lease!r}")
         rec = self.msgs.get(lease.get("message_id"))
@@ -288,6 +311,11 @@ class Model:
             ) != self.queue else "unknown_message"
         if rec["state"] != "leased" or rec["lease"]["token"] != lease.get("token"):
             return rec, "stale_lease"
+        if rec["lease"]["until_ms"] <= ms:
+            return (
+                rec,
+                "stale_lease",
+            )  # expired but unswept: invalid for every lease op, equality counts as expired
         return rec, "ok"
 
     # ---- ops
@@ -368,7 +396,7 @@ class Model:
         if name in ("ack", "nack", "extend", "fail"):
             outcomes, evs = [], []
             for lease in p["leases"]:
-                rec, st = self.check_lease(lease)
+                rec, st = self.check_lease(lease, ms)
                 outcomes.append(st)
                 if st != "ok":
                     continue
@@ -434,7 +462,7 @@ class Model:
                 self.group(evs, ms)
             return {"outcomes": outcomes}
         if name == "fan_out":
-            rec, st = self.check_lease(p["parent"])
+            rec, st = self.check_lease(p["parent"], ms)
             if st != "ok":
                 return {"outcome": st, "receipts": []}
             receipts, evs = [], []
@@ -449,12 +477,24 @@ class Model:
             )
             self.group(evs, ms)
             return {"outcome": "ok", "receipts": receipts}
+        if name in ("sweep", "stats", "redrive", "purge") and p["queue"] != self.queue:
+            return {
+                "sweep": {"expired": 0, "purged": 0},
+                "stats": {"ready": 0, "delayed": 0, "leased": 0, "dead": 0},
+                "redrive": {
+                    "outcomes": ["unknown_message" for _ in p.get("message_ids", [])]
+                },
+                "purge": {"purged": 0},
+            }[name]
         if name == "sweep":
-            n = 0
+            n = pg = 0
             for evs in self.expire_due(ms):
                 self.group(evs, ms)
-                n += 1
-            return {"expired": n, "purged": 0}
+                if evs[0]["type"] == "purged":
+                    pg += 1
+                else:
+                    n += 1
+            return {"expired": n, "purged": pg}
         if name == "stats":
             c = {"ready": 0, "delayed": 0, "leased": 0, "dead": 0}
             for r in self.msgs.values():
@@ -475,7 +515,7 @@ class Model:
                     outs.append("not_dead")
                 else:
                     rec["state"] = "ready"
-                    rec["max_attempts"] = rec["attempt"] + rec["max_attempts"]
+                    rec["max_attempts"] = rec["attempt"] + rec["budget"]
                     rec["not_before_ms"] = None
                     outs.append("ok")
                     evs.append({"type": "redriven", "message_id": mid})
@@ -524,9 +564,14 @@ def resolve(obj, names: dict):
     return obj
 
 
-def match(expected, actual, names: dict, where: str) -> None:
-    """Structural match where $name in expected binds-or-compares to actual."""
-    if isinstance(expected, str) and BIND_RE.match(expected):
+ID_KEYS = {"message_id", "parent_id", "id"}
+
+
+def match(expected, actual, names: dict, where: str, key=None) -> None:
+    """Strict structural match. A $name is symbolic only in id positions (receipt and
+    delivery message ids, ledger message_id/parent_id); everywhere else a $-string is
+    literal data. JSON types must agree exactly: a boolean is not a number."""
+    if isinstance(expected, str) and BIND_RE.match(expected) and key in ID_KEYS:
         if expected in names:
             if names[expected] != actual:
                 rej(
@@ -536,25 +581,25 @@ def match(expected, actual, names: dict, where: str) -> None:
         else:
             names[expected] = actual
         return
+    if type(expected) is not type(actual):
+        rej(
+            "expectation_mismatch",
+            f"{where}: expected {type(expected).__name__}, model produced {type(actual).__name__}",
+        )
     if isinstance(expected, dict):
-        if not isinstance(actual, dict):
-            rej(
-                "expectation_mismatch",
-                f"{where}: expected object, model produced {actual!r}",
-            )
-        for k, v in expected.items():
+        for k, val in expected.items():
             if k not in actual:
                 rej("expectation_mismatch", f"{where}.{k}: not produced by the model")
-            match(v, actual[k], names, f"{where}.{k}")
+            match(val, actual[k], names, f"{where}.{k}", k)
         return
     if isinstance(expected, list):
-        if not isinstance(actual, list) or len(expected) != len(actual):
+        if len(expected) != len(actual):
             rej(
                 "expectation_mismatch",
-                f"{where}: expected {len(expected) if isinstance(expected, list) else '?'} items, model produced {len(actual) if isinstance(actual, list) else actual!r}",
+                f"{where}: expected {len(expected)} items, model produced {len(actual)}",
             )
-        for i, (e, a) in enumerate(zip(expected, actual)):
-            match(e, a, names, f"{where}[{i}]")
+        for i, (e, act) in enumerate(zip(expected, actual)):
+            match(e, act, names, f"{where}[{i}]", key)
         return
     if expected != actual:
         rej(
@@ -606,7 +651,31 @@ def check_vector(base: str, path: str) -> None:
         if not isinstance(op.get("at_ms"), int) or op["at_ms"] < last_ms:
             rej("vector_shape", f"ops[{i}] at_ms must be a non-decreasing integer")
         last_ms = op["at_ms"]
-        params = copy.deepcopy(op.get("params", {}))
+        raw = op.get("params", {})
+        req = set(v["requires"])
+        msgs = raw.get("messages") or raw.get("children") or []
+        need = []
+        if op["op"] == "fan_out":
+            need.append("atomic_fanout")
+        if any("not_before" in m for m in msgs) or (
+            op["op"] == "nack" and raw.get("retry_after_ms", 0) > 0
+        ):
+            need.append("delay")
+        if any("payload_ref" in m for m in msgs):
+            need.append("payload_ref")
+        if any("ordering_key" in m for m in msgs):
+            need.append("ordering_key")
+        if any("priority" in m for m in msgs):
+            need.append("priority")
+        if op["op"] == "claim" and raw.get("wait_ms", 0) > 0:
+            need.append("long_poll")
+        for cap in need:
+            if cap not in req:
+                rej(
+                    "capability_admission",
+                    f"ops[{i}] {op['op']} exercises {cap} but requires does not declare it",
+                )
+        params = copy.deepcopy(raw)
         if "leases" in params:
             params["leases"] = [resolve(x, names) for x in params["leases"]]
         if "parent" in params:
@@ -621,11 +690,14 @@ def check_vector(base: str, path: str) -> None:
                 rej("unmodeled_op", f"ops[{i}] {op['op']} cannot carry expect or bind")
             continue
         result = model.run({**op, "params": params}, i)
+        if "expect" in op and not isinstance(op["expect"], dict):
+            rej("expect_shape", f"ops[{i}] expect must be an object")
         if op["op"] == "claim":
             exp = dict(op.get("expect") or {})
             if "delivery_count" not in exp:
                 rej("expect_shape", f"ops[{i}] claim needs expect.delivery_count")
-            if exp.pop("delivery_count") != len(result["deliveries"]):
+            dc = exp.pop("delivery_count")
+            if type(dc) is not int or dc != len(result["deliveries"]):
                 rej(
                     "expectation_mismatch",
                     f"ops[{i}] delivery_count: model produced {len(result['deliveries'])}",
@@ -681,7 +753,7 @@ def check_vector(base: str, path: str) -> None:
                         "unbound_binding",
                         f"ledger[{i}].{k} {e[k]} was never bound by an op",
                     )
-                match(e[k], m[k], names, f"ledger[{i}].{k}")
+                match(e[k], m[k], names, f"ledger[{i}].{k}", k)
             elif e[k] != m[k]:
                 rej(
                     "ledger_mismatch",

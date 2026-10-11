@@ -118,7 +118,7 @@ Schema: `queue-message.schema.json`. Required: `v`, `id`, `queue`,
 | `payload_contract` | Host-less token naming the payload's own contract. Carried, never validated by the broker. |
 | `payload_ref` | A `contract: data-artifact/v0` reference: `artifact_id` and `digest` required, optional `descriptor_ref` and `representation_id`, all opaque tokens, never filesystem paths. Requires capability `payload_ref`. Retention and custody of the referenced bytes are the artifact's contract, not the queue's. |
 | `not_before` | Requires `delay`. The message is not ready before this time. |
-| `expires_at` | After this time the message is purged with reason `expired` and never delivered. |
+| `expires_at` | At or after this time the message is never delivered; the first `claim` or `sweep` that observes it appends `purged` with reason `expired`. |
 | `max_attempts` | Default 5. The attempt at which a `nack` dead-letters instead of returning the message to ready. |
 | `parent_id` | Set by `fan_out` on children. Children are always enqueued to the parent's queue in v0. |
 | `ordering_key`, `priority` | Each requires its capability. |
@@ -189,7 +189,12 @@ failure an acknowledged `enqueue` or `fan_out` survives, one of
 free text for information only and never upgrades the model. This keeps
 remote brokers and cloud queues comparable with embedded stores.
 
-`idempotency_window_ms` is required: keyed deduplication is core.
+`idempotency_window_ms` is required: keyed deduplication is core for every
+conforming backend. The value `none` states that the backend performs no keyed
+deduplication; the schema admits it only when `conformance` is
+`benchmark_only`, so a native broker or cloud queue can be represented honestly
+without a fabricated window, and it is never admissible for deterministic
+conformance.
 
 `origin: harness` means the conformance harness produced the profile from
 observed runs. `origin: declared` is an unverified claim and MUST NOT be
@@ -225,7 +230,7 @@ stdio mode MAY omit the token. All batches are positional and bounded (1 to
 | Consumer | `nack` | `{leases[], retry_after_ms, reason}` → outcomes. Counts the attempt. |
 | Consumer | `fail` | `{leases[], reason}` → outcomes. Dead-letters immediately. |
 | Consumer | `fan_out` | `{parent: lease, children[]}` → `{outcome, receipts[]}`. Children go to the parent's queue. Requires `atomic_fanout`. A stale parent yields `outcome: stale_lease` and empty receipts. |
-| Admin | `stats`, `peek`, `redrive`, `purge`, `sweep` | Inspection and repair. `sweep` expires overdue leases and purges expired messages. |
+| Admin | `stats`, `peek`, `redrive`, `purge`, `sweep` | Inspection and repair, each scoped to the named queue only. `sweep` expires overdue leases and purges expired messages. |
 | Admin | `export_ledger` | `{queue, from_seq, max}` → `{events[], consistent_cut}`. |
 | Any | `capabilities` | Returns the profile. |
 | Test | `advance_clock` | `{by_ms}`. Present only under `virtual_clock` in test mode. |
@@ -239,8 +244,10 @@ Deferred, not in the vocabulary: `replay`. Lease outcomes: `ok`,
 ## Portable invariants
 
 1. **Fencing.** An `ack`, `nack`, `extend`, `fail` or `fan_out` whose
-   `{queue, message_id, token}` does not match the live lease returns
-   `stale_lease` and changes nothing. For `fan_out` the parent check, child
+   `{queue, message_id, token}` does not match the live lease, **or whose
+   lease has expired by the broker clock** (`now >= until`, equality counts
+   as expired) whether or not a sweep has run, returns `stale_lease` and
+   changes nothing. For `fan_out` the parent check, child
    publication and parent ack are one atomic step.
 2. **Single live lease.** At most one live lease exists per message. A
    `claim` never delivers a message with a live lease.
@@ -254,8 +261,9 @@ Deferred, not in the vocabulary: `replay`. Lease outcomes: `ok`,
    When the consumed attempt equals `max_attempts`, the `nacked` or
    `lease_expired` event and `dead_lettered` with reason `max_attempts` form
    one atomic group. `redrive` returns a dead message to ready with a fresh
-   attempt budget; the attempt counter itself never resets, so lease identity
-   stays monotonic.
+   budget equal to the **original** `max_attempts` (never compounded across
+   repeated redrives); the attempt counter itself never resets, so lease
+   identity stays monotonic.
 6. **Idempotent enqueue.** Within the declared window, measured from the
    original `enqueued` event and independent of message state, a repeated key
    with the same identity digest returns the original `message_id` with
@@ -331,9 +339,14 @@ crucible controls enforce all of that on the fixtures by **executing the op
 script against a reference consistency model** (an in-memory fold of the
 normative rules under the virtual clock) and requiring the hand-authored
 ledger and expectations to match the model event for event, group for group.
-The model is a checker for fixtures, not a conformance oracle for
-implementations and not a queue; the executing harness lives in the adopting
-repository.
+Expectations are typed: JSON primitive types must agree (a boolean is not a
+number), `expect` is always an object, and a `$name` is symbolic only in
+message-id positions; payload and outcome strings are literal data. A vector
+must declare in `requires` every capability its script exercises
+(`atomic_fanout`, `delay`, `payload_ref`, `ordering_key`, `priority`,
+`long_poll`); an undeclared exercised capability is a checker rejection. The
+model is a checker for fixtures, not a conformance oracle for implementations
+and not a queue; the executing harness lives in the adopting repository.
 
 One conformance mode is defined in v0: **deterministic**, requiring
 `virtual_clock`, `ledger: recorded` and an exact normalized ledger match on

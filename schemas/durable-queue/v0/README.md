@@ -45,7 +45,13 @@ under the virtual clock. It requires the hand-authored receipts, delivery
 counts, lease outcomes and every ledger event and atomic group to match the
 model exactly, so an op removed while its event is kept, a split group, a
 fabricated digest, an invented outcome or an out-of-range bind path is
-rejected as `ledger_mismatch`, `expectation_mismatch` or `binding`. Fixtures
+rejected as `ledger_mismatch`, `expectation_mismatch` or `binding`.
+Expectation types are strict (a boolean is not a number), `expect` is always
+an object, and a `$name` is symbolic only in message-id positions. Every
+capability a script exercises must be declared in `requires`
+(`capability_admission`). The model checks lease validity against the broker
+clock on every lease operation, purges expired messages before delivery, scopes
+admin operations to their queue, and grants each redrive the original budget. Fixtures
 are loaded with the repository's strict RFC 8785 loader (`ingest`), and a
 payload outside the I-JSON domain is `payload_domain`.
 

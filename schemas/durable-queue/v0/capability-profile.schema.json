@@ -59,9 +59,12 @@
         },
         {
           "const": "unbounded"
+        },
+        {
+          "const": "none"
         }
       ],
-      "description": "Required. Keyed deduplication is core; this is how long a key is live from the original enqueued event."
+      "description": "Required. Keyed deduplication is core for conforming backends: an integer window in ms or unbounded, measured from the original enqueued event. The value none is permitted only when conformance is benchmark_only and states that the backend performs no keyed deduplication; it is never admissible for deterministic conformance."
     },
     "build": {
       "type": "object",
@@ -197,6 +200,17 @@
                 }
               }
             }
+          },
+          "idempotency_window_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "const": "unbounded"
+              }
+            ]
           }
         }
       }

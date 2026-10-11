@@ -11,7 +11,9 @@
 # Asserts:
 #   - every golden example validates against its schema; ledger example lines validate
 #   - the service-job composition example's payload validates against the service-job entry schema
-#   - the stored-message definition in control-exchange is identical to queue-message.schema.json
+#   - the storedMessage, ledgerEvent and capabilityProfile definitions inlined in control-exchange
+#     are identical to their sibling schemas; nested results reject malformed members
+#   - benchmark_only profiles may declare idempotency_window_ms none; deterministic may not
 #   - schema-labeled baseline-* pass and reject-* fail; pairs differ in exactly one field
 #   - profile semantic rule: runtime.enabled_capabilities ⊆ build.compiled_capabilities
 #   - every vector: ops validate as requests, results validate as responses, bindings resolve,
@@ -83,6 +85,54 @@ cmp -s "$tmpd/a.json" "$tmpd/b.json" || {
     echo "[!!] control-exchange storedMessage drifted from queue-message.schema.json" >&2
     exit 1
 }
+
+echo "    durable-queue: ledgerEvent and capabilityProfile mirrors are identical to sibling schemas..."
+jq -S 'del(."$schema", ."$id", .title, .description)' "$base/ledger-event.schema.json" >"$tmpd/a.json"
+jq -S '."$defs".ledgerEvent | del(.description)' "$base/control-exchange.schema.json" >"$tmpd/b.json"
+cmp -s "$tmpd/a.json" "$tmpd/b.json" || {
+    echo "[!!] control-exchange ledgerEvent drifted from ledger-event.schema.json" >&2
+    exit 1
+}
+jq -S 'del(."$schema", ."$id", .title, .description)' "$base/capability-profile.schema.json" >"$tmpd/a.json"
+jq -S '."$defs".capabilityProfile | del(.description)' "$base/control-exchange.schema.json" >"$tmpd/b.json"
+cmp -s "$tmpd/a.json" "$tmpd/b.json" || {
+    echo "[!!] control-exchange capabilityProfile drifted from capability-profile.schema.json" >&2
+    exit 1
+}
+
+echo "    durable-queue: nested results are closed (valid pass, malformed fail)..."
+jq -c '{id:"1",op:"export_ledger",ok:true,result:{consistent_cut:true,events:[.]}}' "$base/rejects/schema/baseline-ledger-unknown-type.json" >"$tmpd/n1.json"
+validate "$base/control-exchange.schema.json" "$tmpd/n1.json" || {
+    echo "[!!] valid nested export rejected" >&2
+    exit 1
+}
+printf '%s\n' '{"id":"1","op":"export_ledger","ok":true,"result":{"consistent_cut":true,"events":[{"v":"invalid","seq":"invalid","group":"invalid","group_size":"invalid","queue":"invalid","type":"invalid","message_id":"invalid","at":"invalid"}]}}' >"$tmpd/n2.json"
+if validate "$base/control-exchange.schema.json" "$tmpd/n2.json"; then
+    echo "[!!] malformed nested export accepted" >&2
+    exit 1
+fi
+jq -c '{id:"1",op:"capabilities",ok:true,result:{profile:.}}' "$base/examples/capability-profile.example.json" >"$tmpd/n3.json"
+validate "$base/control-exchange.schema.json" "$tmpd/n3.json" || {
+    echo "[!!] valid nested profile rejected" >&2
+    exit 1
+}
+printf '%s\n' '{"id":"1","op":"capabilities","ok":true,"result":{"profile":{"capabilities":"invalid","backend":"invalid","origin":"invalid","conformance":"invalid","ledger":"invalid","idempotency_window_ms":"invalid","build":"invalid","runtime":"invalid"}}}' >"$tmpd/n4.json"
+if validate "$base/control-exchange.schema.json" "$tmpd/n4.json"; then
+    echo "[!!] malformed nested profile accepted" >&2
+    exit 1
+fi
+
+echo "    durable-queue: benchmark_only may declare no dedup window; deterministic may not..."
+jq '.conformance="benchmark_only" | .ledger="inferred" | .idempotency_window_ms="none"' "$base/examples/capability-profile.example.json" >"$tmpd/w1.json"
+validate "$base/capability-profile.schema.json" "$tmpd/w1.json" || {
+    echo "[!!] benchmark_only + none rejected" >&2
+    exit 1
+}
+jq '.idempotency_window_ms="none"' "$base/examples/capability-profile.example.json" >"$tmpd/w2.json"
+if validate "$base/capability-profile.schema.json" "$tmpd/w2.json"; then
+    echo "[!!] deterministic + none accepted" >&2
+    exit 1
+fi
 
 echo "    durable-queue: schema baselines pass, rejects fail, pairs differ in one field..."
 for f in "$base"/rejects/schema/baseline-*.json; do
