@@ -4,7 +4,7 @@ description: "A review methodology for AI-agent and human panels that is adversa
 category: "standards"
 status: "draft"
 version: "0.7.0"
-lastUpdated: "2026-08-02"
+lastUpdated: "2026-10-11"
 maintainer: "3leaps-core"
 reviewers: ["entarch", "secrev", "devrev", "cxotech"]
 approvers: ["3leapsdave"]
@@ -324,12 +324,20 @@ exercise, a runtime leg with a machine dependency — the gap is a **residual**.
 Every residual is classified, at intake where foreseeable and at discovery
 otherwise, as exactly one of four classes:
 
-| Class                         | Meaning                                                   | Obligations                                                                                                                                                                                                                             |
-| ----------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **pre-land blocker**          | The claim cannot be discharged without this evidence      | The gate stays closed until the evidence is produced                                                                                                                                                                                    |
-| **narrowed claim**            | The claim is reduced to what the evidence covers          | Claim text, record, and public surfaces co-move; the uncovered part is not claimed anywhere                                                                                                                                             |
-| **post-merge follow-up**      | The claim stands as stated, pending named completion      | An owner, the environment or machine dependency, a closure trigger, and a **kill date**; the follow-up evidence binds to the merged head; a failure there opens a new remediation and never retroactively rewrites this review's record |
-| **unsupported / fail-closed** | The environment or case is ruled out of the claim's scope | A recorded maintainer product ruling; the artifact **fails closed** in that environment, and the fail-closed behavior is itself evidenced                                                                                               |
+| Class                         | Meaning                                                   | Obligations                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **pre-land blocker**          | The claim cannot be discharged without this evidence      | The gate stays closed until the evidence is produced                                                                                                                                                                                                                                                                                                              |
+| **narrowed claim**            | The claim is reduced to what the evidence covers          | Claim text, record, and public surfaces co-move; the uncovered part is not claimed anywhere                                                                                                                                                                                                                                                                       |
+| **post-merge follow-up**      | The evidence is not needed for the claim being discharged | A stated reason the claim is unaffected without it; an owner, the environment or machine dependency, a closure trigger, and a **kill date**; the follow-up evidence binds to the merged head; any broader claim that does need it stays gated until it is produced; a failure there opens a new remediation and never retroactively rewrites this review's record |
+| **unsupported / fail-closed** | The environment or case is ruled out of the claim's scope | A recorded maintainer product ruling; the artifact **fails closed** in that environment, and the fail-closed behavior is itself evidenced                                                                                                                                                                                                                         |
+
+**Follow-up never discharges claim-critical evidence.** If the missing evidence is
+needed for the claim at this gate, the residual is a pre-land blocker or the claim
+is narrowed; assigning an owner and kill date does not make an unproven claim
+`ACCEPTED`, and such a claim is unproven as stated (§7 P1). For example, a
+supported source or merge claim may land while an unrun Windows runtime leg is a
+follow-up, but the Windows release or runtime claim stays gated until that leg
+runs; the follow-up cannot confer runtime green.
 
 An **unclassified residual is a policy error** and is treated as a pre-land
 blocker until ruled otherwise; the ruling belongs to the maintainer together

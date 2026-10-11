@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   draw specimens from a separate authority where a shared corpus exists, state
   class invariants, and carry confirmed findings into durable specimens.
 
+- **Fierce-Collaboration Review Card** (`docs/guides/`). The minimum
+  conforming relied-upon review on one page: declaration, independent-pass
+  rule, register shape, verdict contract, residual classes, and close-out
+  checks. Indexed from `docs/README.md` and linked from the run-book.
+
 - **`make release-push-tag`.** Verifies the local signed tag, requires the
   tagged commit on `origin/main` and the remote tag absent, pushes the tag ref
   and confirms the remote object. `release-tag-push` is an alias.
@@ -26,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow and `make release-verify-tag` use it.
 
 ### Changed
+
+- **Fierce-collaboration standard 0.6.0 → 0.7.0: evidence-residual
+  taxonomy.** §5 classifies every evidence gap that cannot be resolved before
+  the gate as exactly one of four residual classes: pre-land blocker, narrowed
+  claim, post-merge follow-up, or unsupported/fail-closed. A post-merge
+  follow-up (owner, dependency, closure trigger, kill date) covers only
+  evidence the present claim does not need; claim-critical evidence blocks or
+  narrows the claim. Unclassified residuals fail closed as pre-land blockers,
+  and follow-ups past their kill date escalate. §4's evidence-binding rule
+  points at the taxonomy.
 
 - **CI simplified.** Check runs full repository quality in the pinned Linux
   tools-runner plus contract checks on GitHub-hosted Windows amd64. The

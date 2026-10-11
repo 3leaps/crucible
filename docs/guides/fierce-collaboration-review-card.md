@@ -89,10 +89,13 @@ or missing token = **not a green**; read as `CHANGES`. Fail closed.
 ## 6 · Classify every evidence residual (§5)
 
 **pre-land blocker** (gate stays closed) · **narrowed claim** (claim shrinks
-to the evidence; surfaces co-move) · **post-merge follow-up** (owner +
-dependency + closure trigger + **kill date**; binds to merged head; failure
-opens new remediation, never rewrites this record) · **unsupported /
-fail-closed** (recorded maintainer ruling; fail-closed behavior evidenced).
+to the evidence; surfaces co-move) · **post-merge follow-up** (only for
+evidence the present claim does not need, with the reason stated; owner +
+dependency + closure trigger + **kill date**; binds to merged head; broader
+claims needing it stay gated; failure opens new remediation, never rewrites
+this record) · **unsupported / fail-closed** (recorded maintainer ruling;
+fail-closed behavior evidenced).
+Claim-critical evidence is never a follow-up: block or narrow.
 Unclassified = pre-land blocker until ruled.
 
 ## 7 · Close out (§5, §7, §9, §10)
