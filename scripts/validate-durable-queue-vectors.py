@@ -122,7 +122,9 @@ def load_strict(path: str):
 
 
 def goneat_validate(schema: str, doc) -> bool:
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".json", encoding="utf-8", delete=False
+    ) as f:
         json.dump(doc, f, ensure_ascii=False)
         path = f.name
     try:
