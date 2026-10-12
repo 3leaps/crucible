@@ -8,6 +8,33 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.33 (2026-10-12)
+
+**Experimental durable queue and durable record contracts, verified release
+keys, and faster contract checks.**
+
+- **Durable queue (proposed)**: `durable-queue/v0` defines an at-least-once
+  queue as a logical contract: envelope, fenced leases, ledger with atomic groups
+  and fold rules, capability profile and a typed control exchange, with
+  behavioral vectors. Portable restore and `replay` are deferred.
+- **Durable record (proposed)**: `durable-record/v0` defines engine-neutral
+  record storage: digest-pinned revisions, an append-only journal sharing the
+  queue's consistent-cut rule, keyed idempotent writes with typed receipts, and
+  a stratum profile declaring durability and supported deletion scope.
+- **Decisions and review**: EPR-0005 (proposed) on test evidence independence;
+  EPR-0002 states its evidence boundary per obligation; the fierce-collaboration
+  standard 0.7.0 adds an evidence-residual taxonomy and a one-page review card.
+- **Release verification**: signed tags are verified against estate-wide
+  release-key anchors read from the tagged commit; `make release-push-tag`
+  verifies, pushes and confirms the tag.
+- **CI and toolchain**: Linux quality plus Windows amd64 contract checks; the
+  release workflow no longer re-runs Check. Goneat advances to v0.6.3 and the
+  glibc tools runner to v0.5.9.
+
+See [docs/releases/v0.1.33.md](docs/releases/v0.1.33.md).
+
+---
+
 ## v0.1.32 (2026-10-01)
 
 **Experimental immutable snapshots, enforced attribution footers, and native
