@@ -12,7 +12,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     container:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9@sha256:412a315241a59fc0313f4e79f182f7f373a04f194174c61b439cf8ba26174d54
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
@@ -53,7 +53,7 @@ jobs:
     # Contract checks on Windows catch path-separator and file-permission
     # differences that the Linux container cannot.
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
