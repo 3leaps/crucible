@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Durable record contract (proposed).** Add the experimental
+  `durable-record/v0` family: revisioned records with stable identity and
+  RFC 8785 digest pins, digest-bound body references, provenance, required
+  retention and sensitivity classification, an append-only journal sharing the
+  durable-queue consistent-cut rule, keyed idempotent writes with typed
+  receipts and reconciliation, and a stratum profile declaring failure model
+  and supported deletion scope. Ships `docs/standards/durable-record-contract.md`,
+  ADR-0013, golden examples, one-field schema reject pairs, semantic reject
+  journals, `scripts/validate-durable-record-fixtures.py` and
+  `scripts/test-durable-record-controls.sh`. Redaction of journal history,
+  shared stream metadata, multi-host ownership, merge, a wire binding and
+  behavioral vectors are deferred.
+
 - **Test evidence independence (proposed).** Add EPR-0005: relied-upon tests
   take expected results from a source the implementation does not determine,
   draw specimens from a separate authority where a shared corpus exists, state

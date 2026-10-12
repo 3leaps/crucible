@@ -112,6 +112,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
 │   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
+│   ├── durable-record/v0/     # Revisioned record, journal, receipt, stratum profile (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
@@ -261,6 +262,17 @@ with fold rules, capability profiles and a wire binding, independent of
 storage engine, with an experimental
 [schema bundle, reject pairs and vectors](schemas/durable-queue/v0/README.md).
 See [ADR-0012](docs/decisions/ADR-0012-durable-queue-contract.md).
+
+### Experimental durable record contract
+
+The [durable-record contract](docs/standards/durable-record-contract.md) defines
+proposed engine-neutral record storage: stable record identity, exact
+digest-pinned revisions, digest-bound bodies, provenance and retention intent,
+keyed idempotent writes with typed receipts and reconciliation, an append-only
+journal, and a stratum profile that declares durability and supported deletion
+scope. An experimental
+[schema bundle and reject fixtures](schemas/durable-record/v0/README.md) accompany it.
+See [ADR-0013](docs/decisions/ADR-0013-durable-record-contract.md).
 
 ### Published schema assets
 
