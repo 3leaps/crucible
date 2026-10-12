@@ -216,9 +216,10 @@ write. The lookup returns exactly one of:
   `[window_covers_from, window_covers_until]` on the store clock. Inside it, every
   accepted key is retained and no accepted write holds this key. The interval
   must contain `attempted_at`, and `window_covers_from` must be no later than the
-  earliest instant the write could have been accepted. The store declares its
-  bound on clock skew between writer and store in its profile, and shifts the
-  interval by it before comparing. `not_found` means absence at an authoritative
+  earliest instant the write could have been accepted. Instants are compared as
+  parsed RFC 3339 times, never as strings. With the profile's
+  `clock_skew_bound_ms` = B, the whole interval `[attempted_at - B, attempted_at + B]`
+  must lie within the coverage interval. `not_found` means absence at an authoritative
   observation. It does **not** prove that a delayed or in-flight write cannot
   still be accepted later. The writer may retry only under the **same** live key,
   which keeps the retry safe;

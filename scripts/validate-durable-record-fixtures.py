@@ -44,6 +44,10 @@ _spec = importlib.util.spec_from_file_location(
 _jcs = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(_jcs)
+_tspec = importlib.util.spec_from_file_location("rfc3339", _here / "rfc3339-instant.py")
+_rfc3339 = importlib.util.module_from_spec(_tspec)
+assert _tspec.loader is not None
+_tspec.loader.exec_module(_rfc3339)
 
 
 class Reject(Exception):
@@ -71,6 +75,13 @@ def load_lines(path: str) -> list:
         except ValueError as e:
             raise Reject("ingest", f"{path}:{i}: {e}") from e
     return out
+
+
+def instant(text: str):
+    try:
+        return _rfc3339.parse_rfc3339(text)
+    except ValueError as e:
+        raise Reject("timestamp", f"{text!r}: {e}") from e
 
 
 def digest(record) -> str:
@@ -129,6 +140,8 @@ def check_pair(a, b, label: str) -> None:
             len(only_a) == 1
             and len(only_b) == 1
             and only_a[0].rsplit("/", 1)[0] == only_b[0].rsplit("/", 1)[0]
+            and _get(a, only_a[0]) == _get(b, only_b[0])
+            and type(_get(a, only_a[0])) is type(_get(b, only_b[0]))
         ):
             return
     raise Reject("pair", f"{label} differs from its baseline at {d}")
@@ -284,9 +297,14 @@ def check_receipt_doc(doc, facts: dict, where: str) -> None:
                     "reconciliation_mismatch",
                     f"{where}: not_found for a key the journal accepted",
                 )
-            if (
-                doc["window_covers_from"] > doc["attempted_at"]
-                or doc["window_covers_until"] < doc["attempted_at"]
+            # Zero-skew interval arithmetic on parsed instants. With a profile
+            # bound B, [attempted_at - B, attempted_at + B] must lie within the
+            # coverage interval; this fixture check has no profile, so B = 0.
+            att = instant(doc["attempted_at"])
+            if not (
+                instant(doc["window_covers_from"])
+                <= att
+                <= instant(doc["window_covers_until"])
             ):
                 raise Reject(
                     "coverage",
@@ -335,6 +353,8 @@ def self_test() -> None:
     check_pair(base, {"a": 1, "b": {"c": 2, "e": 3}}, "sibling-rename")
     check_pair(base, {"a": 1, "b": {"c": 2}}, "one-removed")
     for label, mutated in [
+        ("rename-with-value-change", {"a": 1, "b": {"c": 2, "e": 9}}),
+        ("rename-with-type-change", {"a": 1, "b": {"c": 2, "e": "3"}}),
         ("two-values", {"a": 9, "b": {"c": 8, "d": 3}}),
         ("two-sibling-values", {"a": 1, "b": {"c": 8, "d": 9}}),
         ("two-removed", {"a": 1, "b": {}}),
@@ -349,6 +369,77 @@ def self_test() -> None:
                 ) from None
             continue
         raise SystemExit(f"[!!] self-test {label}: accepted a multi-field pair")
+
+    # Coverage compares parsed instants, not strings.
+    facts = {
+        "stream": "s",
+        "failure_model": "none",
+        "accepted": {},
+        "accepted_heads": set(),
+    }
+
+    def nf(frm: str, att: str, until: str) -> dict:
+        return {
+            "kind": "reconciliation",
+            "stream": "s",
+            "idempotency_key": "k",
+            "result": "not_found",
+            "attempted_at": att,
+            "window_covers_from": frm,
+            "window_covers_until": until,
+        }
+
+    for label, doc, ok in [
+        (
+            "fractional-from-after-attempt",
+            nf(
+                "2026-10-12T12:00:00.500Z",
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T13:00:00Z",
+            ),
+            False,
+        ),
+        (
+            "fractional-attempt-inside",
+            nf(
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T12:00:00.500Z",
+                "2026-10-12T13:00:00Z",
+            ),
+            True,
+        ),
+        (
+            "equivalent-offset-inside",
+            nf(
+                "2026-10-12T08:00:00-04:00",
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T12:00:00.001Z",
+            ),
+            True,
+        ),
+        (
+            "equivalent-offset-outside",
+            nf(
+                "2026-10-12T08:00:00.001-04:00",
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T13:00:00Z",
+            ),
+            False,
+        ),
+    ]:
+        try:
+            check_receipt_doc(doc, facts, label)
+            accepted = True
+        except Reject as r:
+            if r.reason != "coverage":
+                raise SystemExit(
+                    f"[!!] self-test {label}: rejected as {r.reason}"
+                ) from None
+            accepted = False
+        if accepted != ok:
+            raise SystemExit(
+                f"[!!] self-test {label}: coverage wrongly {'accepted' if accepted else 'rejected'}"
+            )
     print("ok: checker self-test")
 
 
