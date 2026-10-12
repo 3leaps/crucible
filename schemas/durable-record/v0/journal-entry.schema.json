@@ -24,11 +24,13 @@
     },
     "group": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "seq of the first entry in this entry's atomic group; equals seq for a single-entry step."
     },
     "group_size": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "Number of entries in this entry's atomic group. A prefix ending at seq N is a consistent cut iff, for the entry at N, N - group + 1 == group_size."
     },
     "stream": {
       "type": "string",
