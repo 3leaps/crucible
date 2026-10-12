@@ -1,0 +1,10 @@
+{
+  "capability": "contract: durable-queue/v0",
+  "entry_schema": "capability-profile.schema.json",
+  "object_schemas": {
+    "queue_message": "queue-message.schema.json",
+    "ledger_event": "ledger-event.schema.json",
+    "control_exchange": "control-exchange.schema.json"
+  },
+  "status": "proposed"
+}

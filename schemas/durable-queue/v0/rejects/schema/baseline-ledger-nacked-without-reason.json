@@ -1,0 +1,12 @@
+{
+  "v": 0,
+  "seq": 2,
+  "group": 2,
+  "group_size": 1,
+  "queue": "q",
+  "type": "nacked",
+  "message_id": "m-1",
+  "at": "2026-01-01T00:00:00Z",
+  "attempt": 1,
+  "reason": "transient"
+}

@@ -1,0 +1,40 @@
+{
+  "capabilities": [
+    "contract: durable-queue/v0"
+  ],
+  "backend": "example-log",
+  "origin": "declared",
+  "conformance": "deterministic",
+  "ledger": "recorded",
+  "idempotency_window_ms": "unbounded",
+  "build": {
+    "artifact": "example-queue",
+    "version": "0.1.0",
+    "target": "aarch64-apple-darwin",
+    "native_dependencies": [],
+    "compiled_backends": [
+      "example-log",
+      "example-sql"
+    ],
+    "compiled_capabilities": [
+      "atomic_fanout",
+      "delay",
+      "payload_ref",
+      "long_poll",
+      "virtual_clock",
+      "transactional_enqueue"
+    ]
+  },
+  "runtime": {
+    "selected_backend": "example-log",
+    "failure_model": "survives_process_loss",
+    "commit_strategy": "group-commit-5ms",
+    "enabled_capabilities": [
+      "atomic_fanout",
+      "delay",
+      "payload_ref",
+      "long_poll",
+      "virtual_clock"
+    ]
+  }
+}

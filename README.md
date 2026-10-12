@@ -111,6 +111,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
+│   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
@@ -251,6 +252,15 @@ and [conformance cases](docs/standards/segmented-snapshot-conformance.md) define
 a proposed immutable-snapshot companion to data-artifact, with an experimental
 [schema bundle and semantic controls](schemas/segmented-snapshot/v0/README.md). See
 [ADR-0011](docs/decisions/ADR-0011-segmented-snapshot-contract.md).
+
+### Experimental durable queue contract
+
+The [durable-queue contract](docs/standards/durable-queue-contract.md) defines
+a proposed at-least-once queue: envelope, fenced leases, an append-only ledger
+with fold rules, capability profiles and a wire binding, independent of
+storage engine, with an experimental
+[schema bundle, reject pairs and vectors](schemas/durable-queue/v0/README.md).
+See [ADR-0012](docs/decisions/ADR-0012-durable-queue-contract.md).
 
 ### Published schema assets
 

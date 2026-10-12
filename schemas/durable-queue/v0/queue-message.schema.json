@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-queue/v0/queue-message.schema.json",
+  "title": "Queue Message",
+  "description": "Structural schema companion for contract: durable-queue/v0. The stored and delivered message envelope. Producer input is $defs.newMessage (no broker-assigned fields). Exactly one of payload or payload_ref is present. Messages do not repeat the capability token; the capability profile is the discovery root.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "id",
+    "queue",
+    "payload_contract"
+  ],
+  "oneOf": [
+    {
+      "required": [
+        "payload"
+      ],
+      "not": {
+        "required": [
+          "payload_ref"
+        ]
+      }
+    },
+    {
+      "required": [
+        "payload_ref"
+      ],
+      "not": {
+        "required": [
+          "payload"
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Broker-assigned, unique per queue for the life of the ledger."
+    },
+    "queue": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "parent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Set by fan_out on children."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Producer-chosen. Scope is the queue. Lifetime is the backend's declared idempotency window measured from the original enqueued event, independent of message state."
+    },
+    "payload_contract": {
+      "type": "string",
+      "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$",
+      "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
+    },
+    "payload": {
+      "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
+    },
+    "payload_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "digest"
+      ],
+      "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "descriptor_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "representation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        }
+      }
+    },
+    "not_before": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Requires capability delay."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "default": 5
+    },
+    "ordering_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Requires capability ordering_key."
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9,
+      "description": "Requires capability priority."
+    },
+    "trace": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 1024
+      },
+      "maxProperties": 32
+    }
+  },
+  "$defs": {
+    "newMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_contract"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "payload"
+          ],
+          "not": {
+            "required": [
+              "payload_ref"
+            ]
+          }
+        },
+        {
+          "required": [
+            "payload_ref"
+          ],
+          "not": {
+            "required": [
+              "payload"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Producer-chosen. Scope is the queue. Lifetime is the backend's declared idempotency window measured from the original enqueued event, independent of message state."
+        },
+        "payload_contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$",
+          "description": "Host-less capability token naming the payload's own contract. Carried, never validated by the broker."
+        },
+        "payload": {
+          "description": "Opaque JSON payload within the I-JSON domain (RFC 7493: finite binary64-representable numbers, unique member names, well-formed Unicode) so that an RFC 8785 identity digest exists. A payload outside that domain is rejected at enqueue with invalid_params. Semantics are validated by the consumer against payload_contract, never by the broker."
+        },
+        "payload_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_id",
+            "digest"
+          ],
+          "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+          "properties": {
+            "artifact_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "descriptor_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            },
+            "representation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+            }
+          }
+        },
+        "not_before": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Requires capability delay."
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 5
+        },
+        "ordering_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Requires capability ordering_key."
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "Requires capability priority."
+        },
+        "trace": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxProperties": 32
+        }
+      },
+      "description": "Producer input to enqueue and fan_out. Carries no broker-assigned fields."
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "digest"
+      ],
+      "description": "Reference to an immutable body held as a contract: data-artifact/v0 artifact. Requires capability payload_ref. Tokens only; never a filesystem path.",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "descriptor_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        },
+        "representation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}$"
+        }
+      }
+    }
+  }
+}

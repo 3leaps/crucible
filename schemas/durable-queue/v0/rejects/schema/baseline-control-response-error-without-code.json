@@ -1,0 +1,9 @@
+{
+  "id": "1",
+  "op": "ack",
+  "ok": false,
+  "error": {
+    "code": "unknown_op",
+    "message": "x"
+  }
+}

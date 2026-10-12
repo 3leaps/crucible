@@ -1,0 +1,89 @@
+{
+  "name": "message-expiry-before-delivery",
+  "requires": [
+    "virtual_clock"
+  ],
+  "min_idempotency_window_ms": 60000,
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "A message whose expires_at has passed is never delivered; the first operation that observes it appends purged with reason expired.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            },
+            "expires_at": "2026-01-01T00:00:00.005Z"
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 10,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 0
+      }
+    },
+    {
+      "at_ms": 20,
+      "op": "stats",
+      "params": {
+        "queue": "q"
+      },
+      "expect": {
+        "ready": 0,
+        "delayed": 0,
+        "leased": 0,
+        "dead": 0
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "k1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 2,
+      "group_size": 1,
+      "queue": "q",
+      "type": "purged",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.010Z",
+      "reason": "expired"
+    }
+  ]
+}

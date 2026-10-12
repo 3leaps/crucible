@@ -1,0 +1,11 @@
+{
+  "id": "1",
+  "op": "claim",
+  "params": {
+    "queue": "q",
+    "worker": "w",
+    "max": 1,
+    "lease_ms": 1000,
+    "wait_ms": 0
+  }
+}

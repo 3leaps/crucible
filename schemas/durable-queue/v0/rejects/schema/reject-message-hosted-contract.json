@@ -1,0 +1,9 @@
+{
+  "v": 0,
+  "id": "m-1",
+  "queue": "q",
+  "payload_contract": "https://schemas.example/service-job/v0",
+  "payload": {
+    "n": 1
+  }
+}

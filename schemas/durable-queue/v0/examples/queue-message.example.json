@@ -1,0 +1,18 @@
+{
+  "v": 0,
+  "id": "m-8841-17",
+  "queue": "group-messages",
+  "idempotency_key": "msg-8841:member-17",
+  "payload_contract": "contract: service-job/v0",
+  "payload": {
+    "note": "opaque to the queue",
+    "n": 1
+  },
+  "not_before": "2026-10-11T07:00:00Z",
+  "max_attempts": 5,
+  "parent_id": "m-8841",
+  "trace": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "attributes": {
+    "tenant": "example"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "m-1",
+  "queue": "q",
+  "payload_contract": "contract: example/v0",
+  "payload": {
+    "n": 1
+  }
+}

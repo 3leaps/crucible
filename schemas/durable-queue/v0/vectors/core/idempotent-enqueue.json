@@ -1,0 +1,161 @@
+{
+  "name": "idempotent-enqueue",
+  "requires": [
+    "virtual_clock"
+  ],
+  "min_idempotency_window_ms": 60000,
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "A repeated key with identical identity returns the original receipt as deduplicated and appends a deduplicated audit event. A different key is a new message.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 5,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "deduplicated"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 6,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k2",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m2",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 10,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 2
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "k1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 2,
+      "group_size": 1,
+      "queue": "q",
+      "type": "deduplicated",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.005Z",
+      "idempotency_key": "k1"
+    },
+    {
+      "v": 0,
+      "seq": 3,
+      "group": 3,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m2",
+      "at": "2026-01-01T00:00:00.006Z",
+      "idempotency_key": "k2",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 4,
+      "group": 4,
+      "group_size": 2,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.010Z"
+    },
+    {
+      "v": 0,
+      "seq": 5,
+      "group": 4,
+      "group_size": 2,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m2",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.010Z"
+    }
+  ]
+}

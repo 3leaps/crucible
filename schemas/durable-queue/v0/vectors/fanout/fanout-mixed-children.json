@@ -1,0 +1,260 @@
+{
+  "name": "fanout-mixed-children",
+  "requires": [
+    "virtual_clock",
+    "atomic_fanout"
+  ],
+  "min_idempotency_window_ms": 60000,
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "Under a live parent, fan_out children are admitted individually: one new child is accepted, one repeats a live key with identical content (deduplicated), one repeats a live key with different content (conflict). All three outcomes and the parent ack form one atomic group; a child conflict does not abort the group.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "g1:r1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          },
+          {
+            "idempotency_key": "g1:r2",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 2
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$c1",
+            "outcome": "accepted"
+          },
+          {
+            "message_id": "$c2",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 5,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "g1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$p",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 10,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 3
+      },
+      "bind": {
+        "$lp": "deliveries[2].lease"
+      }
+    },
+    {
+      "at_ms": 20,
+      "op": "fan_out",
+      "params": {
+        "parent": "$lp",
+        "children": [
+          {
+            "idempotency_key": "g1:r1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            }
+          },
+          {
+            "idempotency_key": "g1:r2",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 99
+            }
+          },
+          {
+            "idempotency_key": "g1:r3",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 3
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "ok",
+        "receipts": [
+          {
+            "message_id": "$c1",
+            "outcome": "deduplicated"
+          },
+          {
+            "message_id": "$c2",
+            "outcome": "conflict"
+          },
+          {
+            "message_id": "$c3",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 2,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$c1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "g1:r1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 1,
+      "group_size": 2,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$c2",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "g1:r2",
+      "payload_digest": "sha256:8d43d6dd9ea4004ecfd302ce920e093e3285ffa847dfa4ba99ce9e8c3787abe4"
+    },
+    {
+      "v": 0,
+      "seq": 3,
+      "group": 3,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00.005Z",
+      "idempotency_key": "g1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 4,
+      "group": 4,
+      "group_size": 3,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$c1",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.010Z"
+    },
+    {
+      "v": 0,
+      "seq": 5,
+      "group": 4,
+      "group_size": 3,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$c2",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.010Z"
+    },
+    {
+      "v": 0,
+      "seq": 6,
+      "group": 4,
+      "group_size": 3,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00.010Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.010Z"
+    },
+    {
+      "v": 0,
+      "seq": 7,
+      "group": 7,
+      "group_size": 4,
+      "queue": "q",
+      "type": "deduplicated",
+      "message_id": "$c1",
+      "at": "2026-01-01T00:00:00.020Z",
+      "idempotency_key": "g1:r1"
+    },
+    {
+      "v": 0,
+      "seq": 8,
+      "group": 7,
+      "group_size": 4,
+      "queue": "q",
+      "type": "conflicted",
+      "message_id": "$c2",
+      "at": "2026-01-01T00:00:00.020Z",
+      "idempotency_key": "g1:r2",
+      "payload_digest": "sha256:21b1fc55aa9f6c1cdc6e63d40f8d97692546db33818cb98633d7a155683dc78e"
+    },
+    {
+      "v": 0,
+      "seq": 9,
+      "group": 7,
+      "group_size": 4,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$c3",
+      "at": "2026-01-01T00:00:00.020Z",
+      "idempotency_key": "g1:r3",
+      "payload_digest": "sha256:bac0afeb7bc5f9a7fd38dfe703fa0084ffe1c9ca3c094b80c49f017b1a83fa19",
+      "parent_id": "$p"
+    },
+    {
+      "v": 0,
+      "seq": 10,
+      "group": 7,
+      "group_size": 4,
+      "queue": "q",
+      "type": "acked",
+      "message_id": "$p",
+      "at": "2026-01-01T00:00:00.020Z",
+      "attempt": 1
+    }
+  ]
+}

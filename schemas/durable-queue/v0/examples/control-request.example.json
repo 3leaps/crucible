@@ -1,0 +1,11 @@
+{
+  "id": "7",
+  "op": "claim",
+  "params": {
+    "queue": "group-messages",
+    "worker": "w-3",
+    "max": 32,
+    "lease_ms": 30000,
+    "wait_ms": 5000
+  }
+}

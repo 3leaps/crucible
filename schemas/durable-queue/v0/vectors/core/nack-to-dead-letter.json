@@ -1,0 +1,221 @@
+{
+  "name": "nack-to-dead-letter",
+  "requires": [
+    "virtual_clock",
+    "delay"
+  ],
+  "min_idempotency_window_ms": 60000,
+  "clock_start": "2026-01-01T00:00:00Z",
+  "queue": "q",
+  "description": "nack returns the message after retry_after_ms and counts the attempt. At max_attempts the nacked and dead_lettered events form one atomic group.",
+  "ops": [
+    {
+      "at_ms": 0,
+      "op": "enqueue",
+      "params": {
+        "queue": "q",
+        "messages": [
+          {
+            "idempotency_key": "k1",
+            "payload_contract": "contract: example/v0",
+            "payload": {
+              "n": 1
+            },
+            "max_attempts": 2
+          }
+        ]
+      },
+      "expect": {
+        "receipts": [
+          {
+            "message_id": "$m1",
+            "outcome": "accepted"
+          }
+        ]
+      }
+    },
+    {
+      "at_ms": 0,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 1
+      },
+      "bind": {
+        "$l1": "deliveries[0].lease"
+      }
+    },
+    {
+      "at_ms": 100,
+      "op": "nack",
+      "params": {
+        "leases": [
+          "$l1"
+        ],
+        "retry_after_ms": 500,
+        "reason": "transient"
+      },
+      "expect": {
+        "outcomes": [
+          "ok"
+        ]
+      }
+    },
+    {
+      "at_ms": 100,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 0
+      }
+    },
+    {
+      "at_ms": 600,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 1
+      },
+      "bind": {
+        "$l2": "deliveries[0].lease"
+      }
+    },
+    {
+      "at_ms": 700,
+      "op": "nack",
+      "params": {
+        "leases": [
+          "$l2"
+        ],
+        "retry_after_ms": 500,
+        "reason": "transient"
+      },
+      "expect": {
+        "outcomes": [
+          "ok"
+        ]
+      }
+    },
+    {
+      "at_ms": 1300,
+      "op": "claim",
+      "params": {
+        "queue": "q",
+        "worker": "w1",
+        "max": 10,
+        "lease_ms": 1000,
+        "wait_ms": 0
+      },
+      "expect": {
+        "delivery_count": 0
+      }
+    },
+    {
+      "at_ms": 1300,
+      "op": "stats",
+      "params": {
+        "queue": "q"
+      },
+      "expect": {
+        "ready": 0,
+        "delayed": 0,
+        "leased": 0,
+        "dead": 1
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "v": 0,
+      "seq": 1,
+      "group": 1,
+      "group_size": 1,
+      "queue": "q",
+      "type": "enqueued",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "idempotency_key": "k1",
+      "payload_digest": "sha256:773847a353f229f0d4e722106187ba5c0d6472c190c9103aba8ff40bf1d5d364"
+    },
+    {
+      "v": 0,
+      "seq": 2,
+      "group": 2,
+      "group_size": 1,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00Z",
+      "attempt": 1,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01Z"
+    },
+    {
+      "v": 0,
+      "seq": 3,
+      "group": 3,
+      "group_size": 1,
+      "queue": "q",
+      "type": "nacked",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.100Z",
+      "attempt": 1,
+      "reason": "transient",
+      "not_before": "2026-01-01T00:00:00.600Z"
+    },
+    {
+      "v": 0,
+      "seq": 4,
+      "group": 4,
+      "group_size": 1,
+      "queue": "q",
+      "type": "leased",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.600Z",
+      "attempt": 2,
+      "worker": "w1",
+      "lease_until": "2026-01-01T00:00:01.600Z"
+    },
+    {
+      "v": 0,
+      "seq": 5,
+      "group": 5,
+      "group_size": 2,
+      "queue": "q",
+      "type": "nacked",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.700Z",
+      "attempt": 2,
+      "reason": "transient"
+    },
+    {
+      "v": 0,
+      "seq": 6,
+      "group": 5,
+      "group_size": 2,
+      "queue": "q",
+      "type": "dead_lettered",
+      "message_id": "$m1",
+      "at": "2026-01-01T00:00:00.700Z",
+      "reason": "max_attempts"
+    }
+  ]
+}

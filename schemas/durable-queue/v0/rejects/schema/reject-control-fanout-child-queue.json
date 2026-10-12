@@ -1,0 +1,22 @@
+{
+  "id": "1",
+  "op": "fan_out",
+  "params": {
+    "parent": {
+      "queue": "group-messages",
+      "message_id": "m-8841-17",
+      "token": "fence-opaque-1",
+      "attempt": 1,
+      "until": "2026-10-11T07:00:30.004Z"
+    },
+    "children": [
+      {
+        "payload_contract": "contract: example/v0",
+        "payload": {
+          "n": 1
+        }
+      }
+    ],
+    "queue": "other"
+  }
+}

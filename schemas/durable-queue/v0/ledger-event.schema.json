@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-queue/v0/ledger-event.schema.json",
+  "title": "Queue Ledger Event",
+  "description": "Structural schema companion for contract: durable-queue/v0. One line of the append-only NDJSON ledger. seq is monotonic per queue, gap-free, and is the audit cursor. group is the seq of the first event appended in the same atomic step; a prefix ending at seq N is a consistent cut iff N - group + 1 == group_size for the event at N, which makes a truncated final group detectable from the lines alone. deduplicated and conflicted are audit events, not state transitions, and may follow a terminal state. The fencing token and the payload never appear.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "seq",
+    "group",
+    "group_size",
+    "queue",
+    "type",
+    "message_id",
+    "at"
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "group": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "seq of the first event in this event's atomic group; equals seq for a single-event step."
+    },
+    "queue": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "type": {
+      "enum": [
+        "enqueued",
+        "deduplicated",
+        "conflicted",
+        "leased",
+        "extended",
+        "acked",
+        "nacked",
+        "lease_expired",
+        "dead_lettered",
+        "redriven",
+        "purged"
+      ],
+      "description": "Closed vocabulary. Unknown types are rejected."
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Broker clock, RFC 3339 UTC."
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "worker": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "lease_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "not_before": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "parent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over the RFC 8785 canonical bytes of the message identity object: {\"payload_contract\": ..., \"payload\": ...} or {\"payload_contract\": ..., \"payload_ref\": {\"artifact_id\": ..., \"digest\": ...}}. Scheduling fields (not_before, expires_at, max_attempts, priority, ordering_key, attributes, trace) are not bound; on a repeated key the original wins."
+    },
+    "group_size": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of events in this event's atomic group. A prefix ending at seq N is a consistent cut iff, for the event at N, N - group + 1 == group_size."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "leased",
+              "extended",
+              "acked",
+              "nacked",
+              "lease_expired"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "attempt"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "leased",
+              "extended"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "lease_until"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "leased"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "worker"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "nacked",
+              "dead_lettered",
+              "purged"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reason"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "deduplicated"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "idempotency_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "conflicted"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "idempotency_key",
+          "payload_digest"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "enqueued"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payload_digest"
+        ]
+      }
+    }
+  ]
+}

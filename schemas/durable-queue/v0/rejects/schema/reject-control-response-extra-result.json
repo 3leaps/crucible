@@ -1,0 +1,11 @@
+{
+  "id": "1",
+  "op": "ack",
+  "ok": true,
+  "result": {
+    "outcomes": [
+      "ok"
+    ],
+    "bonus": 1
+  }
+}

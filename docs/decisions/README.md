@@ -54,6 +54,7 @@ Examples:
 | [ADR-0009](ADR-0009-forge-infrastructure-contract.md)                      | Separate Neutral Forge Capabilities from Curated Provider Profiles | proposed | 2026-08-27 |
 | [ADR-0010](ADR-0010-application-control-contract.md)                       | Application Control and Observation as a Portable Contract         | proposed | 2026-09-06 |
 | [ADR-0011](ADR-0011-segmented-snapshot-contract.md)                         | Immutable Segmented Snapshots as a Companion Contract              | proposed | 2026-09-30 |
+| [ADR-0012](ADR-0012-durable-queue-contract.md)                             | Durable Queue as a Portable Contract with Engine-Neutral Conformance | proposed | 2026-10-11 |
 | [DDR-0001](DDR-0001-application-control-data-contract.md)                  | Application Control Data Contract                                  | proposed | 2026-09-06 |
 | [DDR-0002](DDR-0002-segmented-snapshot-identity-and-evidence.md)            | Segmented Snapshot Identity and Evidence                            | proposed | 2026-09-30 |
 | [DDR-0003](DDR-0003-portable-path-serialization-at-tool-boundaries.md)     | Portable Path Serialization at Tool Boundaries                       | proposed | 2026-10-02 |
