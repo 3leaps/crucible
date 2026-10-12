@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -77,7 +78,18 @@ def load_lines(path: str) -> list:
     return out
 
 
+_FRACTION = re.compile(r"[Tt]\d{2}:\d{2}:\d{2}\.(\d+)")
+
+
 def instant(text: str):
+    # The shared helper resolves to microseconds. This checker fails closed on
+    # any fraction it cannot represent exactly (non-zero digits beyond six)
+    # rather than truncating, so a sub-microsecond ordering cannot pass.
+    m = _FRACTION.search(text)
+    if m and len(m.group(1)) > 6 and m.group(1)[6:].strip("0"):
+        raise Reject(
+            "timestamp", f"{text!r}: precision beyond microseconds is not representable"
+        )
     try:
         return _rfc3339.parse_rfc3339(text)
     except ValueError as e:
@@ -389,6 +401,42 @@ def self_test() -> None:
             "window_covers_until": until,
         }
 
+    for label, doc in [
+        (
+            "submicrosecond-from",
+            nf(
+                "2026-10-12T12:00:00.0000001Z",
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T13:00:00Z",
+            ),
+        ),
+        (
+            "submicrosecond-attempt",
+            nf(
+                "2026-10-12T12:00:00Z",
+                "2026-10-12T12:00:00.0000001Z",
+                "2026-10-12T13:00:00Z",
+            ),
+        ),
+    ]:
+        try:
+            check_receipt_doc(doc, facts, label)
+        except Reject as r:
+            if r.reason != "timestamp":
+                raise SystemExit(
+                    f"[!!] self-test {label}: rejected as {r.reason}"
+                ) from None
+            continue
+        raise SystemExit(f"[!!] self-test {label}: unrepresentable precision accepted")
+    check_receipt_doc(
+        nf(
+            "2026-10-12T12:00:00.000000000Z",
+            "2026-10-12T12:00:00Z",
+            "2026-10-12T13:00:00Z",
+        ),
+        facts,
+        "trailing-zero-nanoseconds",
+    )
     for label, doc, ok in [
         (
             "fractional-from-after-attempt",

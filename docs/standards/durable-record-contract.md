@@ -217,7 +217,9 @@ write. The lookup returns exactly one of:
   accepted key is retained and no accepted write holds this key. The interval
   must contain `attempted_at`, and `window_covers_from` must be no later than the
   earliest instant the write could have been accepted. Instants are compared as
-  parsed RFC 3339 times, never as strings. With the profile's
+  parsed RFC 3339 times, never as strings. A comparison that cannot represent a
+  timestamp's precision exactly fails closed rather than truncating; the
+  fixture checker in this repository resolves microseconds. With the profile's
   `clock_skew_bound_ms` = B, the whole interval `[attempted_at - B, attempted_at + B]`
   must lie within the coverage interval. `not_found` means absence at an authoritative
   observation. It does **not** prove that a delayed or in-flight write cannot
