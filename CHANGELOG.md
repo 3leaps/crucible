@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-10-12
+
 ### Added
 
 - **Durable record contract (proposed).** Add the experimental
@@ -60,6 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **EPR-0002 evidence boundary per obligation.** The reference-implementation
+  boundary is stated separately for each obligation. The principle and the
+  four obligations are unchanged.
+
 - **Fierce-collaboration standard 0.6.0 → 0.7.0: evidence-residual
   taxonomy.** §5 classifies every evidence gap that cannot be resolved before
   the gate as exactly one of four residual classes: pre-land blocker, narrowed
@@ -79,7 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release signing pin.** `docs/security/release-signing-keys.asc` now holds the
   public primary and signing subkey only, byte-identical to the other 3leaps
   repositories.
-- **Goneat v0.6.2; glibc tools runner v0.5.8**, consumed by immutable digest.
+- **Goneat v0.6.3; glibc tools runner v0.5.9**, consumed by immutable digest.
+  Goneat v0.6.3 compiles its embedded schemas on first use instead of at
+  process start, which shortens every contract-control invocation.
+- **Check job timeouts** are 45 minutes.
 
 ## [0.1.32] - 2026-10-01
 
@@ -1136,7 +1145,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.32...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.33...HEAD
+[0.1.33]: https://github.com/3leaps/crucible/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/3leaps/crucible/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/3leaps/crucible/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/3leaps/crucible/compare/v0.1.29...v0.1.30
