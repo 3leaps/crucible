@@ -316,6 +316,33 @@
         }
       }
     },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "record_id",
+        "revision",
+        "digest"
+      ],
+      "properties": {
+        "stream": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "record_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
     "bodyRef": {
       "type": "object",
       "additionalProperties": false,

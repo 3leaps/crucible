@@ -56,30 +56,42 @@ Keep the envelope thin and push meaning into payload contracts named by
 host-less tokens. Domain specialisation is by **profile**, which may narrow but
 never widen the core.
 
-Treat the journal as the portable form of the store. Unlike the queue ledger,
-accepted entries carry the record, so a copy of the journal is a copy of the
-store. Choice of physical engine remains open.
+Treat the journal as the portable form of the stream's records. Unlike the
+queue ledger, accepted entries carry the record, so a complete journal copy
+carries every record. Bodies held outside records travel only when their bytes
+are included: an export is `full_content` or `references_only` and says which.
+Choice of physical engine remains open.
 
-State deletion as **scope**, not as a boolean. The profile declares, per
-surface (live head, retained history, managed replicas, external bodies,
-decryption capability), what the store's own operations achieve. Key
-retirement is a distinct claim from byte removal and must list its key-custody
-assumptions. Copies outside management are outside every claim. History policy
-(`append_only` or `managed_redaction`) is chosen at store creation and is
-independent of writer topology.
+State deletion as **supported scope**, not as a boolean or an outcome. The
+profile declares, per surface (live head, retained history, managed replicas,
+external bodies, decryption capability), which deletion operation the store
+supports. Completion is evidenced by a per-operation receipt, not by the
+profile. Key retirement is a distinct claim from byte removal and must list its
+key-custody assumptions. Copies outside management are outside every claim.
+History policy is chosen at store creation and is independent of writer
+topology. v0 admits only `append_only`: a v0 journal is never rewritten, and
+redaction of history, with successor-generation semantics and completion
+receipts, is deferred. `managed_redaction` is reserved.
+
+Make keyed deduplication core, with a declared window. A replay returns the
+exact original accepted receipt. A writer without a receipt holds an
+indeterminate outcome and reconciles by key. Absence is reported only under a
+stated coverage interval, and never as proof that a delayed write cannot land.
 
 ### Exclusions
 
 This is not a storage engine, a file layout, a query language, a sync or
 replication protocol, a retrieval API, a merge algorithm, or a benchmark
-standard. v0 defers shared stream-level metadata, multi-host ownership of one
-stream, automatic merge, a wire binding, and behavioral conformance vectors.
+standard. v0 defers redaction of history, shared stream-level metadata,
+multi-host ownership of one stream, automatic merge, a wire binding, and
+behavioral conformance vectors.
 It does not change the audit-history policy of any existing adopter.
 
 ### Publication and adoption
 
-The review surface is the prose standard, three schemas with manifest, golden
-examples and one-field reject pairs. Crucible ships standards, schemas and
+The review surface is the prose standard, four schemas with manifest, golden
+examples, one-field reject pairs, semantic reject journals and receipts, and the
+fixture-integrity checker. Crucible ships standards, schemas and
 validation material under PDR-0006. Engines, adapters and workload harnesses
 belong elsewhere.
 
@@ -107,11 +119,12 @@ independently of the repository's release maturity.
 
 ## Consequences
 
-Consumers can read a record by `{record_id, revision, digest}` from any
-conforming store and detect changed bytes. A pin to a redacted revision says
-so rather than resolving to other bytes. A consumer that requires byte removal
-from history can refuse a stratum whose profile does not declare it. Moving
-between strata is a journal copy, checked against the target profile.
+Consumers can read a record by its stream-scoped pin
+`{stream, record_id, revision, digest}` from any conforming store and detect
+changed bytes. A pin never resolves to different bytes. A consumer that requires
+byte removal from history can refuse a stratum whose profile does not support
+it; in v0, none does. Moving between strata is a journal copy checked against
+the target profile, plus body bytes when the export is `full_content`.
 Publishing this proposal does not require any existing producer or consumer to
 change.
 

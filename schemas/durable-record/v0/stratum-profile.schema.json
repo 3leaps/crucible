@@ -143,6 +143,11 @@
           },
           "description": "Must be a subset of build.compiled_capabilities (semantic rule)."
         },
+        "clock_skew_bound_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Bound assumed between writer and store clocks when answering not_found."
+        },
         "idempotency_window_ms": {
           "oneOf": [
             {

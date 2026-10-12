@@ -154,7 +154,7 @@ consistent cut iff, for the entry at N, `N - group + 1 == group_size`.
 | `stream_opened` | A stream is created; always `seq` 1 | `mode`, `failure_model` |
 | `appended` | Revision 1 of a new record is accepted | `record`, `digest`, `idempotency_key`, `body_status` if the record has a body |
 | `revised` | A later revision is accepted against the current head | `record`, `digest`, `idempotency_key`, `body_status` if the record has a body |
-| `deduplicated` | A write repeats a live key with the same revision digest (audit) | `record_id`, `idempotency_key` |
+| `deduplicated` | A write repeats a live key with the same revision digest (audit only; the caller receives the original receipt) | `record_id`, `idempotency_key` |
 | `conflicted` | A write repeats a live key with a different digest, or presents a stale `supersedes` (audit) | `record_id`, `reason`, `presented` pin, `current` pin when a head exists |
 | `retired` | A record is withdrawn from current reads; history retained | `record_id`, `reason` |
 
@@ -174,10 +174,17 @@ change no state and may follow `retired`. A v0 journal is never rewritten.
 Every write presents an `idempotency_key`, scoped to the stream. Keyed
 deduplication is core: the key is live for the profile's declared
 `idempotency_window_ms`, measured from the original accepted write and
-independent of later retirement. A repeat of a live key with the same revision
-digest returns the **original receipt** unchanged. A repeat with a different
-digest returns `idempotency_conflict` and accepts nothing. After the window, a
-repeated key is a new write and is subject to the ordinary revision rules.
+independent of later revisions or retirement of the record. Precedence: a live
+key is checked **before** any revision or retirement rule.
+
+- A repeat with the same revision digest returns the **exact original accepted
+  receipt**, byte for byte the same outcome, pin, `seq`, failure model and body
+  status. The store journals a `deduplicated` audit entry; the caller never sees
+  a different outcome for a replay.
+- A repeat with a different digest returns `idempotency_conflict` and accepts
+  nothing.
+- After the window, a repeated key is a new write and is subject to the ordinary
+  revision rules.
 
 ### Write receipt
 
@@ -185,12 +192,15 @@ Schema: `write-receipt.schema.json`. One receipt per write.
 
 | Field | Rule |
 | --- | --- |
-| `outcome` | `appended`, `revised`, `deduplicated`, `idempotency_conflict`, `revision_conflict`, `mode_violation`, `body_unverified`, `retired_record`. |
+| `outcome` | Accepted: `appended`, `revised`. Rejected: `idempotency_conflict`, `revision_conflict`, `no_head`, `mode_violation`, `body_unverified`, `retired_record`. |
 | `stream`, `idempotency_key` | Always. |
-| `pin`, `seq` | For `appended`, `revised` and `deduplicated`: the accepted record's pin and the journal `seq` of its entry. A `deduplicated` receipt carries the original's values. |
-| `failure_model` | For `appended`, `revised` and `deduplicated`: the model the entry was acknowledged under. |
-| `body_status` | `verified` or `unverified` when the record has a body. |
+| `pin`, `seq` | For accepted outcomes: the record's pin and the journal `seq` of its entry. |
+| `failure_model` | For accepted outcomes: the stream's model the entry was acknowledged under. |
+| `body_status` | For accepted outcomes, exactly when the record has a body: `verified` or `unverified`, as journaled. |
 | `current` | For `revision_conflict`: the current head pin. |
+
+`no_head` answers a revision (`revision > 1`) for a record that has no accepted
+head in the stream. `revision_conflict` always has a head to report.
 
 Outcomes other than `appended` and `revised` write no new head.
 
@@ -198,25 +208,35 @@ Outcomes other than `appended` and `revised` write no new head.
 
 A writer that sends a write and observes no receipt holds an **indeterminate**
 outcome. It reconciles with a lookup by `{stream, idempotency_key, attempted_at}`,
-which returns exactly one of:
+where `attempted_at` is the writer's own clock reading taken before it sent the
+write. The lookup returns exactly one of:
 
-- the **original receipt**, when the write was accepted;
-- `not_found`, only when the store can show the key's window covers
-  `attempted_at` and no accepted write holds the key. This is evidence that the
-  write was not accepted;
-- `unknown`, when the window has elapsed, the key may have been evicted, or
-  coverage cannot be shown. `unknown` is never evidence that the write was
-  not accepted.
+- `found` with the **exact original accepted receipt** for that stream and key;
+- `not_found`, only when the store can state a **coverage interval**
+  `[window_covers_from, window_covers_until]` on the store clock. Inside it, every
+  accepted key is retained and no accepted write holds this key. The interval
+  must contain `attempted_at`, and `window_covers_from` must be no later than the
+  earliest instant the write could have been accepted. The store declares its
+  bound on clock skew between writer and store in its profile, and shifts the
+  interval by it before comparing. `not_found` means absence at an authoritative
+  observation. It does **not** prove that a delayed or in-flight write cannot
+  still be accepted later. The writer may retry only under the **same** live key,
+  which keeps the retry safe;
+- `unknown`, when the window has elapsed, the key may have been evicted, the
+  attempt is older than the retained interval, or coverage cannot be shown.
+  `unknown` is never evidence that the write was not accepted.
 
 A store with `idempotency_window_ms: none` always answers `unknown` and states
 so in its profile.
 
 ### Export closure
 
-An exported journal is `full_content` only if every body referenced by an
-included record is included or independently verified by digest and length in
-the same export. Otherwise it is `references_only`: portable metadata, not
-evidence that the bodies are recoverable. An export always states which.
+An exported journal is `full_content` only if the bytes of every body referenced
+by an included record are themselves contained in the export, and verify against
+their digest and length. A digest checked earlier against bytes held elsewhere
+does not make an export self-contained. Otherwise the export is
+`references_only`: portable metadata, not evidence that the bodies are
+recoverable. An export always states which.
 
 ### Stratum profile
 
@@ -232,7 +252,9 @@ write survives (`survives_power_loss`, `survives_process_loss`, `none`).
 writer topology. v0 admits `append_only` only; `managed_redaction` is reserved
 for the deferred redaction mechanism and is schema-invalid in v0.
 
-`runtime.idempotency_window_ms` is required: keyed deduplication is core. The
+`runtime.idempotency_window_ms` is required: keyed deduplication is core.
+`runtime.clock_skew_bound_ms` states the bound the store assumes between writer
+and store clocks when it answers `not_found`. The
 value `none` states that the stratum performs no keyed deduplication and
 cannot reconcile indeterminate writes; the schema admits it only when
 `conformance` is `benchmark_only`.
@@ -275,8 +297,9 @@ and not in the v0 vocabulary.
    `{stream, record_id, revision}`. A write whose `supersedes` does not match
    the current head is `revision_conflict` and is journaled as `conflicted`.
 3. **Keyed retry.** Within the declared window, a repeated key with the same
-   digest returns the original receipt, and a different digest returns
-   `idempotency_conflict`. Outside the window, or under
+   digest returns the exact original accepted receipt, and a different digest
+   returns `idempotency_conflict`. This holds even after the record was later
+   revised or retired. Outside the window, or under
    `idempotency_window_ms: none`, retry safety is not promised.
 4. **Receipt honesty.** A receipt states the failure model it was acknowledged
    under and the body status. A missing receipt is indeterminate, never

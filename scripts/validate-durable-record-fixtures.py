@@ -10,21 +10,30 @@ Usage:
   validate-durable-record-fixtures.py journal <journal.ndjson>
   validate-durable-record-fixtures.py entry <journal-entry.json>
   validate-durable-record-fixtures.py profile <stratum-profile.json>
-  validate-durable-record-fixtures.py receipt-pin <receipt.json> <journal.ndjson>
+  validate-durable-record-fixtures.py receipt <receipt-or-reconciliation.json> <journal.ndjson>
+  validate-durable-record-fixtures.py self-test
 
-journal checks: seq gap-free from 1, stream_opened first and only first, one
-stream per file, atomic groups contiguous with a consistent final cut, every
-digest equals SHA-256 over RFC 8785 bytes of its record, record.stream equals
-the line stream, revision chain linear (appended at 1, revised at head + 1 with
-supersedes equal to the current head pin), single_revision streams contain no
-revised entries, conflicted.current equals the head at that point.
+journal: seq gap-free from 1; stream_opened first and only first; one stream
+per file; atomic groups tracked across rows (a group starts at its own seq,
+every member carries the same group and group_size, no group is abandoned or
+resized before it closes, and the final group is complete); every digest equals
+SHA-256 over RFC 8785 bytes of its record; record.stream equals the line stream;
+revision chain linear (appended at 1, revised at head + 1 with supersedes equal
+to the current head); single_revision streams contain no revised entries;
+conflicted.current equals the head at that point.
+
+receipt: an accepted receipt (appended or revised) must match the journal entry
+at its seq in stream, idempotency key, outcome, pin, body status and the
+stream's failure model. A found reconciliation must embed such a receipt with
+the same stream and key as the lookup. A rejection receipt must name the
+journal's stream, and for revision_conflict its current pin must be a head that
+the journal accepted.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
@@ -37,16 +46,31 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_jcs)
 
 
-def fail(reason: str, detail: str) -> None:
-    print(f"[!!] {reason}: {detail}", file=sys.stderr)
-    sys.exit(1)
+class Reject(Exception):
+    def __init__(self, reason: str, detail: str) -> None:
+        super().__init__(f"{reason}: {detail}")
+        self.reason = reason
 
 
 def load(path: str):
     try:
         return _jcs.jcs_loads(Path(path).read_text(encoding="utf-8"))
     except ValueError as e:
-        fail("ingest", f"{path}: {e}")
+        raise Reject("ingest", f"{path}: {e}") from e
+
+
+def load_lines(path: str) -> list:
+    out = []
+    for i, ln in enumerate(
+        Path(path).read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not ln.strip():
+            continue
+        try:
+            out.append(_jcs.jcs_loads(ln))
+        except ValueError as e:
+            raise Reject("ingest", f"{path}:{i}: {e}") from e
+    return out
 
 
 def digest(record) -> str:
@@ -55,7 +79,27 @@ def digest(record) -> str:
     )
 
 
-def leaf_diff(a, b, path="") -> list[str]:
+# --- one-field pairs -------------------------------------------------------
+
+
+_MISSING = object()
+
+
+def _get(doc, path: str):
+    cur = doc
+    for part in path.strip("/").split("/"):
+        if isinstance(cur, dict):
+            if part not in cur:
+                return _MISSING
+            cur = cur[part]
+        elif isinstance(cur, list):
+            cur = cur[int(part)]
+        else:
+            return _MISSING
+    return cur
+
+
+def leaf_diff(a, b, path: str = "") -> list[str]:
     if isinstance(a, dict) and isinstance(b, dict):
         out: list[str] = []
         for k in sorted(set(a) | set(b)):
@@ -72,60 +116,72 @@ def leaf_diff(a, b, path="") -> list[str]:
     return [] if a == b and type(a) is type(b) else [path or "/"]
 
 
-def cmd_pair(baseline: str, reject: str) -> None:
-    d = leaf_diff(load(baseline), load(reject))
-    # A reject that renames a member shows as one removed plus one added path.
-    if len(d) != 1 and not (
-        len(d) == 2 and d[0].rsplit("/", 1)[0] == d[1].rsplit("/", 1)[0]
-    ):
-        fail("pair", f"{reject} differs from its baseline at {d}")
+def check_pair(a, b, label: str) -> None:
+    d = leaf_diff(a, b)
+    if len(d) == 1:
+        return
+    # A rename is exactly one member present only in the baseline and one
+    # present only in the reject, under the same parent object.
+    if len(d) == 2:
+        only_a = [x for x in d if _get(b, x) is _MISSING and _get(a, x) is not _MISSING]
+        only_b = [x for x in d if _get(a, x) is _MISSING and _get(b, x) is not _MISSING]
+        if (
+            len(only_a) == 1
+            and len(only_b) == 1
+            and only_a[0].rsplit("/", 1)[0] == only_b[0].rsplit("/", 1)[0]
+        ):
+            return
+    raise Reject("pair", f"{label} differs from its baseline at {d}")
+
+
+# --- journal ---------------------------------------------------------------
 
 
 def check_entry(e, where: str) -> None:
     if e.get("type") in ("appended", "revised"):
         rec = e["record"]
         if rec.get("stream") != e.get("stream"):
-            fail("stream_mismatch", where)
+            raise Reject("stream_mismatch", where)
         if digest(rec) != e.get("digest"):
-            fail(
+            raise Reject(
                 "digest", f"{where}: recorded {e.get('digest')} computed {digest(rec)}"
             )
         sup = rec.get("supersedes")
         if sup is not None and sup["revision"] != rec["revision"] - 1:
-            fail("supersedes_revision", where)
+            raise Reject("supersedes_revision", where)
 
 
-def cmd_entry(path: str) -> None:
-    check_entry(load(path), path)
-
-
-def cmd_journal(path: str) -> None:
-    lines = [
-        ln for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()
-    ]
+def check_journal(lines: list, label: str) -> dict:
+    """Validate a journal; return facts used by receipt checks."""
     if not lines:
-        fail("empty", path)
+        raise Reject("empty", label)
     heads: dict[str, dict] = {}
-    mode = None
-    stream = None
-    for i, ln in enumerate(lines, start=1):
-        try:
-            e = _jcs.jcs_loads(ln)
-        except ValueError as ex:
-            fail("ingest", f"{path}:{i}: {ex}")
-        where = f"{path}:{i}"
+    accepted: dict[int, dict] = {}
+    accepted_heads: set[tuple] = set()
+    mode = failure_model = stream = None
+    open_group = None  # (group, group_size) of the most recent row
+    for i, e in enumerate(lines, start=1):
+        where = f"{label}:{i}"
         if e["seq"] != i:
-            fail("seq_gap", f"{where}: expected seq {i}, found {e['seq']}")
+            raise Reject("seq_gap", f"{where}: expected seq {i}, found {e['seq']}")
         if stream is None:
             stream = e["stream"]
         elif e["stream"] != stream:
-            fail("stream_mismatch", where)
+            raise Reject("stream_mismatch", where)
         if (e["type"] == "stream_opened") != (i == 1):
-            fail("stream_opened_position", where)
+            raise Reject("stream_opened_position", where)
         if e["type"] == "stream_opened":
-            mode = e["mode"]
-        if not (e["group"] <= e["seq"] < e["group"] + e["group_size"]):
-            fail("group", where)
+            mode, failure_model = e["mode"], e["failure_model"]
+        g = (e["group"], e["group_size"])
+        if open_group is not None and i < open_group[0] + open_group[1]:
+            if g != open_group:
+                raise Reject(
+                    "group",
+                    f"{where}: group {open_group} abandoned or changed before it closed",
+                )
+        elif e["group"] != i:
+            raise Reject("group", f"{where}: a new group must start at its own seq")
+        open_group = g
         check_entry(e, where)
         if e["type"] in ("appended", "revised"):
             rec = e["record"]
@@ -133,86 +189,191 @@ def cmd_journal(path: str) -> None:
             head = heads.get(rid)
             if e["type"] == "appended":
                 if head is not None or rec["revision"] != 1:
-                    fail("revision_chain", f"{where}: appended over an existing head")
+                    raise Reject(
+                        "revision_chain", f"{where}: appended over an existing head"
+                    )
             else:
                 if mode == "single_revision":
-                    fail("mode_violation", where)
+                    raise Reject("mode_violation", where)
                 if (
                     head is None
                     or rec["revision"] != head["revision"] + 1
                     or rec["supersedes"] != head
                 ):
-                    fail(
+                    raise Reject(
                         "revision_chain", f"{where}: supersedes is not the current head"
                     )
             heads[rid] = {"revision": rec["revision"], "digest": e["digest"]}
+            accepted[i] = e
+            accepted_heads.add((rid, rec["revision"], e["digest"]))
         elif e["type"] == "conflicted":
             cur = e.get("current")
             if cur is not None and cur != heads.get(e["record_id"]):
-                fail(
+                raise Reject(
                     "conflict_current",
                     f"{where}: current is not the head at this point",
                 )
             if cur is None and e["record_id"] in heads:
-                fail(
+                raise Reject(
                     "conflict_current", f"{where}: current omitted while a head exists"
                 )
-    last = _jcs.jcs_loads(lines[-1])
-    if last["seq"] - last["group"] + 1 != last["group_size"]:
-        fail("inconsistent_cut", f"{path}: final group truncated")
+    if open_group is not None and len(lines) < open_group[0] + open_group[1] - 1:
+        raise Reject("inconsistent_cut", f"{label}: final group truncated")
+    return {
+        "stream": stream,
+        "failure_model": failure_model,
+        "accepted": accepted,
+        "accepted_heads": accepted_heads,
+    }
 
 
-def cmd_profile(path: str) -> None:
-    p = load(path)
+# --- receipts --------------------------------------------------------------
+
+
+def check_accepted_receipt(r, facts: dict, where: str) -> None:
+    if r["outcome"] not in ("appended", "revised"):
+        raise Reject(
+            "receipt_not_accepted",
+            f"{where}: outcome {r['outcome']} is not an accepted write",
+        )
+    e = facts["accepted"].get(r["seq"])
+    if e is None:
+        raise Reject("receipt_seq", f"{where}: seq {r['seq']} is not an accepted entry")
+    rec = e["record"]
+    expected = {
+        "stream": e["stream"],
+        "idempotency_key": e["idempotency_key"],
+        "outcome": e["type"],
+        "pin": {
+            "stream": e["stream"],
+            "record_id": rec["record_id"],
+            "revision": rec["revision"],
+            "digest": e["digest"],
+        },
+        "failure_model": facts["failure_model"],
+        "body_status": e.get("body_status"),
+    }
+    for k, v in expected.items():
+        if r.get(k) != v:
+            raise Reject(
+                "receipt_mismatch", f"{where}: {k} is {r.get(k)!r}, journal says {v!r}"
+            )
+
+
+def check_receipt_doc(doc, facts: dict, where: str) -> None:
+    if doc["kind"] == "reconciliation":
+        if doc["stream"] != facts["stream"]:
+            raise Reject(
+                "receipt_mismatch", f"{where}: lookup stream is not the journal stream"
+            )
+        if doc["result"] == "found":
+            inner = doc["receipt"]
+            if (
+                inner["stream"] != doc["stream"]
+                or inner["idempotency_key"] != doc["idempotency_key"]
+            ):
+                raise Reject(
+                    "reconciliation_mismatch",
+                    f"{where}: embedded receipt is for another stream or key",
+                )
+            check_accepted_receipt(inner, facts, where)
+        elif doc["result"] == "not_found":
+            keys = {e["idempotency_key"] for e in facts["accepted"].values()}
+            if doc["idempotency_key"] in keys:
+                raise Reject(
+                    "reconciliation_mismatch",
+                    f"{where}: not_found for a key the journal accepted",
+                )
+            if (
+                doc["window_covers_from"] > doc["attempted_at"]
+                or doc["window_covers_until"] < doc["attempted_at"]
+            ):
+                raise Reject(
+                    "coverage",
+                    f"{where}: coverage interval does not contain attempted_at",
+                )
+        return
+    if doc["stream"] != facts["stream"]:
+        raise Reject(
+            "receipt_mismatch", f"{where}: receipt stream is not the journal stream"
+        )
+    if doc["outcome"] in ("appended", "revised"):
+        check_accepted_receipt(doc, facts, where)
+    elif doc["outcome"] == "revision_conflict":
+        c = doc["current"]
+        if (
+            c["stream"] != facts["stream"]
+            or (c["record_id"], c["revision"], c["digest"])
+            not in facts["accepted_heads"]
+        ):
+            raise Reject(
+                "receipt_mismatch",
+                f"{where}: current is not a head the journal accepted",
+            )
+
+
+# --- profile ---------------------------------------------------------------
+
+
+def check_profile(p, where: str) -> None:
     extra = set(p["runtime"]["enabled_capabilities"]) - set(
         p["build"]["compiled_capabilities"]
     )
     if extra:
-        fail("capability_not_compiled", f"{path}: {sorted(extra)}")
+        raise Reject("capability_not_compiled", f"{where}: {sorted(extra)}")
     if p["runtime"]["stratum"] not in p["build"]["compiled_strata"]:
-        fail("stratum_not_compiled", path)
+        raise Reject("stratum_not_compiled", where)
 
 
-def cmd_receipt_pin(receipt: str, journal: str) -> None:
-    r = load(receipt)
-    if r.get("kind") == "reconciliation":
-        r = r.get("receipt") or {}
-    pin = r.get("pin")
-    if pin is None:
-        return
-    for ln in Path(journal).read_text(encoding="utf-8").splitlines():
-        if not ln.strip():
+# --- self-test -------------------------------------------------------------
+
+
+def self_test() -> None:
+    """The checker's own controls: each mutation must be rejected for its reason."""
+    base = {"a": 1, "b": {"c": 2, "d": 3}}
+    check_pair(base, {"a": 9, "b": {"c": 2, "d": 3}}, "one-value")
+    check_pair(base, {"a": 1, "b": {"c": 2, "e": 3}}, "sibling-rename")
+    check_pair(base, {"a": 1, "b": {"c": 2}}, "one-removed")
+    for label, mutated in [
+        ("two-values", {"a": 9, "b": {"c": 8, "d": 3}}),
+        ("two-sibling-values", {"a": 1, "b": {"c": 8, "d": 9}}),
+        ("two-removed", {"a": 1, "b": {}}),
+        ("cross-parent-rename", {"z": 1, "b": {"c": 2, "d": 3, "a": 1}}),
+    ]:
+        try:
+            check_pair(base, mutated, label)
+        except Reject as r:
+            if r.reason != "pair":
+                raise SystemExit(
+                    f"[!!] self-test {label}: rejected as {r.reason}"
+                ) from None
             continue
-        e = _jcs.jcs_loads(ln)
-        if e["seq"] == r["seq"]:
-            rec = e.get("record") or {}
-            got = {
-                "stream": e["stream"],
-                "record_id": rec.get("record_id"),
-                "revision": rec.get("revision"),
-                "digest": e.get("digest"),
-            }
-            if got != pin:
-                fail(
-                    "receipt_pin",
-                    f"{receipt}: pin does not match journal seq {r['seq']}",
-                )
-            return
-    fail("receipt_pin", f"{receipt}: seq {r['seq']} not in {journal}")
+        raise SystemExit(f"[!!] self-test {label}: accepted a multi-field pair")
+    print("ok: checker self-test")
 
 
 def main(argv: list[str]) -> None:
-    cmds = {
-        "pair": (cmd_pair, 2),
-        "journal": (cmd_journal, 1),
-        "entry": (cmd_entry, 1),
-        "profile": (cmd_profile, 1),
-        "receipt-pin": (cmd_receipt_pin, 2),
-    }
-    if len(argv) < 2 or argv[1] not in cmds or len(argv) - 2 != cmds[argv[1]][1]:
-        print(__doc__, file=sys.stderr)
-        sys.exit(2)
-    cmds[argv[1]][0](*argv[2:])
+    cmd, args = (argv[1], argv[2:]) if len(argv) > 1 else ("", [])
+    try:
+        if cmd == "pair" and len(args) == 2:
+            check_pair(load(args[0]), load(args[1]), args[1])
+        elif cmd == "journal" and len(args) == 1:
+            check_journal(load_lines(args[0]), args[0])
+        elif cmd == "entry" and len(args) == 1:
+            check_entry(load(args[0]), args[0])
+        elif cmd == "profile" and len(args) == 1:
+            check_profile(load(args[0]), args[0])
+        elif cmd == "receipt" and len(args) == 2:
+            facts = check_journal(load_lines(args[1]), args[1])
+            check_receipt_doc(load(args[0]), facts, args[0])
+        elif cmd == "self-test" and not args:
+            self_test()
+        else:
+            print(__doc__, file=sys.stderr)
+            sys.exit(2)
+    except Reject as r:
+        print(f"[!!] {r}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -64,9 +64,9 @@
           "enum": [
             "appended",
             "revised",
-            "deduplicated",
             "idempotency_conflict",
             "revision_conflict",
+            "no_head",
             "mode_violation",
             "body_unverified",
             "retired_record"
@@ -112,8 +112,7 @@
               "outcome": {
                 "enum": [
                   "appended",
-                  "revised",
-                  "deduplicated"
+                  "revised"
                 ]
               }
             }
@@ -130,12 +129,22 @@
               "anyOf": [
                 {
                   "required": [
+                    "pin"
+                  ]
+                },
+                {
+                  "required": [
                     "seq"
                   ]
                 },
                 {
                   "required": [
                     "failure_model"
+                  ]
+                },
+                {
+                  "required": [
+                    "body_status"
                   ]
                 }
               ]
@@ -204,17 +213,24 @@
           ]
         },
         "receipt": {
-          "$ref": "#/$defs/receipt"
+          "$ref": "#/$defs/receipt",
+          "description": "For found: the exact original accepted receipt for this stream and key."
+        },
+        "window_covers_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Required for not_found: start of the store-clock interval in which every accepted key is retained; at or before the earliest instant the write could have been accepted."
         },
         "window_covers_until": {
           "type": "string",
           "format": "date-time",
-          "description": "Required for not_found: the store can show keys are retained at least until this instant, which is at or after attempted_at."
+          "description": "Required for not_found: end of that interval; at or after attempted_at."
         },
         "reason": {
           "enum": [
             "window_elapsed",
             "key_evicted",
+            "attempt_before_coverage",
             "coverage_unprovable",
             "no_keyed_deduplication"
           ]
@@ -233,11 +249,28 @@
             "required": [
               "receipt"
             ],
+            "properties": {
+              "receipt": {
+                "properties": {
+                  "outcome": {
+                    "enum": [
+                      "appended",
+                      "revised"
+                    ]
+                  }
+                }
+              }
+            },
             "not": {
               "anyOf": [
                 {
                   "required": [
                     "reason"
+                  ]
+                },
+                {
+                  "required": [
+                    "window_covers_from"
                   ]
                 },
                 {
@@ -259,6 +292,7 @@
           },
           "then": {
             "required": [
+              "window_covers_from",
               "window_covers_until"
             ],
             "not": {
@@ -294,6 +328,11 @@
                 {
                   "required": [
                     "receipt"
+                  ]
+                },
+                {
+                  "required": [
+                    "window_covers_from"
                   ]
                 },
                 {

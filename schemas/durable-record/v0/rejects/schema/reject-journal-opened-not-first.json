@@ -1,7 +1,7 @@
 {
   "v": 0,
   "seq": 7,
-  "group": 7,
+  "group": 1,
   "group_size": 1,
   "stream": "session-handoff.example",
   "type": "stream_opened",

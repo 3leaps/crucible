@@ -1,7 +1,7 @@
 {
   "v": 0,
   "kind": "reconciliation",
-  "stream": "pipeline-stage-results.example",
+  "stream": "session-handoff.example",
   "idempotency_key": "run-9.stage-1.part-0003",
   "attempted_at": "2026-09-01T08:00:00Z",
   "result": "unknown",
