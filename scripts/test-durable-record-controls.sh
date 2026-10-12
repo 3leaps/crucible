@@ -1,0 +1,152 @@
+#!/usr/bin/env sh
+# Controls for contract: durable-record/v0.
+#
+# Declared invocation set (PDR-0006 Rule 2b):
+#   sh, coreutils, find, mktemp — baseline
+#   goneat — subject-matter (JSON Schema validation the contract names)
+#   jq — structural inspection of contract fixtures (house pattern)
+#   python3 — stdlib-only fixture-integrity checker (scripts/validate-durable-record-fixtures.py),
+#             which reuses scripts/rfc8785-canonicalize.py for revision digests
+#
+# Asserts:
+#   - every golden example validates against its schema; journal example lines validate
+#   - shared $defs are identical across record, journal-entry and write-receipt schemas
+#   - benchmark_only profiles may declare idempotency_window_ms none; other conformance may not
+#   - schema-labeled baseline-* pass and reject-* fail; pairs differ in exactly one field
+#   - profile semantic rules: enabled ⊆ compiled capabilities; stratum is compiled
+#   - golden journal: seq gap-free, groups and final cut consistent, digests match RFC 8785
+#     bytes, revision chain linear, conflicted.current is the head; receipt pins match
+#   - every semantic reject-<reason>--* journal is detected with its labeled reason; baseline passes
+#   - fixtures contain no credentials, raw tokens, or machine-local paths
+set -eu
+
+base="schemas/durable-record/v0"
+chk="scripts/validate-durable-record-fixtures.py"
+tmpd=$(mktemp -d)
+trap 'rm -rf "$tmpd"' EXIT
+
+validate() { goneat validate data --schema-file "$1" --data "$2" >/dev/null 2>&1; }
+schema_for() {
+    case "${1##*/}" in
+        *-record-*) echo "$base/record.schema.json" ;;
+        *-journal-*) echo "$base/journal-entry.schema.json" ;;
+        *-profile-*) echo "$base/stratum-profile.schema.json" ;;
+        *-receipt-* | *-reconciliation-*) echo "$base/write-receipt.schema.json" ;;
+        *)
+            echo ""
+            return 1
+            ;;
+    esac
+}
+must() {
+    validate "$1" "$2" || {
+        echo "[!!] $2 failed $1" >&2
+        exit 1
+    }
+}
+
+echo "    durable-record: golden examples..."
+for f in "$base"/examples/record.*.example.json; do must "$base/record.schema.json" "$f"; done
+for f in "$base"/examples/journal-entry.*.example.json; do must "$base/journal-entry.schema.json" "$f"; done
+for f in "$base"/examples/write-receipt*.example.json "$base"/examples/reconciliation*.example.json; do
+    must "$base/write-receipt.schema.json" "$f"
+done
+must "$base/stratum-profile.schema.json" "$base/examples/stratum-profile.example.json"
+n=0
+while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s\n' "$line" >"$tmpd/line.json"
+    validate "$base/journal-entry.schema.json" "$tmpd/line.json" || {
+        echo "[!!] journal example line failed: $line" >&2
+        exit 1
+    }
+    n=$((n + 1))
+done <"$base/examples/journal.example.ndjson"
+[ "$n" -gt 0 ] || {
+    echo "[!!] journal example is empty" >&2
+    exit 1
+}
+
+echo "    durable-record: shared definitions identical across schemas..."
+for d in digest revisionPin bodyRef provenance classification link record; do
+    jq -S ".\"\$defs\".$d" "$base/record.schema.json" >"$tmpd/a.json"
+    jq -S ".\"\$defs\".$d" "$base/journal-entry.schema.json" >"$tmpd/b.json"
+    cmp -s "$tmpd/a.json" "$tmpd/b.json" || {
+        echo "[!!] \$defs.$d differs between record and journal-entry schemas" >&2
+        exit 1
+    }
+done
+for d in digest pin; do
+    jq -S ".\"\$defs\".$d" "$base/journal-entry.schema.json" >"$tmpd/a.json"
+    jq -S ".\"\$defs\".$d" "$base/write-receipt.schema.json" >"$tmpd/b.json"
+    [ "$d" = pin ] && jq -S ".\"\$defs\".$d" "$base/write-receipt.schema.json" >"$tmpd/a.json"
+    cmp -s "$tmpd/a.json" "$tmpd/b.json" || {
+        echo "[!!] \$defs.$d differs between journal-entry and write-receipt schemas" >&2
+        exit 1
+    }
+done
+
+echo "    durable-record: benchmark_only may declare no dedup window; others may not..."
+jq '.conformance="benchmark_only" | .runtime.idempotency_window_ms="none"' "$base/examples/stratum-profile.example.json" >"$tmpd/w1.json"
+must "$base/stratum-profile.schema.json" "$tmpd/w1.json"
+jq '.runtime.idempotency_window_ms="none"' "$base/examples/stratum-profile.example.json" >"$tmpd/w2.json"
+if validate "$base/stratum-profile.schema.json" "$tmpd/w2.json"; then
+    echo "[!!] conformance none + window none accepted" >&2
+    exit 1
+fi
+
+echo "    durable-record: schema baselines pass, rejects fail, pairs differ in one field..."
+for f in "$base"/rejects/schema/baseline-*.json; do
+    s=$(schema_for "$f")
+    must "$s" "$f"
+done
+for f in "$base"/rejects/schema/reject-*.json; do
+    s=$(schema_for "$f")
+    if validate "$s" "$f"; then
+        echo "[!!] reject was accepted: $f" >&2
+        exit 1
+    fi
+    twin="$(dirname "$f")/baseline-${f##*/reject-}"
+    [ -f "$twin" ] || {
+        echo "[!!] no baseline twin for $f" >&2
+        exit 1
+    }
+    python3 -I "$chk" pair "$twin" "$f" || exit 1
+done
+
+echo "    durable-record: profile semantic rules..."
+python3 -I "$chk" profile "$base/examples/stratum-profile.example.json" || exit 1
+jq '.runtime.enabled_capabilities += ["unverified_bodies"]' "$base/examples/stratum-profile.example.json" >"$tmpd/p.json"
+if python3 -I "$chk" profile "$tmpd/p.json" >/dev/null 2>&1; then
+    echo "[!!] profile with enabled capability not compiled was accepted" >&2
+    exit 1
+fi
+
+echo "    durable-record: golden journal integrity and receipt pins..."
+python3 -I "$chk" journal "$base/examples/journal.example.ndjson" || exit 1
+python3 -I "$chk" entry "$base/examples/journal-entry.stage-result.example.json" || exit 1
+python3 -I "$chk" receipt-pin "$base/examples/write-receipt.example.json" "$base/examples/journal.example.ndjson" || exit 1
+
+echo "    durable-record: semantic rejects detected with labeled reason, baseline passes..."
+python3 -I "$chk" journal "$base/rejects/semantic/baseline-journal.ndjson" || exit 1
+for f in "$base"/rejects/semantic/reject-*.ndjson; do
+    name=${f##*/reject-}
+    want=${name%%--*}
+    if python3 -I "$chk" journal "$f" 2>"$tmpd/err"; then
+        echo "[!!] semantic reject accepted: $f" >&2
+        exit 1
+    fi
+    got=$(sed -n 's/^\[!!\] \([a-z_]*\):.*/\1/p' "$tmpd/err" | head -n 1)
+    [ "$got" = "$want" ] || {
+        echo "[!!] $f rejected as '$got', expected '$want'" >&2
+        exit 1
+    }
+done
+
+echo "    durable-record: fixtures carry no credentials or machine-local paths..."
+if grep -rEl '(/Users/|/home/|[A-Za-z]:\\\\|AGE-SECRET-KEY-1[0-9A-Z]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN)' "$base/examples" "$base/rejects/semantic" "$base"/rejects/schema/baseline-*.json >/dev/null 2>&1; then
+    echo "[!!] fixture contains a credential or machine-local path" >&2
+    exit 1
+fi
+
+echo "[ok] durable-record controls passed"
