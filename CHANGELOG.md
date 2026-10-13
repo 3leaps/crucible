@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Check job timeouts** are 20 minutes on Linux and 30 minutes on Windows.
+- **Check job timeouts** are 20 minutes on Linux and 40 minutes on Windows.
 - **`RELEASE_NOTES.md`** keeps the latest three releases. Earlier releases
   remain in `CHANGELOG.md` and `docs/releases/`.
 - **Offline schema validation.** Make targets validate schemas against
