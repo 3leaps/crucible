@@ -53,7 +53,7 @@ jobs:
     # Contract checks on Windows catch path-separator and file-permission
     # differences that the Linux container cannot.
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash

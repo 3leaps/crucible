@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Check job timeouts** are 20 minutes on Linux and 30 minutes on Windows.
+- **Check job timeouts** are 20 minutes on Linux and 40 minutes on Windows.
 - **`RELEASE_NOTES.md`** keeps the latest three releases. Earlier releases
   remain in `CHANGELOG.md` and `docs/releases/`.
+- **Offline schema validation.** Make targets validate schemas against
+  goneat's embedded meta-schemas (`GONEAT_OFFLINE_SCHEMA_VALIDATION=true` by
+  default), so checks make no network fetches. Set it to `false` to validate
+  against the published meta-schemas instead.
 
 ## [0.1.33] - 2026-10-12
 
