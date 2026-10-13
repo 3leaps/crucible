@@ -9,7 +9,7 @@
 #   make check      - Run all quality checks
 #   make fmt        - Format all files
 
-.PHONY: all help bootstrap bootstrap-sfetch bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-portability fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
+.PHONY: all help bootstrap bootstrap-sfetch bootstrap-release-tools bootstrap-force tools check test test-bootstrap-engine-verification test-check-attribution test-contract-shards test-portability fmt fmt-check lint lint-schemas lint-config lint-config-data lint-contracts lint-contracts-1 lint-contracts-2 lint-contracts-3 lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy build clean version
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
@@ -221,18 +221,30 @@ tools: ## Verify external tools are available
 check: fmt-check lint test ## Run all quality checks without modifying files
 	@echo "[ok] All quality checks passed"
 
-.PHONY: check-contracts contract-tools
-check-contracts: ## Validate supported contracts and native input behavior
-	@$(MAKE) contract-tools
-	@$(MAKE) lint-schemas lint-config test-portability
+.PHONY: check-contracts contract-tools contract-shards check-contracts-shard-1 check-contracts-shard-2 check-contracts-shard-3
+# Contract checks run as shards so CI can run them in parallel; check-contracts
+# is their union. Keep CONTRACT_SHARDS in step with the Check workflow matrix
+# (scripts/test-contract-shards.sh enforces both).
+CONTRACT_SHARDS := 1 2 3
+
+check-contracts: $(addprefix check-contracts-shard-,$(CONTRACT_SHARDS)) ## Validate supported contracts and native input behavior
 	@echo "[ok] All contract checks passed"
+
+check-contracts-shard-1: contract-tools lint-schemas lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy lint-config-data lint-contracts-1 test-portability ## Contract shard 1: schemas, config data, smaller contract controls
+
+check-contracts-shard-2: contract-tools lint-contracts-2 ## Contract shard 2: agent-wait and service-job controls
+
+check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue controls
+
+contract-shards: ## Print the contract shard ids
+	@echo $(CONTRACT_SHARDS)
 
 contract-tools: ## Fail closed when a required contract-validation tool is missing
 	@for tool in goneat python3 jq make sha256sum cmp; do \
 		command -v "$$tool" >/dev/null 2>&1 || { echo "[!!] $$tool required for contract checks"; exit 1; }; \
 	done
 
-test: test-bootstrap-engine-verification test-check-attribution test-portability ## Run release-control and attribution-footer tests
+test: test-bootstrap-engine-verification test-check-attribution test-portability test-contract-shards ## Run release-control and attribution-footer tests
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
@@ -242,6 +254,9 @@ test-bootstrap-engine-verification: ## Prove engine digest failure prevents exec
 
 test-check-attribution: ## Validate the attribution footer checker
 	@./scripts/test-check-attribution.sh
+
+test-contract-shards: ## Prove contract shards cover every check exactly once
+	@./scripts/test-contract-shards.sh
 
 test-portability: ## Prove tracked paths and permission fixtures work on Windows
 	@python3 scripts/test-portability.py
@@ -371,14 +386,12 @@ lint-config-data: ## Validate configuration and example data
 		echo "[!!] goneat not found, skipping config validation"; \
 	fi
 
-lint-contracts: ## Run contract controls and validate manifests
+lint-contracts: lint-contracts-1 lint-contracts-2 lint-contracts-3 ## Run contract controls and validate manifests
+
+lint-contracts-1: ## Contract controls for shard 1 and contract manifest validation
 	@if command -v goneat >/dev/null 2>&1; then \
 		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
 		sh scripts/test-review-journal-controls.sh || exit 1; \
-		echo "    Agent-wait controls..."; \
-		sh scripts/test-agent-wait-controls.sh || exit 1; \
-		echo "    Service-job controls..."; \
-		sh scripts/test-service-job-controls.sh || exit 1; \
 		echo "    Project-work controls..."; \
 		sh scripts/test-project-work-controls.sh || exit 1; \
 		echo "    Forge-infra controls..."; \
@@ -387,8 +400,6 @@ lint-contracts: ## Run contract controls and validate manifests
 		sh scripts/test-application-control-controls.sh || exit 1; \
 		echo "    Segmented-snapshot controls..."; \
 		python3 scripts/test-segmented-snapshot-controls.py || exit 1; \
-		echo "    Durable-queue controls..."; \
-		sh scripts/test-durable-queue-controls.sh || exit 1; \
 		echo "    Durable-record controls..."; \
 		sh scripts/test-durable-record-controls.sh || exit 1; \
 		sh scripts/test-contract-manifest-controls.sh || exit 1; \
@@ -407,6 +418,24 @@ lint-contracts: ## Run contract controls and validate manifests
 			schemas/project-work/v0/contract.json \
 			schemas/inference-path-taxonomy/v0/contract.json \
 			schemas/forge-infra/v0/contract.json || exit 1; \
+	else \
+		echo "[!!] goneat not found, skipping contract validation"; \
+	fi
+
+lint-contracts-2: ## Contract controls for shard 2
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Agent-wait controls..."; \
+		sh scripts/test-agent-wait-controls.sh || exit 1; \
+		echo "    Service-job controls..."; \
+		sh scripts/test-service-job-controls.sh || exit 1; \
+	else \
+		echo "[!!] goneat not found, skipping contract validation"; \
+	fi
+
+lint-contracts-3: ## Contract controls for shard 3
+	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Durable-queue controls..."; \
+		sh scripts/test-durable-queue-controls.sh || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi
