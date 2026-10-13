@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Check job timeouts** are 20 minutes on Linux and 30 minutes on Windows.
+- **`RELEASE_NOTES.md`** keeps the latest three releases. Earlier releases
+  remain in `CHANGELOG.md` and `docs/releases/`.
+
 ## [0.1.33] - 2026-10-12
 
 ### Added
