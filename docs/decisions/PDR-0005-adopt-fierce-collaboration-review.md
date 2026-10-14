@@ -89,7 +89,7 @@ for, another stage's gate.
 `docs/standards/` (the process signal is carried at the decision layer by this
 PDR's type, not re-encoded in the tree); scope is **crucible-canonical,
 link-or-vendor, prefer pinned-reference**, the same model EPR-0001/0002 run under.
-Seat **identity** (the seat enum) is the galaxy-stable contract surface; role-prompt
+Seat **identity** (the seat enum) is the shared contract surface; role-prompt
 **content** is per-org, which is what lets a sibling org link rather than fork.
 
 **Altitude of the two non-negotiables.** The standard's `author-≠-approver` and

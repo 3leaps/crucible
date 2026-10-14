@@ -268,14 +268,14 @@ This change does not configure org rulesets. To require the check later:
 
 **Cross-org limit.** GitHub [required workflows](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-workflows-to-pass-before-merging)
 in a ruleset must live in a repository the ruleset's org can select. An org
-ruleset for `lanytehq` or `fulmenhq` cannot name
+ruleset for another adopting organization cannot name
 `3leaps/crucible/.github/workflows/check-attribution.yml` as a required
 workflow. Put a thin same-org caller workflow in each org (the snippets
 above) and require **that** workflow as a status check.
 
 Reusable workflows and composite actions from a **public** repository can
 still be _called_ cross-org when the caller workflow pins them. That is the
-supported path for `3leaps`, `lanytehq`, and `fulmenhq`.
+supported path for `3leaps` and for other adopting organizations.
 
 Fork pull requests: keep `pull_request` (this check) rather than
 `pull_request_target`, so untrusted forks cannot run with base-branch

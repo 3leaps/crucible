@@ -674,7 +674,7 @@ this valve; the single-org path is not exempt from it.
 
 - **Single-org review:** that org's cxotech (or the maintainer) sets it, subject to
   the non-author rule above.
-- **Cross-org / galaxy panel:** the **maintainer** sets it **explicitly** in the
+- **Cross-org panel:** the **maintainer** sets it **explicitly** in the
   alignment-log header and the journal manifest **before** evidence is added — it
   is a first-class field, never inferred from who posted first. If unset, default
   to the **lowest common access-tier** among participating orgs' standing policy
@@ -750,7 +750,7 @@ principles (§2), the evidence bar (§4), author-≠-approver, human-merge-autho
 and the classification ROE (§10) travel unchanged.
 
 **Identity is canonical; framing is per-org.** The **seat identity** (the seat
-enum, `review-journal/v0`) is the galaxy-stable contract surface — shared, so a
+enum, `review-journal/v0`) is the shared contract surface, so a
 journal is comparable across orgs. The **role-prompt content** is per-org: the
 manifest records `{slug, version}` resolved against each org's own role catalog.
 That split is what lets an adopting org **link** the standard and the seat contract
