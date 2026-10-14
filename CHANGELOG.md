@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Check job timeouts** are 20 minutes on Linux and 40 minutes on Windows.
+- **Check job timeouts** are 20 minutes on Linux and 25 minutes per Windows
+  shard.
+- **Windows contract checks run as three parallel shards**
+  (`make check-contracts-shard-N`). `make check-contracts` runs all three; a
+  single `windows` status reports the combined result.
+  `scripts/test-contract-shards.sh` (part of `make test`) fails if a contract
+  check runs in no shard or in more than one, or if the workflow matrix and
+  the Makefile shard list disagree.
 - **`RELEASE_NOTES.md`** keeps the latest three releases. Earlier releases
   remain in `CHANGELOG.md` and `docs/releases/`.
 - **Offline schema validation.** Make targets validate schemas against

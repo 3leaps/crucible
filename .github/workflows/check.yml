@@ -49,11 +49,17 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git diff --exit-code || (echo "Formatting changed files. Run 'make fmt' and commit." && exit 1)
 
-  windows:
+  windows-shard:
     # Contract checks on Windows catch path-separator and file-permission
-    # differences that the Linux container cannot.
+    # differences that the Linux container cannot. Shards match the Makefile
+    # CONTRACT_SHARDS list (enforced by scripts/test-contract-shards.sh).
+    name: windows (shard ${{ matrix.shard }})
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     defaults:
       run:
         shell: bash
@@ -89,7 +95,21 @@ jobs:
           cygpath -w "$(pwd)/bin" >> "$GITHUB_PATH"
 
       - name: Run contract checks
-        run: make check-contracts BIN_DIR="$(pwd)/bin"
+        run: make check-contracts-shard-${{ matrix.shard }} BIN_DIR="$(pwd)/bin"
 
       - name: Verify no tracked changes
         run: git diff --exit-code
+
+  windows:
+    # Single status for the Windows contract shards.
+    needs: windows-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every shard to pass
+        env:
+          RESULT: ${{ needs.windows-shard.result }}
+        run: |
+          echo "windows shards: ${RESULT}"
+          test "${RESULT}" = success
