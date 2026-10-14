@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   goneat's embedded meta-schemas (`GONEAT_OFFLINE_SCHEMA_VALIDATION=true` by
   default), so checks make no network fetches. Set it to `false` to validate
   against the published meta-schemas instead.
+- **Goneat v0.6.4; glibc tools runner v0.5.10**, consumed by immutable digest.
+  Goneat v0.6.4 no longer runs package-manager version probes on every
+  command, which cuts per-invocation startup time. Check fails if the runner
+  image's goneat differs from `GONEAT_VERSION`.
 
 ## [0.1.33] - 2026-10-12
 

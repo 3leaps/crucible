@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9@sha256:412a315241a59fc0313f4e79f182f7f373a04f194174c61b439cf8ba26174d54
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.10@sha256:42e95c5d7aa961010454b0c29c07e676b220d1cde71dd2fc71c338d1ca2adbe8
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
       options: --user 1001
     steps:
@@ -29,6 +29,10 @@ jobs:
         run: |
           set -euo pipefail
           goneat version
+          # The runner image must carry the goneat version the Makefile pins.
+          want="$(sed -n 's/^GONEAT_VERSION ?= //p' Makefile)"
+          goneat version | head -n1 | grep -Fqx "goneat ${want}" ||
+            { echo "runner goneat does not match GONEAT_VERSION ${want}"; exit 1; }
           yamlfmt --version
           yamllint --version
           prettier --version
