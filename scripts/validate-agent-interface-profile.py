@@ -92,7 +92,10 @@ def main():
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f"invalid agent interface profile: {error}", file=sys.stderr)
         return 1
-    print("[ok] agent interface profile schema and references passed")
+    print(
+        "[ok] profile schema and local references passed; "
+        "pin resolution, qualification and authority were not checked"
+    )
     return 0
 
 
