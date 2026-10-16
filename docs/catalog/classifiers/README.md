@@ -32,6 +32,12 @@ Agent classifier values have a closed, composable validation shape at
 `schemas/classifiers/v0/agent-interface.schema.json`. It validates vocabulary,
 not the subject's authority or the evidence behind a confidence assessment.
 
+The companion [agent interface profiles](../../standards/agent-interface-profiles.md)
+standard adds a separate revisioned shape at
+`schemas/classifiers/v0/agent-interface-profile.schema.json` for protocol bindings,
+continuity and delivery signal meanings. It reuses the value vocabularies without
+changing their meaning. Profiles are declarations, not observations or grants.
+
 ## Framework Overview
 
 See `docs/standards/classifiers-framework.md` for how the pieces fit together.

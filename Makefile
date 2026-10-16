@@ -392,6 +392,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 	@if command -v goneat >/dev/null 2>&1; then \
 		echo "    Agent classifier controls..."; \
 		python3 scripts/test-agent-classifier-controls.py || exit 1; \
+		echo "    Agent interface profile controls..."; \
+		python3 scripts/test-agent-interface-profile-controls.py || exit 1; \
 		echo "    Review-journal negative controls (rejects fail, baselines pass)..."; \
 		sh scripts/test-review-journal-controls.sh || exit 1; \
 		echo "    Project-work controls..."; \

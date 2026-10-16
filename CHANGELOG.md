@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Agent interface profiles (draft).** Add a separate revisioned profile schema
+  for per-hop protocol composition, execution lifetime and context continuity,
+  and distinct delivery, execution and cursor-commit signal mappings. Include
+  synthetic examples, a normative local-reference checker and refusal controls.
+  Profiles declare interfaces; they confer no authority or qualification.
+
 - **Agent interface classifiers (draft).** Four categorical dimensions
   describe one agent interaction separately: `agent-seat-class` (who manages
   the session lifecycle), `agent-control-surface` (the selected entrypoint),

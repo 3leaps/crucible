@@ -165,6 +165,10 @@ historical observation into current authorization. Dataset descriptors and
 representations can reuse `data-artifact/v0`; this standard introduces no dataset
 publication format, protocol catalog, observation envelope or registration schema.
 
+The separate draft [agent interface profile](agent-interface-profiles.md) supplies
+a compositional profile shape for per-hop protocol bindings, continuity and
+delivery signals. Adopting these classifier values does not require that profile.
+
 These dimensions and the value schema are draft additions. They do not change
 existing classifier schemas, inference identity records or agent-wait semantics.
 The [agent-wait contract](agent-wait-contract.md) registers interest and cursor
