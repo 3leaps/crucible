@@ -1,0 +1,44 @@
+{
+  "profile_id": "cooperative-observation",
+  "revision": "1",
+  "schema_version": "0.1.0",
+  "operation": { "id": "example:cooperative-poll", "revision": "1" },
+  "endpoints": [
+    { "endpoint_id": "observer", "role": "controller" },
+    { "endpoint_id": "participant", "role": "agent" }
+  ],
+  "bindings": [
+    {
+      "binding_id": "observation-api",
+      "initiator": "participant",
+      "acceptor": "observer",
+      "surface": "session-api",
+      "transport": "tcp",
+      "protocol_stack": null
+    }
+  ],
+  "continuity": {
+    "execution_lifetime": "unknown",
+    "context_persistence": "unknown",
+    "resume": "unknown",
+    "reconnect": "unknown"
+  },
+  "delivery": {
+    "participation": "cooperative",
+    "activation": "explicit",
+    "activation_contract": { "id": "example:cooperative-activation", "revision": "1" },
+    "deduplication": "supported",
+    "deduplication_contract": { "id": "example:event-intake", "revision": "1" },
+    "reconciliation": "unknown",
+    "signals": [
+      {
+        "signal_id": "poll-commit",
+        "meaning": "cursor-committed",
+        "binding_ref": "observation-api",
+        "emitter": "participant",
+        "message": { "id": "example:poll-cycle-ack-binding", "revision": "1" },
+        "correlation": ["registration", "outcome", "event"]
+      }
+    ]
+  }
+}

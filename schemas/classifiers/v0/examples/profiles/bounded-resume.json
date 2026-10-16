@@ -1,0 +1,35 @@
+{
+  "profile_id": "bounded-resume",
+  "revision": "1",
+  "schema_version": "0.1.0",
+  "operation": { "id": "example:resume-and-run", "revision": "1" },
+  "endpoints": [
+    { "endpoint_id": "host", "role": "controller" },
+    { "endpoint_id": "worker", "role": "agent" }
+  ],
+  "bindings": [
+    {
+      "binding_id": "invocation-stream",
+      "initiator": "host",
+      "acceptor": "worker",
+      "surface": "invocation",
+      "transport": "stdio",
+      "protocol_stack": [
+        { "role": "application", "protocol": { "id": "example:invocation-output", "revision": "1" } }
+      ]
+    }
+  ],
+  "continuity": {
+    "execution_lifetime": "bounded",
+    "context_persistence": "durable",
+    "resume": "supported",
+    "reconnect": "unsupported"
+  },
+  "delivery": {
+    "participation": "native",
+    "activation": "none",
+    "deduplication": "unknown",
+    "reconciliation": "unsupported",
+    "signals": []
+  }
+}

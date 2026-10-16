@@ -1,0 +1,5 @@
+{
+  "agent-seat-class": "headless",
+  "agent-control-surface": "session-api",
+  "agent-transport": "stdio"
+}

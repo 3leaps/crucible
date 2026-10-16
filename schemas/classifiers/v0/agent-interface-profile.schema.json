@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.3leaps.dev/classifiers/v0/agent-interface-profile.schema.json",
+  "title": "Agent Interface Profile (Draft)",
+  "description": "A revisioned declaration for one operation and interface composition. Not a live attachment, observation, credential, grant or execution receipt. Validate cross-references with the companion normative checker.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_id", "revision", "schema_version", "operation", "endpoints", "bindings", "continuity", "delivery"],
+  "properties": {
+    "profile_id": { "$ref": "#/$defs/key" },
+    "revision": { "$ref": "#/$defs/revision" },
+    "schema_version": { "const": "0.1.0" },
+    "operation": { "$ref": "#/$defs/pin" },
+    "endpoints": {
+      "type": "array", "minItems": 2, "maxItems": 32,
+      "items": { "$ref": "#/$defs/endpoint" }
+    },
+    "bindings": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": { "$ref": "#/$defs/binding" }
+    },
+    "continuity": { "$ref": "#/$defs/continuity" },
+    "delivery": { "$ref": "#/$defs/delivery" }
+  },
+  "$defs": {
+    "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "reference": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$" },
+    "revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$" },
+    "pin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "revision"],
+      "properties": {
+        "id": { "$ref": "#/$defs/reference" },
+        "revision": { "$ref": "#/$defs/revision" }
+      }
+    },
+    "support": { "enum": ["unknown", "unsupported", "supported"] },
+    "endpoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["endpoint_id", "role"],
+      "properties": {
+        "endpoint_id": { "$ref": "#/$defs/key" },
+        "role": { "enum": ["controller", "intermediary", "agent"] }
+      }
+    },
+    "protocolLayer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "protocol"],
+      "properties": {
+        "role": { "enum": ["application", "envelope", "framing", "security"] },
+        "protocol": { "$ref": "#/$defs/pin" }
+      }
+    },
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["binding_id", "initiator", "acceptor", "surface", "transport", "protocol_stack"],
+      "properties": {
+        "binding_id": { "$ref": "#/$defs/key" },
+        "initiator": { "$ref": "#/$defs/key" },
+        "acceptor": { "$ref": "#/$defs/key" },
+        "surface": { "$ref": "agent-interface.schema.json#/$defs/controlSurface" },
+        "transport": { "$ref": "agent-interface.schema.json#/$defs/transport" },
+        "protocol_stack": {
+          "description": "Application outward toward the carrier, in encapsulation order. Null explicitly means composition unknown; no empty/partial stack may claim a complete composition.",
+          "anyOf": [
+            { "type": "null" },
+            { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/protocolLayer" } }
+          ]
+        }
+      }
+    },
+    "continuity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["execution_lifetime", "context_persistence", "resume", "reconnect"],
+      "properties": {
+        "execution_lifetime": { "enum": ["unknown", "bounded", "resident"] },
+        "context_persistence": { "enum": ["unknown", "volatile", "durable"] },
+        "resume": { "$ref": "#/$defs/support" },
+        "reconnect": { "$ref": "#/$defs/support" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "resume": { "const": "supported" } }, "required": ["resume"] },
+          "then": { "properties": { "context_persistence": { "const": "durable" } } }
+        }
+      ]
+    },
+    "signal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["signal_id", "meaning", "binding_ref", "emitter", "message", "correlation"],
+      "properties": {
+        "signal_id": { "$ref": "#/$defs/key" },
+        "meaning": { "enum": ["delivery-received", "execution-started", "execution-completed", "cursor-committed"] },
+        "binding_ref": { "$ref": "#/$defs/key" },
+        "emitter": { "$ref": "#/$defs/key" },
+        "message": { "$ref": "#/$defs/pin" },
+        "correlation": {
+          "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true,
+          "items": { "enum": ["operation", "logical-session", "incarnation", "registration", "outcome", "event"] }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "meaning": { "const": "cursor-committed" } }, "required": ["meaning"] },
+          "then": {
+            "properties": { "correlation": { "allOf": [
+              { "contains": { "const": "registration" } },
+              { "contains": { "const": "outcome" } }
+            ] } }
+          },
+          "else": { "properties": { "correlation": { "contains": { "const": "operation" } } } }
+        }
+      ]
+    },
+    "delivery": {
+      "type": "object", "additionalProperties": false,
+      "required": ["participation", "activation", "deduplication", "reconciliation", "signals"],
+      "properties": {
+        "participation": { "enum": ["unknown", "native", "cooperative", "provider-mediated"] },
+        "activation": { "enum": ["unknown", "none", "explicit"] },
+        "deduplication": { "$ref": "#/$defs/support" },
+        "reconciliation": { "$ref": "#/$defs/support" },
+        "signals": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/signal" } },
+        "deduplication_contract": { "$ref": "#/$defs/pin" },
+        "reconciliation_contract": { "$ref": "#/$defs/pin" },
+        "activation_contract": { "$ref": "#/$defs/pin" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "deduplication": { "const": "supported" } }, "required": ["deduplication"] },
+          "then": { "required": ["deduplication_contract"] },
+          "else": { "not": { "required": ["deduplication_contract"] } }
+        },
+        {
+          "if": { "properties": { "reconciliation": { "const": "supported" } }, "required": ["reconciliation"] },
+          "then": { "required": ["reconciliation_contract"] },
+          "else": { "not": { "required": ["reconciliation_contract"] } }
+        },
+        {
+          "if": { "properties": { "activation": { "const": "explicit" } }, "required": ["activation"] },
+          "then": { "required": ["activation_contract"] },
+          "else": { "not": { "required": ["activation_contract"] } }
+        }
+      ]
+    }
+  }
+}

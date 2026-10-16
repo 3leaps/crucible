@@ -76,7 +76,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── agentic/
 │   │   └── roles/             # AI agent role prompts (20 definitions)
 │   └── classifiers/
-│       └── dimensions/        # Classifier dimension definitions (7 dimensions)
+│       └── dimensions/        # Classifier dimension definitions (11 dimensions)
 ├── docs/                      # Standards documentation
 │   ├── catalog/               # Reusable templates and indexes
 │   │   ├── classifiers/       # Classifier dimension catalog

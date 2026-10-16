@@ -59,6 +59,14 @@ If you vendor anything, vendor **dimension configs + schemas together** so valid
 | `volume-tier`         | 2    | `docs/standards/volume-tier-classification.md`         | `config/classifiers/dimensions/volume-tier.dimension.json`         |
 | `velocity-mode`       | 2    | `docs/standards/velocity-mode-classification.md`       | `config/classifiers/dimensions/velocity-mode.dimension.json`       |
 
+Draft domain-specific dimensions for agent interfaces are listed in the
+[classifiers catalog](../catalog/classifiers/README.md) and share the
+[agent interface standard](agent-interface-classification.md). They classify
+session relationships, entrypoints, carriers and evidence-derived confidence;
+their values do not confer authority. The companion
+[agent interface profiles](agent-interface-profiles.md) standard describes
+per-hop protocols, continuity and signal mappings.
+
 Tier meaning:
 
 - **Tier 1**: universal infrastructure dimensions (applies almost everywhere)

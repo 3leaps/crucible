@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "agent-seat-class",
+  "name": "Agent Seat Class",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "The lifecycle-control relationship for one addressed agent session in a declared context, not a property of a harness product or physical machine. A seat has tool use and session continuity. Classification describes the relationship; it does not establish authority or consent.",
+  "categorical": {
+    "values": [
+      { "key": "unknown", "label": "Unknown", "description": "The lifecycle-control relationship has not been established.", "order": 0, "is_none": false },
+      { "key": "live", "label": "Live seat", "description": "An operator-controlled interactive session participating through a cooperative mechanism, without delegating its native lifecycle to the connecting host. An unattended terminal remains live.", "order": 1, "is_none": false },
+      { "key": "headless", "label": "Headless seat", "description": "A session whose native lifecycle is managed by the owning host under an explicit delegation. An optional attached user interface does not itself transfer that ownership.", "order": 2, "is_none": false },
+      { "key": "hosted", "label": "Hosted agent", "description": "A session whose runtime lifecycle is managed by an external agent provider. Access through a provider API does not confer ownership of that runtime.", "order": 3, "is_none": false }
+    ],
+    "index_strategy": {
+      "default_order": ["unknown", "live", "headless", "hosted"],
+      "missing_handling": "error"
+    }
+  },
+  "governance": { "owner": "3leaps-core", "reviewers": ["platform", "security"], "review_cycle": "quarterly", "last_updated": "2026-10-15" },
+  "examples": [
+    { "dataset": "interactive session participating through an opted-in waiter", "value": "live" },
+    { "dataset": "host-supervised session on a rented cloud machine", "value": "headless" },
+    { "dataset": "provider-managed agent reached through a provider trigger", "value": "hosted" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.3leaps.dev/classifiers/v0/agent-interface.schema.json",
+  "title": "Agent Interface Classifier Values (Draft)",
+  "description": "A nonempty selection of agent classifier dimensions for a consumer-bound subject. Validates vocabulary only, not identity, evidence, permission or compatibility. Consumers declare adopted dimensions and bind the subject, revision and assessment evidence separately.",
+  "type": "object",
+  "minProperties": 1,
+  "additionalProperties": false,
+  "properties": {
+    "agent-seat-class": { "$ref": "#/$defs/seatClass" },
+    "agent-control-surface": { "$ref": "#/$defs/controlSurface" },
+    "agent-transport": { "$ref": "#/$defs/transport" },
+    "agent-adapter-confidence": { "$ref": "#/$defs/adapterConfidence" }
+  },
+  "$defs": {
+    "seatClass": { "type": "string", "enum": ["unknown", "live", "headless", "hosted"] },
+    "controlSurface": { "type": "string", "enum": ["unknown", "interactive-ui", "invocation", "session-api", "embedded-api"] },
+    "transport": { "type": "string", "enum": ["unknown", "stdio", "unix-socket", "named-pipe", "tcp", "in-process"] },
+    "adapterConfidence": { "type": "string", "enum": ["unknown", "never-qualified", "known-broken", "drift-or-stale", "untested-no-drift", "qualified"] }
+  }
+}

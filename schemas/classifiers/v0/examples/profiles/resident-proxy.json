@@ -1,0 +1,75 @@
+{
+  "profile_id": "resident-proxy",
+  "revision": "1",
+  "schema_version": "0.1.0",
+  "operation": { "id": "example:submit-turn", "revision": "1" },
+  "endpoints": [
+    { "endpoint_id": "host", "role": "controller" },
+    { "endpoint_id": "proxy", "role": "intermediary" },
+    { "endpoint_id": "worker", "role": "agent" }
+  ],
+  "bindings": [
+    {
+      "binding_id": "local-control",
+      "initiator": "host",
+      "acceptor": "proxy",
+      "surface": "session-api",
+      "transport": "unix-socket",
+      "protocol_stack": [
+        { "role": "application", "protocol": { "id": "example:control-api", "revision": "1" } },
+        { "role": "framing", "protocol": { "id": "example:line-json", "revision": "1" } }
+      ]
+    },
+    {
+      "binding_id": "native-stream",
+      "initiator": "proxy",
+      "acceptor": "worker",
+      "surface": "session-api",
+      "transport": "stdio",
+      "protocol_stack": [
+        { "role": "application", "protocol": { "id": "example:turn-api", "revision": "1" } },
+        { "role": "envelope", "protocol": { "id": "example:rpc-envelope", "revision": "1" } },
+        { "role": "framing", "protocol": { "id": "example:line-json", "revision": "1" } }
+      ]
+    }
+  ],
+  "continuity": {
+    "execution_lifetime": "resident",
+    "context_persistence": "durable",
+    "resume": "supported",
+    "reconnect": "supported"
+  },
+  "delivery": {
+    "participation": "native",
+    "activation": "none",
+    "deduplication": "unsupported",
+    "reconciliation": "supported",
+    "reconciliation_contract": { "id": "example:turn-query", "revision": "1" },
+    "signals": [
+      {
+        "signal_id": "proxy-received",
+        "meaning": "delivery-received",
+        "binding_ref": "local-control",
+        "emitter": "proxy",
+        "message": { "id": "example:input-received", "revision": "1" },
+        "correlation": ["operation"]
+      },
+      {
+        "signal_id": "native-started",
+        "meaning": "execution-started",
+        "binding_ref": "native-stream",
+        "emitter": "worker",
+        "message": { "id": "example:turn-started", "revision": "1" },
+        "correlation": ["operation", "logical-session", "incarnation"]
+      },
+      {
+        "signal_id": "native-completed",
+        "meaning": "execution-completed",
+        "binding_ref": "native-stream",
+        "emitter": "worker",
+        "message": { "id": "example:turn-completed", "revision": "1" },
+        "correlation": ["operation", "logical-session", "incarnation"]
+      }
+    ]
+  }
+}
