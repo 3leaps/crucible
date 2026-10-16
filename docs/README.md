@@ -107,6 +107,7 @@ Reusable templates and reference materials.
 
 Current release documentation.
 
+- [v0.1.34.md](releases/v0.1.34.md) - Draft agent interface classifiers and profiles, and faster offline contract checks
 - [v0.1.33.md](releases/v0.1.33.md) - Experimental durable queue and durable record, verified release keys, and faster contract checks
 - [v0.1.32.md](releases/v0.1.32.md) - Experimental segmented snapshots, attribution checks, and native contract validation
 - [v0.1.31.md](releases/v0.1.31.md) - Inference paths, application control, and verified toolchain

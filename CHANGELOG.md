@@ -7,13 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.1.34] - 2026-10-16
 
-- **Agent interface profiles (draft).** Add a separate revisioned profile schema
-  for per-hop protocol composition, execution lifetime and context continuity,
-  and distinct delivery, execution and cursor-commit signal mappings. Include
-  synthetic examples, a normative local-reference checker and refusal controls.
-  Profiles declare interfaces; they confer no authority or qualification.
+### Added
 
 - **Agent interface classifiers (draft).** Four categorical dimensions
   describe one agent interaction separately: `agent-seat-class` (who manages
@@ -25,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The standard is `docs/standards/agent-interface-classification.md`.
   `scripts/test-agent-classifier-controls.py` checks schema/dimension parity
   and refusal cases.
+
+- **Agent interface profiles (draft).** Add a separate revisioned profile schema
+  for per-hop protocol composition, execution lifetime and context continuity,
+  and distinct delivery, execution and cursor-commit signal mappings. Include
+  synthetic examples, a normative local-reference checker and refusal controls.
+  Profiles declare interfaces; they confer no authority or qualification.
 
 ### Changed
 
@@ -1185,7 +1187,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.33...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.34...HEAD
+[0.1.34]: https://github.com/3leaps/crucible/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/3leaps/crucible/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/3leaps/crucible/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/3leaps/crucible/compare/v0.1.30...v0.1.31

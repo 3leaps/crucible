@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.33](https://img.shields.io/badge/version-0.1.33-blue)
+![Version: 0.1.34](https://img.shields.io/badge/version-0.1.34-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -107,7 +107,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── agentic/v0/            # Role prompt schema
 │   ├── ailink/v0/             # AILink prompt/response schemas
 │   ├── auth/v0/               # Session artifact schema
-│   ├── classifiers/v0/        # Classifier dimension meta-schemas
+│   ├── classifiers/v0/        # Classifier meta-schemas, agent interface schemas
 │   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
@@ -273,6 +273,17 @@ journal, and a stratum profile that declares durability and supported deletion
 scope. An experimental
 [schema bundle and reject fixtures](schemas/durable-record/v0/README.md) accompany it.
 See [ADR-0013](docs/decisions/ADR-0013-durable-record-contract.md).
+
+### Draft agent interface classifiers and profiles
+
+Draft [agent interface classifiers](docs/standards/agent-interface-classification.md)
+describe one agent interaction along separate dimensions: session lifecycle
+relationship, selected entrypoint, carrier per connection hop, and
+evidence-derived adapter confidence. A companion
+[profile standard](docs/standards/agent-interface-profiles.md) declares per-hop
+protocol stacks, execution and context continuity, and distinct delivery,
+execution and cursor-commit signals. Values and profiles describe interfaces;
+they confer no authority.
 
 ### Published schema assets
 
