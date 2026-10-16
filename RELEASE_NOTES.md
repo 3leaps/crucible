@@ -10,6 +10,33 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.1.34 (2026-10-16)
+
+**Draft agent interface classifiers and profiles, and faster offline contract
+checks.**
+
+- **Agent interface classifiers (draft)**: four categorical dimensions describe
+  one agent interaction separately: who manages the session lifecycle
+  (`agent-seat-class`), the selected entrypoint (`agent-control-surface`), the
+  carrier at one connection boundary (`agent-transport`) and an
+  evidence-derived adapter assessment (`agent-adapter-confidence`). Policies
+  accept explicit confidence states rather than thresholds. Values describe
+  interfaces; they confer no authority.
+- **Agent interface profiles (draft)**: a companion profile schema declares
+  per-hop protocol stacks, execution lifetime and context continuity, and
+  distinct delivery, execution and cursor-commit signals, with synthetic
+  examples and a local checker. A profile is a declaration, not a grant or a
+  qualification.
+- **CI and toolchain**: Windows contract checks run as three parallel shards
+  with a coverage guard; schema validation runs offline by default; goneat
+  advances to v0.6.4 and the glibc tools runner to v0.5.10, and Check asserts
+  the runner's goneat matches the pin. Goneat v0.6.4 no longer probes package
+  managers on every command, which shortens each validator invocation.
+
+See [docs/releases/v0.1.34.md](docs/releases/v0.1.34.md).
+
+---
+
 ## v0.1.33 (2026-10-12)
 
 **Experimental durable queue and durable record contracts, verified release
@@ -60,29 +87,3 @@ contract validation.**
   state, review gates and explicit authority for irreversible actions.
 
 See [docs/releases/v0.1.32.md](docs/releases/v0.1.32.md).
-
----
-
-## v0.1.31 (2026-09-17)
-
-**Portable identities for inference paths, a deny-by-default application
-control contract, and a verified development toolchain.**
-
-- **Inference path taxonomy (proposed)** — `inference-path-taxonomy/v0`
-  separates parties, model families, exact source-native model pins, and
-  declared routes without claiming observed execution, health, or billing
-  identity.
-- **Application control and observation (proposed)** —
-  `application-control/v0` defines transport-neutral discovery, catalogs,
-  replay-safe requests, observations, and decision/effect evidence while
-  keeping hosted content sessions outside the control boundary. ADR-0010,
-  DDR-0001, and SecDR-0001 record its architecture, data, and authority model.
-- **Release-signing key rotation** — the committed OpenPGP public-key pin now
-  matches the current signing key. The release workflow verifies annotated tags
-  against this pin before publication.
-- **Verified development bootstrap** — sfetch is pinned to v0.4.12 and installed
-  through an immutable, digest-checked verification engine; Goneat is pinned to
-  v0.6.0. Check and release jobs use the v0.5.6 glibc runner carrying the same
-  Goneat release.
-
-See [docs/releases/v0.1.31.md](docs/releases/v0.1.31.md).
