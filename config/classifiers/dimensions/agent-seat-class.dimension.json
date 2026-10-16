@@ -23,6 +23,6 @@
   "examples": [
     { "dataset": "interactive session participating through an opted-in waiter", "value": "live" },
     { "dataset": "host-supervised session on a rented cloud machine", "value": "headless" },
-    { "dataset": "provider-managed agent reached through an authorized trigger", "value": "hosted" }
+    { "dataset": "provider-managed agent reached through a provider trigger", "value": "hosted" }
   ]
 }
