@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Agent interface classifiers (draft).** Four categorical dimensions
+  describe one agent interaction separately: `agent-seat-class` (who manages
+  the session lifecycle), `agent-control-surface` (the selected entrypoint),
+  `agent-transport` (the carrier at one connection boundary) and
+  `agent-adapter-confidence` (an evidence-derived assessment; policies accept
+  explicit states rather than thresholds). `schemas/classifiers/v0/agent-interface.schema.json`
+  validates a nonempty selection of values only; it confers no authority.
+  The standard is `docs/standards/agent-interface-classification.md`.
+  `scripts/test-agent-classifier-controls.py` checks schema/dimension parity
+  and refusal cases.
+
 ### Changed
 
 - **Check job timeouts** are 20 minutes on Linux and 25 minutes per Windows

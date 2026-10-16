@@ -82,7 +82,7 @@ or delivery patterns; they are not transport values either. Reference records
 can describe a composition, with separate request and observation connections.
 Do not flatten that composition into a supposedly universal mechanism enum.
 
-Product parties, exact protocol versions, species profiles and adapter builds
+Product parties, exact protocol versions, agent profiles and adapter builds
 are revisioned reference **instances**, not classifier values. Keep their opaque
 IDs and exact revisions in the consuming catalog. Inference party records may
 use the `harness` role in [inference-path-taxonomy/v0](../../schemas/inference-path-taxonomy/v0/README.md).
@@ -155,7 +155,7 @@ expiry, revocation and other authorization requirements.
 | Kind | Changes when | Home |
 | --- | --- | --- |
 | Shape and normative meaning | Consumers must interpret a different contract | Versioned schema and standard |
-| Reference instance | New vendor, model, species or protocol fact | Revisioned catalog records |
+| Reference instance | New vendor, model, product or protocol fact | Revisioned catalog records |
 | Observation | A producer measures a particular machine/build/operation | Attributed evidence with validity conditions |
 | Authority | A principal grants, expires or revokes permission | Consumer-specific authorization/registration system |
 
