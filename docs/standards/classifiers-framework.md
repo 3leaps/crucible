@@ -63,7 +63,9 @@ Draft domain-specific dimensions for agent interfaces are listed in the
 [classifiers catalog](../catalog/classifiers/README.md) and share the
 [agent interface standard](agent-interface-classification.md). They classify
 session relationships, entrypoints, carriers and evidence-derived confidence;
-their values do not confer authority.
+their values do not confer authority. The companion
+[agent interface profiles](agent-interface-profiles.md) standard describes
+per-hop protocols, continuity and signal mappings.
 
 Tier meaning:
 

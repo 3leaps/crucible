@@ -79,6 +79,8 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 **Domain-scoped (opt-in, not universal baseline):**
 
 - [data-engineering/data-pipeline-principles.md](standards/data-engineering/data-pipeline-principles.md) - Durable data-pipeline engineering principles (28 across 5 axes; EPR-class)
+- [agent-interface-classification.md](standards/agent-interface-classification.md) - Agent session, entrypoint, carrier and adapter-confidence dimensions (draft)
+- [agent-interface-profiles.md](standards/agent-interface-profiles.md) - Agent interface profiles: per-hop protocols, continuity and signal mappings (draft)
 
 ### [Decisions](decisions/)
 

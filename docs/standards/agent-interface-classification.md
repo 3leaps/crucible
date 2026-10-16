@@ -119,7 +119,8 @@ The consumer evaluates an assessment for one required operation and scope:
   scope was searched; do not make an estate-wide claim from one machine.
 - **Red / known broken:** applicable evidence demonstrates a required behavior
   or compatibility check fails. A read timeout alone is not proof the remote
-  operation did not execute.
+  operation did not execute. A missed deadline can still demonstrate failure of
+  a required timely-response behavior.
 - **Orange / drift or stale:** a baseline exists but a relevant change or expired
   validity condition prevents its use. Changed bytes do not themselves prove
   incompatibility; stale qualification does not mean the target is broken.
