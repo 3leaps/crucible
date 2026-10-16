@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "agent-control-surface",
+  "name": "Agent Control Surface",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "The kind of entrypoint selected for an agent interaction. Classify the entrypoint, not all surfaces a product offers. Deployment topology, transport, protocol and permission to use the surface are separate.",
+  "categorical": {
+    "values": [
+      { "key": "unknown", "label": "Unknown", "description": "The selected entrypoint has not been classified.", "order": 0, "is_none": false },
+      { "key": "interactive-ui", "label": "Interactive UI", "description": "A terminal, desktop, browser or IDE interaction surface intended for its operator. This label does not authorize automation or input injection.", "order": 1, "is_none": false },
+      { "key": "invocation", "label": "Bounded invocation", "description": "A non-interactive executable invocation that receives one unit of work and terminates. Streaming its output does not make it a session API.", "order": 2, "is_none": false },
+      { "key": "session-api", "label": "Session or run API", "description": "A message-based API for session or run operations, including triggers, prompts, observation and lifecycle requests. It may use a child-process stream or a local or remote server.", "order": 3, "is_none": false },
+      { "key": "embedded-api", "label": "Embedded API", "description": "A library call boundary hosting or exposing an agent loop within the caller's process. A library wrapping a remote API does not make the remote boundary embedded.", "order": 4, "is_none": false }
+    ],
+    "index_strategy": {
+      "default_order": ["unknown", "interactive-ui", "invocation", "session-api", "embedded-api"],
+      "missing_handling": "error"
+    }
+  },
+  "governance": { "owner": "3leaps-core", "reviewers": ["platform", "security"], "review_cycle": "quarterly", "last_updated": "2026-10-15" },
+  "examples": [
+    { "dataset": "agent protocol exchanged over an owned child process stream", "value": "session-api" },
+    { "dataset": "provider trigger accepting a new run", "value": "session-api" },
+    { "dataset": "single prompt command with streaming result output", "value": "invocation" }
+  ]
+}

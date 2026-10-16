@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "agent-transport",
+  "name": "Agent Transport",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "The carrier at one declared connection boundary. Protocols, framing, encryption, wake behavior and delivery evidence are separate. Classify each hop independently rather than treating a proxy chain as one transport.",
+  "categorical": {
+    "values": [
+      { "key": "unknown", "label": "Unknown", "description": "The carrier at this boundary has not been established or is outside the current vocabulary.", "order": 0, "is_none": false },
+      { "key": "stdio", "label": "Standard streams", "description": "Communication through a process's standard input and output streams.", "order": 1, "is_none": false },
+      { "key": "unix-socket", "label": "Unix domain socket", "description": "Communication through a Unix domain socket. The label makes no authentication or ownership claim.", "order": 2, "is_none": false },
+      { "key": "named-pipe", "label": "Named pipe", "description": "Communication through an operating-system named pipe.", "order": 3, "is_none": false },
+      { "key": "tcp", "label": "TCP", "description": "Communication over TCP, including loopback connections. Application framing and TLS are separately declared.", "order": 4, "is_none": false },
+      { "key": "in-process", "label": "In process", "description": "Communication through a library call or event boundary within one process.", "order": 5, "is_none": false }
+    ],
+    "index_strategy": {
+      "default_order": ["unknown", "stdio", "unix-socket", "named-pipe", "tcp", "in-process"],
+      "missing_handling": "error"
+    }
+  },
+  "governance": { "owner": "3leaps-core", "reviewers": ["platform", "security"], "review_cycle": "quarterly", "last_updated": "2026-10-15" },
+  "examples": [
+    { "dataset": "client-to-proxy local socket hop", "value": "unix-socket" },
+    { "dataset": "proxy-to-agent child process hop", "value": "stdio" },
+    { "dataset": "HTTPS request over a TCP connection", "value": "tcp" }
+  ]
+}

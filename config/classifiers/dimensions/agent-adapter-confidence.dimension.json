@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "agent-adapter-confidence",
+  "name": "Agent Adapter Confidence",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "An evidence-derived assessment for an adapter revision, observed agent build or surface revision, operation and machine/configuration scope. A dated assessment may be retained; its current applicability must be rechecked. Display order is not an assurance ordering or dispatch permission. Confidence never strengthens an observed outcome or grants consent.",
+  "categorical": {
+    "values": [
+      { "key": "unknown", "label": "Unknown", "description": "Available evidence is insufficient to derive a current assessment. This is not a claim that qualification never occurred.", "order": 0, "is_none": false },
+      { "key": "never-qualified", "label": "Grey: never qualified", "description": "The assessed adapter/surface has no qualification baseline in the declared evidence scope, or no adapter exists.", "order": 1, "is_none": false },
+      { "key": "known-broken", "label": "Red: known broken", "description": "Applicable evidence demonstrates failure of a required operation or compatibility check. Missing observations alone do not establish breakage.", "order": 2, "is_none": false },
+      { "key": "drift-or-stale", "label": "Orange: drift or stale evidence", "description": "A baseline exists, but a relevant contract/configuration change is detected or its qualification/freshness conditions no longer hold. This is not proof of breakage.", "order": 3, "is_none": false },
+      { "key": "untested-no-drift", "label": "Yellow: untested, no detected drift", "description": "The current build is unqualified, but a declared comparable contract matches a qualified baseline and current required canaries pass. Missing contract evidence or a small version increment alone is insufficient.", "order": 4, "is_none": false },
+      { "key": "qualified", "label": "Green: qualified", "description": "Qualification covers the exact adapter and observed build/surface revision, required operation and configuration/platform scope; required current canaries and freshness conditions hold.", "order": 5, "is_none": false }
+    ],
+    "index_strategy": {
+      "default_order": ["unknown", "never-qualified", "known-broken", "drift-or-stale", "untested-no-drift", "qualified"],
+      "missing_handling": "error"
+    }
+  },
+  "governance": { "owner": "3leaps-core", "reviewers": ["platform", "security"], "review_cycle": "quarterly", "last_updated": "2026-10-15" },
+  "examples": [
+    { "dataset": "required operation qualified for the current adapter, build and configuration with current canaries", "value": "qualified" },
+    { "dataset": "new unqualified build with matching comparable contract and passing current canaries", "value": "untested-no-drift" },
+    { "dataset": "qualification evidence cannot be obtained", "value": "unknown" }
+  ]
+}
