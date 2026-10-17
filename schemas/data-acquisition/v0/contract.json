@@ -1,0 +1,9 @@
+{
+  "capability": "contract: data-acquisition/v0",
+  "entry_schema": "source-policy.schema.json",
+  "object_schemas": {
+    "acquisition_plan": "acquisition-plan.schema.json",
+    "registration_result": "registration-result.schema.json"
+  },
+  "status": "proposed"
+}

@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:data-acquisition/v0/acquisition-plan.schema.json",
+  "title": "Data Acquisition Plan",
+  "description": "Proposed portable shape. Semantic checks and runtime authority qualification are separate; schema acceptance grants no execution or export authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "v",
+    "plan_id",
+    "policy",
+    "target_set_version",
+    "work_manifest",
+    "created_at",
+    "start_at",
+    "recurring",
+    "original_scope",
+    "effective_scope",
+    "execution_authorization",
+    "registration_requirement"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": {
+        "const": "contract: data-acquisition/v0"
+      },
+      "items": {
+        "type": "string"
+      }
+    },
+    "v": {
+      "const": 0
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "policy": {
+      "$ref": "#/$defs/pin"
+    },
+    "target_set_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "work_manifest": {
+      "$ref": "#/$defs/pin"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "recurring": {
+      "type": "boolean"
+    },
+    "cadence_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 315360000
+    },
+    "effective_cadence_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 315360000
+    },
+    "original_scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "effective_scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "compromise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "chosen_by",
+        "chosen_at",
+        "reason",
+        "declared_scope_limit",
+        "exclusions"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "lower_frequency",
+            "fewer_targets",
+            "time_scope"
+          ]
+        },
+        "chosen_by": {
+          "$ref": "#/$defs/actor"
+        },
+        "chosen_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "declared_scope_limit": {
+          "$ref": "#/$defs/scope"
+        },
+        "effective_cadence_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 315360000
+        },
+        "exclusions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "execution_authorization": {
+      "const": "none"
+    },
+    "registration_requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "required_before_execution"
+      ],
+      "properties": {
+        "key": {
+          "const": "entity/source"
+        },
+        "required_before_execution": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "recurring": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "cadence_seconds",
+          "effective_cadence_seconds"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "cadence_seconds"
+              ]
+            },
+            {
+              "required": [
+                "effective_cadence_seconds"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "role",
+            "seat"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_ids",
+        "time_scope"
+      ],
+      "properties": {
+        "target_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "uniqueItems": true
+        },
+        "time_scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}
