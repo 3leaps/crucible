@@ -13,6 +13,7 @@ the baseline; an absent object is the corresponding file in examples/.
 import copy
 import datetime as dt
 import hashlib
+import importlib.util
 import json
 import pathlib
 import re
@@ -27,6 +28,12 @@ EXAMPLES = BASE / "examples"
 REJECTS = BASE / "rejects"
 STANDARD = ROOT / "docs/standards/data-acquisition-contract.md"
 KINDS = ("source-policy", "acquisition-plan", "registration-result")
+_tspec = importlib.util.spec_from_file_location(
+    "rfc3339", ROOT / "scripts/rfc3339-instant.py"
+)
+_rfc3339 = importlib.util.module_from_spec(_tspec)
+_tspec.loader.exec_module(_rfc3339)
+_FRACTION = re.compile(r"T\d{2}:\d{2}:\d{2}\.(\d+)")
 BASELINE = {
     "source-policy": EXAMPLES / "source-policy.json",
     "acquisition-plan": EXAMPLES / "acquisition-plan.json",
@@ -52,10 +59,17 @@ def strict_load(raw):
 
 
 def instant(value):
+    """Exact UTC instant. This checker resolves microseconds and refuses any
+    finer non-zero fraction rather than truncating it."""
+    require(isinstance(value, str) and value.endswith("Z"), "utc_required")
+    m = _FRACTION.search(value)
+    require(
+        not (m and len(m.group(1)) > 6 and m.group(1)[6:].strip("0")),
+        "unrepresentable_precision",
+    )
     try:
-        require(value.endswith("Z"), "utc_required")
-        return dt.datetime.fromisoformat(value[:-1] + "+00:00")
-    except (ValueError, TypeError):
+        return _rfc3339.parse_rfc3339(value)
+    except ValueError:
         raise Refusal("invalid_time")
 
 
@@ -139,6 +153,7 @@ def semantic(policy, plan, result, policy_bytes, plan_bytes):
                 require(value in dimension["values"], "variant_outside_vocabulary")
             if dimension["kind"] == "timestamp":
                 instant(value)
+        require(set(target["variants"]) == set(dimensions), "missing_variant")
     expected_policy = {"id": policy["policy_id"], "digest": digest(policy_bytes)}
     require(plan["policy"] == expected_policy, "policy_pin_mismatch")
     require(
@@ -357,6 +372,33 @@ def positive_controls():
     boundary = copy.deepcopy(registered)
     boundary["allocation"]["requests"] = 480
     semantic(policy, plan, boundary, policy_bytes, plan_bytes)
+    # An interval just over 60 windows spans 61, so 61 * 8 requests fit.
+    boundary["allocation"]["closes_at"] = "2026-01-02T00:01:00.000001Z"
+    boundary["allocation"]["requests"] = 488
+    semantic(policy, plan, boundary, policy_bytes, plan_bytes)
+    # Exact instants: equal creation and start, and a microsecond fraction
+    # with zero padding beyond six digits, are both accepted.
+    same = copy.deepcopy(plan)
+    same["created_at"] = same["start_at"] = "2026-01-02T00:00:00.000001000Z"
+    semantic(policy, same, None, policy_bytes, encoded(same))
+    # Target bounds: a policy catalog holds at most 4096 targets and one plan
+    # scope selects at most 256; neither bound splits or widens the other.
+    wide = copy.deepcopy(policy)
+    template = wide["target_set"]["targets"][0]
+    wide["target_set"]["targets"] = [
+        dict(copy.deepcopy(template), id="t%04d" % i) for i in range(4096)
+    ]
+    require(shape("source-policy", wide), "policy_target_bound_accepted")
+    wide_bytes = encoded(wide)
+    selected = copy.deepcopy(plan)
+    selected["policy"]["digest"] = digest(wide_bytes)
+    ids = ["t%04d" % i for i in range(256)]
+    selected["original_scope"]["target_ids"] = ids
+    selected["effective_scope"]["target_ids"] = list(ids)
+    require(shape("acquisition-plan", selected), "plan_target_bound_accepted")
+    semantic(wide, selected, None, wide_bytes, encoded(selected))
+    wide["target_set"]["targets"].append(dict(copy.deepcopy(template), id="t4096"))
+    require(not shape("source-policy", wide), "policy_target_bound_exceeded")
     # A body-byte meter without basis projects the response_body default.
     default_policy = copy.deepcopy(policy)
     default_policy["meters"]["body_bytes"] = {
@@ -464,6 +506,29 @@ def semantic_rejects():
     return names, reasons
 
 
+def multiple_fault_rejects(documented):
+    """Inputs breaking several rules: any listed applicable reason is accepted."""
+    names = []
+    for directory in sorted((REJECTS / "multiple").glob("reject-*")):
+        expect = directory / "applicable-reasons.json"
+        allowed = strict_load(expect.read_bytes())
+        require(
+            len(allowed) >= 2 and set(allowed) <= documented,
+            "multiple_reject_reasons:" + directory.name,
+        )
+        present = [k for k in KINDS if (directory / (k + ".json")).exists()]
+        require(
+            present
+            and sorted(p.name for p in directory.iterdir())
+            == sorted([k + ".json" for k in present] + [expect.name]),
+            "multiple_reject_contents:" + directory.name,
+        )
+        got = check_case(case_paths(directory))
+        require(got in allowed, "wrong_refusal:" + directory.name + ":" + str(got))
+        names.append(directory.name[len("reject-") :])
+    return names
+
+
 def main():
     defaults = positive_controls()
     schema = schema_rejects()
@@ -476,8 +541,9 @@ def main():
         + ":unexercised="
         + ",".join(sorted(documented - reasons)),
     )
+    multiple = multiple_fault_rejects(documented)
     listed = readme_rows(REJECTS / "README.md")
-    vectors = set(schema) | set(semantic_names)
+    vectors = set(schema) | set(semantic_names) | set(multiple)
     require(
         listed == vectors,
         "rejects_readme_drift:" + ",".join(sorted(listed ^ vectors)),
@@ -488,6 +554,7 @@ def main():
                 "positive_objects": 8,
                 "schema_rejects": len(schema),
                 "semantic_rejects": len(semantic_names),
+                "multiple_fault_rejects": len(multiple),
                 "refusal_reasons": len(reasons),
                 "defaults": defaults,
                 "coverage_scope_flow": "checked",

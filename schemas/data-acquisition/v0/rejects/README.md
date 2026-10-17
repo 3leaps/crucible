@@ -25,6 +25,7 @@ passing example in exactly one field.
 | `registration-result--unavailable-allocation` | only `registered` carries an allocation |
 | `registration-result--indeterminate-without-key` | `indeterminate` requires `reconcile_key` |
 | `registration-result--registered-execution-claim` | even a registered result grants no execution |
+| `acquisition-plan--scope-over-256-targets` | one plan scope selects at most 256 targets |
 
 ## semantic/
 
@@ -37,6 +38,7 @@ checker must refuse with the reason before `--`; see the
 
 | Vector | Objects |
 | --- | --- |
+| `allocation_exceeds_policy--partial-window-over-ceiling` | registration-result |
 | `allocation_exceeds_policy--requests-over-ceiling` | registration-result |
 | `allocation_missing_meter--byte-meter-without-quantity` | acquisition-plan, registration-result, source-policy |
 | `allocation_unconfigured_meter--byte-quantity-unconfigured` | registration-result |
@@ -49,11 +51,15 @@ checker must refuse with the reason before `--`; see the
 | `duplicate_key--repeated-member` | acquisition-plan, source-policy |
 | `duplicate_target--target-declared-twice` | acquisition-plan, source-policy |
 | `invalid_allocation_window--allocation-window-empty` | registration-result |
+| `invalid_allocation_window--opens-one-microsecond-before-start` | registration-result |
 | `invalid_frequency_choice--cadence-increased-frequency` | acquisition-plan |
 | `invalid_target_choice--fewer-targets-label-on-cadence` | acquisition-plan |
 | `invalid_time--timestamp-variant-invalid` | acquisition-plan, source-policy |
+| `invalid_time--timestamp-variant-space-separator` | acquisition-plan, source-policy |
 | `invalid_time_scope_choice--time-scope-label-on-cadence` | acquisition-plan |
+| `missing_variant--declared-dimension-omitted` | acquisition-plan, source-policy |
 | `plan_time_order--created-after-start` | acquisition-plan |
+| `plan_time_order--created-one-microsecond-after-start` | acquisition-plan |
 | `policy_pin_mismatch--fabricated-policy-digest` | acquisition-plan |
 | `registration_plan_binding--fabricated-plan-digest` | registration-result |
 | `registration_policy_binding--source-differs` | registration-result |
@@ -64,6 +70,7 @@ checker must refuse with the reason before `--`; see the
 | `terms_changed--current-digest-differs` | acquisition-plan, source-policy |
 | `undeclared_target--effective-target-missing` | acquisition-plan |
 | `unknown_variant--variant-dimension-undeclared` | acquisition-plan, source-policy |
+| `unrepresentable_precision--created-after-start-submicrosecond` | acquisition-plan |
 | `unreviewed_meter_absence--absent-meters-not-listed` | acquisition-plan, source-policy |
 | `unsafe_target_url--plain-http` | acquisition-plan, source-policy |
 | `unsafe_target_url--query-string-key` | acquisition-plan, source-policy |
@@ -74,5 +81,15 @@ checker must refuse with the reason before `--`; see the
 | `zero_concurrency--concurrency-zero` | acquisition-plan, source-policy |
 | `zero_meter--body-byte-limit-zero` | acquisition-plan, source-policy |
 | `zero_meter--request-limit-zero` | acquisition-plan, source-policy |
+
+## multiple/
+
+Each `reject-<name>/` directory breaks more than one rule. The checker must refuse
+it with one of the reasons in `applicable-reasons.json`; the vocabulary sets no
+precedence between them.
+
+| Vector | Applicable reasons |
+| --- | --- |
+| `created-after-start-and-variant-offset` | `plan_time_order`, `utc_required` |
 
 Fixture data is synthetic. Identifiers are public-safe tokens.

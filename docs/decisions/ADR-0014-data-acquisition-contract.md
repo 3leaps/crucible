@@ -41,7 +41,9 @@ information-source catalog. `contract:` already supplies the contract namespace.
 
 Registration records allocation under a declared authority; runtime admission
 still checks each request. Unavailable and indeterminate are explicit outcomes.
-A stub cannot claim registered capacity. The initial profile is rolling-window,
+A stub cannot claim registered capacity. The portable reconciliation exchange is
+deferred; a qualified authority profile defines lookup and exact-original-result
+replay until it is specified. The initial profile is rolling-window,
 single-owner and experimental. Backend, scheduler, query expansion, response
 validation and storage layout remain adopter concerns.
 
@@ -52,6 +54,12 @@ validation and storage layout remain adopter concerns.
 - Reusing the application information-source catalog conflates upstream policy
   with the application's own state emitters.
 - Treating every accepted forecast as admission allows cross-plan overbooking.
+
+## Deciders
+
+`@3leapsdave` and entarch propose this record. cxotech is a prospective
+strategic decider; listing it does not record assent. The record stays proposed
+until each listed decider has actually decided.
 
 ## Consequences
 

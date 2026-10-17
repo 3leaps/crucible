@@ -67,6 +67,17 @@ authority MUST share its parent budget. Creating another plan, credential or
 worker does not create more capacity. A source domain must cover the provider's
 actual policy scope, including aliases or endpoints that share a limit.
 
+### Instants
+
+Every timestamp, including timestamp-valued variants, is an RFC 3339 date-time
+with an uppercase `Z` UTC designator. Consumers compare exact parsed instants,
+never strings. A consumer that cannot represent a value's precision exactly
+MUST refuse it rather than truncate or round, so a sub-resolution ordering can
+never pass. The wire format sets no precision limit. The fixture checker in this
+repository resolves microseconds, refuses non-zero digits beyond six, and accepts
+trailing zero digits. Its parser is the strict RFC 3339 profile, not a permissive
+ISO 8601 reader.
+
 ## Source policy
 
 Schema: `source-policy.schema.json`.
@@ -127,9 +138,19 @@ all retries, partials and crash recovery follow that convention.
 ### Targets and availability
 
 A versioned target set declares stable target IDs, endpoints and a closed set of
-variant dimensions. Enum values must be members of their declared vocabulary;
-revision values are opaque; timestamp values are UTC instants. Unknown dimensions
-and duplicate target/dimension identifiers are refused.
+variant dimensions. Each target assigns every declared dimension exactly once;
+`variants` is empty only when no dimensions are declared. v0 has no omitted-
+dimension wildcard or default expansion, and optional or not-applicable
+dimensions need a future explicit model rather than inference. Enum values must
+be members of their declared vocabulary; revision values are opaque; timestamp
+values are UTC instants under the rules below. Unknown dimensions and duplicate
+target/dimension identifiers are refused.
+
+A policy catalog holds at most 4096 targets; one plan scope selects at most 256.
+These are separate bounds. A plan claims only its own selected scope, never the
+whole catalog, and a consumer MUST NOT silently split an oversized selection
+into several plans. Separate plans for one entity/source still share its parent
+budget.
 
 Every paged endpoint declares a completion rule and page-size ceiling. Cursor and
 total-count rules name their required fields. Successful HTTP status is not proof
@@ -161,8 +182,8 @@ count, size bounds and completion rules. This family does not fetch or execute
 instance-supplied references. A plan with unresolved required inputs is not ready
 for registration or execution.
 
-`original_scope` and `effective_scope` contain target IDs and a time-scope token.
-Both use the policy's target vocabulary. A recurring plan declares original and
+`original_scope` and `effective_scope` contain between 1 and 256 unique target
+IDs and a time-scope token. Both use the policy's target vocabulary. A recurring plan declares original and
 effective cadence. One-off plans declare neither.
 
 A changed scope or cadence requires `compromise`: chooser, prior choice time,
@@ -208,14 +229,27 @@ An allocation binds a positive-duration time interval and request quantity, plus
 a quantity for each configured byte/error meter and none for an unconfigured
 meter. Each quantity MUST NOT exceed that meter's ceiling for the interval: the
 headroom-adjusted limit, rounded down, times the number of windows that the
-interval spans, rounded up. That is a bound on one allocation in isolation.
-The authority MUST check all overlapping
+interval spans, rounded up. This is a necessary bound on one allocation in
+isolation. It is not evidence that a request schedule is feasible or that every
+rolling window inside the interval is respected. The authority MUST check all overlapping
 plans against the same parent policy and persist the decision before returning
 `registered`. It must bind idempotency keys to the full proposal, return the same
 original result for a replay, and refuse conflicting reuse. An uncertain write
 requires reconciliation; silence does not mean rejection. No default expiry may
 release unknown sent-attempt exposure. Scheduling allocation and runtime attempt
 exposure are distinct lifecycles.
+
+### Reconciliation (deferred)
+
+v0 defines no portable reconciliation request or result. An `indeterminate`
+result names a `reconcile_key` only. A qualified authority profile MUST define
+the lookup identity, return the exact original result for a write it accepted,
+state its retention of reconcilable results, and say how late or in-flight
+writes are handled. An unknown or absent lookup is neither a rejection nor fresh
+capacity. A caller MUST NOT expire, or retry under a fresh idempotency key, an
+indeterminate registration. A stub `unavailable` result stays valid because it
+allocates nothing. The fixtures in this repository make no reconciliation
+conformance claim.
 
 Even a registered result carries `execution_authorization: none`: it records
 capacity, not a transferable permission to send requests. A runner still checks
@@ -248,16 +282,21 @@ behaviors. Proposed v0 schemas and publication are not stable promotion.
 
 ## Refusal reasons
 
-A conforming semantic checker refuses with the first applicable reason below.
-The names are a portable vocabulary for fixtures and adopter evidence; a
-runtime may use richer diagnostics provided it can map them to these reasons.
-Every reason has at least one reject vector under `rejects/semantic/`.
+The reasons below are a portable vocabulary for fixtures and adopter evidence,
+not a precedence algorithm. A runtime may use richer diagnostics provided it can
+map them to these reasons. An input that breaks exactly one rule MUST be refused
+with that rule's reason; an input that breaks several may be refused with any
+applicable one. Duplicate member names are always refused while reading bytes,
+before shape validation. Every reason has at least one single-fault vector under
+`rejects/semantic/`; `rejects/multiple/` holds multiple-fault vectors with their
+applicable reasons.
 
 | Reason | Refused when |
 | --- | --- |
 | `duplicate_key` | Any object repeats a member name |
 | `utc_required` | A timestamp is not written as a UTC `Z` instant |
-| `invalid_time` | A timestamp does not parse as an instant |
+| `unrepresentable_precision` | A timestamp is finer than the consumer can represent exactly |
+| `invalid_time` | A timestamp does not parse as a strict RFC 3339 instant |
 | `plan_time_order` | The plan is created after its start |
 | `terms_changed` | Current and reviewed terms digests differ |
 | `review_after_start` | A terms or meter review is later than the plan start |
@@ -270,6 +309,7 @@ Every reason has at least one reject vector under `rejects/semantic/`.
 | `duplicate_target` | A target set declares a target id twice |
 | `unsafe_target_url` | A target URL is not https or carries userinfo, query or fragment |
 | `unknown_variant` | A target uses an undeclared dimension |
+| `missing_variant` | A target does not assign every declared dimension |
 | `variant_outside_vocabulary` | An enum variant value is not declared |
 | `policy_pin_mismatch` | The plan's policy pin does not bind the policy bytes |
 | `target_set_version` | The plan names a different target-set version |
