@@ -71,6 +71,7 @@ checker must refuse with the reason before `--`; see the
 | `undeclared_target--effective-target-missing` | acquisition-plan |
 | `unknown_variant--variant-dimension-undeclared` | acquisition-plan, source-policy |
 | `unrepresentable_precision--created-after-start-submicrosecond` | acquisition-plan |
+| `unrepresentable_precision--lowercase-t-variant-submicrosecond` | acquisition-plan, source-policy |
 | `unreviewed_meter_absence--absent-meters-not-listed` | acquisition-plan, source-policy |
 | `unsafe_target_url--plain-http` | acquisition-plan, source-policy |
 | `unsafe_target_url--query-string-key` | acquisition-plan, source-policy |

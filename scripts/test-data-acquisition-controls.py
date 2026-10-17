@@ -33,7 +33,7 @@ _tspec = importlib.util.spec_from_file_location(
 )
 _rfc3339 = importlib.util.module_from_spec(_tspec)
 _tspec.loader.exec_module(_rfc3339)
-_FRACTION = re.compile(r"T\d{2}:\d{2}:\d{2}\.(\d+)")
+_FRACTION = re.compile(r"[Tt]\d{2}:\d{2}:\d{2}\.(\d+)")
 BASELINE = {
     "source-policy": EXAMPLES / "source-policy.json",
     "acquisition-plan": EXAMPLES / "acquisition-plan.json",
@@ -381,6 +381,11 @@ def positive_controls():
     same = copy.deepcopy(plan)
     same["created_at"] = same["start_at"] = "2026-01-02T00:00:00.000001000Z"
     semantic(policy, same, None, policy_bytes, encoded(same))
+    # The parser accepts a lowercase t separator; the precision guard must too.
+    require(
+        instant("2026-01-02t00:00:00.000001000Z") == instant(same["start_at"]),
+        "lowercase_t_zero_padding",
+    )
     # Target bounds: a policy catalog holds at most 4096 targets and one plan
     # scope selects at most 256; neither bound splits or widens the other.
     wide = copy.deepcopy(policy)
