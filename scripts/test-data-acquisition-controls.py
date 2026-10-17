@@ -3,6 +3,11 @@
 
 Invocation set (PDR-0006): Python 3 stdlib and goneat JSON Schema validation.
 No network requests or instance-selected executable/schema paths are used.
+
+Fixtures on disk are the vectors. Schema rejects live in rejects/schema/ as
+reject-<object>--<name>.json. Semantic rejects live in rejects/semantic/ as
+reject-<reason>--<name>/ directories holding only the objects that differ from
+the baseline; an absent object is the corresponding file in examples/.
 """
 
 import copy
@@ -10,12 +15,22 @@ import datetime as dt
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
+import sys
 import tempfile
 from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BASE = ROOT / "schemas/data-acquisition/v0"
+EXAMPLES = BASE / "examples"
+REJECTS = BASE / "rejects"
+STANDARD = ROOT / "docs/standards/data-acquisition-contract.md"
+KINDS = ("source-policy", "acquisition-plan", "registration-result")
+BASELINE = {
+    "source-policy": EXAMPLES / "source-policy.json",
+    "acquisition-plan": EXAMPLES / "acquisition-plan.json",
+}
 
 
 class Refusal(Exception):
@@ -25,6 +40,15 @@ class Refusal(Exception):
 def require(condition, reason):
     if not condition:
         raise Refusal(reason)
+
+
+def strict_load(raw):
+    def pairs(items):
+        keys = [k for k, _ in items]
+        require(len(keys) == len(set(keys)), "duplicate_key")
+        return dict(items)
+
+    return json.loads(raw, object_pairs_hook=pairs)
 
 
 def instant(value):
@@ -50,7 +74,14 @@ def same_scope(a, b):
     )
 
 
-def semantic(policy, plan, result=None, policy_bytes=None, plan_bytes=None):
+def ceiling(meter, headroom_bps, interval):
+    """Most a rolling-window meter can admit in interval, after headroom."""
+    usable = meter["limit"] * (10000 - headroom_bps) // 10000
+    windows = -(-interval // dt.timedelta(seconds=meter["window_seconds"]))
+    return usable * windows
+
+
+def semantic(policy, plan, result, policy_bytes, plan_bytes):
     start = instant(plan["start_at"])
     created = instant(plan["created_at"])
     require(created <= start, "plan_time_order")
@@ -108,10 +139,7 @@ def semantic(policy, plan, result=None, policy_bytes=None, plan_bytes=None):
                 require(value in dimension["values"], "variant_outside_vocabulary")
             if dimension["kind"] == "timestamp":
                 instant(value)
-    expected_policy = {
-        "id": policy["policy_id"],
-        "digest": digest(policy_bytes or encoded(policy)),
-    }
+    expected_policy = {"id": policy["policy_id"], "digest": digest(policy_bytes)}
     require(plan["policy"] == expected_policy, "policy_pin_mismatch")
     require(
         plan["target_set_version"] == policy["target_set"]["version"],
@@ -161,6 +189,7 @@ def semantic(policy, plan, result=None, policy_bytes=None, plan_bytes=None):
         require(
             selected < policy["deletion_window_seconds"], "cadence_reaches_deletion"
         )
+    headroom = policy.get("headroom_bps", 2000)
     if result:
         require(
             result["policy"] == expected_policy
@@ -169,105 +198,185 @@ def semantic(policy, plan, result=None, policy_bytes=None, plan_bytes=None):
             "registration_policy_binding",
         )
         require(
-            result["plan"]
-            == {"id": plan["plan_id"], "digest": digest(plan_bytes or encoded(plan))},
+            result["plan"] == {"id": plan["plan_id"], "digest": digest(plan_bytes)},
             "registration_plan_binding",
         )
         require(instant(result["recorded_at"]) >= created, "registration_time_order")
         if result["outcome"] == "registered":
             a = result["allocation"]
-            require(
-                instant(a["closes_at"]) > instant(a["opens_at"]) >= start,
-                "invalid_allocation_window",
-            )
+            opens, closes = instant(a["opens_at"]), instant(a["closes_at"])
+            require(closes > opens >= start, "invalid_allocation_window")
             require(a["requests"] > 0, "zero_allocation")
             require(
                 all(name in a for name in ("body_bytes", "errors") if name in meters),
                 "allocation_missing_meter",
             )
+            require(
+                all(name in meters for name in ("body_bytes", "errors") if name in a),
+                "allocation_unconfigured_meter",
+            )
+            # One allocation alone must fit the parent ceiling. Checking all
+            # overlapping allocations remains the registration authority's job.
+            require(
+                all(
+                    a[name] <= ceiling(meters[name], headroom, closes - opens)
+                    for name in meters
+                ),
+                "allocation_exceeds_policy",
+            )
     return {
-        "headroom_bps": policy.get("headroom_bps", 2000),
+        "headroom_bps": headroom,
         "byte_basis": meters.get("body_bytes", {}).get("basis", "response_body"),
     }
+
+
+def shape_file(kind, path):
+    completed = subprocess.run(
+        [
+            "goneat",
+            "validate",
+            "data",
+            "--schema-file",
+            str(BASE / (kind + ".schema.json")),
+            "--data",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return completed.returncode == 0
 
 
 def shape(kind, value):
     with tempfile.TemporaryDirectory(prefix="acquisition-control-") as tmp:
         path = pathlib.Path(tmp) / "instance.json"
         path.write_bytes(encoded(value))
-        completed = subprocess.run(
-            [
-                "goneat",
-                "validate",
-                "data",
-                "--schema-file",
-                str(BASE / (kind + ".schema.json")),
-                "--data",
-                str(path),
-            ],
-            capture_output=True,
-            text=True,
+        return shape_file(kind, path)
+
+
+def check_case(paths):
+    """Strict-load, shape-check and semantically check one case.
+
+    Returns None on acceptance or the refusal reason. A shape failure is
+    reported as "shape:<kind>" so a semantic vector cannot pass by accident.
+    """
+    raw = {kind: path.read_bytes() for kind, path in paths.items()}
+    try:
+        objects = {kind: strict_load(b) for kind, b in raw.items()}
+    except Refusal as error:
+        return str(error)
+    for kind, path in paths.items():
+        if not shape_file(kind, path):
+            return "shape:" + kind
+    try:
+        semantic(
+            objects["source-policy"],
+            objects["acquisition-plan"],
+            objects.get("registration-result"),
+            raw["source-policy"],
+            raw["acquisition-plan"],
         )
-        return completed.returncode == 0
+    except Refusal as error:
+        return str(error)
+    return None
 
 
-def main():
-    examples = BASE / "examples"
-    policy = json.loads((examples / "source-policy.json").read_text())
-    plan = json.loads((examples / "acquisition-plan.json").read_text())
-    schemas = [
-        json.loads((BASE / (n + ".schema.json")).read_text())
-        for n in ("source-policy", "acquisition-plan", "registration-result")
-    ]
+def case_paths(directory):
+    paths = dict(BASELINE)
+    for kind in KINDS:
+        candidate = directory / (kind + ".json")
+        if candidate.exists():
+            paths[kind] = candidate
+    return paths
+
+
+def diff_paths(a, b, at=""):
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = []
+        for key in sorted(set(a) | set(b)):
+            if key not in a or key not in b:
+                out.append(at + "/" + key)
+            else:
+                out += diff_paths(a[key], b[key], at + "/" + key)
+        return out
+    if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        out = []
+        for i, (x, y) in enumerate(zip(a, b)):
+            out += diff_paths(x, y, at + "/" + str(i))
+        return out
+    return [] if a == b else [at or "/"]
+
+
+def standard_reasons():
+    text = STANDARD.read_text()
+    section = text.split("\n## Refusal reasons\n", 1)[1].split("\n## ", 1)[0]
+    return set(re.findall(r"^\| `([a-z_]+)` +\|", section, re.M))
+
+
+def readme_rows(path):
+    return set(re.findall(r"^\| `([a-z0-9_-]+)` +\|", path.read_text(), re.M))
+
+
+def positive_controls():
+    schemas = [json.loads((BASE / (k + ".schema.json")).read_text()) for k in KINDS]
     require(
         all(s["$defs"] == schemas[0]["$defs"] for s in schemas),
         "shared_definitions_drift",
     )
-    require(
-        shape("source-policy", policy) and shape("acquisition-plan", plan),
-        "baseline_shape",
-    )
-    result = semantic(
-        policy, plan, policy_bytes=(examples / "source-policy.json").read_bytes()
-    )
+    policy_bytes = BASELINE["source-policy"].read_bytes()
+    policy = strict_load(policy_bytes)
+    plan_bytes = BASELINE["acquisition-plan"].read_bytes()
+    plan = strict_load(plan_bytes)
+    for name in ("acquisition-plan.json", "acquisition-plan-compromise.json"):
+        paths = dict(BASELINE, **{"acquisition-plan": EXAMPLES / name})
+        require(check_case(paths) is None, "baseline:" + name)
+    for outcome in ("unavailable", "rejected", "indeterminate", "registered"):
+        paths = dict(
+            BASELINE,
+            **{"registration-result": EXAMPLES / ("registration-" + outcome + ".json")},
+        )
+        require(check_case(paths) is None, "baseline:" + outcome)
+    result = semantic(policy, plan, None, policy_bytes, plan_bytes)
     require(
         result == {"headroom_bps": 2000, "byte_basis": "response_body"},
         "default_projection",
     )
     require(
         plan["work_manifest"]["digest"]
-        == digest((examples / "work-manifest.json").read_bytes()),
+        == digest((EXAMPLES / "work-manifest.json").read_bytes()),
         "work_pin_mismatch",
     )
-    receipts = {}
-    for outcome in ("unavailable", "rejected", "indeterminate", "registered"):
-        r = json.loads((examples / ("registration-" + outcome + ".json")).read_text())
-        require(shape("registration-result", r), "receipt_shape")
-        semantic(
-            policy,
-            plan,
-            r,
-            (examples / "source-policy.json").read_bytes(),
-            (examples / "acquisition-plan.json").read_bytes(),
-        )
-        if outcome == "registered":
-            require(
-                r["authority"]["profile"]["digest"]
-                == digest((examples / "authority-profile.json").read_bytes()),
-                "authority_profile_pin",
-            )
-        receipts[outcome] = r
-    compromise_plan = json.loads(
-        (examples / "acquisition-plan-compromise.json").read_text()
+    registered = strict_load((EXAMPLES / "registration-registered.json").read_bytes())
+    require(
+        registered["authority"]["profile"]["digest"]
+        == digest((EXAMPLES / "authority-profile.json").read_bytes()),
+        "authority_profile_pin",
     )
-    require(shape("acquisition-plan", compromise_plan), "compromise_shape")
-    semantic(
-        policy,
-        compromise_plan,
-        policy_bytes=(examples / "source-policy.json").read_bytes(),
+    # Ceiling boundary: 10 requests/s at 20% headroom admits 8/s, so a
+    # 60-second allocation of exactly 480 fits; the reject vector asks for 481.
+    boundary = copy.deepcopy(registered)
+    boundary["allocation"]["requests"] = 480
+    semantic(policy, plan, boundary, policy_bytes, plan_bytes)
+    # A body-byte meter without basis projects the response_body default.
+    default_policy = copy.deepcopy(policy)
+    default_policy["meters"]["body_bytes"] = {
+        "algorithm": "rolling_window",
+        "limit": 1024,
+        "window_seconds": 1,
+    }
+    default_policy["meter_review"]["unconfigured"] = ["errors"]
+    default_plan = copy.deepcopy(plan)
+    default_plan["policy"]["digest"] = digest(encoded(default_policy))
+    require(shape("source-policy", default_policy), "default_meter_shape")
+    require(
+        semantic(default_policy, default_plan, None, encoded(default_policy), b"")
+        == result,
+        "explicit_meter_default_projection",
     )
-    coverage_path = examples / "coverage-planning-scope.json"
-    coverage = json.loads(coverage_path.read_text())
+    compromise_bytes = (EXAMPLES / "acquisition-plan-compromise.json").read_bytes()
+    compromise_plan = strict_load(compromise_bytes)
+    coverage_path = EXAMPLES / "coverage-planning-scope.json"
+    coverage = strict_load(coverage_path.read_bytes())
     checked = subprocess.run(
         [
             "goneat",
@@ -287,9 +396,7 @@ def main():
     choice = compromise_plan["compromise"]
     partition = coverage["claims"][0]["scope"]["partition"]
     require(
-        partition["plan_digest"]
-        == digest((examples / "acquisition-plan-compromise.json").read_bytes()),
-        "coverage_plan_binding",
+        partition["plan_digest"] == digest(compromise_bytes), "coverage_plan_binding"
     )
     require(
         json.loads(partition["declared_scope_limit"]) == choice["declared_scope_limit"]
@@ -312,262 +419,78 @@ def main():
         and coverage["gaps"][0]["note"] == choice["exclusions"][0],
         "coverage_overclaim",
     )
-    default_policy = copy.deepcopy(policy)
-    default_policy["meters"]["body_bytes"] = {
-        "algorithm": "rolling_window",
-        "limit": 1024,
-        "window_seconds": 1,
+    return result
+
+
+def schema_rejects():
+    examples = {
+        "source-policy": [EXAMPLES / "source-policy.json"],
+        "acquisition-plan": sorted(EXAMPLES.glob("acquisition-plan*.json")),
+        "registration-result": sorted(EXAMPLES.glob("registration-*.json")),
     }
-    default_policy["meter_review"]["unconfigured"] = ["errors"]
-    default_plan = copy.deepcopy(plan)
-    default_plan["policy"]["digest"] = digest(encoded(default_policy))
-    require(shape("source-policy", default_policy), "default_meter_shape")
+    names = []
+    for path in sorted((REJECTS / "schema").glob("reject-*.json")):
+        kind, _, name = path.stem[len("reject-") :].partition("--")
+        require(kind in KINDS and name, "schema_reject_name:" + path.name)
+        value = strict_load(path.read_bytes())
+        require(not shape_file(kind, path), "schema_reject_accepted:" + path.name)
+        require(
+            any(
+                len(diff_paths(strict_load(e.read_bytes()), value)) == 1
+                for e in examples[kind]
+            ),
+            "schema_reject_not_single_change:" + path.name,
+        )
+        names.append(path.stem[len("reject-") :])
+    return names
+
+
+def semantic_rejects():
+    names, reasons = [], set()
+    for directory in sorted((REJECTS / "semantic").glob("reject-*")):
+        reason, _, name = directory.name[len("reject-") :].partition("--")
+        require(reason and name, "semantic_reject_name:" + directory.name)
+        present = [k for k in KINDS if (directory / (k + ".json")).exists()]
+        require(
+            present
+            and sorted(p.name for p in directory.iterdir())
+            == sorted(k + ".json" for k in present),
+            "semantic_reject_contents:" + directory.name,
+        )
+        got = check_case(case_paths(directory))
+        require(got == reason, "wrong_refusal:" + directory.name + ":" + str(got))
+        names.append(directory.name[len("reject-") :])
+        reasons.add(reason)
+    return names, reasons
+
+
+def main():
+    defaults = positive_controls()
+    schema = schema_rejects()
+    semantic_names, reasons = semantic_rejects()
+    documented = standard_reasons()
     require(
-        semantic(default_policy, default_plan) == result,
-        "explicit_meter_default_projection",
+        reasons == documented,
+        "reason_table_drift:undocumented="
+        + ",".join(sorted(reasons - documented))
+        + ":unexercised="
+        + ",".join(sorted(documented - reasons)),
     )
-    tests = []
-
-    def control(name, stage, reason, owner, mutate, receipt="unavailable", rebind=True):
-        p, q, r = (
-            copy.deepcopy(policy),
-            copy.deepcopy(plan),
-            copy.deepcopy(receipts[receipt]),
-        )
-        mutate({"policy": p, "plan": q, "result": r}[owner])
-        if rebind:
-            q["policy"] = {"id": p["policy_id"], "digest": digest(encoded(p))}
-            r["policy"] = copy.deepcopy(q["policy"])
-            r["plan"] = {"id": q["plan_id"], "digest": digest(encoded(q))}
-        shaped = (
-            shape("source-policy", p)
-            and shape("acquisition-plan", q)
-            and shape("registration-result", r)
-        )
-        if stage == "shape":
-            require(not shaped, "shape_reject_accepted:" + name)
-        else:
-            require(shaped, "semantic_case_not_schema_valid:" + name)
-            try:
-                semantic(
-                    p,
-                    q,
-                    r,
-                    None if rebind else (examples / "source-policy.json").read_bytes(),
-                    None
-                    if rebind
-                    else (examples / "acquisition-plan.json").read_bytes(),
-                )
-            except Refusal as error:
-                require(
-                    str(error) == reason, "wrong_refusal:" + name + ":" + str(error)
-                )
-            else:
-                raise Refusal("semantic_reject_accepted:" + name)
-        tests.append(name)
-
-    control(
-        "inline-credential",
-        "shape",
-        "",
-        "policy",
-        lambda p: p["transport"]["credential_ref"].update(value="synthetic-forbidden"),
+    listed = readme_rows(REJECTS / "README.md")
+    vectors = set(schema) | set(semantic_names)
+    require(
+        listed == vectors,
+        "rejects_readme_drift:" + ",".join(sorted(listed ^ vectors)),
     )
-    control(
-        "missing-paging",
-        "shape",
-        "",
-        "policy",
-        lambda p: p["target_set"]["targets"][0].pop("paging"),
-    )
-    control(
-        "execution-claim",
-        "shape",
-        "",
-        "plan",
-        lambda p: p.update(execution_authorization="granted"),
-    )
-    control(
-        "unknown-budget-algorithm",
-        "shape",
-        "",
-        "policy",
-        lambda p: p["meters"]["requests"].update(algorithm="token_bucket"),
-    )
-    control(
-        "unavailable-allocation",
-        "shape",
-        "",
-        "result",
-        lambda r: r.update(allocation=receipts["registered"]["allocation"]),
-    )
-    control(
-        "indeterminate-without-key",
-        "shape",
-        "",
-        "result",
-        lambda r: r.pop("reconcile_key"),
-        receipt="indeterminate",
-    )
-    control(
-        "terms-changed",
-        "semantic",
-        "terms_changed",
-        "policy",
-        lambda p: p["access_terms"].update(current_digest="sha256:" + "b" * 64),
-    )
-    control(
-        "review-after-start",
-        "semantic",
-        "review_after_start",
-        "policy",
-        lambda p: p["access_terms"].update(reviewed_at="2026-01-03T00:00:00Z"),
-    )
-    control(
-        "meter-absence",
-        "semantic",
-        "unreviewed_meter_absence",
-        "policy",
-        lambda p: p["meter_review"].update(unconfigured=[]),
-    )
-    control(
-        "zero-request-meter",
-        "semantic",
-        "zero_meter",
-        "policy",
-        lambda p: p["meters"]["requests"].update(limit=0),
-    )
-    control(
-        "burst-over-window",
-        "semantic",
-        "burst_exceeds_window",
-        "policy",
-        lambda p: p["meters"]["requests"].update(burst=11),
-    )
-    control(
-        "zero-concurrency",
-        "semantic",
-        "zero_concurrency",
-        "policy",
-        lambda p: p["transport"].update(concurrency_limit=0),
-    )
-    control(
-        "inline-url-key",
-        "semantic",
-        "unsafe_target_url",
-        "policy",
-        lambda p: p["target_set"]["targets"][0].update(
-            endpoint_uri="https://example.invalid/data?key=synthetic"
-        ),
-    )
-    control(
-        "variant-outside-vocabulary",
-        "semantic",
-        "variant_outside_vocabulary",
-        "policy",
-        lambda p: p["target_set"]["targets"][0]["variants"].update(format="csv"),
-    )
-    control(
-        "undeclared-target",
-        "semantic",
-        "undeclared_target",
-        "plan",
-        lambda p: p["effective_scope"].update(target_ids=["missing"]),
-    )
-    control(
-        "changed-scope-without-choice",
-        "semantic",
-        "compromise_required_or_spurious",
-        "plan",
-        lambda p: p["effective_scope"].update(time_scope="different"),
-    )
-    control(
-        "deletion-window",
-        "semantic",
-        "cadence_reaches_deletion",
-        "policy",
-        lambda p: p.update(deletion_window_seconds=86400),
-    )
-    control(
-        "policy-pin",
-        "semantic",
-        "policy_pin_mismatch",
-        "plan",
-        lambda p: p["policy"].update(digest="sha256:" + "0" * 64),
-        rebind=False,
-    )
-    control(
-        "receipt-source",
-        "semantic",
-        "registration_policy_binding",
-        "result",
-        lambda r: r.update(source="different"),
-    )
-    control(
-        "receipt-plan-pin",
-        "semantic",
-        "registration_plan_binding",
-        "result",
-        lambda r: r["plan"].update(digest="sha256:" + "0" * 64),
-        rebind=False,
-    )
-    control(
-        "allocation-window",
-        "semantic",
-        "invalid_allocation_window",
-        "result",
-        lambda r: r["allocation"].update(closes_at=r["allocation"]["opens_at"]),
-        receipt="registered",
-    )
-    control(
-        "zero-allocation",
-        "semantic",
-        "zero_allocation",
-        "result",
-        lambda r: r["allocation"].update(requests=0),
-        receipt="registered",
-    )
-    # Shape-valid byte meter controls rebind the dependent pins so the intended
-    # semantic rule, not a stale fixture digest, is exercised.
-    for basis, limit, reason in [
-        ("response_body", 0, "zero_meter"),
-        ("transfer", 10, "unsupported_meter_basis"),
-    ]:
-
-        def add_meter(p, basis=basis, limit=limit):
-            p["meters"]["body_bytes"] = {
-                "algorithm": "rolling_window",
-                "limit": limit,
-                "window_seconds": 1,
-                "basis": basis,
-            }
-            p["meter_review"]["unconfigured"] = ["errors"]
-
-        control("byte-meter-" + basis, "semantic", reason, "policy", add_meter)
-    # Attribute/limit requirements are also exercised on a real scope choice.
-    for field in ("chosen_by", "declared_scope_limit"):
-        q = copy.deepcopy(compromise_plan)
-        q["compromise"].pop(field)
-        require(not shape("acquisition-plan", q), "missing_choice_field_accepted")
-        tests.append("missing-" + field)
-    q = copy.deepcopy(compromise_plan)
-    q["compromise"]["effective_cadence_seconds"] = 86400
-    require(shape("acquisition-plan", q), "choice_limit_shape")
-    try:
-        semantic(policy, q, policy_bytes=(examples / "source-policy.json").read_bytes())
-    except Refusal as error:
-        require(str(error) == "scope_limit_mismatch", "choice_limit_reason")
-    else:
-        raise Refusal("choice_limit_accepted")
-    tests.append("scope-limit-mismatch")
     print(
         json.dumps(
             {
                 "positive_objects": 8,
-                "negative_controls": len(tests),
-                "defaults": result,
+                "schema_rejects": len(schema),
+                "semantic_rejects": len(semantic_names),
+                "refusal_reasons": len(reasons),
+                "defaults": defaults,
                 "coverage_scope_flow": "checked",
-                "controls": tests,
                 "runtime_qualification": "none",
             }
         )
@@ -575,4 +498,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Refusal as error:
+        print("[!!] data-acquisition controls: " + str(error), file=sys.stderr)
+        sys.exit(1)

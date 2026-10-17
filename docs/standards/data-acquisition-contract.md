@@ -50,6 +50,9 @@ profiles from a backend's product name.
 Resolve the hostless capability through a trusted, pinned `contract.json`.
 Instances MUST NOT choose their own schema registry. All objects are closed;
 unknown fields, enum values, duplicate JSON keys and invalid pins fail closed.
+Many JSON parsers silently keep the last duplicate member, and JSON Schema
+validators see only the parsed value, so a consumer MUST detect duplicate keys
+while reading the bytes, before shape validation.
 
 A pin is `{id, digest}`. Its `sha256:` digest binds the **exact UTF-8 document
 bytes**, including whitespace. Resolve both fields and verify the bytes before
@@ -202,7 +205,11 @@ failure model. The profile must explain how ownership is enforced and how stale
 owners are fenced. Naming an epoch or using an object bucket is not fencing.
 
 An allocation binds a positive-duration time interval and request quantity, plus
-any configured byte/error quantities. The authority MUST check all overlapping
+a quantity for each configured byte/error meter and none for an unconfigured
+meter. Each quantity MUST NOT exceed that meter's ceiling for the interval: the
+headroom-adjusted limit, rounded down, times the number of windows that the
+interval spans, rounded up. That is a bound on one allocation in isolation.
+The authority MUST check all overlapping
 plans against the same parent policy and persist the decision before returning
 `registered`. It must bind idempotency keys to the full proposal, return the same
 original result for a replay, and refuse conflicting reuse. An uncertain write
@@ -238,3 +245,47 @@ not exercise a source, prove every rolling interval, allocate capacity, observe
 live terms, authenticate actors or qualify durability. Adopters must publish
 profile-specific refusal and failure-boundary evidence before claiming those
 behaviors. Proposed v0 schemas and publication are not stable promotion.
+
+## Refusal reasons
+
+A conforming semantic checker refuses with the first applicable reason below.
+The names are a portable vocabulary for fixtures and adopter evidence; a
+runtime may use richer diagnostics provided it can map them to these reasons.
+Every reason has at least one reject vector under `rejects/semantic/`.
+
+| Reason | Refused when |
+| --- | --- |
+| `duplicate_key` | Any object repeats a member name |
+| `utc_required` | A timestamp is not written as a UTC `Z` instant |
+| `invalid_time` | A timestamp does not parse as an instant |
+| `plan_time_order` | The plan is created after its start |
+| `terms_changed` | Current and reviewed terms digests differ |
+| `review_after_start` | A terms or meter review is later than the plan start |
+| `unreviewed_meter_absence` | `unconfigured` does not list exactly the absent meters |
+| `zero_meter` | A configured meter has a zero limit |
+| `burst_exceeds_window` | A burst is zero or exceeds its window limit |
+| `unsupported_meter_basis` | The byte basis is not qualified by the consumer |
+| `zero_concurrency` | The transport concurrency limit is zero |
+| `duplicate_dimension` | A target set declares a dimension name twice |
+| `duplicate_target` | A target set declares a target id twice |
+| `unsafe_target_url` | A target URL is not https or carries userinfo, query or fragment |
+| `unknown_variant` | A target uses an undeclared dimension |
+| `variant_outside_vocabulary` | An enum variant value is not declared |
+| `policy_pin_mismatch` | The plan's policy pin does not bind the policy bytes |
+| `target_set_version` | The plan names a different target-set version |
+| `undeclared_target` | A plan scope names a target outside the target set |
+| `compromise_required_or_spurious` | Scope or cadence changed without a compromise, or a compromise has no change |
+| `choice_after_plan` | The compromise was chosen after the plan was created |
+| `scope_limit_mismatch` | The declared limit does not match the effective scope or cadence |
+| `invalid_frequency_choice` | `lower_frequency` does not only lengthen a recurring cadence |
+| `invalid_target_choice` | `fewer_targets` is not a strict target subset with unchanged time and cadence |
+| `invalid_time_scope_choice` | `time_scope` changes targets or cadence, or not the time scope |
+| `cadence_reaches_deletion` | Effective cadence is not shorter than the deletion window |
+| `registration_policy_binding` | The result's policy pin, entity or source differs from the policy |
+| `registration_plan_binding` | The result's plan pin does not bind the plan bytes |
+| `registration_time_order` | The result is recorded before the plan was created |
+| `invalid_allocation_window` | The allocation interval is empty or opens before the plan start |
+| `zero_allocation` | A registered allocation grants zero requests |
+| `allocation_missing_meter` | A configured meter has no allocation quantity |
+| `allocation_unconfigured_meter` | An allocation carries a quantity for an unconfigured meter |
+| `allocation_exceeds_policy` | One allocation exceeds its meter's ceiling for the interval |

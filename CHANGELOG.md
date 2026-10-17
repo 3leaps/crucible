@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `data-acquisition/v0` family with source-policy, acquisition-plan and
   registration-result schemas, exact-byte digest pins, attributed scope
   compromises and explicit unavailable and indeterminate outcomes. Include a
-  standard, ADR-0014, synthetic examples and refusal controls. Registration
-  records capacity; runtime admission and adopter qualification remain separate.
+  standard, ADR-0014, synthetic examples, a refusal-reason vocabulary and
+  file-based schema and semantic reject fixtures. A single allocation must fit
+  the policy ceiling. Registration records capacity; runtime admission and
+  adopter qualification remain separate.
 
 ## [0.1.34] - 2026-10-16
 

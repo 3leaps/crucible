@@ -1,0 +1,38 @@
+{
+  "capabilities": [
+    "contract: data-acquisition/v0"
+  ],
+  "v": 0,
+  "plan_id": "example-plan",
+  "policy": {
+    "id": "example-policy",
+    "digest": "sha256:b0cb9d562ca1f315be4a2ff70a6a4e3fea663583a8394c8127d5dfa8ab78e0e3"
+  },
+  "target_set_version": "example-targets-1",
+  "work_manifest": {
+    "id": "example-work",
+    "digest": "sha256:d7990fc6b20a3d1569b8c6e13ce2fb548b13ddf0ad5dd66f537af5e1b34bfcfb"
+  },
+  "created_at": "2026-01-01T01:00:00Z",
+  "start_at": "2026-01-02T00:00:00Z",
+  "recurring": false,
+  "cadence_seconds": 86400,
+  "effective_cadence_seconds": 86400,
+  "original_scope": {
+    "target_ids": [
+      "observations"
+    ],
+    "time_scope": "current-release"
+  },
+  "effective_scope": {
+    "target_ids": [
+      "observations"
+    ],
+    "time_scope": "current-release"
+  },
+  "execution_authorization": "none",
+  "registration_requirement": {
+    "key": "entity/source",
+    "required_before_execution": true
+  }
+}

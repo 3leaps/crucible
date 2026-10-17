@@ -12,6 +12,7 @@ define the boundary.
 | `acquisition-plan.schema.json` | Policy/work pins, original/effective scope, cadence and attributed compromise |
 | `registration-result.schema.json` | Unavailable, rejected, indeterminate or persisted allocation result |
 | `examples/` | Synthetic policy, plans, registration outcomes and a planning-scope coverage declaration |
+| `rejects/` | Schema and semantic reject fixtures with expected refusal reasons ([index](rejects/README.md)) |
 
 All pins bind exact UTF-8 bytes by SHA-256, not reserialized JSON. Shape acceptance
 is separate from semantic checks and authority qualification. Plans/results grant
@@ -25,8 +26,10 @@ registered example illustrates a claimed receipt shape; it does not qualify a
 backend or prove that any capacity was reserved.
 
 Run `python3 scripts/test-data-acquisition-controls.py` for structural and
-fixture-semantic controls. These validate synthetic pins, reviews, meter absence,
-variant/scope rules, cadence, and receipt binding. They do not validate an actual
+fixture-semantic controls. The fixtures are the vectors: each schema reject must
+fail its schema, and each semantic reject must be refused with the reason in its
+name, drawn from the standard's refusal-reason table. Duplicate member names are
+refused while reading bytes. The controls do not validate an actual
 work-manifest implementation, execute a scheduler or make a completeness claim.
 The coverage example retains the plan pin, chooser, scope limit and exclusions,
 with unknown coverage, no acquired-volume claim and block_export protection.
