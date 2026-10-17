@@ -4,7 +4,9 @@ title: "Data acquisition policy and planning as a portable contract"
 status: "proposed"
 date: "2026-10-17"
 last_updated: "2026-10-17"
-deciders: ["@3leapsdave", "entarch"]
+deciders:
+  - "@3leapsdave"
+  - "entarch"
 scope: "Crucible foundation / portable data contracts"
 tags: ["acquisition", "budgets", "provenance", "interchange-contract"]
 ---
