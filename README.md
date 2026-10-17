@@ -111,6 +111,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── coverage-attestation/v0/  # Coverage attestation (proposed)
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
+│   ├── data-acquisition/v0/   # Source policy, acquisition scope and registration (proposed)
 │   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
 │   ├── durable-record/v0/     # Revisioned record, journal, receipt, stratum profile (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
@@ -273,6 +274,14 @@ journal, and a stratum profile that declares durability and supported deletion
 scope. An experimental
 [schema bundle and reject fixtures](schemas/durable-record/v0/README.md) accompany it.
 See [ADR-0013](docs/decisions/ADR-0013-durable-record-contract.md).
+
+### Experimental data acquisition contract
+
+The [Data Acquisition Contract](docs/standards/data-acquisition-contract.md)
+defines proposed source-policy, selected-scope and shared-capacity registration
+boundaries. The [schema family and synthetic controls](schemas/data-acquisition/v0/README.md)
+separate shape and semantic acceptance from runtime authority qualification.
+See [ADR-0014](docs/decisions/ADR-0014-data-acquisition-contract.md).
 
 ### Draft agent interface classifiers and profiles
 

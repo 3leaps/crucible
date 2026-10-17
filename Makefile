@@ -406,6 +406,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 		python3 scripts/test-segmented-snapshot-controls.py || exit 1; \
 		echo "    Durable-record controls..."; \
 		sh scripts/test-durable-record-controls.sh || exit 1; \
+		echo "    Data-acquisition controls..."; \
+		python3 scripts/test-data-acquisition-controls.py || exit 1; \
 		sh scripts/test-contract-manifest-controls.sh || exit 1; \
 		echo "    Validating contract manifests..."; \
 		sh scripts/validate-contract-manifests.sh \
@@ -414,6 +416,7 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 			schemas/data-artifact/v0/contract.json \
 			schemas/durable-queue/v0/contract.json \
 			schemas/durable-record/v0/contract.json \
+			schemas/data-acquisition/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
 			schemas/process-run/v0/contract.json \
 			schemas/review-journal/v0/contract.json \

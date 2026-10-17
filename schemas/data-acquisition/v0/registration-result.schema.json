@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:data-acquisition/v0/registration-result.schema.json",
+  "title": "Data Acquisition Registration Result",
+  "description": "Proposed portable shape. Semantic checks and runtime authority qualification are separate; schema acceptance grants no execution or export authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "v",
+    "request_id",
+    "idempotency_key",
+    "entity",
+    "source",
+    "policy",
+    "plan",
+    "recorded_at",
+    "outcome",
+    "execution_authorization"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": {
+        "const": "contract: data-acquisition/v0"
+      },
+      "items": {
+        "type": "string"
+      }
+    },
+    "v": {
+      "const": 0
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "entity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "policy": {
+      "$ref": "#/$defs/pin"
+    },
+    "plan": {
+      "$ref": "#/$defs/pin"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "outcome": {
+      "enum": [
+        "unavailable",
+        "rejected",
+        "indeterminate",
+        "registered"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "reconcile_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "epoch",
+        "profile",
+        "writer_topology",
+        "failure_model"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "profile": {
+          "$ref": "#/$defs/pin"
+        },
+        "writer_topology": {
+          "const": "single_owner"
+        },
+        "failure_model": {
+          "enum": [
+            "process_crash",
+            "power_loss"
+          ]
+        }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "opens_at",
+        "closes_at",
+        "requests"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "opens_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "closes_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "requests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "body_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "execution_authorization": {
+      "const": "none"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "registered"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "authority",
+          "allocation"
+        ],
+        "not": {
+          "required": [
+            "reconcile_key"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "reason"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "authority"
+              ]
+            },
+            {
+              "required": [
+                "allocation"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "indeterminate"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reconcile_key"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "reconcile_key"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "role",
+            "seat"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_ids",
+        "time_scope"
+      ],
+      "properties": {
+        "target_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "uniqueItems": true
+        },
+        "time_scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}
