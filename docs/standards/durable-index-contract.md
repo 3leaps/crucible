@@ -20,7 +20,7 @@ content_license: "CC0"
 an implementation qualification. The [schema bundle](../../schemas/durable-index/v0/README.md)
 and initial logical vectors accompany this draft. The
 [conformance requirements](durable-index-conformance.md) distinguishes implemented
-controls from release gates still to be built.
+logical-corpus publication requirements from later physical adoption gates.
 
 This family defines immutable, self-contained object-inventory snapshots and the
 rules for publishing their successors. It composes
@@ -64,7 +64,16 @@ flowchart TD
 All selections MUST agree exactly on namespace, snapshot and artifact. The
 namespace is the opaque index-set token; an adopter MUST carry it from the
 verified parent, never recompute it from current configuration, format or producer
-version. Each successor uses a new snapshot identity. Physical digest equality
+version. If a producer changes identity-derivation inputs, including schema or
+producer version, it MUST either carry the prior set token verbatim or record an
+explicit identity cutover binding the old and new tokens and exact publication
+pins. A changed token is a new set: without cutover evidence a continuity claim
+MUST be refused. A cutover records provenance between sets; it does not permit a
+cross-set parent edge or preserve same-set generation numbering. The new set
+starts an explicit baseline. The adopter's cutover profile MUST record the
+mapping, authorizing actor, acceptance time and rollback pin, and verify that
+both tokens agree with the pinned publications. No legacy publication is rewritten.
+Each successor uses a new snapshot identity. Physical digest equality
 is over stored bytes, with no decode/re-encode step. Duplicate JSON member names,
 invalid UTF-8, lone surrogates and non-finite JSON numbers MUST be refused.
 
@@ -89,7 +98,11 @@ The first scope profile is `unicode-prefix/v0`. A scope is `{namespace, prefix}`
 a row belongs when its namespace is equal and its key begins with prefix by
 exact UTF-8 bytes. Empty prefix denotes every key in that namespace. No path
 cleanup, trimming, case folding, Unicode normalization, percent decoding or
-implicit slash boundary is permitted. `a` includes `ab`; `a/` does not. A path
+implicit slash boundary is permitted. A compiler MUST emit the canonical prefix
+bytes it intends before binding the plan; a reader MUST NOT clean those bytes.
+Serialization and parsing MUST preserve each retained prefix byte-for-byte.
+Canonical set sorting, deduplication and containment reduction do not authorize
+rewriting individual prefixes. `a` includes `ab`; `a/` does not. A path
 subtree compiler must prove exact equivalence to the emitted prefix union. A
 selection combining an exact boundary key with a slash-delimited subtree cannot
 generally be represented by raw prefix without widening; refuse such a mapping
@@ -304,8 +317,15 @@ cannot be invented. Unsupported cases refuse. A format rewrite alone neither
 refreshes observations nor proves a new baseline. This draft does not specify or
 qualify a converter.
 
-The contract stays experimental until independently exercised by a producer and
-a separate reader against the physical corpus and a second logical workload.
+An experimental publication may contain logical vectors only. Physical Parquet
+twins and independent reader evidence are post-publication adoption gates, not
+prerequisites for publishing that limited experimental corpus. It MUST state the
+limit explicitly and MUST NOT claim R2 or writer qualification from logical
+vectors alone. The contract stays experimental through adoption until a producer
+and an independently authored logical reference reader agree against the pinned
+corpus, the producer's physical reader agrees with the authored logical twins,
+and a second logical workload is exercised. These results establish the stated
+logical/physical parity; they do not establish two independent Parquet decoders.
 Coverage-attestation remains proposed; composition does not ratify it. See the
 [conformance requirements](durable-index-conformance.md) for separate shape,
 logical transition, physical reader and runtime qualification gates.

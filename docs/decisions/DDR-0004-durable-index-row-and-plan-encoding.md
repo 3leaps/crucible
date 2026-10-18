@@ -13,8 +13,9 @@ tags: ["encoding", "parquet", "identity", "data"]
 
 ## Status
 
-Proposed for design review. The physical corpus and cross-language decoding
-witness remain required before locking this profile.
+Proposed for design review. The physical corpus and independent logical/physical
+parity witness remain adoption gates before locking this profile. They are not
+prerequisites for publishing an explicitly experimental logical-only corpus.
 
 ## Logical profile
 
@@ -91,7 +92,9 @@ claim this profile merely because it emits valid Parquet or matching counts.
 ## Review gates
 
 Reviewers must exercise the nested null/empty mapping, maximum integer and
-nanosecond timestamps in at least two Parquet implementations before lock.
+nanosecond timestamps by comparing a physical reader with independently authored
+logical twins and an independently implemented logical checker before profile
+lock. This establishes semantic parity, not two independent Parquet decoders.
 Protection of statistics and namespace values, exact parent admission and
 recovery are separate checks. See the
 [conformance requirements](../standards/durable-index-conformance.md).

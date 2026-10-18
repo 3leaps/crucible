@@ -14,7 +14,7 @@ mandatory for the index profile and carries `index-metadata.schema.json`.
 ## Implemented design controls
 
 `python3 scripts/test-durable-index-controls.py` runs 19 shape cases (six passing
-objects and 13 rejects), six authored plan/framing vectors, and 33 authored
+objects and 13 rejects), seven authored plan/framing vectors, and 33 authored
 logical transition vectors. `cases.json` inventories every JSON fixture; missing
 or unlisted files fail. JSON duplicate keys, non-finite numbers and lone
 surrogates refuse. The script uses Python stdlib and the existing goneat JSON
@@ -32,8 +32,10 @@ trusted producer boolean**. Plan-discovery completion, the admitted parent diges
 and logical rows are explicit test inputs. These controls exercise decisions
 once those facts are verified; they do not verify the physical graph, coverage
 subject/volume, actor authorization or a storage backend. Their status message
-makes that limit explicit. Full file-backed graph rejects and physical twins
-are required before release under the conformance requirements.
+makes that limit explicit. Full file-backed logical graph rejects remain publication requirements. Physical
+twins and independent reader evidence are post-publication adoption gates for
+an explicitly logical-only experimental release. Neither the reference logical
+checker nor fixture-only tests establish R2 physical reader conformance.
 
 ## Schema and pin composition
 

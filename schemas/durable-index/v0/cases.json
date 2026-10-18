@@ -102,7 +102,8 @@
     "vectors/plans/frame-a-bc.json",
     "vectors/plans/frame-ab-c.json",
     "vectors/plans/raw-prefix.json",
-    "vectors/plans/unicode-and-no-cleanup.json"
+    "vectors/plans/unicode-and-no-cleanup.json",
+    "vectors/plans/reader-preserves-prefix-bytes.json"
   ],
   "transitions": [
     "vectors/transitions/ack-cannot-override-discovery-failure.json",

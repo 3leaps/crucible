@@ -34,17 +34,42 @@ resource profile actually exercised.
 
 ## Evidence requirements
 
-| Evidence class       | Artifacts and detecting controls                                                                                                                                                           | Acceptance                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Design               | ADR/DDR, standard, closed schemas; plan framing, containment and logical successor vectors                                                                                                 | Architecture, security and adopter design review                                                                 |
-| Structural graph     | Full worked baseline/observe/enrich graphs; exact row schema/catalog/descriptor/profile pins; one-field rejects for every public object; duplicate keys and hostile numeric/Unicode inputs | Every positive validates, each negative fails the named layer, no tool failure counts as rejection               |
-| Semantic transitions | File-backed parent, input observations, plan, attestations and expected complete rows/refusal; digest-bound source bytes; all I1–I7 rules mapped to cases                                  | Independent authored expectations; checker mutation controls fail when each critical gate is weakened            |
-| Physical corpus      | Small Parquet members and independently authored logical twins; null/empty, tombstone, Unicode, revision, enrichment, row-group/member boundary, nanosecond and maximum integer cases      | Two independent decoders agree with authored rows, counts and order; corrupt/truncated/unsupported inputs refuse |
-| Publication          | Contract manifest/catalog indexes, positive/negative inventory, checker invocation set, pin inventory and release notes                                                                    | Full repository checks and reviewed exact local tip before publication                                           |
-| Adoption             | A producer emits contract form, pins exact released schemas/corpus and runs vectors against its own implementation; separate reader consumes its output                                    | Scope-qualified evidence; no fixture-only runtime claim                                                          |
+| Evidence class       | Artifacts and detecting controls                                                                                                                                                           | Acceptance                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design               | ADR/DDR, standard, closed schemas; plan framing, containment and logical successor vectors                                                                                                 | Architecture, security and adopter design review                                                                                            |
+| Structural graph     | Full worked baseline/observe/enrich graphs; exact row schema/catalog/descriptor/profile pins; one-field rejects for every public object; duplicate keys and hostile numeric/Unicode inputs | Every positive validates, each negative fails the named layer, no tool failure counts as rejection                                          |
+| Semantic transitions | File-backed parent, input observations, plan, attestations and expected complete rows/refusal; digest-bound source bytes; all I1–I7 rules mapped to cases                                  | Independent authored expectations; checker mutation controls fail when each critical gate is weakened                                       |
+| Physical corpus      | Small Parquet members and independently authored logical twins; null/empty, tombstone, Unicode, revision, enrichment, row-group/member boundary, nanosecond and maximum integer cases      | The physical reader agrees with independently authored logical twins on rows, counts and order; corrupt/truncated/unsupported inputs refuse |
+| Publication          | Contract manifest/catalog indexes, positive/negative inventory, checker invocation set, pin inventory and release notes                                                                    | Full repository checks and reviewed exact local tip before publication                                                                      |
+| Adoption             | A producer emits contract form, pins exact released schemas/corpus and runs vectors against its own implementation; separate reader consumes its output                                    | Scope-qualified evidence; no fixture-only runtime claim                                                                                     |
 
 A published corpus may remain experimental; independent adoption evidence gates
 stronger implementation and maturity claims. Coverage-attestation acceptance is a separate decision.
+
+## Experimental publication and reader evidence
+
+An experimental release may publish the schemas and logical vectors before
+physical Parquet twins or independent reader qualification exist. It MUST label
+the evidence as logical-only, keep the family experimental through adoption,
+and preserve the distinction between publication and R2/W1/W2/W3 qualification.
+Complete logical graph and semantic controls remain publication requirements;
+deferring physical evidence does not excuse incomplete binding or authority rules.
+Composition does not ratify coverage-attestation.
+
+The reference checker reads authored JSON/NDJSON logical twins using Python's
+standard library and goneat. The adopter independently implements its producer
+and physical-member reader. They MUST NOT share reader, transition or validation
+code; sharing pinned schemas and authored fixture data is expected. Compare both
+implementations to the fixed logical oracle, never to expectations emitted by
+the producer under test. Record input pins, implementation revisions, exercised
+operations and failures as evidence.
+
+This arrangement provides independent semantic checking plus physical-to-logical
+parity. The logical checker does not decode Parquet and cannot claim physical
+reader conformance. Two independent Parquet decoders would require an additional
+physical implementation; that stronger claim and its tooling admission remain
+separate. The Parquet tooling question need not be settled to publish logical
+vectors or establish their independent semantics.
 
 ## Required transition matrix
 
@@ -52,9 +77,13 @@ stronger implementation and maturity claims. Coverage-attestation acceptance is 
   non-null parent or nonzero generation refuses.
 - Identity: wrong set, generation, parent digest/selection, stale admitted parent,
   parent cycle, reused snapshot and missing parent each refuse distinctly.
+  Schema/producer-version changes preserve the old set token; a changed token
+  requires an explicit cutover to a new baseline, never a cross-set parent.
 - Canonical plans: reordering, duplicate and redundant prefix compiler inputs;
   reader refusal of noncanonical wire plans; empty versus unknown; raw path-like
-  keys; Unicode scalar byte order and framed-hash collision pairs.
+  keys; Unicode scalar byte order and framed-hash collision pairs. Serialization
+  round-trips preserve compiler-emitted prefix bytes; reader cleanup, implicit
+  delimiter insertion and boundary-semantic widening are refused.
 - Admission: addition, broader containment, same-count substitution, net growth
   with loss, empty new plan, acknowledgment wrong parent/digest/actor authority,
   and a repeated reduced plan with stale retained rows still visible.

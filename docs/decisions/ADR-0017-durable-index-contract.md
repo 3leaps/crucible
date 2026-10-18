@@ -14,8 +14,9 @@ tags: ["index", "snapshots", "coverage", "interchange-contract"]
 ## Status
 
 **Proposed.** Listed deciders are prospective; this record does not record their
-assent. The initial design and logical controls do not establish a release-ready
-physical corpus or qualify a producer, reader or converter.
+assent. The initial design and logical controls do not qualify a producer, physical
+reader or converter. An experimental publication may contain logical vectors
+only; physical twins and independent reader evidence remain adoption gates.
 
 ## Decision
 
@@ -46,7 +47,9 @@ qualification gates are distinct from artifact and transition verification.
 Legacy adoption defaults to a new explicit baseline from fresh observation,
 with preserved legacy bytes and an exact cutover/rollback record. A converter
 requires its own evidence and must refuse unavailable facts. An opaque set token
-is carried, not regenerated during a format change.
+is carried through schema, producer and format changes. A deliberately changed
+token requires a cutover record and a new baseline; it is not a same-set parent
+transition.
 
 ## Alternatives considered
 
@@ -62,8 +65,9 @@ is carried, not regenerated during a format change.
 The optional manifest edge expands a proposed v0 schema. Consumers pin a release
 and schema bytes; an older closed-schema reader may refuse the new field. That
 is an explicit compatibility boundary, not a reason to ignore it. Required
-unknown profile metadata always refuses. The published family remains proposed
-until the [conformance gates](../standards/durable-index-conformance.md) pass.
+unknown profile metadata always refuses. The family remains proposed and experimental through adoption. Logical-only
+publication and later physical/independent-reader qualification have distinct
+[conformance gates](../standards/durable-index-conformance.md).
 Composition does not silently ratify its proposed dependencies.
 
 ## References

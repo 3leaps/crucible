@@ -326,6 +326,11 @@ def main():
             filename
         )
         assert digest(case["set_id"], case["input"]) == case["sha256"], filename
+        for member in case.get("membership", []):
+            assert (
+                contains(member["scope"], member["namespace"], member["key"])
+                == member["contains"]
+            ), filename
         for comparison in case["comparisons"]:
             assert loss(case["canonical"], comparison["next"]) == comparison["loss"], (
                 filename
