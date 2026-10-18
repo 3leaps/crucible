@@ -1,0 +1,74 @@
+{
+  "capabilities": [
+    "contract: data-acquisition/v0"
+  ],
+  "v": 0,
+  "policy_id": "example-policy",
+  "entity": "example-consumer",
+  "source": "example-source",
+  "access_terms": {
+    "current_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reviewed_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reviewed_at": "2026-01-01T00:00:00Z",
+    "reviewed_by": {
+      "kind": "role",
+      "scope": "example",
+      "id": "operator"
+    }
+  },
+  "meters": {
+    "requests": {
+      "algorithm": "rolling_window",
+      "limit": 10,
+      "window_seconds": 1
+    }
+  },
+  "meter_review": {
+    "reviewed_by": {
+      "kind": "role",
+      "scope": "example",
+      "id": "operator"
+    },
+    "reviewed_at": "2026-01-01T00:00:00Z",
+    "unconfigured": [
+      "body_bytes",
+      "errors"
+    ]
+  },
+  "response_body_cap_bytes": 1048576,
+  "transport": {
+    "user_agent": "example-client (contact@example.invalid)",
+    "concurrency_limit": 1,
+    "credential_ref": {
+      "kind": "none"
+    },
+    "honor_retry_after": true
+  },
+  "target_set": {
+    "version": "example-targets-1",
+    "dimensions": [
+      {
+        "name": "format",
+        "kind": "enum",
+        "values": [
+          "json"
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "id": "observations",
+        "endpoint_uri": "https://example.invalid/observations",
+        "operation": "paged_api",
+        "variants": {
+          "format": "json"
+        }
+      }
+    ]
+  },
+  "deletion_window_seconds": 604800,
+  "redistribution": {
+    "review_state": "unreviewed",
+    "default_action": "block_export"
+  }
+}

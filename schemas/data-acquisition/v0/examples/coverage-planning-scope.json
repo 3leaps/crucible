@@ -1,0 +1,54 @@
+{
+  "capabilities": [
+    "contract: coverage-attestation/v0"
+  ],
+  "attestation_id": "urn:uuid:00000000-0000-4000-8000-000000000014",
+  "subject": {
+    "subject_uri": "urn:data-acquisition:planned-scope:5a81a55c3414ba18e43da3da49faa13181c1d5ba7bbae4f742576a1bbc741f14"
+  },
+  "emitter": {
+    "name": "example-acquisition-planner",
+    "version": "0.0.0",
+    "relation": "producer"
+  },
+  "as_of": "2026-01-01T01:00:00Z",
+  "coverage_state": "unknown",
+  "claims": [
+    {
+      "scope": {
+        "partition": {
+          "plan_id": "example-reduced-frequency-plan",
+          "plan_digest": "sha256:5a81a55c3414ba18e43da3da49faa13181c1d5ba7bbae4f742576a1bbc741f14",
+          "declared_scope_limit": "{\"target_ids\":[\"observations\"],\"time_scope\":\"current-release\"}",
+          "effective_cadence_seconds": "172800",
+          "chosen_by": "seat:example/operator",
+          "chosen_at": "2026-01-01T00:30:00Z",
+          "reason": "Synthetic selected cadence"
+        }
+      },
+      "basis": "inferred",
+      "method": "declared",
+      "note": "Planning-scope declaration only; acquisition is unobserved."
+    }
+  ],
+  "gaps": [
+    {
+      "code": "declared_scope_exclusion",
+      "scope": {
+        "partition": {
+          "plan_id": "example-reduced-frequency-plan",
+          "plan_digest": "sha256:5a81a55c3414ba18e43da3da49faa13181c1d5ba7bbae4f742576a1bbc741f14",
+          "declared_scope_limit": "{\"target_ids\":[\"observations\"],\"time_scope\":\"current-release\"}",
+          "effective_cadence_seconds": "172800",
+          "chosen_by": "seat:example/operator",
+          "chosen_at": "2026-01-01T00:30:00Z",
+          "reason": "Synthetic selected cadence"
+        }
+      },
+      "note": "Intermediate daily vintages are outside this plan."
+    }
+  ],
+  "protection": {
+    "default_action": "block_export"
+  }
+}

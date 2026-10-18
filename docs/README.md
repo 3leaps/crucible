@@ -62,6 +62,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [agent-wait-contract.md](standards/agent-wait-contract.md) - Portable wait/poll contract for one aggregate waiter per consuming seat
 - [application-control-contract.md](standards/application-control-contract.md) - Portable application discovery, control, observation, and evidence contract
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
+- [data-acquisition-contract.md](standards/data-acquisition-contract.md) - Proposed upstream policy, acquisition scope, and shared-capacity registration contract
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
 - [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
