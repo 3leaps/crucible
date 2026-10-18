@@ -71,6 +71,28 @@ physical implementation; that stronger claim and its tooling admission remain
 separate. The Parquet tooling question need not be settled to publish logical
 vectors or establish their independent semantics.
 
+## Logical projection corpus
+
+A logical-only release may exercise complete composition using a clearly named
+**test-only transport profile** over actual pinned NDJSON twins. The corpus's
+`example.index-logical/v0` profile specifies that transport; it does not add a
+production encoding to durable-index/v0. Projected metadata retains the intended
+production encoding while the descriptor and test profile identify the actual
+logical bytes. Results MUST be labeled `logical_projection` and MUST NOT claim a
+conforming Parquet publication or R2/W qualification. Replacing those members
+with independently decoded physical twins remains an adoption gate.
+
+The projection checks exact bytes and identities throughout the composed graph,
+row-schema/catalog agreement, count/order, transitive metadata/member separation,
+resource bounds, coverage subjects and volumes, exact-parent admission and row
+transitions. Authoritative enumeration/admission evidence and complete expected
+rows are independently authored inputs. The graph control requests transition
+verification, so a missing parent refuses that claim even though the flat current
+row set could be reconstructed without ancestry. Protection is inherited across
+keys, metadata, diagnostics and parent state; a field-level allow cannot release
+an object whose effective action remains block_export. Actual authorization and
+storage enforcement still require adopter evidence.
+
 ## Required transition matrix
 
 - Baseline: empty and nonempty; unknown baseline is explicitly not compared;

@@ -15,6 +15,11 @@ fixture is evidence of a physical Parquet decoder or provider completeness.
 | `vectors/bound_transitions/baseline.json`                         | bound_transitions |
 | `vectors/bound_transitions/observe.json`                          | bound_transitions |
 | `vectors/cutover/explicit-new-set.json`                           | cutover           |
+| `vectors/graphs/baseline.json`                                    | graphs            |
+| `vectors/graphs/cutover.json`                                     | cutover_graphs    |
+| `vectors/graphs/enrich.json`                                      | graphs            |
+| `vectors/graphs/inherited-protection.json`                        | graphs            |
+| `vectors/graphs/observe.json`                                     | graphs            |
 | `vectors/parsing/duplicate.json`                                  | parsing           |
 | `vectors/parsing/invalid-utf8.json`                               | parsing           |
 | `vectors/parsing/nan.json`                                        | parsing           |

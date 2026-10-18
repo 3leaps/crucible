@@ -424,6 +424,17 @@ remain separate qualification surfaces.
 | `enumerated_key_omitted`    | A confirmed-complete scope omits a returned in-scope key.                                                       |
 | `fabricated_freshness`      | An inherited row stamp names the proposed successor snapshot.                                                   |
 | `generation_mismatch`       | Successor generation is not parent generation plus one.                                                         |
+| `graph_catalog`             | Catalog identity, grain, field inventory or embedded copy disagrees.                                            |
+| `graph_count`               | Member, manifest, grain or representation row counts disagree.                                                  |
+| `graph_dependency`          | Required index metadata edge is missing.                                                                        |
+| `graph_descriptor`          | Descriptor grain/representation/read-path relationships disagree.                                               |
+| `graph_evidence`            | Required authored source/admission evidence is unavailable.                                                     |
+| `graph_identity`            | Publication, manifest, descriptor, metadata or parent selection identities disagree.                            |
+| `graph_members`             | Members are repeated or an unsupported empty member set is presented.                                           |
+| `graph_profile`             | Logical projection or selected profile support/semantics are unsupported.                                       |
+| `graph_publication`         | Publication or descriptor lifecycle is not readable as committed state.                                         |
+| `graph_row_schema`          | Bound row schema is not the exact supported schema and identity.                                                |
+| `graph_transition`          | Published logical rows differ from the checked transition output.                                               |
 | `invalid_baseline`          | Baseline contains a parent or a nonzero generation.                                                             |
 | `invalid_instant`           | Timestamp precision, calendar date, year or seconds are invalid.                                                |
 | `invalid_json`              | JSON syntax or numeric finiteness is invalid.                                                                   |
@@ -438,6 +449,7 @@ remain separate qualification surfaces.
 | `parent_unavailable`        | Required parent or inherited provenance evidence is absent.                                                     |
 | `plan_digest`               | Metadata semantic digest differs from canonical plan framing.                                                   |
 | `plan_identity`             | Selected set, plan set or plan binding id disagree.                                                             |
+| `protected_export`          | An export request attempts to override inherited block_export protection.                                       |
 | `row_order`                 | Rows are not strictly increasing in physical member order.                                                      |
 | `scope_count`               | Metadata effective count differs from the canonical plan length.                                                |
 | `scope_loss`                | A reduced effective scope union lacks explicit acknowledgment.                                                  |

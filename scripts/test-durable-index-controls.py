@@ -155,7 +155,19 @@ def shaped(raw, schema_name):
     with tempfile.TemporaryDirectory(prefix="index-shape-") as directory:
         path = Path(directory) / "object.json"
         path.write_bytes(raw)
-        return shape(path, BASE / schema_name)
+        target, _, fragment = schema_name.partition("#")
+        schema_path = BASE / target
+        if fragment:
+            assert fragment == "/$defs/fieldCatalog"
+            original = strict(schema_path.read_bytes())
+            wrapper = {
+                "$schema": original["$schema"],
+                "$defs": original["$defs"],
+                "$ref": "#" + fragment,
+            }
+            schema_path = Path(directory) / "catalog.schema.json"
+            schema_path.write_text(json.dumps(wrapper))
+        return shape(path, schema_path)
 
 
 def schema_value(value, schema_name):
@@ -579,6 +591,299 @@ def bound_transition(case):
     return result
 
 
+LOGICAL_PROFILE = "example.index-logical/v0"
+
+
+def graph(case):
+    """Full byte-bound logical projection, explicitly not a Parquet publication.
+
+    The fixture-only profile consumes NDJSON twins. Every stored byte is real;
+    no fabricated Parquet pin, physical decoder or source authentication exists.
+    """
+    require(case["projection"] == "logical-only/v0", "graph_profile")
+    store = case["store"]
+    visited, active, metadata_refs, member_refs = set(), set(), set(), set()
+    profile_spec = (BASE / "fixtures/logical-profile.md").read_text()
+
+    def fetch(pin, schema=None, member=False):
+        require(pin["ref"] in store, "binding_unavailable")
+        raw = store[pin["ref"]].encode("utf-8")
+        require(
+            len(raw) == pin["byte_length"]
+            and hashlib.sha256(raw).hexdigest() == pin["sha256"],
+            "binding_integrity",
+        )
+        (member_refs if member else metadata_refs).add(pin["ref"])
+        require(not metadata_refs.intersection(member_refs), "binding_alias")
+        require(
+            sum(len(store[ref].encode("utf-8")) for ref in metadata_refs) <= 67108864,
+            "capacity",
+        )
+        if schema:
+            obj = strict(raw)
+            schema_value(obj, schema)
+        return obj if schema else raw
+
+    def snapshot(pin):
+        identity = pin["sha256"]
+        require(identity not in active, "parent_cycle")
+        require(len(active) < 64, "capacity")
+        active.add(identity)
+        pub = fetch(pin, "index-publication.schema.json")
+        selection = pub["selection"]
+        require(pub["publication_id"] == pin["id"], "graph_identity")
+        require(selection["snapshot_id"] not in visited, "snapshot_reuse")
+        visited.add(selection["snapshot_id"])
+        manifest = fetch(
+            pub["manifest"], "../../segmented-snapshot/v0/snapshot-manifest.schema.json"
+        )
+        profile = fetch(
+            pub["profile"], "../../segmented-snapshot/v0/snapshot-profile.schema.json"
+        )
+        descriptor = fetch(
+            pub["descriptor"], "../../data-artifact/v0/artifact-descriptor.schema.json"
+        )
+        require(
+            pub["state"] == "committed"
+            and descriptor["lifecycle"] in {"complete", "partial"},
+            "graph_publication",
+        )
+        require(
+            manifest["selection"] == selection
+            and pub["manifest"]["id"] == selection["snapshot_id"]
+            and pub["descriptor"]["id"]
+            == descriptor["artifact_id"]
+            == selection["artifact_id"],
+            "graph_identity",
+        )
+        require(
+            "contract: durable-index/v0" in manifest["capabilities"], "graph_profile"
+        )
+        require(
+            manifest["profile"] == pub["profile"]
+            and profile["profile_id"] == pub["profile"]["id"] == LOGICAL_PROFILE,
+            "graph_profile",
+        )
+        require(
+            profile["semantic_spec"]["id"] == LOGICAL_PROFILE
+            and fetch(profile["semantic_spec"]).decode("utf-8") == profile_spec,
+            "graph_profile",
+        )
+        require(
+            profile["operations"] == ["full_verify"]
+            and profile["count_relations"] == ["equal"]
+            and profile["physical_orders"] == ["manifest_order"]
+            and profile["retention"] == "unsupported"
+            and profile["durability_claim"] == "none"
+            and profile["streaming"] == "unsupported",
+            "graph_profile",
+        )
+        require(
+            manifest["count_relation"] == "equal"
+            and manifest["physical_order"] == "manifest_order",
+            "graph_profile",
+        )
+        require("profile_metadata" in manifest, "graph_dependency")
+        meta = fetch(manifest["profile_metadata"], "index-metadata.schema.json")
+        require(
+            meta["selection"] == selection
+            and manifest["profile_metadata"]["id"] == selection["snapshot_id"],
+            "graph_identity",
+        )
+        require(
+            manifest["coverage_subject_uri"] == subject_uri(selection),
+            "coverage_subject",
+        )
+        schema_raw = fetch(manifest["row_schema"])
+        require(
+            schema_raw == (BASE / "index-row.schema.json").read_bytes()
+            and manifest["row_schema"]["schema_id"]
+            == "contract:durable-index/v0/index-row.schema.json",
+            "graph_row_schema",
+        )
+        catalog = fetch(
+            manifest["field_catalog"],
+            "../../data-artifact/v0/artifact-descriptor.schema.json#/$defs/fieldCatalog",
+        )
+        require(
+            catalog["id"] == manifest["field_catalog"]["id"]
+            and catalog["grain"] == manifest["grain_id"],
+            "graph_catalog",
+        )
+        require(
+            len(descriptor["grains"]) == len(descriptor["representations"]) == 1,
+            "graph_descriptor",
+        )
+        grain, rep = descriptor["grains"][0], descriptor["representations"][0]
+        require(
+            grain["id"] == rep["grain"] == manifest["grain_id"]
+            and rep["id"] == manifest["representation_id"]
+            and grain["field_catalog_ref"] == rep["field_catalog_ref"] == catalog["id"],
+            "graph_descriptor",
+        )
+        require(
+            rep["profile"] == descriptor["producer"]["profile"] == LOGICAL_PROFILE
+            and rep["uri"] == pub["manifest"]["ref"]
+            and rep["format"] == "ndjson"
+            and rep["read_path"]["physical_ordering"] == "manifest_order"
+            and rep["read_path"]["appendable"] is False,
+            "graph_descriptor",
+        )
+        require(
+            descriptor.get("field_catalogs", [catalog]) == [catalog], "graph_catalog"
+        )
+        fields = {field["name"]: field for field in catalog["fields"]}
+        expected_types = {
+            "namespace": "string",
+            "key": "string",
+            "revision": "object",
+            "size_bytes": "integer",
+            "last_modified": "datetime",
+            "storage_class": "string",
+            "first_seen": "object",
+            "last_seen": "object",
+            "last_changed": "object",
+            "deleted": "object",
+            "enrichments": "array",
+        }
+        require(
+            len(fields) == len(catalog["fields"])
+            and set(fields) == set(expected_types)
+            and all(
+                fields[name]["type"] == kind and fields[name].get("required") is True
+                for name, kind in expected_types.items()
+            )
+            and not catalog.get("withheld_fields")
+            and not catalog.get("withheld_field_count"),
+            "graph_catalog",
+        )
+        protection = descriptor["protection"]
+        assert protection["default_action"] == "block_export"  # enforced by schema
+        rank = {
+            "public": 0,
+            "internal": 1,
+            "controlled": 2,
+            "restricted": 3,
+            "unknown": 3,
+        }
+        effective_rank = max(
+            [rank[protection.get("default_export_class", "unknown")]]
+            + [rank[f["sensitivity"]] for f in fields.values()]
+        )
+        effective_class = ["public", "internal", "controlled", "restricted"][
+            effective_rank
+        ]
+        require(not case["request_export"], "protected_export")
+        members = manifest["members"]
+        require(
+            len({m["id"] for m in members})
+            == len({m["ref"] for m in members})
+            == len(members),
+            "graph_members",
+        )
+        require(members or profile["empty_snapshots"], "graph_members")
+        require(len(members) <= profile["limits"]["max_members"], "capacity")
+        rows = []
+        for member in members:
+            raw = fetch(member, member=True)
+            require(len(raw) <= profile["limits"]["max_member_bytes"], "capacity")
+            decoded = [strict(line) for line in raw.splitlines()]
+            require(len(decoded) == member["row_count"], "graph_count")
+            rows.extend(decoded)
+        rows_valid(rows)
+        require(
+            len(rows)
+            == manifest["physical_row_count"]
+            == grain["row_count"]
+            == rep["row_count"],
+            "graph_count",
+        )
+        # Exact parent is fetched only for transition qualification, not row reconstruction.
+        parent = None
+        inherited = None
+        if meta["parent"] is not None:
+            prior = snapshot(meta["parent"]["publication"])
+            require(prior["selection"] == meta["parent"]["selection"], "graph_identity")
+            require(
+                prior["selection"]["namespace_id"] == selection["namespace_id"],
+                "set_mismatch",
+            )
+            parent = {
+                "publication_sha256": meta["parent"]["publication"]["sha256"],
+                "set_id": prior["selection"]["namespace_id"],
+                "snapshot_id": prior["selection"]["snapshot_id"],
+                "generation": prior["metadata"]["generation"],
+                "scopes": prior["scopes"],
+                "rows": prior["rows"],
+            }
+            inherited = prior["evidence"]
+            effective_class = ["public", "internal", "controlled", "restricted"][
+                max(rank[effective_class], rank[prior["protection_class"]])
+            ]
+        require(selection["snapshot_id"] in case["source_evidence"], "graph_evidence")
+        source = case["source_evidence"][selection["snapshot_id"]]
+        evidence = {
+            "metadata": meta,
+            "store": store,
+            "grain_id": manifest["grain_id"],
+            "observations": source["observations"],
+            "enumerated": source["enumerated"],
+        }
+        if inherited is not None:
+            evidence["inherited_from"] = inherited
+        for binding in [meta["plan"], *meta["coverage"]]:
+            fetch(binding)
+        scopes = resolve(meta["plan"], store)["scopes"]
+        ack = meta["loss_acknowledgment"]
+        transition = {
+            "mode": meta["mode"],
+            "set_id": selection["namespace_id"],
+            "snapshot_id": selection["snapshot_id"],
+            "generation": meta["generation"],
+            "observation_at": meta["observation_at"],
+            "discovery_complete": source["discovery_complete"],
+            "parent": parent,
+            "admitted_parent_sha256": source["admitted_parent_sha256"],
+            "scopes": scopes,
+            "acknowledgment": None
+            if ack is None
+            else {
+                "parent_sha256": ack["parent"]["publication"]["sha256"],
+                "plan_digest": ack["plan_sha256"],
+                "acknowledged_by": ack["acknowledged_by"],
+                "acknowledged_at": ack["acknowledged_at"],
+            },
+            "observations": source["observations"],
+            "absence_authority": [],
+            "enrichments": source["enrichments"],
+        }
+        expected = bound_transition({"evidence": evidence, "transition": transition})
+        require(rows == expected["rows"], "graph_transition")
+        require(
+            sum(len(store[ref].encode("utf-8")) for ref in metadata_refs)
+            <= min(67108864, profile["limits"]["max_metadata_bytes"]),
+            "capacity",
+        )
+        active.remove(identity)
+        return {
+            "selection": selection,
+            "metadata": meta,
+            "scopes": scopes,
+            "rows": rows,
+            "evidence": evidence,
+            "protection_class": effective_class,
+        }
+
+    result = snapshot(case["publication"])
+    return {
+        "rows": result["rows"],
+        "retained_unobserved_rows": result["metadata"]["retained_unobserved_rows"],
+        "generation": result["metadata"]["generation"],
+        "protection": {"action": "block_export", "class": result["protection_class"]},
+        "evidence_scope": "logical_projection",
+    }
+
+
 def cutover(case):
     record = case["record"]
     require(record is not None, "cutover_required")
@@ -620,6 +925,25 @@ def cutover(case):
         "cutover_baseline",
     )
     return {"cutover": "explicit_baseline"}
+
+
+def cutover_graphs(case):
+    result = cutover(case)
+    require(
+        case["record"]["old"]["publication"] == case["old_graph"]["publication"]
+        and case["record"]["new"]["publication"] == case["new_graph"]["publication"],
+        "cutover_selection",
+    )
+    for side in ("old_graph", "new_graph"):
+        require(
+            all(
+                case["store"].get(ref) == raw
+                for ref, raw in case[side]["store"].items()
+            ),
+            "binding_integrity",
+        )
+        graph(case[side])
+    return {**result, "evidence_scope": "logical_projection"}
 
 
 def shape(path, schema):
@@ -669,11 +993,19 @@ def load_case(filename):
     if "baseline" in case:
         baseline = strict((BASE / case["baseline"]).read_bytes())
         assert "baseline" not in baseline, filename
-        assert case["replace"], filename
+        assert case["replace"] or case.get("store_overlay") or case.get("omit_refs"), (
+            filename
+        )
         case["input"] = copy.deepcopy(baseline["input"])
         for name, value in case["replace"].items():
             assert baseline["input"].get(name) != value, (filename, name)
             case["input"][name] = value
+        for ref, raw in case.get("store_overlay", {}).items():
+            assert baseline["input"]["store"].get(ref) != raw, (filename, ref)
+            case["input"]["store"][ref] = raw
+        for ref in case.get("omit_refs", []):
+            assert ref in baseline["input"]["store"], (filename, ref)
+            del case["input"]["store"][ref]
     return case
 
 
@@ -688,6 +1020,8 @@ def evaluate(case, namespace=None):
             "cutover": "cutover",
             "rows": "row_members",
             "bound_transitions": "bound_transition",
+            "graphs": "graph",
+            "cutover_graphs": "cutover_graphs",
         }[case["runner"]]
         return scope[runner](copy.deepcopy(case["input"]))
     except scope["Refusal"] as error:
@@ -790,11 +1124,28 @@ def mutation_controls(filenames):
         ("stale_parent", "stale-parent"),
         ("partial-authority", "partial-does-not-authorize"),
         ("revision-clearing", "revision-change-clears-enrichment"),
+        ("graph_identity", "graph-manifest-selection"),
+        ("graph_transition", "graph-unobserved-row-change"),
+        ("graph_count", "graph-wrong-member-count"),
+        ("binding_integrity", "graph-altered-parent-bytes"),
+        ("graph_catalog", "graph-catalog-omitted-field"),
+        ("protected_export", "graph-protected-export"),
+        ("protection-inheritance", "inherited-protection"),
     ]
     for name, witness in mutations:
         changes = []
 
         class Weaken(ast.NodeTransformer):
+            def visit_Assign(self, node):
+                self.generic_visit(node)
+                if name == "protection-inheritance" and any(
+                    isinstance(t, ast.Name) and t.id == "effective_rank"
+                    for t in node.targets
+                ):
+                    node.value = ast.Constant(0)
+                    changes.append(name)
+                return node
+
             def visit_Call(self, node):
                 self.generic_visit(node)
                 if (
@@ -932,7 +1283,7 @@ def main():
     print(
         f"Durable index DESIGN controls PASS: {len(inventory['shape'])} shapes, "
         f"{len(inventory['plans'])} plan vectors, {len(filenames)} scenarios. "
-        "Index metadata/coverage subgraph checked; no full snapshot, Parquet or runtime qualification claim."
+        "Complete logical projection graphs checked; no Parquet/R2 or runtime qualification claim."
     )
 
 
