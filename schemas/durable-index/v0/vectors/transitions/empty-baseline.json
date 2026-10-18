@@ -18,5 +18,6 @@
     "rows": [],
     "admission": "baseline_not_compared",
     "retained_unobserved_rows": 0
-  }
+  },
+  "runner": "transitions"
 }

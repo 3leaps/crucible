@@ -24,7 +24,8 @@
     "key": {
       "type": "string",
       "maxLength": 4096,
-      "minLength": 1
+      "minLength": 1,
+      "description": "Unicode scalar string; maximum 4096 UTF-8 bytes, enforced by semantic validation in addition to the JSON Schema code-point bound."
     },
     "revision": {
       "anyOf": [

@@ -53,7 +53,8 @@
           "$ref": "contract:durable-index/v0/common.schema.json#/$defs/id"
         },
         "prefix": {
-          "$ref": "contract:durable-index/v0/common.schema.json#/$defs/text"
+          "$ref": "contract:durable-index/v0/common.schema.json#/$defs/text",
+          "description": "Unicode scalar string; maximum 4096 UTF-8 bytes, enforced by semantic validation in addition to the JSON Schema code-point bound."
         }
       }
     },

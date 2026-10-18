@@ -1,0 +1,13 @@
+{
+  "runner": "bindings",
+  "baseline": "vectors/bindings/baseline.json",
+  "replace": {
+    "store": {
+      "artifact:coverage-0": "{\n  \"capabilities\": [\"contract: coverage-attestation/v0\"],\n  \"attestation_id\": \"coverage-0\",\n  \"subject\": {\n    \"artifact_id\": \"artifact:example-data\",\n    \"grain_id\": \"objects\",\n    \"subject_uri\": \"snapshot:4859c1e2ee86d0b9274fd63f0d3217c993dba0251a3183afbeff24309cbb283a\"\n  },\n  \"emitter\": {\n    \"name\": \"synthetic-producer\",\n    \"relation\": \"producer\",\n    \"run_id\": \"snapshot-1\"\n  },\n  \"as_of\": \"2026-10-18T00:00:00.000000000Z\",\n  \"coverage_state\": \"complete\",\n  \"claims\": [\n    {\n      \"scope\": {\n        \"partition\": {\n          \"namespace\": \"objects\"\n        },\n        \"prefix\": \"alpha/\"\n      },\n      \"basis\": \"confirmed\",\n      \"method\": \"enumerated\",\n      \"volume\": {\n        \"unit\": \"objects\",\n        \"observed\": 1\n      }\n    }\n  ],\n  \"protection\": {\n    \"default_action\": \"block_export\"\n  }\n}\n",
+      "artifact:coverage-1": "{\n  \"capabilities\": [\"contract: coverage-attestation/v0\"],\n  \"attestation_id\": \"coverage-1\",\n  \"subject\": {\n    \"artifact_id\": \"artifact:example-data\",\n    \"grain_id\": \"objects\",\n    \"subject_uri\": \"snapshot:4859c1e2ee86d0b9274fd63f0d3217c993dba0251a3183afbeff24309cbb283a\"\n  },\n  \"emitter\": {\n    \"name\": \"synthetic-producer\",\n    \"relation\": \"producer\",\n    \"run_id\": \"snapshot-1\"\n  },\n  \"as_of\": \"2026-10-18T00:00:00.000000000Z\",\n  \"coverage_state\": \"complete\",\n  \"claims\": [\n    {\n      \"scope\": {\n        \"partition\": {\n          \"namespace\": \"objects\"\n        },\n        \"prefix\": \"beta/\"\n      },\n      \"basis\": \"confirmed\",\n      \"method\": \"enumerated\",\n      \"volume\": {\n        \"unit\": \"objects\",\n        \"observed\": 0\n      }\n    }\n  ],\n  \"protection\": {\n    \"default_action\": \"block_export\"\n  }\n}\n"
+    }
+  },
+  "expected": {
+    "refusal": "binding_unavailable"
+  }
+}

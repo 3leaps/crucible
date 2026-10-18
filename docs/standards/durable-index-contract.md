@@ -70,9 +70,9 @@ explicit identity cutover binding the old and new tokens and exact publication
 pins. A changed token is a new set: without cutover evidence a continuity claim
 MUST be refused. A cutover records provenance between sets; it does not permit a
 cross-set parent edge or preserve same-set generation numbering. The new set
-starts an explicit baseline. The adopter's cutover profile MUST record the
-mapping, authorizing actor, acceptance time and rollback pin, and verify that
-both tokens agree with the pinned publications. No legacy publication is rewritten.
+starts an explicit baseline. The closed `index_cutover` receipt defined below records the mapping, authorizing
+actor, acceptance time and rollback pin; both tokens MUST agree with the pinned
+publications. No legacy publication is rewritten.
 Each successor uses a new snapshot identity. Physical digest equality
 is over stored bytes, with no decode/re-encode step. Duplicate JSON member names,
 invalid UTF-8, lone surrogates and non-finite JSON numbers MUST be refused.
@@ -115,6 +115,8 @@ by unsigned UTF-8 `(namespace, prefix)`, duplicate-free and prefix-minimal:
 remove any scope fully contained by another scope in the same namespace. Empty
 plans are permitted and describe no new observation. An empty plan is not an
 unknown or unavailable plan. At most 65,536 effective scopes are supported.
+JSON Schema `maxLength` counts Unicode code points, so the UTF-8 byte ceiling
+MUST also be checked semantically after strict parsing, before matching or folding.
 Namespace ids use the shared ASCII id vocabulary; prefixes and keys are Unicode
 scalar strings of at most 4,096 UTF-8 bytes. Empty object keys are unsupported.
 
@@ -159,7 +161,10 @@ A scope grants absence authority only when its attestation has all of:
 This family uses **one attestation per scope** because coverage-attestation has
 an overall completeness field, not a per-claim completeness field. It does not
 change that contract. Partial or inferred claims can report positive observations;
-they never authorize tombstones. A complete claim with gaps is inconsistent and
+they never authorize tombstones. A confirmed-complete enumerated or reconciled scope MUST include every key
+returned by its enumeration inside that scope, including keys with dot-prefixed
+segments. A dropped or filtered key is a gap; v0 has no filtered-coverage profile.
+Counting only retained keys does not establish completeness. A complete claim with gaps is inconsistent and
 MUST be refused. Scope-boundary values and attestations remain protected content;
 all composed objects begin from `block_export` and inherit effective protection.
 
@@ -179,7 +184,10 @@ increasing by unsigned UTF-8 primary-key comparison. Duplicate keys are refused,
 including duplicates split across members. The writer resolves conflicting
 observations before publication under a qualified policy; the contract never
 silently picks an arbitrary last row. An identical duplicate may be deduplicated
-before publication. Observation vectors use unique keys.
+before publication. Observation vectors use unique keys. Observations have a closed field set:
+`namespace`, `key`, `revision`, `size_bytes`, `last_modified`, `storage_class`.
+They MUST NOT supply lineage, deletion or enrichment fields. The transition
+computes lineage; enrichment is admitted only through I6.
 
 `revision` is null or `{kind, value}`. Revision tokens are opaque, scoped to the
 key and provider's declared semantics. For example, `opaque-etag` is not a
@@ -203,8 +211,14 @@ last-seen and first-seen, and keeps prior source metadata. An unchanged existing
 tombstone keeps its original deleted stamp. Reappearance clears deleted and
 advances last-seen and last-changed.
 
+Every inherited row MUST pass the same shape, byte-bound, timestamp and
+enrichment checks as a newly emitted row. Input order is checked before folding;
+readers MUST NOT sort invalid input into conformance. No inherited observation
+stamp may name the proposed successor snapshot. Within a checked history, a
+snapshot id has one observation time; conflicting times are refused.
+
 First-seen MUST not follow last-seen or last-changed. Deletion MUST not precede
-last-seen. Observation time MUST not precede any inherited observation/change
+last-seen, and its stamp MUST equal last-changed. Observation time MUST not precede any inherited observation/change
 stamp. Snapshot ids cannot be reused with new times to fabricate
 freshness. A reader checks internal consistency; proving the _transition_ also
 requires the exact verified parent and publication inputs.
@@ -302,6 +316,40 @@ to a pin, not provenance authentication or permission to export. Selective or
 provisional reads retain segmented-snapshot's limited-scope and terminal-success
 requirements; only a verified full scan can claim all-row semantic checks.
 
+## Explicit baseline cutover receipt
+
+`index-cutover.schema.json` defines a separate, closed `index_cutover` object.
+It is stored and pinned outside both immutable publication graphs; neither graph
+points back to it. Its fields are:
+
+| Field                  | Required meaning                                                   |
+| ---------------------- | ------------------------------------------------------------------ |
+| `capabilities`, `kind` | Exact family capability and `index_cutover` kind                   |
+| `old`, `new`           | Each contains exact `selection` and raw-byte `publication` binding |
+| `authorized_by`        | Opaque actor id; authenticated permission is checked externally    |
+| `accepted_at`          | Exact contract timestamp for acceptance                            |
+| `rollback`             | The exact old publication binding, retained and resolvable         |
+
+A continuity/cutover assertion MUST supply this receipt. A missing receipt is
+`cutover_required`, even when the proposed baseline is otherwise structurally
+valid. A standalone new baseline without a continuity assertion is not a claim
+about an earlier set and does not need a receipt. Both pinned publication
+selections and publication ids MUST match the endpoints. The new publication's
+bound metadata MUST declare a baseline (generation zero, null parent). Different
+set tokens do not create a parent relationship. A same-token rebuild uses the
+same receipt and still declares a baseline boundary, never generation continuity.
+The old and new pins MUST differ; rollback MUST equal the old pin. Acceptance
+requires a qualified resolver, protection and independently verified publication
+graphs. A name in JSON alone is not permission; logical tests receive explicit
+authorization evidence and do not authenticate operators.
+
+The receipt's initial verifier profile recognizes segmented-snapshot publication
+envelopes with durable-index metadata for the new endpoint. A legacy envelope
+needs a separately qualified resolver/profile; this corpus does not reinterpret
+unknown legacy bytes or qualify legacy migration. The receipt control checks
+identity pins and baseline metadata; it does not substitute for full graph or
+physical-reader verification of either endpoint.
+
 ## Migration and evidence
 
 Legacy artifacts retain their original bytes, tags and status. A rebuild may
@@ -329,3 +377,73 @@ logical/physical parity; they do not establish two independent Parquet decoders.
 Coverage-attestation remains proposed; composition does not ratify it. See the
 [conformance requirements](durable-index-conformance.md) for separate shape,
 logical transition, physical reader and runtime qualification gates.
+
+## Logical checker refusal reasons
+
+These stable reasons identify the exercised logical rule. Shape and semantic
+validation are distinct layers. No global first-error ordering is promised for
+multiple faults. The gate checks this table against emitted reasons and authored
+negative fixtures; external actor authentication and physical/runtime failures
+remain separate qualification surfaces.
+
+| Reason                      | Condition                                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `acknowledgment_actor`      | Acknowledgment lacks the closed actor/time record or a valid actor id.                                          |
+| `acknowledgment_mismatch`   | Acknowledgment does not bind the exact parent and proposed plan digest.                                         |
+| `binding_alias`             | Plan and coverage dependencies reuse a logical reference.                                                       |
+| `binding_integrity`         | Resolved bytes disagree with the pinned length or digest.                                                       |
+| `binding_unavailable`       | A pinned object cannot be resolved.                                                                             |
+| `capacity`                  | UTF-8 byte, scope-count or ancestry bound is exceeded.                                                          |
+| `clock_reversal`            | Observation time precedes inherited observation, change or deletion evidence.                                   |
+| `coverage_complete_gap`     | A complete claim contains a known gap.                                                                          |
+| `coverage_count`            | Coverage objects do not correspond one-for-one to effective scopes.                                             |
+| `coverage_emitter`          | Emitter relation or run identity does not match the observation.                                                |
+| `coverage_gap`              | A gap lies outside its plan scope.                                                                              |
+| `coverage_identity`         | Coverage binding ids are repeated or disagree with attestation identity.                                        |
+| `coverage_inheritance`      | Enrichment changes inherited plan or coverage bindings/selection.                                               |
+| `coverage_outside_plan`     | Normalized absence authority includes an unplanned scope.                                                       |
+| `coverage_scope`            | Claims are reordered, noncanonical, superseding or outside the supported scope profile.                         |
+| `coverage_subject`          | Coverage artifact, grain or derived subject URI does not match selection.                                       |
+| `coverage_time`             | Attestation time differs from the exact observation time.                                                       |
+| `coverage_volume`           | Observed/expected counts or units disagree with source observations.                                            |
+| `cutover_actor`             | Cutover actor is absent from independently supplied authorization evidence.                                     |
+| `cutover_baseline`          | The new cutover endpoint is not an explicit baseline.                                                           |
+| `cutover_required`          | A cutover assertion has no receipt.                                                                             |
+| `cutover_rollback`          | Rollback does not retain the exact old publication pin.                                                         |
+| `cutover_selection`         | Pinned endpoint identities disagree or the endpoints are identical.                                             |
+| `discovery_failed`          | Plan discovery did not complete successfully.                                                                   |
+| `duplicate_enrichment`      | An update supplies the same row/attribute more than once.                                                       |
+| `duplicate_key`             | JSON contains duplicate member names.                                                                           |
+| `duplicate_key_row`         | Logical row keys repeat, including across member boundaries.                                                    |
+| `duplicate_observation`     | Positive observations contain a repeated key.                                                                   |
+| `enrichment_observation`    | Enrichment mode attempts fresh observations or absence authority.                                               |
+| `enrichment_order`          | Inherited attributes are unsorted or duplicate.                                                                 |
+| `enrichment_revision`       | Enrichment does not match a non-null active-row revision.                                                       |
+| `enrichment_scope_change`   | Enrichment mode changes the effective plan.                                                                     |
+| `enrichment_target`         | Enrichment targets an absent or deleted row.                                                                    |
+| `enumerated_key_omitted`    | A confirmed-complete scope omits a returned in-scope key.                                                       |
+| `fabricated_freshness`      | An inherited row stamp names the proposed successor snapshot.                                                   |
+| `generation_mismatch`       | Successor generation is not parent generation plus one.                                                         |
+| `invalid_baseline`          | Baseline contains a parent or a nonzero generation.                                                             |
+| `invalid_instant`           | Timestamp precision, calendar date, year or seconds are invalid.                                                |
+| `invalid_json`              | JSON syntax or numeric finiteness is invalid.                                                                   |
+| `invalid_shape`             | An object violates its closed wire schema.                                                                      |
+| `invalid_unicode`           | Input contains invalid UTF-8 or a non-scalar Unicode value.                                                     |
+| `lineage_order`             | First/last/change/deletion stamps have impossible ordering or consistency.                                      |
+| `metadata_transition`       | Metadata identity, mode, plan, observations, admission or retained count disagrees with the checked transition. |
+| `noncanonical_plan`         | Wire scopes are not sorted, unique and prefix-minimal.                                                          |
+| `observation_fields`        | Positive observation includes lineage, enrichment or other unsupported fields.                                  |
+| `observation_outside_plan`  | A positive observation lies outside every effective scope.                                                      |
+| `parent_cycle`              | The supplied parent ancestry repeats the current snapshot.                                                      |
+| `parent_unavailable`        | Required parent or inherited provenance evidence is absent.                                                     |
+| `plan_digest`               | Metadata semantic digest differs from canonical plan framing.                                                   |
+| `plan_identity`             | Selected set, plan set or plan binding id disagree.                                                             |
+| `row_order`                 | Rows are not strictly increasing in physical member order.                                                      |
+| `scope_count`               | Metadata effective count differs from the canonical plan length.                                                |
+| `scope_loss`                | A reduced effective scope union lacks explicit acknowledgment.                                                  |
+| `set_mismatch`              | A successor attempts a cross-set parent edge.                                                                   |
+| `snapshot_reuse`            | A successor reuses the immediate parent snapshot id.                                                            |
+| `stale_enrichment`          | An attribute update predates the retained attribute evidence.                                                   |
+| `stale_parent`              | The parent differs from the exact publication admitted for the transition.                                      |
+| `stamp_conflict`            | One snapshot id appears with different observation times.                                                       |
+| `unexpected_acknowledgment` | A baseline, no-loss or enrichment transition supplies an acknowledgment.                                        |

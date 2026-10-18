@@ -4,7 +4,7 @@ description: "Proposed immutable snapshot identity, publication, verification an
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-09-30"
+lastUpdated: "2026-10-18"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
@@ -84,7 +84,8 @@ dependency counts against the same metadata budget. Cycles, unresolved metadata
 and unsupported required profiles cause refusal, including on selective reads.
 Metadata MUST NOT introduce external row reconstruction or paged member lists
 under this flat version. Existing manifests without this field retain their
-semantics; older closed-schema readers can refuse the expanded v0 shape.
+semantics. Readers that do not implement `profile_metadata` MUST refuse any
+manifest containing it, including on selective reads.
 
 Required members may be empty only under an explicit empty-dataset profile rule.
 Unknown required profiles, roles or dependency kinds MUST cause refusal.

@@ -6,10 +6,13 @@ set. Inputs are repository-owned files. Logical vectors use normalized evidence;
 this checker does not validate a production coverage graph or Parquet bytes.
 """
 
+import ast
 import copy
+import functools
 import datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -40,10 +43,19 @@ def strict(raw):
     def invalid(_):
         raise Refusal("invalid_json")
 
-    value = json.loads(raw, object_pairs_hook=pairs, parse_constant=invalid)
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        value = json.loads(raw, object_pairs_hook=pairs, parse_constant=invalid)
+    except UnicodeDecodeError:
+        raise Refusal("invalid_unicode") from None
+    except (ValueError, RecursionError):
+        raise Refusal("invalid_json") from None
 
     def scalar(item):
-        if isinstance(item, str):
+        if isinstance(item, float):
+            require(math.isfinite(item), "invalid_json")
+        elif isinstance(item, str):
             try:
                 item.encode("utf-8")
             except UnicodeError:
@@ -121,6 +133,98 @@ def loss(old, new):
     )
 
 
+OBSERVATION_FIELDS = {
+    "namespace",
+    "key",
+    "revision",
+    "size_bytes",
+    "last_modified",
+    "storage_class",
+}
+
+
+def identifier(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value) is not None
+    )
+
+
+@functools.lru_cache(maxsize=4096)
+def shaped(raw, schema_name):
+    with tempfile.TemporaryDirectory(prefix="index-shape-") as directory:
+        path = Path(directory) / "object.json"
+        path.write_bytes(raw)
+        return shape(path, BASE / schema_name)
+
+
+def schema_value(value, schema_name):
+    require(
+        shaped(json.dumps(value, ensure_ascii=True).encode(), schema_name),
+        "invalid_shape",
+    )
+
+
+def source_fields(row):
+    require(len(row["key"].encode("utf-8")) <= 4096, "capacity")
+    if row["last_modified"] is not None:
+        instant(row["last_modified"])
+
+
+def rows_valid(rows, forbidden_snapshot=None):
+    previous = None
+    stamps = {}
+    for row in rows:
+        schema_value(row, "index-row.schema.json")
+        source_fields(row)
+        k = key(row)
+        require(previous != k, "duplicate_key_row")
+        require(previous is None or previous < k, "row_order")
+        previous = k
+        for name in ("first_seen", "last_seen", "last_changed", "deleted"):
+            stamp = row[name]
+            if stamp is None:
+                continue
+            instant(stamp["at"])
+            require(stamp["snapshot_id"] != forbidden_snapshot, "fabricated_freshness")
+            require(
+                stamps.get(stamp["snapshot_id"], stamp["at"]) == stamp["at"],
+                "stamp_conflict",
+            )
+            stamps[stamp["snapshot_id"]] = stamp["at"]
+        require(
+            row["first_seen"]["at"]
+            <= min(row["last_seen"]["at"], row["last_changed"]["at"]),
+            "lineage_order",
+        )
+        if row["deleted"] is not None:
+            require(
+                row["last_seen"]["at"] <= row["deleted"]["at"]
+                and row["deleted"] == row["last_changed"],
+                "lineage_order",
+            )
+        names = [a["name"] for a in row["enrichments"]]
+        require(names == sorted(set(names)), "enrichment_order")
+        for attribute in row["enrichments"]:
+            instant(attribute["observed_at"])
+            require(
+                row["deleted"] is None
+                and row["revision"] is not None
+                and attribute["against_revision"] == row["revision"],
+                "enrichment_revision",
+            )
+
+
+def acknowledgment_valid(ack):
+    require(
+        set(ack)
+        == {"parent_sha256", "plan_digest", "acknowledged_by", "acknowledged_at"}
+        and identifier(ack.get("acknowledged_by")),
+        "acknowledgment_actor",
+    )
+    instant(ack["acknowledged_at"])
+
+
 def fold(case):
     """Small logical model over authored, normalized inputs; no storage IO."""
     mode, parent = case["mode"], case["parent"]
@@ -135,6 +239,11 @@ def fold(case):
         require(parent is not None, "parent_unavailable")
         require(parent["set_id"] == case["set_id"], "set_mismatch")
         require(parent["snapshot_id"] != case["snapshot_id"], "snapshot_reuse")
+        require(
+            case["snapshot_id"] not in parent.get("ancestor_snapshot_ids", []),
+            "parent_cycle",
+        )
+        rows_valid(parent["rows"], case["snapshot_id"])
         require(parent["generation"] + 1 == case["generation"], "generation_mismatch")
         require(
             parent["publication_sha256"] == case["admitted_parent_sha256"],
@@ -151,6 +260,7 @@ def fold(case):
         elif loss(parent["scopes"], scopes):
             ack = case["acknowledgment"]
             require(ack is not None, "scope_loss")
+            acknowledgment_valid(ack)
             require(
                 ack["parent_sha256"] == parent["publication_sha256"]
                 and ack["plan_digest"] == digest(case["set_id"], scopes),
@@ -165,12 +275,28 @@ def fold(case):
         instant(stamp["at"])
         for old in rows.values():
             require(
-                max(old["last_seen"]["at"], old["last_changed"]["at"]) <= stamp["at"],
+                max(
+                    old[name]["at"]
+                    for name in ("first_seen", "last_seen", "last_changed", "deleted")
+                    if old[name] is not None
+                )
+                <= stamp["at"],
                 "clock_reversal",
             )
         observed = set()
         fields = ("revision", "size_bytes", "last_modified", "storage_class")
         for obs in case["observations"]:
+            require(set(obs) == OBSERVATION_FIELDS, "observation_fields")
+            candidate = {
+                **obs,
+                "first_seen": stamp,
+                "last_seen": stamp,
+                "last_changed": stamp,
+                "deleted": None,
+                "enrichments": [],
+            }
+            schema_value(candidate, "index-row.schema.json")
+            source_fields(obs)
             k = key(obs)
             require(k not in observed, "duplicate_observation")
             observed.add(k)
@@ -238,6 +364,7 @@ def fold(case):
         attributes[attribute["name"]] = copy.deepcopy(attribute)
         row["enrichments"] = [attributes[name] for name in sorted(attributes)]
     output = [rows[k] for k in sorted(rows)]
+    rows_valid(output)
     return {
         "rows": output,
         "admission": admission,
@@ -247,7 +374,259 @@ def fold(case):
     }
 
 
+def subject_uri(selection):
+    raw = b"segmented-snapshot/v0/subject\x00"
+    raw += selection["namespace_id"].encode("ascii") + b"\x00"
+    raw += selection["snapshot_id"].encode("ascii")
+    return "snapshot:" + hashlib.sha256(raw).hexdigest()
+
+
+def resolve(pin, store):
+    require(pin["ref"] in store, "binding_unavailable")
+    raw = store[pin["ref"]].encode("utf-8")
+    require(
+        len(raw) == pin["byte_length"]
+        and hashlib.sha256(raw).hexdigest() == pin["sha256"],
+        "binding_integrity",
+    )
+    return strict(raw)
+
+
+def coverage_scope(scope):
+    allowed = {"partition", "prefix"} if "prefix" in scope else {"partition"}
+    require(
+        set(scope) == allowed and set(scope.get("partition", {})) == {"namespace"},
+        "coverage_scope",
+    )
+    require("prefix" not in scope or bool(scope["prefix"]), "coverage_scope")
+    return {
+        "namespace": scope["partition"]["namespace"],
+        "prefix": scope.get("prefix", ""),
+    }
+
+
+def bindings(case, ancestry=()):
+    """Validate exact metadata/plan/coverage bytes against authored source evidence.
+
+    This is the index subgraph, not a physical snapshot or source authentication.
+    """
+    meta, store = case["metadata"], case["store"]
+    schema_value(meta, "index-metadata.schema.json")
+    selection = meta["selection"]
+    require(selection["snapshot_id"] not in ancestry, "parent_cycle")
+    require(len(ancestry) < 64, "capacity")
+    plan = resolve(meta["plan"], store)
+    schema_value(plan, "index-plan.schema.json")
+    require(
+        plan["set_id"] == meta["plan"]["id"] == selection["namespace_id"],
+        "plan_identity",
+    )
+    scopes = plan["scopes"]
+    require(scopes == canonical(scopes), "noncanonical_plan")
+    require(meta["effective_scope_count"] == len(scopes), "scope_count")
+    require(meta["plan_digest"] == digest(plan["set_id"], scopes), "plan_digest")
+    require(len(meta["coverage"]) == len(scopes), "coverage_count")
+    refs = [meta["plan"]["ref"]] + [pin["ref"] for pin in meta["coverage"]]
+    require(len(set(refs)) == len(refs), "binding_alias")
+    ids = [pin["id"] for pin in meta["coverage"]]
+    require(len(ids) == len(set(ids)), "coverage_identity")
+    if meta["mode"] == "enrich":
+        require("inherited_from" in case, "parent_unavailable")
+        prior = case["inherited_from"]
+        bindings(prior, ancestry + (selection["snapshot_id"],))
+        pm = prior["metadata"]
+        require(meta["parent"]["selection"] == pm["selection"], "coverage_inheritance")
+        require(
+            all(
+                meta[name] == pm[name]
+                for name in ("plan", "plan_digest", "effective_scope_count", "coverage")
+            ),
+            "coverage_inheritance",
+        )
+        require(
+            not case["observations"] and not case["enumerated"],
+            "enrichment_observation",
+        )
+        return {"absence_authority": []}
+    instant(meta["observation_at"])
+    observed = [key(row) for row in case["observations"]]
+    require(len(set(observed)) == len(observed), "duplicate_observation")
+    for row in case["observations"]:
+        require(set(row) == OBSERVATION_FIELDS, "observation_fields")
+        source_fields(row)
+        require(
+            any(contains(scope, row["namespace"], row["key"]) for scope in scopes),
+            "observation_outside_plan",
+        )
+    enumerated = {key(row) for row in case["enumerated"]}
+    authority = []
+    for scope, pin in zip(scopes, meta["coverage"]):
+        coverage = resolve(pin, store)
+        schema_value(
+            coverage, "../../coverage-attestation/v0/coverage-attestation.schema.json"
+        )
+        require(coverage["attestation_id"] == pin["id"], "coverage_identity")
+        require(
+            "supersedes" not in coverage and len(coverage["claims"]) == 1,
+            "coverage_scope",
+        )
+        claim = coverage["claims"][0]
+        require(coverage_scope(claim["scope"]) == scope, "coverage_scope")
+        require(
+            coverage["subject"]
+            == {
+                "artifact_id": selection["artifact_id"],
+                "grain_id": case["grain_id"],
+                "subject_uri": subject_uri(selection),
+            },
+            "coverage_subject",
+        )
+        require(
+            coverage["emitter"]["relation"] == "producer"
+            and coverage["emitter"].get("run_id") == selection["snapshot_id"],
+            "coverage_emitter",
+        )
+        require(instant(coverage["as_of"]) == meta["observation_at"], "coverage_time")
+        volume = claim.get("volume", {})
+        count = sum(
+            contains(scope, row["namespace"], row["key"])
+            for row in case["observations"]
+        )
+        require(
+            volume.get("unit") == "objects"
+            and type(volume.get("observed")) is int
+            and volume["observed"] == count
+            and (
+                "expected" not in volume
+                or type(volume["expected"]) is int
+                and count <= volume["expected"] <= 9007199254740991
+            ),
+            "coverage_volume",
+        )
+        gaps = coverage.get("gaps", [])
+        for gap in gaps:
+            gs = coverage_scope(gap["scope"])
+            require(contains(scope, gs["namespace"], gs["prefix"]), "coverage_gap")
+        require(
+            coverage["coverage_state"] != "complete" or not gaps,
+            "coverage_complete_gap",
+        )
+        if (
+            coverage["coverage_state"] == "complete"
+            and claim["basis"] == "confirmed"
+            and claim["method"] in {"enumerated", "reconciled"}
+        ):
+            returned = {
+                k for k in enumerated if contains(scope, k[0].decode(), k[1].decode())
+            }
+            positive = {
+                k for k in observed if contains(scope, k[0].decode(), k[1].decode())
+            }
+            require(returned <= positive, "enumerated_key_omitted")
+            authority.append(scope)
+    return {"absence_authority": authority}
+
+
+def bound_transition(case):
+    evidence, transition = case["evidence"], copy.deepcopy(case["transition"])
+    authority = bindings(evidence)["absence_authority"]
+    meta = evidence["metadata"]
+    plan = resolve(meta["plan"], evidence["store"])
+    require(
+        transition["set_id"] == meta["selection"]["namespace_id"]
+        and transition["snapshot_id"] == meta["selection"]["snapshot_id"]
+        and transition["mode"] == meta["mode"]
+        and transition["generation"] == meta["generation"]
+        and transition["observation_at"] == meta["observation_at"]
+        and transition["scopes"] == plan["scopes"]
+        and transition["observations"] == evidence["observations"],
+        "metadata_transition",
+    )
+    parent = transition["parent"]
+    if parent is None:
+        require(meta["parent"] is None, "metadata_transition")
+    else:
+        require(meta["parent"] is not None, "metadata_transition")
+        require(
+            meta["parent"]["selection"]["namespace_id"] == parent["set_id"]
+            and meta["parent"]["selection"]["snapshot_id"] == parent["snapshot_id"]
+            and meta["parent"]["publication"]["sha256"] == parent["publication_sha256"],
+            "metadata_transition",
+        )
+    ack = meta["loss_acknowledgment"]
+    expected_ack = (
+        None
+        if ack is None
+        else {
+            "parent_sha256": ack["parent"]["publication"]["sha256"],
+            "plan_digest": ack["plan_sha256"],
+            "acknowledged_by": ack["acknowledged_by"],
+            "acknowledged_at": ack["acknowledged_at"],
+        }
+    )
+    require(
+        transition["acknowledgment"] == expected_ack
+        and (ack is None or ack["parent"] == meta["parent"]),
+        "metadata_transition",
+    )
+    transition["absence_authority"] = authority
+    result = fold(transition)
+    require(
+        result["admission"] == meta["admission"]
+        and result["retained_unobserved_rows"] == meta["retained_unobserved_rows"],
+        "metadata_transition",
+    )
+    return result
+
+
+def cutover(case):
+    record = case["record"]
+    require(record is not None, "cutover_required")
+    schema_value(record, "index-cutover.schema.json")
+    instant(record["accepted_at"])
+    require(record["authorized_by"] in case["authorized_actors"], "cutover_actor")
+    store = case["store"]
+    publications = []
+    for side in ("old", "new"):
+        endpoint = record[side]
+        publication = resolve(endpoint["publication"], store)
+        schema_value(publication, "index-publication.schema.json")
+        require(
+            publication["selection"] == endpoint["selection"]
+            and publication["publication_id"] == endpoint["publication"]["id"],
+            "cutover_selection",
+        )
+        publications.append(publication)
+    require(
+        record["old"]["publication"] != record["new"]["publication"],
+        "cutover_selection",
+    )
+    require(record["rollback"] == record["old"]["publication"], "cutover_rollback")
+    resolve(record["rollback"], store)
+    new = publications[1]
+    manifest = resolve(new["manifest"], store)
+    require(
+        manifest["selection"] == new["selection"]
+        and manifest["profile_metadata"]["id"] == new["selection"]["snapshot_id"],
+        "cutover_selection",
+    )
+    meta = resolve(manifest["profile_metadata"], store)
+    schema_value(meta, "index-metadata.schema.json")
+    require(meta["selection"] == new["selection"], "cutover_selection")
+    require(
+        meta["mode"] == "baseline"
+        and meta["generation"] == 0
+        and meta["parent"] is None,
+        "cutover_baseline",
+    )
+    return {"cutover": "explicit_baseline"}
+
+
 def shape(path, schema):
+    try:
+        strict(path.read_bytes())
+    except Refusal:
+        return False
     result = subprocess.run(
         [
             "goneat",
@@ -285,6 +664,192 @@ def shape(path, schema):
         ) from None
 
 
+def load_case(filename):
+    case = strict((BASE / filename).read_bytes())
+    if "baseline" in case:
+        baseline = strict((BASE / case["baseline"]).read_bytes())
+        assert "baseline" not in baseline, filename
+        assert case["replace"], filename
+        case["input"] = copy.deepcopy(baseline["input"])
+        for name, value in case["replace"].items():
+            assert baseline["input"].get(name) != value, (filename, name)
+            case["input"][name] = value
+    return case
+
+
+def evaluate(case, namespace=None):
+    scope = globals() if namespace is None else namespace
+    try:
+        if case["runner"] == "parsing":
+            return {"value": scope["strict"](bytes.fromhex(case["input"]["hex"]))}
+        runner = {
+            "transitions": "fold",
+            "bindings": "bindings",
+            "cutover": "cutover",
+            "rows": "row_members",
+            "bound_transitions": "bound_transition",
+        }[case["runner"]]
+        return scope[runner](copy.deepcopy(case["input"]))
+    except scope["Refusal"] as error:
+        return {"refusal": str(error)}
+
+
+def row_members(case):
+    rows = [row for member in case["members"] for row in member]
+    rows_valid(rows)
+    return {"row_count": len(rows)}
+
+
+def declared_reasons():
+    tree = ast.parse(Path(__file__).read_text())
+    reasons = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            arg = (
+                1
+                if node.func.id == "require"
+                else 0
+                if node.func.id == "Refusal"
+                else None
+            )
+            if (
+                arg is not None
+                and len(node.args) > arg
+                and isinstance(node.args[arg], ast.Constant)
+            ):
+                reasons.add(node.args[arg].value)
+    return reasons
+
+
+def fixture_tables(inventory, filenames):
+    expected_reasons = {
+        load_case(f)["expected"]["refusal"]
+        for f in filenames
+        if "refusal" in load_case(f)["expected"]
+    }
+    standard = (ROOT / "docs/standards/durable-index-contract.md").read_text()
+    table = set(
+        re.findall(
+            r"^\| `([a-z_]+)`\s*\|",
+            standard.split("## Logical checker refusal reasons", 1)[1],
+            re.M,
+        )
+    )
+    assert declared_reasons() == table == expected_reasons, (
+        declared_reasons() - expected_reasons,
+        table ^ declared_reasons(),
+    )
+    readme = (BASE / "rejects/README.md").read_text()
+    listed = set(re.findall(r"^\| `([^`]+)`\s*\|", readme, re.M))
+    files = {entry["file"] for entry in inventory["shape"] if not entry["valid"]}
+    files |= {f for f in filenames if "refusal" in load_case(f)["expected"]}
+    assert listed == files, listed ^ files
+    indexed = {
+        f: (layer.strip(), reason)
+        for f, layer, reason in re.findall(
+            r"^\| `([^`]+)`\s*\| ([^|]+)\| `([^`]+)`\s*\|", readme, re.M
+        )
+    }
+    expected_index = {
+        e["file"]: ("schema", e["schema"]) for e in inventory["shape"] if not e["valid"]
+    }
+    expected_index.update(
+        {
+            f: (load_case(f)["runner"], load_case(f)["expected"]["refusal"])
+            for f in filenames
+            if "refusal" in load_case(f)["expected"]
+        }
+    )
+    assert indexed == expected_index, "reject README labels differ from fixtures"
+    for filename in files:
+        if filename.startswith("rejects/semantic/"):
+            reason = load_case(filename)["expected"]["refusal"]
+            assert Path(filename).parent.name.startswith(f"reject-{reason}--")
+    vectors = (BASE / "vectors/README.md").read_text()
+    listed_vectors = set(re.findall(r"^\| `([^`]+)`\s*\|", vectors, re.M))
+    assert listed_vectors == {
+        f for f in inventory["plans"] + filenames if f.startswith("vectors/")
+    }
+
+
+def mutation_controls(filenames):
+    # Fixed AST mutations, never fixture-selected executable code or commands.
+    source = Path(__file__).read_text().split("def mutation_controls(", 1)[0]
+    mutations = [
+        ("fabricated_freshness", "retained-current-stamp"),
+        ("observation_fields", "observation-first_seen"),
+        ("lineage_order", "first-after-last"),
+        ("scope_count", "wrong-count"),
+        ("plan_digest", "wrong-plan-digest"),
+        ("coverage_count", "missing-coverage"),
+        ("enumerated_key_omitted", "hidden-key-filtered"),
+        ("invalid_json", "overflow"),
+        ("capacity", "multibyte-key"),
+        ("cutover_actor", "unrecognized-actor"),
+        ("scope-loss", "equal-count-loss"),
+        ("stale_parent", "stale-parent"),
+        ("partial-authority", "partial-does-not-authorize"),
+        ("revision-clearing", "revision-change-clears-enrichment"),
+    ]
+    for name, witness in mutations:
+        changes = []
+
+        class Weaken(ast.NodeTransformer):
+            def visit_Call(self, node):
+                self.generic_visit(node)
+                if (
+                    isinstance(node.func, ast.Name)
+                    and node.func.id == "require"
+                    and len(node.args) == 2
+                    and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value == name
+                ):
+                    node.args[0] = ast.Constant(True)
+                    changes.append(name)
+                return node
+
+            def visit_FunctionDef(self, node):
+                self.generic_visit(node)
+                if name == "scope-loss" and node.name == "loss":
+                    node.body = [ast.Return(ast.Constant(False))]
+                    changes.append(name)
+                return node
+
+            def visit_If(self, node):
+                self.generic_visit(node)
+                test = ast.unparse(node.test)
+                if (
+                    name == "revision-clearing"
+                    and test
+                    == "obs['revision'] is None or obs['revision'] != old['revision']"
+                ):
+                    node.test = ast.Constant(False)
+                    changes.append(name)
+                if name == "partial-authority" and test.startswith(
+                    "coverage['coverage_state'] == 'complete' and claim['basis']"
+                ):
+                    node.test.values.pop(0)
+                    changes.append(name)
+                return node
+
+        tree = ast.fix_missing_locations(Weaken().visit(ast.parse(source)))
+        assert changes, name
+        namespace = {"__file__": __file__, "__name__": "index_mutation"}
+        exec(compile(tree, __file__, "exec"), namespace)
+        matches = [
+            f
+            for f in filenames
+            if Path(f).stem == witness or Path(f).parent.name.endswith("--" + witness)
+        ]
+        assert len(matches) == 1, (name, matches)
+        case = load_case(matches[0])
+        assert evaluate(case, namespace) != case["expected"], (
+            "undetected mutation",
+            name,
+        )
+        print(f"[ok] mutation detected: {name}")
+
+
 def main():
     inventory = strict((BASE / "cases.json").read_bytes())
     actual = {
@@ -293,8 +858,13 @@ def main():
         for p in (BASE / folder).rglob("*.json")
     }
     listed = {entry["file"] for entry in inventory["shape"]}
-    listed.update(inventory["plans"] + inventory["transitions"])
-    require(listed == actual, "fixture_inventory")
+    listed.update(
+        inventory["plans"] + inventory["transitions"] + inventory["scenarios"]
+    )
+    assert listed == actual, listed ^ actual
+    assert len(listed) == len(inventory["shape"]) + len(inventory["plans"]) + len(
+        inventory["transitions"]
+    ) + len(inventory["scenarios"])
     for entry in inventory["shape"]:
         if not entry["valid"]:
             kind = Path(entry["file"]).name.split("--")[0].removeprefix("reject-")
@@ -337,18 +907,17 @@ def main():
             )
     with tempfile.TemporaryDirectory(prefix="durable-index-controls-") as tmp:
         path = Path(tmp) / "row.json"
-        for filename in inventory["transitions"]:
-            case = strict((BASE / filename).read_bytes())
-            outcome = None
-            try:
-                outcome = fold(case["input"])
-            except Refusal as error:
-                outcome = {"refusal": str(error)}
+        filenames = inventory["transitions"] + inventory["scenarios"]
+        for filename in filenames:
+            case = load_case(filename)
+            outcome = evaluate(case)
             assert outcome == case["expected"], (filename, outcome, case["expected"])
             for row in outcome.get("rows", []):
                 path.write_text(json.dumps(row))
                 assert shape(path, BASE / "index-row.schema.json"), filename
             print(f"[ok] {filename}")
+    fixture_tables(inventory, filenames)
+    mutation_controls(filenames)
     for raw, reason in [
         (b'{"a":1,"a":2}', "duplicate_key"),
         (b'{"a":NaN}', "invalid_json"),
@@ -362,8 +931,8 @@ def main():
             raise AssertionError(reason)
     print(
         f"Durable index DESIGN controls PASS: {len(inventory['shape'])} shapes, "
-        f"{len(inventory['plans'])} plan vectors, {len(inventory['transitions'])} transitions. "
-        "No Parquet, coverage-graph or runtime qualification claim."
+        f"{len(inventory['plans'])} plan vectors, {len(filenames)} scenarios. "
+        "Index metadata/coverage subgraph checked; no full snapshot, Parquet or runtime qualification claim."
     )
 
 

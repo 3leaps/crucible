@@ -30,19 +30,19 @@ logical annotation (legacy UTF8 compatibility annotation allowed). Parquet's
 STRING ordering is unsigned byte-wise. The mapping follows the
 [Apache Parquet logical types specification](https://parquet.apache.org/docs/file-format/types/logicaltypes/).
 
-| Logical field | Physical column / group                                                                          | Repetition                                 |
-| ------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| namespace     | STRING `namespace`                                                                               | required                                   |
-| key           | STRING `key`                                                                                     | required                                   |
-| revision      | group `revision`: required STRING `kind`, required STRING `value`                                | optional group; null means absent group    |
-| size_bytes    | INT64 `size_bytes`, no unsigned or timestamp annotation                                          | required; 0 through 2^53−1                 |
-| last_modified | STRING `last_modified`                                                                           | optional                                   |
-| storage_class | STRING `storage_class`                                                                           | optional                                   |
-| first_seen    | group `first_seen`: required STRING `snapshot_id`, required STRING `at`                          | required                                   |
-| last_seen     | same fields in group `last_seen`                                                                 | required                                   |
-| last_changed  | same fields in group `last_changed`                                                              | required                                   |
-| deleted       | same fields in group `deleted`                                                                   | optional                                   |
-| enrichments   | standard three-level LIST group `enrichments` / repeated group `list` / required group `element` | required list; empty is distinct from null |
+| Logical field | Physical column / group                                                                                              | Repetition                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| namespace     | STRING `namespace`                                                                                                   | required                                   |
+| key           | STRING `key`                                                                                                         | required                                   |
+| revision      | group `revision`: required STRING `kind`, required STRING `value`                                                    | optional group; null means absent group    |
+| size_bytes    | Physical INT64 `size_bytes`; logical annotation absent or INT(64, signed=true); never unsigned, decimal or timestamp | required; 0 through 2^53−1                 |
+| last_modified | STRING `last_modified`                                                                                               | optional                                   |
+| storage_class | STRING `storage_class`                                                                                               | optional                                   |
+| first_seen    | group `first_seen`: required STRING `snapshot_id`, required STRING `at`                                              | required                                   |
+| last_seen     | same fields in group `last_seen`                                                                                     | required                                   |
+| last_changed  | same fields in group `last_changed`                                                                                  | required                                   |
+| deleted       | same fields in group `deleted`                                                                                       | optional                                   |
+| enrichments   | standard three-level LIST group `enrichments` / repeated group `list` / required group `element`                     | required list; empty is distinct from null |
 
 Each enrichment element has required STRING `name`, optional STRING `value`,
 required STRING `operation`, required STRING `observed_at`, and required group
@@ -98,3 +98,5 @@ lock. This establishes semantic parity, not two independent Parquet decoders.
 Protection of statistics and namespace values, exact parent admission and
 recovery are separate checks. See the
 [conformance requirements](../standards/durable-index-conformance.md).
+
+Physical twins MUST exercise both permitted `size_bytes` annotation forms.

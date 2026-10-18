@@ -154,5 +154,6 @@
     ],
     "admission": "no_loss",
     "retained_unobserved_rows": 1
-  }
+  },
+  "runner": "transitions"
 }
