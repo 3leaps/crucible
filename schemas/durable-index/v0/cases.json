@@ -1,0 +1,142 @@
+{
+  "shape": [
+    {
+      "file": "examples/index-plan.json",
+      "schema": "index-plan.schema.json",
+      "valid": true
+    },
+    {
+      "file": "examples/index-row.json",
+      "schema": "index-row.schema.json",
+      "valid": true
+    },
+    {
+      "file": "rejects/schema/reject-index-plan--extra-property.json",
+      "schema": "index-plan.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-plan--null-scopes.json",
+      "schema": "index-plan.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-plan--unknown-profile.json",
+      "schema": "index-plan.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-row--empty-revision.json",
+      "schema": "index-row.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-row--extra-property.json",
+      "schema": "index-row.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-row--negative-size.json",
+      "schema": "index-row.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-row--null-enrichments.json",
+      "schema": "index-row.schema.json",
+      "valid": false
+    },
+    {
+      "file": "examples/index-metadata.json",
+      "schema": "index-metadata.schema.json",
+      "valid": true
+    },
+    {
+      "file": "examples/index-publication.json",
+      "schema": "index-publication.schema.json",
+      "valid": true
+    },
+    {
+      "file": "examples/coverage-0.json",
+      "schema": "../../coverage-attestation/v0/coverage-attestation.schema.json",
+      "valid": true
+    },
+    {
+      "file": "examples/coverage-1.json",
+      "schema": "../../coverage-attestation/v0/coverage-attestation.schema.json",
+      "valid": true
+    },
+    {
+      "file": "rejects/schema/reject-index-metadata--negative-generation.json",
+      "schema": "index-metadata.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-metadata--extra-property.json",
+      "schema": "index-metadata.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-publication--not-committed.json",
+      "schema": "index-publication.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-publication--missing-index-capability.json",
+      "schema": "index-publication.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-publication--missing-snapshot-capability.json",
+      "schema": "index-publication.schema.json",
+      "valid": false
+    },
+    {
+      "file": "rejects/schema/reject-index-publication--extra-property.json",
+      "schema": "index-publication.schema.json",
+      "valid": false
+    }
+  ],
+  "plans": [
+    "vectors/plans/canonical-prefixes.json",
+    "vectors/plans/empty.json",
+    "vectors/plans/frame-a-bc.json",
+    "vectors/plans/frame-ab-c.json",
+    "vectors/plans/raw-prefix.json",
+    "vectors/plans/unicode-and-no-cleanup.json"
+  ],
+  "transitions": [
+    "vectors/transitions/ack-cannot-override-discovery-failure.json",
+    "vectors/transitions/ack-retains-omitted-row.json",
+    "vectors/transitions/broader-prefix-no-loss.json",
+    "vectors/transitions/clock-reversal.json",
+    "vectors/transitions/duplicate-observation.json",
+    "vectors/transitions/empty-baseline.json",
+    "vectors/transitions/enrichment-cannot-change-plan.json",
+    "vectors/transitions/enrichment-cannot-observe.json",
+    "vectors/transitions/enrichment-only.json",
+    "vectors/transitions/enrichment-wrong-revision.json",
+    "vectors/transitions/equal-count-loss.json",
+    "vectors/transitions/explicit-baseline.json",
+    "vectors/transitions/invalid-baseline.json",
+    "vectors/transitions/invalid-calendar-date.json",
+    "vectors/transitions/missing-parent-not-baseline.json",
+    "vectors/transitions/net-growth-still-loses.json",
+    "vectors/transitions/noncanonical-wire-plan.json",
+    "vectors/transitions/observe-and-tombstone.json",
+    "vectors/transitions/out-of-plan-observation.json",
+    "vectors/transitions/partial-preserves-absent.json",
+    "vectors/transitions/repeated-shrink-still-stale.json",
+    "vectors/transitions/resurrection.json",
+    "vectors/transitions/retained-tombstone.json",
+    "vectors/transitions/revision-change-clears-enrichment.json",
+    "vectors/transitions/snapshot-reuse.json",
+    "vectors/transitions/stale-enrichment.json",
+    "vectors/transitions/stale-parent.json",
+    "vectors/transitions/tombstone-clears-enrichment.json",
+    "vectors/transitions/unsupported-precision.json",
+    "vectors/transitions/wrong-ack-parent.json",
+    "vectors/transitions/wrong-ack-plan.json",
+    "vectors/transitions/wrong-generation.json",
+    "vectors/transitions/wrong-set.json"
+  ]
+}

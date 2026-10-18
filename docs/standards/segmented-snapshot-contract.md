@@ -41,13 +41,13 @@ and [DDR-0002](../decisions/DDR-0002-segmented-snapshot-identity-and-evidence.md
 
 ## Contract composition
 
-| Layer | Owns | Does not establish |
-| --- | --- | --- |
-| Data artifact | Discovery, grains, representations, catalogs, protection, producer lifecycle | Durable commit or source completeness |
-| Segmented snapshot | Exact immutable graph, publication binding, verification semantics | Historical write acknowledgement or provider-wide point-in-time consistency |
-| Coverage attestation | Independent scoped assessment and supersession | Successful publication or authorization to mutate |
-| Process run | Observation and local process control | Strict receipt persistence; telemetry may fail open |
-| Producer/substrate profile | Native schema mapping, publication mechanism and supported operations | Unadvertised capabilities or universal engine parity |
+| Layer                      | Owns                                                                         | Does not establish                                                          |
+| -------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Data artifact              | Discovery, grains, representations, catalogs, protection, producer lifecycle | Durable commit or source completeness                                       |
+| Segmented snapshot         | Exact immutable graph, publication binding, verification semantics           | Historical write acknowledgement or provider-wide point-in-time consistency |
+| Coverage attestation       | Independent scoped assessment and supersession                               | Successful publication or authorization to mutate                           |
+| Process run                | Observation and local process control                                        | Strict receipt persistence; telemetry may fail open                         |
+| Producer/substrate profile | Native schema mapping, publication mechanism and supported operations        | Unadvertised capabilities or universal engine parity                        |
 
 ## Logical records
 
@@ -75,6 +75,16 @@ A manifest MUST bind:
 - Every dependency required to read the snapshot, with exact identity/digest
   bindings. Lineage mentioned only for provenance must be distinguished from a
   dependency that readers need.
+
+The optional `profile_metadata` binding adds profile-defined required metadata.
+When present, it is a required edge of the immutable graph, not a hint. The
+selected profile MUST define the metadata schema, identity, selection binding,
+complete dependency enumeration and verification rules. Every transitive byte
+dependency counts against the same metadata budget. Cycles, unresolved metadata
+and unsupported required profiles cause refusal, including on selective reads.
+Metadata MUST NOT introduce external row reconstruction or paged member lists
+under this flat version. Existing manifests without this field retain their
+semantics; older closed-schema readers can refuse the expanded v0 shape.
 
 Required members may be empty only under an explicit empty-dataset profile rule.
 Unknown required profiles, roles or dependency kinds MUST cause refusal.
