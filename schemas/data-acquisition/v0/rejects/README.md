@@ -32,7 +32,9 @@ passing example in exactly one field.
 Each `reject-<reason>--<name>/` directory holds only the objects that differ from
 the baseline (`examples/source-policy.json`, `examples/acquisition-plan.json`).
 Every object is shape-valid and pins bind the exact fixture bytes, so the named
-semantic rule, not a schema gate or a stale digest, is what refuses. The
+semantic rule, not a schema gate or a stale digest, is what refuses. A
+`checker-profile.json` marks a vector whose outcome depends on this checker's
+profile and records what a consumer outside that profile would return. The
 checker must refuse with the reason before `--`; see the
 [refusal reasons](../../../../docs/standards/data-acquisition-contract.md#refusal-reasons).
 
@@ -70,12 +72,15 @@ checker must refuse with the reason before `--`; see the
 | `terms_changed--current-digest-differs` | acquisition-plan, source-policy |
 | `undeclared_target--effective-target-missing` | acquisition-plan |
 | `unknown_variant--variant-dimension-undeclared` | acquisition-plan, source-policy |
-| `unrepresentable_precision--created-after-start-submicrosecond` | acquisition-plan |
-| `unrepresentable_precision--lowercase-t-variant-submicrosecond` | acquisition-plan, source-policy |
+| `unrepresentable_precision--created-after-start-submicrosecond` | acquisition-plan (profile-labelled) |
+| `unrepresentable_precision--lowercase-t-variant-submicrosecond` | acquisition-plan, source-policy (profile-labelled) |
 | `unreviewed_meter_absence--absent-meters-not-listed` | acquisition-plan, source-policy |
+| `unsafe_target_url--empty-fragment-delimiter` | acquisition-plan, source-policy |
+| `unsafe_target_url--empty-query-delimiter` | acquisition-plan, source-policy |
 | `unsafe_target_url--plain-http` | acquisition-plan, source-policy |
 | `unsafe_target_url--query-string-key` | acquisition-plan, source-policy |
-| `unsupported_meter_basis--transfer-basis-unqualified` | acquisition-plan, source-policy |
+| `unsafe_target_url--trailing-space` | acquisition-plan, source-policy |
+| `unsupported_meter_basis--transfer-basis-unqualified` | acquisition-plan, source-policy (profile-labelled) |
 | `utc_required--timestamp-variant-offset` | acquisition-plan, source-policy |
 | `variant_outside_vocabulary--enum-value-undeclared` | acquisition-plan, source-policy |
 | `zero_allocation--zero-requests` | registration-result |
@@ -92,5 +97,22 @@ precedence between them.
 | Vector | Applicable reasons |
 | --- | --- |
 | `created-after-start-and-variant-offset` | `plan_time_order`, `utc_required` |
+
+## ledger/
+
+Each `reject-<reason>--<name>/ledger.json` is an ordered list of registration
+results recorded by one authority under the baseline policy. Every result is
+shape-valid and passes the single-result checks; the record as a whole must be
+refused with the named reason. `examples/allocation-ledger.json` is the passing
+baseline: an indeterminate attempt later registered under the same key, an exact
+replay, and two adjacent half-open allocations exactly at the span ceiling.
+
+| Vector | Must fail because |
+| --- | --- |
+| `allocations_exceed_policy--adjacent-halves-share-one-window` | two half-second allocations of 8 share one 1-second window that admits 8 |
+| `duplicate_allocation--allocation-id-reused` | distinct registrations reuse one allocation id |
+| `replay_mismatch--key-reused-for-other-plan` | one key is reused for a different plan pin |
+| `replay_mismatch--replay-rewritten-by-new-epoch` | a later epoch returns a changed result for an existing key |
+| `request_identity_mismatch--request-retried-under-fresh-key` | an indeterminate request is retried under a new key |
 
 Fixture data is synthetic. Identifiers are public-safe tokens.

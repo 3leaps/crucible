@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the policy ceiling. Registration records capacity; runtime admission and
   adopter qualification remain separate.
 
+### Changed
+
+- **Data acquisition contract hardening (proposed).** Define half-open
+  allocation intervals and an aggregate span ceiling, replay and request
+  identity scoped to entity/source across authority epochs, and opaque
+  credential reference names. Refuse empty query and fragment delimiters and
+  whitespace in target URLs, and state that URL checks are not a
+  safe-to-request claim. Add ledger reject fixtures and checker-profile labels
+  for profile-dependent vectors.
+
 ## [0.1.34] - 2026-10-16
 
 ### Added
