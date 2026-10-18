@@ -1,0 +1,8 @@
+{
+  "checker_profile": {
+    "byte_basis": [
+      "response_body"
+    ]
+  },
+  "reason_outside_profile": null
+}

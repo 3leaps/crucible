@@ -7,7 +7,11 @@ No network requests or instance-selected executable/schema paths are used.
 Fixtures on disk are the vectors. Schema rejects live in rejects/schema/ as
 reject-<object>--<name>.json. Semantic rejects live in rejects/semantic/ as
 reject-<reason>--<name>/ directories holding only the objects that differ from
-the baseline; an absent object is the corresponding file in examples/.
+the baseline; an absent object is the corresponding file in examples/. Ledger
+rejects live in rejects/ledger/ as reject-<reason>--<name>/ledger.json: an
+ordered list of registration results checked as one authority's record.
+Vectors whose outcome depends on this checker's profile carry a
+checker-profile.json label.
 """
 
 import copy
@@ -20,6 +24,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -34,6 +39,17 @@ _tspec = importlib.util.spec_from_file_location(
 _rfc3339 = importlib.util.module_from_spec(_tspec)
 _tspec.loader.exec_module(_rfc3339)
 _FRACTION = re.compile(r"[Tt]\d{2}:\d{2}:\d{2}\.(\d+)")
+# This checker's profile: exact instants to the microsecond, response-body
+# byte meters only. Vectors that depend on it are labelled.
+PROFILE = {"timestamp_resolution": "microsecond", "byte_basis": ["response_body"]}
+PROFILE_REASONS = {
+    "unrepresentable_precision": "timestamp_resolution",
+    "unsupported_meter_basis": "byte_basis",
+}
+PLANS = (
+    EXAMPLES / "acquisition-plan.json",
+    EXAMPLES / "acquisition-plan-compromise.json",
+)
 BASELINE = {
     "source-policy": EXAMPLES / "source-policy.json",
     "acquisition-plan": EXAMPLES / "acquisition-plan.json",
@@ -73,6 +89,11 @@ def instant(value):
         raise Refusal("invalid_time")
 
 
+def invisible(c):
+    """Whitespace, C0/C1 control or format character: never part of a v0 URL."""
+    return c.isspace() or unicodedata.category(c) in ("Cc", "Cf")
+
+
 def encoded(value):
     return (json.dumps(value, indent=2) + "\n").encode()
 
@@ -95,7 +116,9 @@ def ceiling(meter, headroom_bps, interval):
     return usable * windows
 
 
-def semantic(policy, plan, result, policy_bytes, plan_bytes):
+def semantic(
+    policy, plan, result, policy_bytes, plan_bytes, byte_basis=PROFILE["byte_basis"]
+):
     start = instant(plan["start_at"])
     created = instant(plan["created_at"])
     require(created <= start, "plan_time_order")
@@ -119,7 +142,7 @@ def semantic(policy, plan, result, policy_bytes, plan_bytes):
     # These controls select the response-body-only fixture profile. Transfer is
     # structurally valid, but is not qualified by this fixture consumer.
     require(
-        meters.get("body_bytes", {}).get("basis", "response_body") == "response_body",
+        meters.get("body_bytes", {}).get("basis", "response_body") in byte_basis,
         "unsupported_meter_basis",
     )
     require(policy["transport"]["concurrency_limit"] > 0, "zero_concurrency")
@@ -131,8 +154,17 @@ def semantic(policy, plan, result, policy_bytes, plan_bytes):
     targets = policy["target_set"]["targets"]
     require(len({t["id"] for t in targets}) == len(targets), "duplicate_target")
     for target in targets:
+        raw_url = target["endpoint_uri"]
+        # An empty query or fragment still carries its delimiter; refuse the
+        # delimiter itself, and any invisible character.
+        require(
+            "?" not in raw_url
+            and "#" not in raw_url
+            and not any(invisible(c) for c in raw_url),
+            "unsafe_target_url",
+        )
         try:
-            u = urlsplit(target["endpoint_uri"])
+            u = urlsplit(raw_url)
             _ = u.port
             require(
                 u.scheme == "https"
@@ -230,8 +262,8 @@ def semantic(policy, plan, result, policy_bytes, plan_bytes):
                 all(name in meters for name in ("body_bytes", "errors") if name in a),
                 "allocation_unconfigured_meter",
             )
-            # One allocation alone must fit the parent ceiling. Checking all
-            # overlapping allocations remains the registration authority's job.
+            # One allocation alone must fit the parent ceiling. Allocation
+            # sets are checked by ledger(); the authority checks its full record.
             require(
                 all(
                     a[name] <= ceiling(meters[name], headroom, closes - opens)
@@ -243,6 +275,69 @@ def semantic(policy, plan, result, policy_bytes, plan_bytes):
         "headroom_bps": headroom,
         "byte_basis": meters.get("body_bytes", {}).get("basis", "response_body"),
     }
+
+
+def ledger(policy, policy_bytes, plans, results):
+    """Check an ordered record of registration results under one policy.
+
+    plans maps a plan pin digest to (plan, plan_bytes). Each result must pass
+    semantic() alone; the record must then agree on request identity and
+    replay, and its distinct allocations must fit every span they occupy.
+    """
+    for r in results:
+        found = plans.get(r["plan"]["digest"])
+        require(
+            found and found[0]["plan_id"] == r["plan"]["id"],
+            "registration_plan_binding",
+        )
+        semantic(policy, found[0], r, policy_bytes, found[1])
+    keys, requests = {}, {}
+    for r in results:
+        keys.setdefault(r["idempotency_key"], set()).add(r["request_id"])
+        requests.setdefault(r["request_id"], set()).add(r["idempotency_key"])
+    require(
+        all(len(v) == 1 for v in keys.values())
+        and all(len(v) == 1 for v in requests.values()),
+        "request_identity_mismatch",
+    )
+    originals = {}
+    for r in results:
+        proposal = (r["request_id"], r["policy"], r["plan"])
+        first = originals.setdefault(r["idempotency_key"], {"proposal": proposal})
+        require(first["proposal"] == proposal, "replay_mismatch")
+        # After a final result, every later entry for the key must be exactly
+        # that result; a non-final outcome there is not a conforming replay.
+        if "result" in first:
+            require(r == first["result"], "replay_mismatch")
+        elif r["outcome"] in ("rejected", "registered"):
+            first["result"] = r
+    registered = [
+        o["result"]
+        for o in originals.values()
+        if o.get("result", {}).get("outcome") == "registered"
+    ]
+    ids = [r["allocation"]["id"] for r in registered]
+    require(len(ids) == len(set(ids)), "duplicate_allocation")
+    meters = policy["meters"]
+    headroom = policy.get("headroom_bps", 2000)
+    spans = [
+        (instant(r["allocation"]["opens_at"]), instant(r["allocation"]["closes_at"]), r)
+        for r in registered
+    ]
+    # Intervals are half-open. Allocations wholly inside a span share every
+    # rolling window that covers it, so their sum must fit its ceiling.
+    for start in {s for s, _, _ in spans}:
+        for end in {e for _, e, _ in spans}:
+            if end <= start:
+                continue
+            inside = [r["allocation"] for s, e, r in spans if s >= start and e <= end]
+            for name in meters:
+                require(
+                    sum(a[name] for a in inside)
+                    <= ceiling(meters[name], headroom, end - start),
+                    "allocations_exceed_policy",
+                )
+    return len(registered)
 
 
 def shape_file(kind, path):
@@ -386,6 +481,16 @@ def positive_controls():
         instant("2026-01-02t00:00:00.000001000Z") == instant(same["start_at"]),
         "lowercase_t_zero_padding",
     )
+    # Percent-escaped delimiters are ordinary path content, and non-ASCII
+    # letters are not invisible; both stay acceptable.
+    escaped = copy.deepcopy(policy)
+    escaped["target_set"]["targets"][0]["endpoint_uri"] = (
+        "https://example.invalid/obs%3Fkey%23frag/caf\u00e9"
+    )
+    escaped_plan = copy.deepcopy(plan)
+    escaped_plan["policy"]["digest"] = digest(encoded(escaped))
+    require(shape("source-policy", escaped), "escaped_path_shape")
+    semantic(escaped, escaped_plan, None, encoded(escaped), encoded(escaped_plan))
     # Target bounds: a policy catalog holds at most 4096 targets and one plan
     # scope selects at most 256; neither bound splits or widens the other.
     wide = copy.deepcopy(policy)
@@ -492,19 +597,102 @@ def schema_rejects():
     return names
 
 
-def semantic_rejects():
+def profile_label(directory, reason, documented):
+    """Validate checker-profile.json; required exactly for profile reasons."""
+    label = directory / "checker-profile.json"
+    require(
+        label.exists() == (reason in PROFILE_REASONS),
+        "checker_profile_label:" + directory.name,
+    )
+    if not label.exists():
+        return
+    value = strict_load(label.read_bytes())
+    require(
+        set(value) == {"checker_profile", "reason_outside_profile"}
+        and value["checker_profile"]
+        == {PROFILE_REASONS[reason]: PROFILE[PROFILE_REASONS[reason]]}
+        and (
+            value["reason_outside_profile"] is None
+            or value["reason_outside_profile"] in documented
+        ),
+        "checker_profile_label:" + directory.name,
+    )
+    if reason == "unsupported_meter_basis":
+        # Verifiable here: a consumer qualifying both bases gives the label's outcome.
+        paths = case_paths(directory)
+        raw = {k: p.read_bytes() for k, p in paths.items()}
+        objects = {k: strict_load(b) for k, b in raw.items()}
+        try:
+            semantic(
+                objects["source-policy"],
+                objects["acquisition-plan"],
+                objects.get("registration-result"),
+                raw["source-policy"],
+                raw["acquisition-plan"],
+                byte_basis=("response_body", "transfer"),
+            )
+            got = None
+        except Refusal as error:
+            got = str(error)
+        require(
+            got == value["reason_outside_profile"],
+            "checker_profile_outcome:" + directory.name,
+        )
+
+
+def semantic_rejects(documented):
     names, reasons = [], set()
     for directory in sorted((REJECTS / "semantic").glob("reject-*")):
         reason, _, name = directory.name[len("reject-") :].partition("--")
         require(reason and name, "semantic_reject_name:" + directory.name)
         present = [k for k in KINDS if (directory / (k + ".json")).exists()]
+        extra = ["checker-profile.json"] if reason in PROFILE_REASONS else []
         require(
             present
             and sorted(p.name for p in directory.iterdir())
-            == sorted(k + ".json" for k in present),
+            == sorted([k + ".json" for k in present] + extra),
             "semantic_reject_contents:" + directory.name,
         )
+        profile_label(directory, reason, documented)
         got = check_case(case_paths(directory))
+        require(got == reason, "wrong_refusal:" + directory.name + ":" + str(got))
+        names.append(directory.name[len("reject-") :])
+        reasons.add(reason)
+    return names, reasons
+
+
+def load_plans():
+    plans = {}
+    for path in PLANS:
+        raw = path.read_bytes()
+        plans[digest(raw)] = (strict_load(raw), raw)
+    return plans
+
+
+def check_ledger(path):
+    policy_bytes = BASELINE["source-policy"].read_bytes()
+    try:
+        results = strict_load(path.read_bytes())
+        require(isinstance(results, list) and results, "ledger_shape")
+        for r in results:
+            if not shape("registration-result", r):
+                return "shape:registration-result"
+        ledger(strict_load(policy_bytes), policy_bytes, load_plans(), results)
+    except Refusal as error:
+        return str(error)
+    return None
+
+
+def ledger_rejects():
+    names, reasons = [], set()
+    for directory in sorted((REJECTS / "ledger").glob("reject-*")):
+        reason, _, name = directory.name[len("reject-") :].partition("--")
+        require(reason and name, "ledger_reject_name:" + directory.name)
+        require(
+            [p.name for p in directory.iterdir()] == ["ledger.json"],
+            "ledger_reject_contents:" + directory.name,
+        )
+        got = check_ledger(directory / "ledger.json")
         require(got == reason, "wrong_refusal:" + directory.name + ":" + str(got))
         names.append(directory.name[len("reject-") :])
         reasons.add(reason)
@@ -536,9 +724,14 @@ def multiple_fault_rejects(documented):
 
 def main():
     defaults = positive_controls()
+    require(
+        check_ledger(EXAMPLES / "allocation-ledger.json") is None, "baseline:ledger"
+    )
     schema = schema_rejects()
-    semantic_names, reasons = semantic_rejects()
     documented = standard_reasons()
+    semantic_names, reasons = semantic_rejects(documented)
+    ledger_names, ledger_reasons = ledger_rejects()
+    reasons |= ledger_reasons
     require(
         reasons == documented,
         "reason_table_drift:undocumented="
@@ -548,7 +741,7 @@ def main():
     )
     multiple = multiple_fault_rejects(documented)
     listed = readme_rows(REJECTS / "README.md")
-    vectors = set(schema) | set(semantic_names) | set(multiple)
+    vectors = set(schema) | set(semantic_names) | set(multiple) | set(ledger_names)
     require(
         listed == vectors,
         "rejects_readme_drift:" + ",".join(sorted(listed ^ vectors)),
@@ -556,10 +749,11 @@ def main():
     print(
         json.dumps(
             {
-                "positive_objects": 8,
+                "positive_objects": 9,
                 "schema_rejects": len(schema),
                 "semantic_rejects": len(semantic_names),
                 "multiple_fault_rejects": len(multiple),
+                "ledger_rejects": len(ledger_names),
                 "refusal_reasons": len(reasons),
                 "defaults": defaults,
                 "coverage_scope_flow": "checked",

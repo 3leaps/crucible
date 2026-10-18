@@ -76,7 +76,8 @@ MUST refuse it rather than truncate or round, so a sub-resolution ordering can
 never pass. The wire format sets no precision limit. The fixture checker in this
 repository resolves microseconds, refuses non-zero digits beyond six, and accepts
 trailing zero digits. Its parser is the strict RFC 3339 profile, not a permissive
-ISO 8601 reader.
+ISO 8601 reader. A consumer with finer exact resolution may accept a value this
+checker refuses; see [checker profile](#checker-profile).
 
 ## Source policy
 
@@ -93,10 +94,24 @@ blocks new admission. Historical captures retain their original policy pin.
 
 A terms or meter review after the plan's start is not prior approval. Actor
 identifiers are opaque, scope-qualified role/seat records, not signatures.
-Credentials MUST be referenced by name. Inline values are forbidden. v0 target
-URLs exclude userinfo, query strings and fragments; query parameters belong in a
-digest-pinned parameter profile, whose values must be inspected before use.
-This is not a general detector of secrets hidden in paths or arbitrary text.
+Credentials MUST be referenced by name. Inline values are forbidden.
+`credential_ref.name` is an opaque reference token resolved by the runner's
+trusted secret store or environment. A name that carries secret material, such
+as a token, a password or a URL with userinfo, is non-conformant. Neither the
+schema nor the fixture checker can detect that; they constrain only shape.
+
+v0 target URLs are https and exclude userinfo, query strings and fragments. The
+`?` and `#` delimiters are refused even when the query or fragment is empty.
+No invisible character may appear anywhere in the URL: any Unicode whitespace
+(including U+00A0, U+0085 and U+2028), any C0 or C1 control or DEL, and any
+format character (Unicode category Cf, such as zero-width and bidirectional
+marks). Percent-escaped octets such as `%3F` are ordinary path content. Query parameters
+belong in a digest-pinned parameter profile, whose values must be inspected
+before use. This is not a general detector of secrets hidden in paths or
+arbitrary text. Passing these checks is not a claim that a URL is safe to
+request: loopback, link-local, private and metadata destinations remain
+syntactically valid, and a qualified runner applies its own destination policy
+before any fetch.
 
 ### Budgets and defaults
 
@@ -225,19 +240,48 @@ is `single_owner`, with epoch, digest-pinned authority profile and declared
 failure model. The profile must explain how ownership is enforced and how stale
 owners are fenced. Naming an epoch or using an object bucket is not fencing.
 
-An allocation binds a positive-duration time interval and request quantity, plus
+An allocation binds a positive-duration, half-open time interval
+`[opens_at, closes_at)` and request quantity, plus
 a quantity for each configured byte/error meter and none for an unconfigured
 meter. Each quantity MUST NOT exceed that meter's ceiling for the interval: the
 headroom-adjusted limit, rounded down, times the number of windows that the
 interval spans, rounded up. This is a necessary bound on one allocation in
 isolation. It is not evidence that a request schedule is feasible or that every
-rolling window inside the interval is respected. The authority MUST check all overlapping
-plans against the same parent policy and persist the decision before returning
-`registered`. It must bind idempotency keys to the full proposal, return the same
-original result for a replay, and refuse conflicting reuse. An uncertain write
-requires reconciliation; silence does not mean rejection. No default expiry may
-release unknown sent-attempt exposure. Scheduling allocation and runtime attempt
-exposure are distinct lifecycles.
+rolling window inside the interval is respected.
+
+A set of allocations shares the parent budget. Allocations that touch, such as
+one closing at the instant the next opens, share every rolling window that
+straddles their boundary. Unused capacity does not carry over to a later
+interval, and usage late in one interval still counts against the windows that
+cover the start of the next. For any span from one allocation's `opens_at` to
+another's `closes_at`, the summed quantities of the allocations wholly inside
+that span MUST NOT exceed the meter's ceiling for the span. That is a necessary
+condition the fixture ledger checks, not a full rolling-window schedule proof.
+The authority MUST check all overlapping plans against the same parent policy
+and persist the decision before returning `registered`.
+
+### Replay and request identity
+
+An idempotency key is scoped to the entity/source of the registration, not to an
+authority instance, process or epoch. Within that scope:
+
+- `request_id` names one logical registration request. Every attempt to submit
+  that request, including retries after timeouts and after an indeterminate
+  result, carries the same `request_id` and the same `idempotency_key`. A
+  request id never moves to another key and a key never names another request.
+- The key binds the full proposal: request id, policy pin and plan pin. Reusing
+  a key for a different proposal is refused.
+- Once a key has a `registered` or `rejected` result, every replay returns that
+  exact original result. A later `unavailable` or `indeterminate` entry for that
+  key is not a conforming replay and is refused; observations of transport
+  failure after finality need a separate model. A later authority epoch inherits the keys and results
+  of earlier epochs; ownership changes never reissue, rewrite or forget them.
+- `unavailable` and `indeterminate` are attempt outcomes, not final results.
+  An attempt that later resolves records the resolved result under the same key.
+
+An uncertain write requires reconciliation; silence does not mean rejection. No
+default expiry may release unknown sent-attempt exposure. Scheduling allocation
+and runtime attempt exposure are distinct lifecycles.
 
 ### Reconciliation (deferred)
 
@@ -255,6 +299,16 @@ Even a registered result carries `execution_authorization: none`: it records
 capacity, not a transferable permission to send requests. A runner still checks
 trusted current policy, terms, ownership and each attempt's remaining budget.
 Unavailable or stub adapters MUST NOT fabricate registered/admitted outcomes.
+
+## Checker profile
+
+The fixture checker in this repository runs one profile: exact timestamps to
+the microsecond and the `response_body` byte basis. The contract allows other
+consumers to represent finer timestamps exactly or to qualify the `transfer`
+basis. Vectors whose outcome depends on the profile carry a `checker-profile.json`
+label naming the profile dimension and the reason, or acceptance, that a consumer
+outside the profile would produce. An adopter with a different profile uses those
+labels rather than treating the vector as a universal refusal.
 
 ## Composition and qualification
 
@@ -288,7 +342,8 @@ map them to these reasons. An input that breaks exactly one rule MUST be refused
 with that rule's reason; an input that breaks several may be refused with any
 applicable one. Duplicate member names are always refused while reading bytes,
 before shape validation. Every reason has at least one single-fault vector under
-`rejects/semantic/`; `rejects/multiple/` holds multiple-fault vectors with their
+`rejects/semantic/` or, for reasons about a record of several results,
+`rejects/ledger/`; `rejects/multiple/` holds multiple-fault vectors with their
 applicable reasons.
 
 | Reason | Refused when |
@@ -329,3 +384,7 @@ applicable reasons.
 | `allocation_missing_meter` | A configured meter has no allocation quantity |
 | `allocation_unconfigured_meter` | An allocation carries a quantity for an unconfigured meter |
 | `allocation_exceeds_policy` | One allocation exceeds its meter's ceiling for the interval |
+| `allocations_exceed_policy` | Allocations wholly inside a span together exceed its ceiling |
+| `duplicate_allocation` | Two distinct registered results reuse an allocation id |
+| `request_identity_mismatch` | A request id and idempotency key do not map one-to-one |
+| `replay_mismatch` | A key is reused for another proposal, or a replay differs from the original result |
