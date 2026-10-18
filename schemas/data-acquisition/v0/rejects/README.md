@@ -75,8 +75,12 @@ checker must refuse with the reason before `--`; see the
 | `unrepresentable_precision--created-after-start-submicrosecond` | acquisition-plan (profile-labelled) |
 | `unrepresentable_precision--lowercase-t-variant-submicrosecond` | acquisition-plan, source-policy (profile-labelled) |
 | `unreviewed_meter_absence--absent-meters-not-listed` | acquisition-plan, source-policy |
+| `unsafe_target_url--bidi-override-in-path` | acquisition-plan, source-policy |
+| `unsafe_target_url--c1-control-in-path` | acquisition-plan, source-policy |
 | `unsafe_target_url--empty-fragment-delimiter` | acquisition-plan, source-policy |
 | `unsafe_target_url--empty-query-delimiter` | acquisition-plan, source-policy |
+| `unsafe_target_url--line-separator-in-path` | acquisition-plan, source-policy |
+| `unsafe_target_url--no-break-space-in-path` | acquisition-plan, source-policy |
 | `unsafe_target_url--plain-http` | acquisition-plan, source-policy |
 | `unsafe_target_url--query-string-key` | acquisition-plan, source-policy |
 | `unsafe_target_url--trailing-space` | acquisition-plan, source-policy |
@@ -112,7 +116,10 @@ replay, and two adjacent half-open allocations exactly at the span ceiling.
 | `allocations_exceed_policy--adjacent-halves-share-one-window` | two half-second allocations of 8 share one 1-second window that admits 8 |
 | `duplicate_allocation--allocation-id-reused` | distinct registrations reuse one allocation id |
 | `replay_mismatch--key-reused-for-other-plan` | one key is reused for a different plan pin |
+| `replay_mismatch--indeterminate-after-registered` | a non-final outcome follows a final registered result |
+| `replay_mismatch--indeterminate-after-rejected` | a non-final outcome follows a final rejected result |
 | `replay_mismatch--replay-rewritten-by-new-epoch` | a later epoch returns a changed result for an existing key |
+| `replay_mismatch--unavailable-after-registered` | a non-final outcome follows a final registered result |
 | `request_identity_mismatch--request-retried-under-fresh-key` | an indeterminate request is retried under a new key |
 
 Fixture data is synthetic. Identifiers are public-safe tokens.

@@ -24,6 +24,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -88,6 +89,11 @@ def instant(value):
         raise Refusal("invalid_time")
 
 
+def invisible(c):
+    """Whitespace, C0/C1 control or format character: never part of a v0 URL."""
+    return c.isspace() or unicodedata.category(c) in ("Cc", "Cf")
+
+
 def encoded(value):
     return (json.dumps(value, indent=2) + "\n").encode()
 
@@ -150,11 +156,11 @@ def semantic(
     for target in targets:
         raw_url = target["endpoint_uri"]
         # An empty query or fragment still carries its delimiter; refuse the
-        # delimiter itself, and any whitespace or control character.
+        # delimiter itself, and any invisible character.
         require(
             "?" not in raw_url
             and "#" not in raw_url
-            and all(" " < c and c != "\x7f" for c in raw_url),
+            and not any(invisible(c) for c in raw_url),
             "unsafe_target_url",
         )
         try:
@@ -299,8 +305,12 @@ def ledger(policy, policy_bytes, plans, results):
         proposal = (r["request_id"], r["policy"], r["plan"])
         first = originals.setdefault(r["idempotency_key"], {"proposal": proposal})
         require(first["proposal"] == proposal, "replay_mismatch")
-        if r["outcome"] in ("rejected", "registered"):
-            require(first.setdefault("result", r) == r, "replay_mismatch")
+        # After a final result, every later entry for the key must be exactly
+        # that result; a non-final outcome there is not a conforming replay.
+        if "result" in first:
+            require(r == first["result"], "replay_mismatch")
+        elif r["outcome"] in ("rejected", "registered"):
+            first["result"] = r
     registered = [
         o["result"]
         for o in originals.values()
@@ -471,6 +481,16 @@ def positive_controls():
         instant("2026-01-02t00:00:00.000001000Z") == instant(same["start_at"]),
         "lowercase_t_zero_padding",
     )
+    # Percent-escaped delimiters are ordinary path content, and non-ASCII
+    # letters are not invisible; both stay acceptable.
+    escaped = copy.deepcopy(policy)
+    escaped["target_set"]["targets"][0]["endpoint_uri"] = (
+        "https://example.invalid/obs%3Fkey%23frag/caf\u00e9"
+    )
+    escaped_plan = copy.deepcopy(plan)
+    escaped_plan["policy"]["digest"] = digest(encoded(escaped))
+    require(shape("source-policy", escaped), "escaped_path_shape")
+    semantic(escaped, escaped_plan, None, encoded(escaped), encoded(escaped_plan))
     # Target bounds: a policy catalog holds at most 4096 targets and one plan
     # scope selects at most 256; neither bound splits or widens the other.
     wide = copy.deepcopy(policy)

@@ -101,8 +101,11 @@ as a token, a password or a URL with userinfo, is non-conformant. Neither the
 schema nor the fixture checker can detect that; they constrain only shape.
 
 v0 target URLs are https and exclude userinfo, query strings and fragments. The
-`?` and `#` delimiters are refused even when the query or fragment is empty, and
-so are whitespace and control characters anywhere in the URL. Query parameters
+`?` and `#` delimiters are refused even when the query or fragment is empty.
+No invisible character may appear anywhere in the URL: any Unicode whitespace
+(including U+00A0, U+0085 and U+2028), any C0 or C1 control or DEL, and any
+format character (Unicode category Cf, such as zero-width and bidirectional
+marks). Percent-escaped octets such as `%3F` are ordinary path content. Query parameters
 belong in a digest-pinned parameter profile, whose values must be inspected
 before use. This is not a general detector of secrets hidden in paths or
 arbitrary text. Passing these checks is not a claim that a URL is safe to
@@ -269,7 +272,9 @@ authority instance, process or epoch. Within that scope:
 - The key binds the full proposal: request id, policy pin and plan pin. Reusing
   a key for a different proposal is refused.
 - Once a key has a `registered` or `rejected` result, every replay returns that
-  exact original result. A later authority epoch inherits the keys and results
+  exact original result. A later `unavailable` or `indeterminate` entry for that
+  key is not a conforming replay and is refused; observations of transport
+  failure after finality need a separate model. A later authority epoch inherits the keys and results
   of earlier epochs; ownership changes never reissue, rewrite or forget them.
 - `unavailable` and `indeterminate` are attempt outcomes, not final results.
   An attempt that later resolves records the resolved result under the same key.
