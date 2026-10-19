@@ -98,13 +98,16 @@ count as expected refusals. Shape rejects differ in one top-level field.
 | `rejects/semantic/reject-graph_publication--graph-draft-descriptor/case.json`               | graphs            | `graph_publication`             |
 | `rejects/semantic/reject-graph_row_schema--graph-wrong-row-schema/case.json`                | graphs            | `graph_row_schema`              |
 | `rejects/semantic/reject-graph_transition--graph-enrich-fresh-stamp/case.json`              | graphs            | `graph_transition`              |
+| `rejects/semantic/reject-graph_transition--graph-unknown-lineage-snapshot/case.json`        | graphs            | `graph_transition`              |
 | `rejects/semantic/reject-graph_transition--graph-unobserved-row-change/case.json`           | graphs            | `graph_transition`              |
 | `rejects/semantic/reject-invalid_baseline--invalid-baseline/case.json`                      | transitions       | `invalid_baseline`              |
 | `rejects/semantic/reject-invalid_instant--invalid-ack-time/case.json`                       | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--invalid-calendar-date/case.json`                  | transitions       | `invalid_instant`               |
+| `rejects/semantic/reject-invalid_instant--omitted-fraction/case.json`                       | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--parent-invalid-date/case.json`                    | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--source-february-30/case.json`                     | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--source-leap-second/case.json`                     | transitions       | `invalid_instant`               |
+| `rejects/semantic/reject-invalid_instant--trimmed-fraction/case.json`                       | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--unsupported-precision/case.json`                  | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_json--depth-257/case.json`                                 | parsing           | `invalid_json`                  |
 | `rejects/semantic/reject-invalid_json--depth-3000/case.json`                                | parsing           | `invalid_json`                  |

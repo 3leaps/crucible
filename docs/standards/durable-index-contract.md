@@ -61,8 +61,9 @@ flowchart TD
   im -. state parent .-> parent[Exact parent publication]
 ```
 
-All selections MUST agree exactly on namespace, snapshot and artifact. The
-namespace is the opaque index-set token; an adopter MUST carry it from the
+All selections MUST agree exactly on `namespace_id`, snapshot and artifact. The
+selection's `namespace_id` is the opaque index-set token, not a row or scope
+object `namespace`; an adopter MUST carry it from the
 verified parent, never recompute it from current configuration, format or producer
 version. If a producer changes identity-derivation inputs, including schema or
 producer version, it MUST either carry the prior set token verbatim or record an
@@ -110,7 +111,9 @@ or define a separately reviewed scope profile. Provider-specific filters and win
 are not v0 scope predicates. A filtered index needs a stable declared keyspace
 whose complete enumeration can actually be qualified.
 
-A plan's `set_id` MUST equal the selected namespace. Plan scopes MUST be sorted
+A plan's `set_id` MUST equal the segmented-snapshot selection's `namespace_id`.
+This is the index-set identity, distinct from a scope's object `namespace`. Plan
+scopes MUST be sorted
 by unsigned UTF-8 `(namespace, prefix)`, duplicate-free and prefix-minimal:
 remove any scope fully contained by another scope in the same namespace. Empty
 plans are permitted and describe no new observation. An empty plan is not an
@@ -221,7 +224,11 @@ First-seen MUST not follow last-seen or last-changed. Deletion MUST not precede
 last-seen, and its stamp MUST equal last-changed. Observation time MUST not precede any inherited observation/change
 stamp. Snapshot ids cannot be reused with new times to fabricate
 freshness. A reader checks internal consistency; proving the _transition_ also
-requires the exact verified parent and publication inputs.
+requires the exact verified parent and publication inputs. A single-step check
+cannot tell whether an inherited stamp names a snapshot in the verified chain;
+only full transition verification from a baseline establishes that, because it
+recomputes every inherited stamp. An R2 snapshot-only reader MUST NOT report
+inherited lineage as verified.
 
 ## I5 — Successors and stale retained state
 

@@ -44,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schema's bytes under the same `$id`. Existing manifests keep their meaning
   and remain valid. A reader that does not implement `profile_metadata` must
   refuse a manifest that contains it, including on selective reads.
+- **Durable index contract clarifications (proposed).** State that a plan's
+  `set_id` equals the selection's `namespace_id`, the index-set identity, not a
+  scope's object `namespace`. State that only full transition verification
+  establishes inherited lineage, so a snapshot-only reader must not report it as
+  verified. Add rejects for timestamps with a trimmed or omitted fraction and
+  for an inherited stamp naming a snapshot outside the verified chain. Clarify
+  that the synthetic profile-metadata dependency cases are refused by its closed
+  shape, not by cycle detection. List the durable-queue and durable-record
+  standards in the docs index.
 
 ## [0.1.34] - 2026-10-16
 

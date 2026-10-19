@@ -65,7 +65,12 @@ unknown required semantics rather than treating a valid digest as semantic proof
 Its dependencies must be exhaustive and acyclic and remain within the flat,
 self-contained snapshot boundary. The synthetic metadata variant in
 `fixtures/profile-metadata/` has no nested dependencies and checks this boundary
-without claiming a production index profile.
+without claiming a production index profile. Because that variant admits no
+dependencies at all, its `unknown-dependency`, `undeclared-transitive-dependency`
+and `metadata-self-cycle` cases are refused by the closed metadata shape, not by
+dependency enumeration or cycle detection. They are not evidence of a cycle
+walker; a profile that admits nested dependencies needs its own enumeration and
+cycle controls.
 
 The artifact descriptor can describe other representations. Verifying the selected
 manifest does not certify those other representations.
