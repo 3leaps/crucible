@@ -10,19 +10,19 @@ test harness input, not another public wire message.
 
 ## Rules
 
-| Rule | Required check |
-| --- | --- |
-| SEM-S00 | Reject duplicate JSON object members before interpreting metadata. |
-| SEM-S01 | Caller selection, publication, manifest, descriptor, profile, schema/catalog and verification-result identities/bindings agree exactly. |
-| SEM-S02 | Resolve each required reference through authorized bindings; length and SHA-256 cover the exact bytes consumed. Missing or changed required bytes refuse. |
-| SEM-S03 | The flat graph is exhaustive and self-contained; ids/refs are unambiguous, data members do not alias required metadata, and row-schema references are fragment-local. |
-| SEM-S04 | Member counts sum exactly to the manifest and representation count; the declared relation to the grain count holds and arithmetic stays within the safe-integer range. Profile decoding verifies physical row counts. |
-| SEM-S05 | A published descriptor is `complete` or `partial`; the selected representation is immutable (`appendable: false`). A publication record alone does not prove persistence. |
-| SEM-S06 | Coverage binds the selected immutable namespace/snapshot, artifact and grain; reused logical artifact ids do not collapse snapshot identity. |
-| SEM-S07 | The admitted exact profile supports the requested operation, count/order model and empty-snapshot case. Unsupported is never empty success. |
-| SEM-S08 | Member count, metadata bytes and per-member byte size fit the declared profile and hard limits; exceeding them is capacity refusal. |
+| Rule    | Required check                                                                                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SEM-S00 | Reject duplicate JSON object members before interpreting metadata.                                                                                                                                                                   |
+| SEM-S01 | Caller selection, publication, manifest, descriptor, profile, schema/catalog and verification-result identities/bindings agree exactly.                                                                                              |
+| SEM-S02 | Resolve each required reference through authorized bindings; length and SHA-256 cover the exact bytes consumed. Missing or changed required bytes refuse.                                                                            |
+| SEM-S03 | The flat graph is exhaustive and self-contained; ids/refs are unambiguous, data members do not alias required metadata, and row-schema references are fragment-local.                                                                |
+| SEM-S04 | Member counts sum exactly to the manifest and representation count; the declared relation to the grain count holds and arithmetic stays within the safe-integer range. Profile decoding verifies physical row counts.                |
+| SEM-S05 | A published descriptor is `complete` or `partial`; the selected representation is immutable (`appendable: false`). A publication record alone does not prove persistence.                                                            |
+| SEM-S06 | Coverage binds the selected immutable namespace/snapshot, artifact and grain; reused logical artifact ids do not collapse snapshot identity.                                                                                         |
+| SEM-S07 | The admitted exact profile supports the requested operation, count/order model and empty-snapshot case. Unsupported is never empty success.                                                                                          |
+| SEM-S08 | Member count, metadata bytes and per-member byte size fit the declared profile and hard limits; exceeding them is capacity refusal.                                                                                                  |
 | SEM-S09 | Verification scope matches the admitted request. A successful full result covers all members; a successful selective result covers exactly the selected members. A failed result may report only an actually verified prefix/subset. |
-| SEM-S10 | Provisional output is allowed only under the declared provisional-streaming profile, and is never terminal verified success. |
+| SEM-S10 | Provisional output is allowed only under the declared provisional-streaming profile, and is never terminal verified success.                                                                                                         |
 
 ### Exact references and identity
 
@@ -45,7 +45,7 @@ allocation instructions.
 
 The selected profile is the exact binding admitted by the caller, not merely any
 profile the producer includes. The profile specification must account for every
-required read dependency. The flat wire version has no external-parent or paging
+required read dependency. The flat wire version has no external-parent row-reconstruction or paging
 edge; such requirements cause explicit refusal. Unknown required capabilities
 must be refused rather than treated as optional hints.
 
@@ -58,6 +58,14 @@ manifest's field-catalog binding id; its resolver `ref` may differ. Descriptor
 catalog references name that identity, resolved through the manifest binding.
 Catalog grain equals the selected grain.
 Any embedded catalog with that id must agree with the separately bound catalog.
+
+A present `profile_metadata` binding is required on every admitted read. Verify
+its exact bytes and profile-defined identity/selection and dependencies; refuse
+unknown required semantics rather than treating a valid digest as semantic proof.
+Its dependencies must be exhaustive and acyclic and remain within the flat,
+self-contained snapshot boundary. The synthetic metadata variant in
+`fixtures/profile-metadata/` has no nested dependencies and checks this boundary
+without claiming a production index profile.
 
 The artifact descriptor can describe other representations. Verifying the selected
 manifest does not certify those other representations.
@@ -75,7 +83,8 @@ Profile limits mean:
 - `max_members`: maximum data-member descriptors (hard maximum 65,536).
 - `max_metadata_bytes`: sum of distinct required metadata byte artifacts used by
   admission/verification, including publication, manifest, profile/spec,
-  descriptor, row schema, catalog, optional retention spec and attached coverage
+  descriptor, row schema, catalog, optional profile metadata and its transitive
+  dependencies, optional retention spec and attached coverage
   attestation (hard maximum 67,108,864).
 - `max_member_bytes`: maximum bytes of each individual data member.
 

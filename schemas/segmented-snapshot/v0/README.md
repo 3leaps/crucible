@@ -5,17 +5,17 @@ Resolve it through a trusted, pinned `contract.json`; never treat instance-provi
 retrieval addresses as a schema registry. The normative companion is the
 [segmented snapshot standard](../../../docs/standards/segmented-snapshot-contract.md).
 
-| Artifact | Responsibility |
-| --- | --- |
-| `contract.json` | Publication entrypoint and related object-schema catalog |
-| `common.schema.json` | Closed bindings, selection, capability and count definitions |
-| `snapshot-publication.schema.json` | Committed producer fact binding descriptor, manifest and profile |
-| `snapshot-manifest.schema.json` | Exhaustive immutable member list for one grain/representation |
-| `snapshot-profile.schema.json` | Exact behavioral specification, supported operations and resource limits |
-| `verification-result.schema.json` | Terminal result for an admitted selection and explicit checked scope |
-| `semantic-validation.md` | Cross-record and byte-level requirements, independently of JSON shape |
-| `fixtures/base/` | Exact synthetic graph with real SHA-256/length bindings |
-| `fixtures/cases.json` | Positive and detecting negative mutations of that baseline |
+| Artifact                           | Responsibility                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `contract.json`                    | Publication entrypoint and related object-schema catalog                 |
+| `common.schema.json`               | Closed bindings, selection, capability and count definitions             |
+| `snapshot-publication.schema.json` | Committed producer fact binding descriptor, manifest and profile         |
+| `snapshot-manifest.schema.json`    | Exhaustive immutable member list for one grain/representation            |
+| `snapshot-profile.schema.json`     | Exact behavioral specification, supported operations and resource limits |
+| `verification-result.schema.json`  | Terminal result for an admitted selection and explicit checked scope     |
+| `semantic-validation.md`           | Cross-record and byte-level requirements, independently of JSON shape    |
+| `fixtures/base/`                   | Exact synthetic graph with real SHA-256/length bindings                  |
+| `fixtures/cases.json`              | Positive and detecting negative mutations of that baseline               |
 
 ## First-version boundary
 
@@ -26,7 +26,10 @@ traversal, not dataset size or a producer's total working memory.
 
 Paged manifests and snapshots requiring an external parent to reconstruct their
 rows are unsupported. Required sidecars must be among the explicitly bound
-profile/schema/catalog objects or data members; hidden dependencies are invalid.
+profile/schema/catalog objects, data members, or the optional `profile_metadata`
+edge and its exhaustively declared, acyclic transitive dependencies; hidden
+dependencies are invalid. Readers that do not implement `profile_metadata` MUST
+refuse a manifest containing it.
 The row schema is standalone (fragment-local schema references only). Producers
 may retain lineage separately for provenance; it cannot become an undeclared
 read dependency. A new capability/version boundary is required to broaden this

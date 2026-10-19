@@ -357,6 +357,27 @@ def verify(store: dict[str, bytes], request: dict) -> None:
     resolve(profile["semantic_spec"])
     if profile["retention"] == "profile_defined":
         resolve(profile["retention_spec"])
+    if profile["semantic_spec"]["id"] == "example.snapshot-metadata/v0":
+        require("profile_metadata" in manifest, "SEM-S03")
+    if "profile_metadata" in manifest:
+        extra = parse(resolve(manifest["profile_metadata"]))
+        # This corpus implements only its named synthetic metadata profile.
+        # An unfamiliar required profile is not verified by hashing it alone.
+        require(
+            profile["semantic_spec"]["id"] == "example.snapshot-metadata/v0",
+            "SEM-S07",
+        )
+        require(
+            set(extra) == {"kind", "metadata_id", "selection", "label"}
+            and extra["kind"] == "example_profile_metadata"
+            and isinstance(extra["label"], str),
+            "SEM-S07",
+        )
+        require(
+            extra["metadata_id"] == manifest["profile_metadata"]["id"]
+            and extra["selection"] == manifest["selection"],
+            "SEM-S01",
+        )
     row_schema_bytes = resolve(manifest["row_schema"])
     row_schema = parse(row_schema_bytes)
     catalog = parse(resolve(manifest["field_catalog"]))
@@ -613,6 +634,70 @@ def mutate(store: dict[str, bytes], request: dict, edit: dict) -> None:
         store[target] = emitted(value)
 
 
+def test_profile_metadata(base: dict, request_base: dict, tmp: pathlib.Path) -> None:
+    folder = FAMILY / "fixtures/profile-metadata"
+    original = copy.deepcopy(base)
+    original["artifact:profile-metadata"] = (folder / "metadata.json").read_bytes()
+    original["artifact:metadata-spec"] = (folder / "profile-spec.md").read_bytes()
+    manifest = parse(original["artifact:manifest"])
+    manifest["profile_metadata"] = binding(
+        original["artifact:profile-metadata"], "artifact:profile-metadata", "metadata-1"
+    )
+    original["artifact:manifest"] = emitted(manifest)
+    profile = parse(original["artifact:profile"])
+    profile["semantic_spec"] = binding(
+        original["artifact:metadata-spec"],
+        "artifact:metadata-spec",
+        "example.snapshot-metadata/v0",
+    )
+    original["artifact:profile"] = emitted(profile)
+    rebind(original)
+    cases = parse((folder / "cases.json").read_bytes())["cases"]
+    for case in cases:
+        store, request = copy.deepcopy(original), copy.deepcopy(request_base)
+        for edit in case.get("edits", []):
+            mutate(store, request, edit)
+        rebind(store)
+        if "metadata_limit" in case:
+            refs = {
+                "artifact:publication",
+                "artifact:manifest",
+                "artifact:profile",
+                "artifact:metadata-spec",
+                "artifact:descriptor",
+                "artifact:row-schema",
+                "artifact:catalog",
+                "artifact:coverage",
+                "artifact:profile-metadata",
+            }
+            for _ in range(8):
+                profile = parse(store["artifact:profile"])
+                limit = sum(len(store[ref]) for ref in refs) + case["metadata_limit"]
+                if profile["limits"]["max_metadata_bytes"] == limit:
+                    break
+                profile["limits"]["max_metadata_bytes"] = limit
+                store["artifact:profile"] = emitted(profile)
+                rebind(store)
+            else:
+                raise AssertionError("metadata fixture bound did not stabilize")
+        request["profile"] = parse(store["artifact:publication"])["profile"]
+        request["publication"] = binding(
+            store["artifact:publication"], "artifact:publication", "publication-1"
+        )
+        for edit in case.get("after_binding", []):
+            mutate(store, request, edit)
+        assert schema_check(
+            store["artifact:manifest"], SCHEMAS["artifact:manifest"], tmp
+        )
+        outcome = "pass"
+        try:
+            verify(store, request)
+        except Violation as error:
+            outcome = str(error)
+        assert outcome == case["expect"], (case["name"], outcome, case["expect"])
+        print(f"[ok] profile metadata / {case['name']}: {outcome}")
+
+
 def main() -> None:
     test_metaschema_report_binding()
     contract = parse((FAMILY / "contract.json").read_bytes())
@@ -722,6 +807,7 @@ def main() -> None:
                 f"baseline structural failure: {ref}"
             )
         verify(base, request_base)
+        test_profile_metadata(base, request_base, tmp)
         print("[ok] exact committed baseline; partial lifecycle with valid publication")
         for case in cases:
             store, request = copy.deepcopy(base), copy.deepcopy(request_base)

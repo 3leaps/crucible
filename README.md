@@ -283,6 +283,15 @@ boundaries. The [schema family and synthetic controls](schemas/data-acquisition/
 separate shape and semantic acceptance from runtime authority qualification.
 See [ADR-0014](docs/decisions/ADR-0014-data-acquisition-contract.md).
 
+### Draft durable index contract
+
+The [durable-index design](docs/standards/durable-index-contract.md) specializes
+segmented snapshots with object inventory rows, observation plans, scoped coverage
+and successor rules. The [initial schemas and logical vectors](schemas/durable-index/v0/README.md)
+are design controls; the [conformance requirements](docs/standards/durable-index-conformance.md)
+identifies the remaining physical corpus and adoption gates. See
+[ADR-0017](docs/decisions/ADR-0017-durable-index-contract.md).
+
 ### Draft agent interface classifiers and profiles
 
 Draft [agent interface classifiers](docs/standards/agent-interface-classification.md)

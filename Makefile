@@ -234,7 +234,7 @@ check-contracts-shard-1: contract-tools lint-schemas lint-role-prompts lint-cove
 
 check-contracts-shard-2: contract-tools lint-contracts-2 ## Contract shard 2: agent-wait and service-job controls
 
-check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue controls
+check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue and durable-index controls
 
 contract-shards: ## Print the contract shard ids
 	@echo $(CONTRACT_SHARDS)
@@ -413,6 +413,7 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 		sh scripts/validate-contract-manifests.sh \
 			schemas/application-control/v0/contract.json \
 			schemas/segmented-snapshot/v0/contract.json \
+			schemas/durable-index/v0/contract.json \
 			schemas/data-artifact/v0/contract.json \
 			schemas/durable-queue/v0/contract.json \
 			schemas/durable-record/v0/contract.json \
@@ -443,6 +444,8 @@ lint-contracts-3: ## Contract controls for shard 3
 	@if command -v goneat >/dev/null 2>&1; then \
 		echo "    Durable-queue controls..."; \
 		sh scripts/test-durable-queue-controls.sh || exit 1; \
+		echo "    Durable-index design controls..."; \
+		python3 scripts/test-durable-index-controls.py || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi
