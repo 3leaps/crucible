@@ -301,8 +301,10 @@ the full declared calendar range without silent unit/range conversions. Physical
 row counts include tombstones. Packing and row-group sizing are writer choices.
 
 The first profile inherits 65,536 members and 64 MiB aggregate required metadata
-from segmented-snapshot, including the additional index metadata, plans and
-coverage objects. Per-row and enrichment limits apply before materialization.
+from segmented-snapshot, per snapshot, including the additional index metadata,
+plans and coverage objects. Shared dependencies count once within each snapshot;
+ancestors are checked against their own profiles and budgets, not charged to a
+successor's metadata budget. Per-row and enrichment limits apply before materialization.
 Each implementation additionally declares memory, scratch, row-group, decompression,
 member-byte, ancestry and input limits; unsupported resources produce capacity
 refusal, not a complete empty result. The contract does not promise constant
@@ -338,7 +340,9 @@ selections and publication ids MUST match the endpoints. The new publication's
 bound metadata MUST declare a baseline (generation zero, null parent). Different
 set tokens do not create a parent relationship. A same-token rebuild uses the
 same receipt and still declares a baseline boundary, never generation continuity.
-The old and new pins MUST differ; rollback MUST equal the old pin. Acceptance
+The old and new pins and snapshot ids MUST differ, including for a same-token
+rebuild; rollback MUST equal the old pin. `accepted_at` MUST be at or after the
+new baseline's bound `observation_at`; equality is permitted. Acceptance
 requires a qualified resolver, protection and independently verified publication
 graphs. A name in JSON alone is not permission; logical tests receive explicit
 authorization evidence and do not authenticate operators.
@@ -411,6 +415,7 @@ remain separate qualification surfaces.
 | `cutover_required`          | A cutover assertion has no receipt.                                                                             |
 | `cutover_rollback`          | Rollback does not retain the exact old publication pin.                                                         |
 | `cutover_selection`         | Pinned endpoint identities disagree or the endpoints are identical.                                             |
+| `cutover_time`              | Cutover acceptance precedes the new baseline observation time.                                                  |
 | `discovery_failed`          | Plan discovery did not complete successfully.                                                                   |
 | `duplicate_enrichment`      | An update supplies the same row/attribute more than once.                                                       |
 | `duplicate_key`             | JSON contains duplicate member names.                                                                           |
@@ -437,7 +442,7 @@ remain separate qualification surfaces.
 | `graph_transition`          | Published logical rows differ from the checked transition output.                                               |
 | `invalid_baseline`          | Baseline contains a parent or a nonzero generation.                                                             |
 | `invalid_instant`           | Timestamp precision, calendar date, year or seconds are invalid.                                                |
-| `invalid_json`              | JSON syntax or numeric finiteness is invalid.                                                                   |
+| `invalid_json`              | JSON syntax, numeric finiteness or the checker nesting limit is invalid.                                        |
 | `invalid_shape`             | An object violates its closed wire schema.                                                                      |
 | `invalid_unicode`           | Input contains invalid UTF-8 or a non-scalar Unicode value.                                                     |
 | `lineage_order`             | First/last/change/deletion stamps have impossible ordering or consistency.                                      |

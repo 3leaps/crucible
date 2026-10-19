@@ -52,7 +52,11 @@ def strict(raw):
     except (ValueError, RecursionError):
         raise Refusal("invalid_json") from None
 
-    def scalar(item):
+    pending = [(value, 0)]
+    while pending:
+        item, depth = pending.pop()
+        if isinstance(item, (dict, list)):
+            require(depth < 256, "invalid_json")
         if isinstance(item, float):
             require(math.isfinite(item), "invalid_json")
         elif isinstance(item, str):
@@ -62,13 +66,12 @@ def strict(raw):
                 raise Refusal("invalid_unicode") from None
         elif isinstance(item, dict):
             for key, child in item.items():
-                scalar(key)
-                scalar(child)
+                pending.append((key, depth + 1))
+                pending.append((child, depth + 1))
         elif isinstance(item, list):
             for child in item:
-                scalar(child)
+                pending.append((child, depth + 1))
 
-    scalar(value)
     return value
 
 
@@ -602,10 +605,10 @@ def graph(case):
     """
     require(case["projection"] == "logical-only/v0", "graph_profile")
     store = case["store"]
-    visited, active, metadata_refs, member_refs = set(), set(), set(), set()
+    visited, active, all_metadata_refs, member_refs = set(), set(), set(), set()
     profile_spec = (BASE / "fixtures/logical-profile.md").read_text()
 
-    def fetch(pin, schema=None, member=False):
+    def fetch_binding(pin, metadata_refs, schema=None, member=False):
         require(pin["ref"] in store, "binding_unavailable")
         raw = store[pin["ref"]].encode("utf-8")
         require(
@@ -614,7 +617,8 @@ def graph(case):
             "binding_integrity",
         )
         (member_refs if member else metadata_refs).add(pin["ref"])
-        require(not metadata_refs.intersection(member_refs), "binding_alias")
+        all_metadata_refs.update(metadata_refs)
+        require(not all_metadata_refs.intersection(member_refs), "binding_alias")
         require(
             sum(len(store[ref].encode("utf-8")) for ref in metadata_refs) <= 67108864,
             "capacity",
@@ -625,6 +629,13 @@ def graph(case):
         return obj if schema else raw
 
     def snapshot(pin):
+        # A dependency shared by snapshots counts once in each snapshot's budget.
+        # The traversal-wide set is only for metadata/member alias detection.
+        metadata_refs = set()
+
+        def fetch(pin, schema=None, member=False):
+            return fetch_binding(pin, metadata_refs, schema, member)
+
         identity = pin["sha256"]
         require(identity not in active, "parent_cycle")
         require(len(active) < 64, "capacity")
@@ -903,7 +914,9 @@ def cutover(case):
         )
         publications.append(publication)
     require(
-        record["old"]["publication"] != record["new"]["publication"],
+        record["old"]["publication"] != record["new"]["publication"]
+        and record["old"]["selection"]["snapshot_id"]
+        != record["new"]["selection"]["snapshot_id"],
         "cutover_selection",
     )
     require(record["rollback"] == record["old"]["publication"], "cutover_rollback")
@@ -923,6 +936,10 @@ def cutover(case):
         and meta["generation"] == 0
         and meta["parent"] is None,
         "cutover_baseline",
+    )
+    require(
+        instant(record["accepted_at"]) >= instant(meta["observation_at"]),
+        "cutover_time",
     )
     return {"cutover": "explicit_baseline"}
 
@@ -1131,6 +1148,10 @@ def mutation_controls(filenames):
         ("graph_catalog", "graph-catalog-omitted-field"),
         ("protected_export", "graph-protected-export"),
         ("protection-inheritance", "inherited-protection"),
+        ("cutover_selection", "graph-cutover-reused-selection"),
+        ("cutover_time", "graph-cutover-before-observation"),
+        ("metadata-ancestry", "metadata-at-limit"),
+        ("nesting-depth", "depth-257"),
     ]
     for name, witness in mutations:
         changes = []
@@ -1144,6 +1165,12 @@ def mutation_controls(filenames):
                 ):
                     node.value = ast.Constant(0)
                     changes.append(name)
+                if name == "metadata-ancestry" and any(
+                    isinstance(t, ast.Name) and t.id == "metadata_refs"
+                    for t in node.targets
+                ):
+                    node.value = ast.Name(id="all_metadata_refs", ctx=ast.Load())
+                    changes.append(name)
                 return node
 
             def visit_Call(self, node):
@@ -1154,6 +1181,14 @@ def mutation_controls(filenames):
                     and len(node.args) == 2
                     and isinstance(node.args[1], ast.Constant)
                     and node.args[1].value == name
+                ):
+                    node.args[0] = ast.Constant(True)
+                    changes.append(name)
+                if (
+                    name == "nesting-depth"
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "require"
+                    and ast.unparse(node.args[0]) == "depth < 256"
                 ):
                     node.args[0] = ast.Constant(True)
                     changes.append(name)
@@ -1194,10 +1229,31 @@ def mutation_controls(filenames):
         ]
         assert len(matches) == 1, (name, matches)
         case = load_case(matches[0])
-        assert evaluate(case, namespace) != case["expected"], (
-            "undetected mutation",
-            name,
-        )
+        # Exceptions propagate and fail the gate. An incidental second refusal
+        # is not a successful witness for removal of the intended guard.
+        outcome = evaluate(case, namespace)
+        if "refusal" in case["expected"]:
+            assert "refusal" not in outcome, ("mutation still refused", name, outcome)
+        else:
+            alternatives = {
+                "partial-authority": {
+                    "absence_authority": [
+                        {"namespace": "objects", "prefix": "alpha/"},
+                        {"namespace": "objects", "prefix": "beta/"},
+                    ]
+                },
+                "revision-clearing": {"refusal": "enrichment_revision"},
+                "protection-inheritance": {
+                    **case["expected"],
+                    "protection": {"action": "block_export", "class": "public"},
+                },
+                "metadata-ancestry": {"refusal": "capacity"},
+            }
+            assert outcome == alternatives[name], (
+                "wrong mutation outcome",
+                name,
+                outcome,
+            )
         print(f"[ok] mutation detected: {name}")
 
 
@@ -1269,6 +1325,15 @@ def main():
             print(f"[ok] {filename}")
     fixture_tables(inventory, filenames)
     mutation_controls(filenames)
+    for opening, closing in [("[", "]"), ('{"a":', "}")]:
+        # Exact container-depth boundary, including the iterative scalar walk.
+        strict((opening * 256 + "0" + closing * 256).encode())
+        try:
+            strict((opening * 257 + "0" + closing * 257).encode())
+        except Refusal as error:
+            assert str(error) == "invalid_json"
+        else:
+            raise AssertionError("nesting limit")
     for raw, reason in [
         (b'{"a":1,"a":2}', "duplicate_key"),
         (b'{"a":NaN}', "invalid_json"),

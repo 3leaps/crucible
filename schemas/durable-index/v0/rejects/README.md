@@ -33,6 +33,7 @@ count as expected refusals. Shape rejects differ in one top-level field.
 | `rejects/semantic/reject-binding_unavailable--missing-bytes/case.json`                      | bindings          | `binding_unavailable`           |
 | `rejects/semantic/reject-capacity--graph-member-budget/case.json`                           | graphs            | `capacity`                      |
 | `rejects/semantic/reject-capacity--graph-metadata-budget/case.json`                         | graphs            | `capacity`                      |
+| `rejects/semantic/reject-capacity--metadata-one-byte-over/case.json`                        | graphs            | `capacity`                      |
 | `rejects/semantic/reject-capacity--multibyte-key/case.json`                                 | transitions       | `capacity`                      |
 | `rejects/semantic/reject-capacity--multibyte-prefix/case.json`                              | transitions       | `capacity`                      |
 | `rejects/semantic/reject-clock_reversal--clock-reversal/case.json`                          | transitions       | `clock_reversal`                |
@@ -61,7 +62,10 @@ count as expected refusals. Shape rejects differ in one top-level field.
 | `rejects/semantic/reject-cutover_required--graph-cutover-missing-record/case.json`          | cutover_graphs    | `cutover_required`              |
 | `rejects/semantic/reject-cutover_rollback--wrong-rollback/case.json`                        | cutover           | `cutover_rollback`              |
 | `rejects/semantic/reject-cutover_selection--graph-cutover-endpoint/case.json`               | cutover_graphs    | `cutover_selection`             |
+| `rejects/semantic/reject-cutover_selection--graph-cutover-reused-selection/case.json`       | cutover_graphs    | `cutover_selection`             |
 | `rejects/semantic/reject-cutover_selection--wrong-new-token/case.json`                      | cutover           | `cutover_selection`             |
+| `rejects/semantic/reject-cutover_time--cutover-before-observation/case.json`                | cutover           | `cutover_time`                  |
+| `rejects/semantic/reject-cutover_time--graph-cutover-before-observation/case.json`          | cutover_graphs    | `cutover_time`                  |
 | `rejects/semantic/reject-discovery_failed--ack-cannot-override-discovery-failure/case.json` | transitions       | `discovery_failed`              |
 | `rejects/semantic/reject-duplicate_enrichment--duplicate-attribute-update/case.json`        | transitions       | `duplicate_enrichment`          |
 | `rejects/semantic/reject-duplicate_key_row--duplicate-across-members/case.json`             | transitions       | `duplicate_key_row`             |
@@ -102,6 +106,8 @@ count as expected refusals. Shape rejects differ in one top-level field.
 | `rejects/semantic/reject-invalid_instant--source-february-30/case.json`                     | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--source-leap-second/case.json`                     | transitions       | `invalid_instant`               |
 | `rejects/semantic/reject-invalid_instant--unsupported-precision/case.json`                  | transitions       | `invalid_instant`               |
+| `rejects/semantic/reject-invalid_json--depth-257/case.json`                                 | parsing           | `invalid_json`                  |
+| `rejects/semantic/reject-invalid_json--depth-3000/case.json`                                | parsing           | `invalid_json`                  |
 | `rejects/semantic/reject-invalid_shape--invalid-row-shape/case.json`                        | transitions       | `invalid_shape`                 |
 | `rejects/semantic/reject-lineage_order--deleted-before-last/case.json`                      | transitions       | `lineage_order`                 |
 | `rejects/semantic/reject-lineage_order--first-after-last/case.json`                         | transitions       | `lineage_order`                 |

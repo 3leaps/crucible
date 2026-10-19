@@ -264,6 +264,16 @@
     "vectors/graphs/cutover.json",
     "rejects/semantic/reject-cutover_selection--graph-cutover-endpoint/case.json",
     "rejects/semantic/reject-enumerated_key_omitted--graph-hidden-key/case.json",
-    "rejects/semantic/reject-cutover_required--graph-cutover-missing-record/case.json"
+    "rejects/semantic/reject-cutover_required--graph-cutover-missing-record/case.json",
+    "rejects/semantic/reject-cutover_selection--graph-cutover-reused-selection/case.json",
+    "vectors/graphs/cutover-same-set.json",
+    "rejects/semantic/reject-cutover_time--graph-cutover-before-observation/case.json",
+    "vectors/graphs/cutover-time-equal.json",
+    "rejects/semantic/reject-cutover_time--cutover-before-observation/case.json",
+    "vectors/cutover/cutover-time-equal.json",
+    "vectors/graphs/metadata-at-limit.json",
+    "rejects/semantic/reject-capacity--metadata-one-byte-over/case.json",
+    "rejects/semantic/reject-invalid_json--depth-257/case.json",
+    "rejects/semantic/reject-invalid_json--depth-3000/case.json"
   ]
 }

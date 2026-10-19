@@ -68,6 +68,13 @@ must never ignore an unsupported required profile and report full verification.
 
 ## Limits of present controls
 
+The logical checker accepts at most 256 nested JSON containers and refuses deeper
+input as `invalid_json`. Its ancestry limit is 64 snapshots. Metadata byte limits
+apply separately to each snapshot, including dependencies shared with ancestors.
+These are distinct resource limits. Fixed mutation witnesses must change from
+refusal to acceptance, or reach an explicitly named alternative result; a different
+incidental refusal or an exception is not evidence that the intended rule was tested.
+
 R2/W1/W2/W3 evidence requires complete graphs with real Parquet members and
 independent logical twins, all profile rules, refusal inventories and mutation
 controls. Physical decoder invocation remains subject to PDR-0006. A released experimental contract still does not qualify adopter runtime
