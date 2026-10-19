@@ -184,8 +184,9 @@ satisfy by explaining yourself is a rule that erodes.
 > Contract tooling in this repository MAY run on a **validation interpreter**:
 > a language runtime that executes the tool's own source with that runtime's
 > standard library and nothing else. The validation interpreters are fixed by
-> this record: **Python >= 3.9** and **Node.js >= 22**, as pinned by this
-> repository's continuous integration. Raising a floor is a continuous-integration
+> this record: **Python >= 3.9** and **Node.js >= 22.6**, as pinned by this
+> repository's continuous integration. Node.js 22.6 is the first release with
+> built-in TypeScript type stripping. Raising a floor is a continuous-integration
 > change; lowering one, or adding an interpreter, is an amendment. Conformance is
 > judged on these interpreters alone. TypeScript tooling uses **erasable syntax
 > only** (type annotations that Node.js removes without emitting code: no enums,
@@ -224,8 +225,10 @@ It emits nothing, and it holds no authority: it is admitted only when it agrees
 with the corpus's authored expectations, and a disagreement is a finding against
 the corpus, the standard or one of the checkers, resolved by the contract text.
 Independent agreement is how the corpus earns its authority. Writing the second
-checker in a different language from the first strengthens that evidence,
-because it cannot share the first one's implementation mistakes.
+checker in a different language and by a different author from the first
+strengthens that evidence, because it reduces correlated implementation
+mistakes. It cannot rule out a conceptual mistake both share, such as a
+misreading of the contract text; that is what review of the text is for.
 
 A checker MAY record a **known disagreement** so that the build stays usable
 while a finding is open, provided the record fails the build if the outcome
@@ -287,7 +290,7 @@ rules; a design question is still argued on its merits afterward.
   Both rules are answerable by inspection, which was the property Rule 1 was
   designed for and Rule 2 previously lacked.
 - Interpreted contract tooling now has a stated basis. Python >= 3.9 and
-  Node.js >= 22 are the named validation interpreters; any other runtime, or a
+  Node.js >= 22.6 are the named validation interpreters; any other runtime, or a
   lower floor, requires an amendment.
 - Independent checkers block a release while they disagree with the corpus. A
   recorded known disagreement keeps the build usable during review, but must be
@@ -372,4 +375,4 @@ chosen.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-28 | Initial record. Charter ruled by entarch; two-rule form adopted after review found the dependency constraint was independent of the linkage discriminator.                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-07-28 | Amendment: Rule 2a (which tools Rule 2 governs) and Rule 2b (the declared external-invocation set, with the subject-matter and baseline grounds). Added on the charter's first hard case — Rule 2's "standard-library-only" had no defined referent for a tool that orchestrates other programs, and the literal reading refused tooling this repository already ships. Rule 1 and the original Rule 2 sentence are unchanged.                                                                                        |
-| 2026-10-19 | Amendment ruled by cxotech: Rule 2c names Python >= 3.9 and Node.js >= 22 as validation interpreters, with erasable-syntax TypeScript and an inspectable no-install test; limits contract tooling to establishing contract compliance, with benchmarking and load testing in separate test repositories using synthetic data only; distinguishes an independent reader from a reference implementation; and requires known disagreements to be resolved before a tagged release. Rules 1, 2, 2a and 2b are unchanged. |
+| 2026-10-19 | Amendment ruled by cxotech: Rule 2c names Python >= 3.9 and Node.js >= 22.6 as validation interpreters, with erasable-syntax TypeScript and an inspectable no-install test; limits contract tooling to establishing contract compliance, with benchmarking and load testing in separate test repositories using synthetic data only; distinguishes an independent reader from a reference implementation; and requires known disagreements to be resolved before a tagged release. Rules 1, 2, 2a and 2b are unchanged. |

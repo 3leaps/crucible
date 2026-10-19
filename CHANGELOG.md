@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Shipping charter: validation interpreters and scope.** PDR-0006 gains Rule
-  2c. Python >= 3.9 and Node.js >= 22 are the named validation interpreters for
+  2c. Python >= 3.9 and Node.js >= 22.6 are the named validation interpreters for
   contract tooling, TypeScript tooling uses erasable syntax only, and a
   validation tool must import only its standard library and run with no install
   step. Contract tooling is limited to establishing contract compliance;

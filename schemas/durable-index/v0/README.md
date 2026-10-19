@@ -27,7 +27,19 @@ count as data refusals.
 
 `scripts/durable-index-reader.ts` is a second, independently written checker.
 It was written from the standard's text, not from the Python checker, and shares
-no code with it. Its validation interpreter is Node.js >= 22 (`node
+no code with it. Its independence can be inspected:
+
+| Checker                                  | Language   | Author role | Model           | Imports                            |
+| ---------------------------------------- | ---------- | ----------- | --------------- | ---------------------------------- |
+| `scripts/test-durable-index-controls.py` | Python     | entarch     | GPT-6 (Codex)   | Python standard library and goneat |
+| `scripts/durable-index-reader.ts`        | TypeScript | devlead     | Claude Opus 5.5 | `node:` standard modules only      |
+
+The commit attribution trailers record the author role and model of each. A
+different language and author reduce correlated implementation mistakes; they
+cannot rule out a conceptual mistake both share, which is what review of the
+contract text is for.
+
+Its validation interpreter is Node.js >= 22.6 (`node
 --experimental-strip-types`), using only `node:` standard modules with no install
 step; conformance is judged on Node.js. It uses erasable TypeScript syntax only,
 and its type annotations are documentation: Node.js strips them and continuous
@@ -41,9 +53,10 @@ It reads the authored fixtures and reports whether its own results agree with
 their expected outcomes. A disagreement is a finding against a fixture, the
 standard or one of the checkers, and is resolved by the contract text, never by
 copying the other checker. Disagreements kept on purpose are listed in the
-reader's `KNOWN_DISAGREEMENTS` table; an entry that stops disagreeing fails the
-run, so a later fix is noticed. Each entry is an open finding that must be
-resolved before the next tagged release: the table is empty at tag.
+reader's `KNOWN_DISAGREEMENTS` table. An entry that agrees, disagrees
+differently or names no current fixture fails the run, so a fix or a renamed
+fixture is noticed. Each entry is an open finding that must be resolved before
+the next tagged release: the table is empty at tag, and it is empty now.
 
 Current coverage is partial: plan vectors (canonicalization, framed digest,
 scope loss and membership), positive transition vectors with exact output rows,

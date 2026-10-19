@@ -7,7 +7,7 @@
 // fixture, the standard or one of the checkers; it is resolved by the contract
 // text. This is not a reference implementation or a library.
 //
-// Validation interpreter: Node.js >= 22 with built-in type stripping (PDR-0006
+// Validation interpreter: Node.js >= 22.6 with built-in type stripping (PDR-0006
 // Rule 2c); conformance is judged on Node.js. Standard-library `node:` modules
 // only, no install step. Type annotations are documentation: Node.js strips
 // them and continuous integration runs no type checker. Bun may run the same
@@ -577,21 +577,21 @@ function describe(got: unknown, want: unknown): string {
 
 // Disagreements this reader keeps on purpose, each an open finding against the
 // standard or a fixture, never resolved by copying the other checker. Each entry
-// must still disagree exactly as recorded: a stale entry fails the run, so a
-// later fix is noticed rather than silently absorbed.
-const KNOWN_DISAGREEMENTS: Record<string, string> = {
-  // A retained enrichment on a tombstoned row fits both `enrichment_target`
-  // ("targets an absent or deleted row") and `enrichment_revision` ("does not
-  // match a non-null active-row revision"). The reason table does not rank them.
-  "reject-enrichment_revision--retained-enrichment-tombstone":
-    "got enrichment_target, want enrichment_revision",
-};
+// must name a current fixture and still disagree exactly as recorded: an entry
+// that agrees, disagrees differently or matches no fixture fails the run, so a
+// fix or a renamed fixture is noticed rather than silently absorbed. Every entry
+// must be resolved before the next tagged release (PDR-0006 Rule 2c), so this
+// table is empty at tag.
+const KNOWN_DISAGREEMENTS: Record<string, string> = {};
+
+const usedDisagreements = new Set<string>();
 
 function report(label: string, results: Result[]): number {
   let failures = 0;
   let known = 0;
   for (const r of results) {
     const expected = KNOWN_DISAGREEMENTS[r.file];
+    if (expected !== undefined) usedDisagreements.add(r.file);
     if (expected === undefined) {
       if (!r.agree) {
         console.error(`[!!] ${label} disagree: ${r.file} (${r.detail})`);
@@ -631,6 +631,12 @@ function main(): number {
     json(join(VECTORS, "transitions")).map(checkTransitionVector),
   );
   failures += report("transition rejects", rejectDirs.map(checkTransitionReject));
+  for (const entry of Object.keys(KNOWN_DISAGREEMENTS)) {
+    if (!usedDisagreements.has(entry)) {
+      console.error(`[!!] known disagreement matches no current fixture: ${entry}`);
+      failures++;
+    }
+  }
   return failures === 0 ? 0 : 1;
 }
 
