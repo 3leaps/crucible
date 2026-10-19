@@ -1260,7 +1260,7 @@ def mutation_controls(filenames):
 def main():
     inventory = strict((BASE / "cases.json").read_bytes())
     actual = {
-        str(p.relative_to(BASE))
+        p.relative_to(BASE).as_posix()
         for folder in ("examples", "rejects", "vectors")
         for p in (BASE / folder).rglob("*.json")
     }
