@@ -7,11 +7,13 @@
 // fixture, the standard or one of the checkers; it is resolved by the contract
 // text. This is not a reference implementation or a library.
 //
-// Runtime: Node.js (built-in type stripping) or Bun, executing this file
-// unchanged. Standard-library `node:` modules only; no package manifest.
+// Validation interpreter: Node.js >= 22 with built-in type stripping (PDR-0006
+// Rule 2c); conformance is judged on Node.js. Standard-library `node:` modules
+// only, no install step. Type annotations are documentation: Node.js strips
+// them and continuous integration runs no type checker. Bun may run the same
+// source as a developer convenience, but its result is not conformance evidence.
 //
 // Usage: node --experimental-strip-types scripts/durable-index-reader.ts
-//        bun run scripts/durable-index-reader.ts
 
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
@@ -145,8 +147,9 @@ function checkPlan(file: string): Result {
 // ---------------------------------------------------------------------------
 // Transitions (I4 rows and lineage, I5 successors, I6 enrichment)
 
-// Type-only syntax throughout: Node's type stripping erases annotations but
-// refuses syntax that emits code, such as constructor parameter properties.
+// Erasable syntax only (PDR-0006 Rule 2c): Node.js type stripping removes
+// annotations but refuses syntax that emits code, such as this constructor
+// parameter property written the long way.
 class Refusal extends Error {
   reason: string;
   constructor(reason: string) {

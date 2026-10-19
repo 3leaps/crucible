@@ -32,17 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Shipping charter: validation interpreters and scope.** PDR-0006 gains Rule
-  2c. Python 3 and Node.js are the named validation interpreters for contract
-  tooling. Contract tooling is limited to establishing contract compliance;
-  benchmarking and load testing belong in separate test repositories with
-  synthetic data. An independent checker is distinguished from a reference
-  implementation.
+  2c. Python >= 3.9 and Node.js >= 22 are the named validation interpreters for
+  contract tooling, TypeScript tooling uses erasable syntax only, and a
+  validation tool must import only its standard library and run with no install
+  step. Contract tooling is limited to establishing contract compliance;
+  benchmarking and load testing belong in separate test repositories using
+  synthetic data only. An independent checker is distinguished from a reference
+  implementation, and a known disagreement must be resolved before the next
+  tagged release.
 - **Durable index independent reader.** Add `scripts/durable-index-reader.ts`,
   a TypeScript checker written from the standard's text and sharing no code
   with the Python checker. It checks plan vectors, transition vectors and
   transition rejects against their authored outcomes and runs in contract shard
   3. Windows contract shards set up Node.js, and the shard guard now requires
-  every independent reader to run in exactly one shard.
+  every TypeScript tool under `scripts/` to run in exactly one shard.
 
 - **Data acquisition contract hardening (proposed).** Define half-open
   allocation intervals and an aggregate span ceiling, replay and request

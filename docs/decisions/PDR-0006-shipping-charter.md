@@ -184,20 +184,29 @@ satisfy by explaining yourself is a rule that erodes.
 > Contract tooling in this repository MAY run on a **validation interpreter**:
 > a language runtime that executes the tool's own source with that runtime's
 > standard library and nothing else. The validation interpreters are fixed by
-> this record: **Python 3** and **Node.js** (TypeScript run through Node's
-> built-in type stripping, or an equivalent runtime such as Bun that executes
-> the same source unchanged). A validation interpreter is not an invocation
-> under Rule 2b. Every other Rule 2 constraint still binds: no vendored code, no
-> package manifest or lockfile the tool depends on, no fetches, and only
-> standard-library modules. Repository development tooling, such as formatters
-> and linters, is repository-internal under Rule 2a and is not a dependency of
-> the contract tooling it checks.
+> this record: **Python >= 3.9** and **Node.js >= 22**, as pinned by this
+> repository's continuous integration. Raising a floor is a continuous-integration
+> change; lowering one, or adding an interpreter, is an amendment. Conformance is
+> judged on these interpreters alone. TypeScript tooling uses **erasable syntax
+> only** (type annotations that Node.js removes without emitting code: no enums,
+> namespaces, constructor parameter properties or decorators), so the same
+> source runs unchanged under Node.js type stripping. A developer MAY run it
+> under another runtime such as Bun for convenience, but that runtime is not a
+> validation interpreter and its result is not conformance evidence.
+>
+> A validation interpreter is not an invocation under Rule 2b. Every other Rule
+> 2 constraint still binds, and is checked by inspection: a validation tool's
+> imports resolve only to its interpreter's standard library, and it runs from a
+> clean checkout with no install step. The build invokes it through its
+> interpreter directly, never through a package script. A repository-level
+> package manifest for Rule 2a development tooling, such as a formatter, is
+> permitted; it MUST NOT list, install or invoke a validation tool.
 >
 > Such tooling exists **solely to establish contract compliance**: to falsify a
 > contract, or to show that independent implementations agree with its
 > conformance corpus. Benchmarking, load testing, soak testing and other
 > general-purpose harnesses are **out of scope** for this repository. They live
-> in separate test repositories that use synthetic data and pin a released
+> in separate test repositories that use synthetic data only and pin a released
 > contract.
 
 Rule 2b already admitted interpreted tooling in practice — every contract
@@ -217,6 +226,13 @@ the corpus, the standard or one of the checkers, resolved by the contract text.
 Independent agreement is how the corpus earns its authority. Writing the second
 checker in a different language from the first strengthens that evidence,
 because it cannot share the first one's implementation mistakes.
+
+A checker MAY record a **known disagreement** so that the build stays usable
+while a finding is open, provided the record fails the build if the outcome
+changes. A known disagreement is an open finding against the standard, the
+corpus or a checker, and it is a case where the corpus has not yet earned its
+authority. It MUST be resolved before the next tagged release: the known
+disagreement record is empty at tag.
 
 **Reference, not adoption.** Contract tooling is published so that it can be
 inspected and run. It is not held out as a library or a production component.
@@ -270,8 +286,12 @@ rules; a design question is still argued on its merits afterward.
 - Charter conformance for shell tooling is now decidable by reading the tool.
   Both rules are answerable by inspection, which was the property Rule 1 was
   designed for and Rule 2 previously lacked.
-- Interpreted contract tooling now has a stated basis. Python and Node.js are
-  the named validation interpreters; any other runtime requires an amendment.
+- Interpreted contract tooling now has a stated basis. Python >= 3.9 and
+  Node.js >= 22 are the named validation interpreters; any other runtime, or a
+  lower floor, requires an amendment.
+- Independent checkers block a release while they disagree with the corpus. A
+  recorded known disagreement keeps the build usable during review, but must be
+  resolved before the next tag.
 - The repository's tooling is bounded to contract compliance. Requests for
   benchmarking or load-testing harnesses are answered by pointing to a separate
   test repository, not by widening this one.
@@ -348,8 +368,8 @@ chosen.
 
 ## Revision History
 
-| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-07-28 | Initial record. Charter ruled by entarch; two-rule form adopted after review found the dependency constraint was independent of the linkage discriminator.                                                                                                                                                                                                                                                                     |
-| 2026-07-28 | Amendment: Rule 2a (which tools Rule 2 governs) and Rule 2b (the declared external-invocation set, with the subject-matter and baseline grounds). Added on the charter's first hard case — Rule 2's "standard-library-only" had no defined referent for a tool that orchestrates other programs, and the literal reading refused tooling this repository already ships. Rule 1 and the original Rule 2 sentence are unchanged. |
-| 2026-10-19 | Amendment: Rule 2c names Python 3 and Node.js as validation interpreters, limits contract tooling to establishing contract compliance, and places benchmarking and load testing in separate test repositories with synthetic data. Distinguishes an independent reader from a reference implementation. Rules 1, 2, 2a and 2b are unchanged.                                                                                   |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-28 | Initial record. Charter ruled by entarch; two-rule form adopted after review found the dependency constraint was independent of the linkage discriminator.                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-07-28 | Amendment: Rule 2a (which tools Rule 2 governs) and Rule 2b (the declared external-invocation set, with the subject-matter and baseline grounds). Added on the charter's first hard case — Rule 2's "standard-library-only" had no defined referent for a tool that orchestrates other programs, and the literal reading refused tooling this repository already ships. Rule 1 and the original Rule 2 sentence are unchanged.                                                                                        |
+| 2026-10-19 | Amendment ruled by cxotech: Rule 2c names Python >= 3.9 and Node.js >= 22 as validation interpreters, with erasable-syntax TypeScript and an inspectable no-install test; limits contract tooling to establishing contract compliance, with benchmarking and load testing in separate test repositories using synthetic data only; distinguishes an independent reader from a reference implementation; and requires known disagreements to be resolved before a tagged release. Rules 1, 2, 2a and 2b are unchanged. |

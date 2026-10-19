@@ -27,9 +27,12 @@ count as data refusals.
 
 `scripts/durable-index-reader.ts` is a second, independently written checker.
 It was written from the standard's text, not from the Python checker, and shares
-no code with it. It runs unchanged under Node.js (`node
---experimental-strip-types`) or Bun, using only `node:` standard modules. It is
-contract compliance tooling under
+no code with it. Its validation interpreter is Node.js >= 22 (`node
+--experimental-strip-types`), using only `node:` standard modules with no install
+step; conformance is judged on Node.js. It uses erasable TypeScript syntax only,
+and its type annotations are documentation: Node.js strips them and continuous
+integration runs no type checker. Bun may run the same source as a developer
+convenience. It is contract compliance tooling under
 [PDR-0006](../../../docs/decisions/PDR-0006-shipping-charter.md) Rule 2c: it
 emits nothing and holds no authority. It is not a reference implementation or a
 library.
@@ -39,7 +42,8 @@ their expected outcomes. A disagreement is a finding against a fixture, the
 standard or one of the checkers, and is resolved by the contract text, never by
 copying the other checker. Disagreements kept on purpose are listed in the
 reader's `KNOWN_DISAGREEMENTS` table; an entry that stops disagreeing fails the
-run, so a later fix is noticed.
+run, so a later fix is noticed. Each entry is an open finding that must be
+resolved before the next tagged release: the table is empty at tag.
 
 Current coverage is partial: plan vectors (canonicalization, framed digest,
 scope loss and membership), positive transition vectors with exact output rows,
