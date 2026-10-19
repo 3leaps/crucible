@@ -64,6 +64,8 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
 - [data-acquisition-contract.md](standards/data-acquisition-contract.md) - Proposed upstream policy, acquisition scope, and shared-capacity registration contract
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
+- [durable-index-contract.md](standards/durable-index-contract.md) - Proposed object-inventory snapshots, observation plans, and successor rules
+- [durable-index-conformance.md](standards/durable-index-conformance.md) - Durable-index design controls, physical corpus, and adoption gates
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
 - [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract

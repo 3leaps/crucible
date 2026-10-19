@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file-based schema and semantic reject fixtures. A single allocation must fit
   the policy ceiling. Registration records capacity; runtime admission and
   adopter qualification remain separate.
+- **Durable index contract (proposed, experimental).** Add the
+  `durable-index/v0` family: object-inventory snapshots as a segmented-snapshot
+  profile, with index row, plan, metadata, publication and identity-cutover
+  schemas, a standard, conformance requirements, ADR-0017 and DDR-0004.
+  Observation plans use a length-framed semantic digest over canonical
+  unicode-prefix scopes. Only confirmed-complete, gap-free scopes authorize
+  absence-derived tombstones; reduced scope requires an acknowledgment bound to
+  the exact parent and plan. Logical vectors and complete logical projection
+  graphs only: physical Parquet twins and an independent reader are adoption
+  gates, and no physical reader, producer or storage backend is qualified.
+  Composition does not ratify `coverage-attestation/v0`.
 
 ### Changed
 
@@ -27,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whitespace in target URLs, and state that URL checks are not a
   safe-to-request claim. Add ledger reject fixtures and checker-profile labels
   for profile-dependent vectors.
+- **Segmented snapshot manifest profile metadata (proposed).** Add an optional,
+  digest-bound `profile_metadata` binding to
+  `segmented-snapshot/v0/snapshot-manifest.schema.json`. This changes the
+  schema's bytes under the same `$id`. Existing manifests keep their meaning
+  and remain valid. A reader that does not implement `profile_metadata` must
+  refuse a manifest that contains it, including on selective reads.
 
 ## [0.1.34] - 2026-10-16
 
