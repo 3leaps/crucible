@@ -116,9 +116,10 @@
     "vectors/plans/empty.json",
     "vectors/plans/frame-a-bc.json",
     "vectors/plans/frame-ab-c.json",
+    "vectors/plans/multiple-namespaces.json",
     "vectors/plans/raw-prefix.json",
-    "vectors/plans/unicode-and-no-cleanup.json",
-    "vectors/plans/reader-preserves-prefix-bytes.json"
+    "vectors/plans/reader-preserves-prefix-bytes.json",
+    "vectors/plans/unicode-and-no-cleanup.json"
   ],
   "transitions": [
     "vectors/transitions/ack-retains-omitted-row.json",
@@ -180,7 +181,7 @@
     "rejects/semantic/reject-enrichment_order--retained-enrichment-order/case.json",
     "rejects/semantic/reject-enrichment_order--retained-enrichment-duplicate/case.json",
     "rejects/semantic/reject-enrichment_revision--retained-enrichment-revision/case.json",
-    "rejects/semantic/reject-enrichment_revision--retained-enrichment-tombstone/case.json",
+    "rejects/semantic/reject-enrichment_target--retained-enrichment-tombstone/case.json",
     "rejects/semantic/reject-enrichment_revision--unknown-revision-target/case.json",
     "rejects/semantic/reject-duplicate_enrichment--duplicate-attribute-update/case.json",
     "rejects/semantic/reject-enrichment_target--missing-enrichment-target/case.json",

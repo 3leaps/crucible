@@ -280,9 +280,12 @@ without the named adopter profile. Omitted attribute means unobserved; null valu
 means the source operation observed absence. They are distinct.
 
 An enrichment MUST match the row's non-null revision and may target only an
-active row. A positive observation that changes revision, or has unknown revision,
-clears prior enrichments; it must not relabel them as fresh. Tombstoning also
-clears enrichment, since the target is no longer active. Other updates preserve
+active row. For both inherited attributes and new updates, an absent or deleted
+target is refused as `enrichment_target` before revision matching; an active
+target with a missing or mismatched revision is refused as
+`enrichment_revision`. A positive observation that changes revision, or has
+unknown revision, clears prior enrichments; it must not relabel them as fresh.
+Tombstoning also clears enrichment, since the target is no longer active. Other updates preserve
 valid enrichment. An attribute update at an older time is refused. Timestamp and
 matching token alone do not prove that a provider served coherent metadata;
 providers must qualify that mechanism.
@@ -430,9 +433,9 @@ remain separate qualification surfaces.
 | `duplicate_observation`     | Positive observations contain a repeated key.                                                                   |
 | `enrichment_observation`    | Enrichment mode attempts fresh observations or absence authority.                                               |
 | `enrichment_order`          | Inherited attributes are unsorted or duplicate.                                                                 |
-| `enrichment_revision`       | Enrichment does not match a non-null active-row revision.                                                       |
+| `enrichment_revision`       | Enrichment on an existing active row does not match its non-null revision.                                       |
 | `enrichment_scope_change`   | Enrichment mode changes the effective plan.                                                                     |
-| `enrichment_target`         | Enrichment targets an absent or deleted row.                                                                    |
+| `enrichment_target`         | Enrichment targets an absent or deleted row; this refusal takes precedence over `enrichment_revision`.         |
 | `enumerated_key_omitted`    | A confirmed-complete scope omits a returned in-scope key.                                                       |
 | `fabricated_freshness`      | An inherited row stamp names the proposed successor snapshot.                                                   |
 | `generation_mismatch`       | Successor generation is not parent generation plus one.                                                         |

@@ -76,10 +76,10 @@ count as expected refusals. Shape rejects differ in one top-level field.
 | `rejects/semantic/reject-enrichment_order--retained-enrichment-order/case.json`             | transitions       | `enrichment_order`              |
 | `rejects/semantic/reject-enrichment_revision--enrichment-wrong-revision/case.json`          | transitions       | `enrichment_revision`           |
 | `rejects/semantic/reject-enrichment_revision--retained-enrichment-revision/case.json`       | transitions       | `enrichment_revision`           |
-| `rejects/semantic/reject-enrichment_revision--retained-enrichment-tombstone/case.json`      | transitions       | `enrichment_revision`           |
 | `rejects/semantic/reject-enrichment_revision--unknown-revision-target/case.json`            | transitions       | `enrichment_revision`           |
 | `rejects/semantic/reject-enrichment_scope_change--enrichment-cannot-change-plan/case.json`  | transitions       | `enrichment_scope_change`       |
 | `rejects/semantic/reject-enrichment_target--missing-enrichment-target/case.json`            | transitions       | `enrichment_target`             |
+| `rejects/semantic/reject-enrichment_target--retained-enrichment-tombstone/case.json`        | transitions       | `enrichment_target`             |
 | `rejects/semantic/reject-enumerated_key_omitted--graph-hidden-key/case.json`                | graphs            | `enumerated_key_omitted`        |
 | `rejects/semantic/reject-enumerated_key_omitted--hidden-key-filtered/case.json`             | bindings          | `enumerated_key_omitted`        |
 | `rejects/semantic/reject-fabricated_freshness--retained-current-stamp/case.json`            | transitions       | `fabricated_freshness`          |

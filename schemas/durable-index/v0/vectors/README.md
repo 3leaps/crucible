@@ -34,6 +34,7 @@ fixture is evidence of a physical Parquet decoder or provider completeness.
 | `vectors/plans/empty.json`                                        | plan framing      |
 | `vectors/plans/frame-a-bc.json`                                   | plan framing      |
 | `vectors/plans/frame-ab-c.json`                                   | plan framing      |
+| `vectors/plans/multiple-namespaces.json`                           | plan framing      |
 | `vectors/plans/raw-prefix.json`                                   | plan framing      |
 | `vectors/plans/reader-preserves-prefix-bytes.json`                | plan framing      |
 | `vectors/plans/unicode-and-no-cleanup.json`                       | plan framing      |

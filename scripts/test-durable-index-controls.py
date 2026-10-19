@@ -222,9 +222,9 @@ def rows_valid(rows, forbidden_snapshot=None):
         require(names == sorted(set(names)), "enrichment_order")
         for attribute in row["enrichments"]:
             instant(attribute["observed_at"])
+            require(row["deleted"] is None, "enrichment_target")
             require(
-                row["deleted"] is None
-                and row["revision"] is not None
+                row["revision"] is not None
                 and attribute["against_revision"] == row["revision"],
                 "enrichment_revision",
             )
@@ -1123,6 +1123,61 @@ def fixture_tables(inventory, filenames):
     }
 
 
+def plan_mutation_controls():
+    # The cross-namespace vector must distinguish three tempting shortcuts.
+    source = Path(__file__).read_text().split("def plan_mutation_controls(", 1)[0]
+    case = load_case("vectors/plans/multiple-namespaces.json")
+    for name in ("namespace-sort", "namespace-containment", "namespace-loss"):
+        changes = []
+
+        class Weaken(ast.NodeTransformer):
+            def visit_Assign(self, node):
+                self.generic_visit(node)
+                if name == "namespace-sort" and any(
+                    isinstance(target, ast.Name) and target.id == "unique"
+                    for target in node.targets
+                ):
+                    node.value = ast.parse(
+                        "sorted({scope_key(scope) for scope in scopes}, "
+                        "key=lambda pair: pair[1])",
+                        mode="eval",
+                    ).body
+                    changes.append(name)
+                return node
+
+            def visit_Compare(self, node):
+                self.generic_visit(node)
+                if (
+                    name == "namespace-containment"
+                    and ast.unparse(node) == "ns == namespace"
+                ):
+                    changes.append(name)
+                    return ast.copy_location(ast.Constant(True), node)
+                return node
+
+            def visit_FunctionDef(self, node):
+                self.generic_visit(node)
+                if name == "namespace-loss" and node.name == "contains":
+                    node.body = [
+                        ast.parse("return value.startswith(scope['prefix'])").body[0]
+                    ]
+                    changes.append(name)
+                return node
+
+        tree = ast.fix_missing_locations(Weaken().visit(ast.parse(source)))
+        assert len(changes) == 1, (name, changes)
+        namespace = {"__file__": __file__, "__name__": "index_plan_mutation"}
+        exec(compile(tree, __file__, "exec"), namespace)
+        if name == "namespace-loss":
+            comparison = case["comparisons"][0]
+            assert comparison["loss"] and not namespace["loss"](
+                case["canonical"], comparison["next"]
+            ), name
+        else:
+            assert namespace["canonical"](case["input"]) != case["canonical"], name
+        print(f"[ok] plan mutation detected: {name}")
+
+
 def mutation_controls(filenames):
     # Fixed AST mutations, never fixture-selected executable code or commands.
     source = Path(__file__).read_text().split("def mutation_controls(", 1)[0]
@@ -1136,6 +1191,7 @@ def mutation_controls(filenames):
         ("enumerated_key_omitted", "hidden-key-filtered"),
         ("invalid_json", "overflow"),
         ("capacity", "multibyte-key"),
+        ("prefix-byte-capacity", "multibyte-prefix"),
         ("cutover_actor", "unrecognized-actor"),
         ("scope-loss", "equal-count-loss"),
         ("stale_parent", "stale-parent"),
@@ -1189,6 +1245,15 @@ def mutation_controls(filenames):
                     and isinstance(node.func, ast.Name)
                     and node.func.id == "require"
                     and ast.unparse(node.args[0]) == "depth < 256"
+                ):
+                    node.args[0] = ast.Constant(True)
+                    changes.append(name)
+                if (
+                    name == "prefix-byte-capacity"
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "require"
+                    and ast.unparse(node.args[0])
+                    == "all((len(prefix) <= 4096 for _, prefix in unique))"
                 ):
                     node.args[0] = ast.Constant(True)
                     changes.append(name)
@@ -1324,6 +1389,7 @@ def main():
                 assert shape(path, BASE / "index-row.schema.json"), filename
             print(f"[ok] {filename}")
     fixture_tables(inventory, filenames)
+    plan_mutation_controls()
     mutation_controls(filenames)
     for opening, closing in [("[", "]"), ('{"a":', "}")]:
         # Exact container-depth boundary, including the iterative scalar walk.
