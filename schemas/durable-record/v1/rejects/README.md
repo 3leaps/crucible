@@ -1,7 +1,10 @@
 # Durable record v1 fixture inventory
 
-Schema pairs carry `schema`, `baseline` and `reject`. Each reject differs in
-one field. Semantic cases reside in `../vectors` with exact expected outcomes.
+Schema pairs carry `schema`, `baseline` and `reject` and differ in one field.
+Vectors declare exact expected outcomes. `invalid_journal_entries` identifies
+zero-based positions deliberately failing shape validation; the same cases
+also prove the semantic version and operation-type guards.
+`invalid_receipt_steps` similarly identifies version-rejected receipt steps.
 
 ## Schema rejects
 
@@ -23,13 +26,23 @@ one field. Semantic cases reside in `../vectors` with exact expected outcomes.
 - [block-export.json](../vectors/block-export.json)
 - [block-reuse.json](../vectors/block-reuse.json)
 - [block-serve.json](../vectors/block-serve.json)
+- [body-length-isolation.json](../vectors/body-length-isolation.json)
 - [changed-live-key.json](../vectors/changed-live-key.json)
 - [conflicting-body-lengths.json](../vectors/conflicting-body-lengths.json)
 - [content-key-collision.json](../vectors/content-key-collision.json)
+- [content-live-key-reuse.json](../vectors/content-live-key-reuse.json)
 - [corrupt-body.json](../vectors/corrupt-body.json)
+- [dedup-absent.json](../vectors/dedup-absent.json)
+- [dedup-content.json](../vectors/dedup-content.json)
+- [dedup-expired.json](../vectors/dedup-expired.json)
+- [dedup-protection.json](../vectors/dedup-protection.json)
+- [dedup-wrong-record.json](../vectors/dedup-wrong-record.json)
 - [duplicate-body.json](../vectors/duplicate-body.json)
 - [expired-restore-key.json](../vectors/expired-restore-key.json)
 - [explicit-omission.json](../vectors/explicit-omission.json)
+- [foreign-export.json](../vectors/foreign-export.json)
+- [foreign-replay-key.json](../vectors/foreign-replay-key.json)
+- [foreign-request.json](../vectors/foreign-request.json)
 - [foreign-target.json](../vectors/foreign-target.json)
 - [full-content-missing.json](../vectors/full-content-missing.json)
 - [full-content.json](../vectors/full-content.json)
@@ -38,12 +51,15 @@ one field. Semantic cases reside in `../vectors` with exact expected outcomes.
 - [incomplete-selection.json](../vectors/incomplete-selection.json)
 - [independent-holds.json](../vectors/independent-holds.json)
 - [inherited-protection.json](../vectors/inherited-protection.json)
+- [journal-backwards-time.json](../vectors/journal-backwards-time.json)
 - [journal-digest-mismatch.json](../vectors/journal-digest-mismatch.json)
 - [journal-live-key-reuse.json](../vectors/journal-live-key-reuse.json)
+- [journal-operation-type.json](../vectors/journal-operation-type.json)
 - [key-before-expiry.json](../vectors/key-before-expiry.json)
 - [key-expiry-boundary.json](../vectors/key-expiry-boundary.json)
 - [missing-target.json](../vectors/missing-target.json)
 - [overlapping-selection.json](../vectors/overlapping-selection.json)
+- [receipt-refusal.json](../vectors/receipt-refusal.json)
 - [receipt-valid.json](../vectors/receipt-valid.json)
 - [receipt-wrong-digest.json](../vectors/receipt-wrong-digest.json)
 - [receipt-wrong-durability.json](../vectors/receipt-wrong-durability.json)
@@ -52,6 +68,7 @@ one field. Semantic cases reside in `../vectors` with exact expected outcomes.
 - [reconcile-expired.json](../vectors/reconcile-expired.json)
 - [reconcile-restored-hold.json](../vectors/reconcile-restored-hold.json)
 - [record-future-revision.json](../vectors/record-future-revision.json)
+- [repeated-retirement.json](../vectors/repeated-retirement.json)
 - [replay-after-restore.json](../vectors/replay-after-restore.json)
 - [restore-does-not-unretire.json](../vectors/restore-does-not-unretire.json)
 - [restore-old-observation.json](../vectors/restore-old-observation.json)
@@ -62,7 +79,11 @@ one field. Semantic cases reside in `../vectors` with exact expected outcomes.
 - [surplus-body.json](../vectors/surplus-body.json)
 - [truncated-group.json](../vectors/truncated-group.json)
 - [unavailable.json](../vectors/unavailable.json)
+- [unheld-filter.json](../vectors/unheld-filter.json)
 - [unknown-export-target.json](../vectors/unknown-export-target.json)
+- [v0-journal.json](../vectors/v0-journal.json)
+- [write-retired-record.json](../vectors/write-retired-record.json)
 - [wrong-body.json](../vectors/wrong-body.json)
 - [wrong-current-cut.json](../vectors/wrong-current-cut.json)
 - [zero-window.json](../vectors/zero-window.json)
+- [v0-receipt.json](../vectors/v0-receipt.json)

@@ -12,8 +12,9 @@ numbers and contract versions are independent; an experimental v1 contract does
 not imply a stable implementation.
 
 The v0 record envelope, including its `v: 0`, canonicalization, body digest and
-revision pin rules, is reused byte for byte. A record does not become a new
-revision when a restriction changes. Journals, write receipts, reconciliation
+revision pin rules, is reused as a structurally identical schema copy, enforced
+by the controls. A record does not become a new revision when a restriction
+changes. Journals, write receipts, reconciliation
 results and protection requests use `v: 1`. Stratum profiles advertise the v1
 capability and require `tombstoning` in both compiled and enabled capabilities.
 Readers MUST negotiate the journal capability and MUST refuse unknown entry
@@ -23,7 +24,9 @@ All v0 rules for content writes, atomic groups, consistent cuts, receipts,
 classification, failure models and reconciliation continue to apply unless
 explicitly changed here. This family defines no automatic journal conversion
 or migration of outstanding receipts and live keys. Relabeling a v0 journal as
-v1 is not a migration protocol.
+v1 is not a migration protocol. A v1 reader MUST refuse v0 journals and
+receipts. One implementation MAY serve both capabilities through distinct
+version-aware entry points; it MUST NOT silently reinterpret one as the other.
 
 ## Meaning of restriction
 
@@ -34,7 +37,8 @@ v1 is not a migration protocol.
 | `untombstoned`    | Removes one identified hold   | Removes that same hold         | Both operations remain                          | Retained             |
 | Managed redaction | Separate, reserved capability | Separate policy                | May remove content                              | Not implemented here |
 
-Retirement is per record, not stream closure. Restoration does not unretire a
+Retirement is per record, not stream closure. Repeated retirement entries are
+permitted audit observations; their effect remains withdrawal, not a new state. Restoration does not unretire a
 record, undo classification, clear an inherited restriction, or clear another
 hold. Tombstoning is not deletion, cryptographic erasure, or recall of a copy
 already released. Storage strata retain their declared deletion limits.
@@ -116,6 +120,10 @@ including its sequence and failure model, even after restoration. It does not
 reapply a hold or append another accepted operation. A changed request or a
 collision with a content-write key yields `idempotency_conflict`. Protection
 replays append no journal entry; v0 content replay audit rules still apply.
+A `deduplicated` content audit entry MUST name a live accepted content-write
+key and the same record id. A protection key, absent key, expired key or a
+different record id MUST be refused as `invalid_deduplication`. The audit
+entry does not refresh the key window.
 After expiry, a request is evaluated anew: retry safety is no longer promised.
 
 A missing receipt remains indeterminate. The v1 reconciliation schema permits
@@ -149,7 +157,8 @@ establish these inputs and prevent races through release.
 excludes retired records. The same selection mechanism is used by the logical
 fixtures. There is no `audit` export purpose.
 
-An explicitly filtered selection may omit held records. `selection` and
+An explicitly filtered selection MAY omit any records, held or unheld; holds
+are not a prerequisite for filtering. `selection` and
 `omitted` are disjoint exact-pin lists whose union is the revision inventory
 at the decision cut. An omitted pin is a declared verification boundary, not
 a selected record, and must not cause its record or body to be included.
@@ -184,26 +193,27 @@ Existing v0 shape, journal, receipt and reconciliation refusals remain. The
 following are protection-operation outcomes or v1 logical validation failures.
 Schema validation precedes semantic evaluation.
 
-| Reason                   | Meaning                                                                   |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `idempotency_conflict`   | A live key identifies another request or content operation                |
-| `target_not_found`       | No exact target pin in this stream                                        |
-| `body_mismatch`          | The requested body selector disagrees with its target                     |
-| `hold_not_active`        | Restoration does not identify an active hold                              |
-| `hold_mismatch`          | Restoration changes the hold's target or scope                            |
-| `observation_order`      | Observation follows acceptance or restoration predates the hold           |
-| `protection_unavailable` | Protection is unavailable, from another stream, or not current            |
-| `protected_use`          | Matching or inherited hold, or a retired record selected for serving      |
-| `export_selection`       | Selection and omissions do not partition the inventory                    |
-| `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body     |
-| `receipt_mismatch`       | Received protection receipt disagrees with the accepted journal operation |
-| `request_digest`         | Journal request does not match its canonical digest                       |
-| `operation_type`         | Journal type disagrees with request action                                |
-| `accepted_key_reuse`     | A journal accepts a live key again                                        |
-| `journal_version`        | A v1 journal contains another wire version                                |
-| `journal_time`           | Acceptance or decision time precedes the accepted journal                 |
-| `idempotency_window`     | Missing positive key-retention window                                     |
-| `retired_record`         | A content write attempts to revive a retired record                       |
+| Reason                   | Meaning                                                                    |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `idempotency_conflict`   | A live key identifies another request or content operation                 |
+| `target_not_found`       | No exact target pin in this stream                                         |
+| `body_mismatch`          | The requested body selector disagrees with its target                      |
+| `hold_not_active`        | Restoration does not identify an active hold                               |
+| `hold_mismatch`          | Restoration changes the hold's target or scope                             |
+| `observation_order`      | Observation follows acceptance or restoration predates the hold            |
+| `protection_unavailable` | Protection is unavailable, from another stream, or not current             |
+| `protected_use`          | Matching or inherited hold, or a retired record selected for serving       |
+| `export_selection`       | Selection and omissions do not partition the inventory                     |
+| `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body      |
+| `invalid_deduplication`  | Content audit does not identify a live accepted content key and its record |
+| `receipt_mismatch`       | Received protection receipt disagrees with the accepted journal operation  |
+| `request_digest`         | Journal request does not match its canonical digest                        |
+| `operation_type`         | Journal type disagrees with request action                                 |
+| `accepted_key_reuse`     | A journal accepts a live key again                                         |
+| `journal_version`        | A v1 journal contains another wire version                                 |
+| `journal_time`           | Acceptance or decision time precedes the accepted journal                  |
+| `idempotency_window`     | Missing positive key-retention window                                      |
+| `retired_record`         | A content write attempts to revive a retired record                        |
 
 ## Conformance and limits
 
@@ -211,8 +221,12 @@ Run `python3 scripts/test-durable-record-v1-controls.py`. File-backed vectors
 cover scopes, independent holds, replay, expiration, reconciliation, atomic
 cuts, retirement, export omissions, inherited restrictions and body closure.
 Schema reject fixtures differ from a passing baseline in one field. Mutation
-controls deliberately weaken replay, targeted restoration, cut freshness and
-body matching, and require the corresponding golden witness to fail.
+controls deliberately weaken guarded rules. Each must turn a rejected witness
+into acceptance or produce a specifically named wrong outcome; an unrelated
+refusal or exception is not success. The local refusal vocabulary is extracted
+from the checker and must equal the standard table and exercised local reasons.
+Inherited v0 reasons remain covered by the v0 controls. The fixture inventory
+is checked separately for exact membership.
 
 The checker reuses the v0 canonicalization and journal helpers. It is a logical
 fixture interpreter, not an independent decoder, a persistence engine, an

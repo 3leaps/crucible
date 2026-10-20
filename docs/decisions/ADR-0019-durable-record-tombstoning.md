@@ -1,5 +1,5 @@
 ---
-id: "ADR-0018"
+id: "ADR-0019"
 title: "Durable record tombstoning with retained audit history"
 status: "proposed"
 date: "2026-10-20"
@@ -12,9 +12,11 @@ scope: "Crucible foundation / portable storage contracts"
 tags: ["records", "journal", "retention", "interchange-contract"]
 ---
 
-# ADR-0018: Durable Record Tombstoning with Retained Audit History
+# ADR-0019: Durable Record Tombstoning with Retained Audit History
 
 ## Status
+
+Listed deciders are prospective; their assent is not recorded by this draft.
 
 Proposed. Defines an experimental `contract: durable-record/v1` family.
 
@@ -28,7 +30,9 @@ the separately reserved managed-redaction capability.
 ## Decision
 
 Add `tombstoned` and `untombstoned` journal operations in v1. Retain the v0
-record envelope and revision digests unchanged. Require exact targets,
+record envelope and revision digests unchanged. V1 readers refuse v0 journals
+and receipts. Implementations may expose both capabilities through distinct
+version-aware entry points. No automatic migration or relabeling is defined. Require exact targets,
 attributed evidence, observations, independent holds and targeted restoration.
 Use one key namespace across content and protection operations, with original
 receipt replay preceding mutable-state checks.

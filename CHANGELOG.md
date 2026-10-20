@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Durable record tombstoning (proposed, experimental).** Add the
   `durable-record/v1` family with retained audit history, scoped holds, targeted
   restoration, shared keyed replay and current-cut export decisions. Preserve
-  v0 record envelopes and pins. Include schemas, a standard, ADR-0018 and
+  v0 record envelopes and pins. Include schemas, a standard, ADR-0019 and
   logical vectors with mutation controls; no storage backend is qualified.
 
 - **Data acquisition contract (proposed).** Add the experimental
