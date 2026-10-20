@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Durable record tombstoning (proposed, experimental).** Add the
+  `durable-record/v1` family with retained audit history, scoped holds, targeted
+  restoration, shared keyed replay and current-cut export decisions. Preserve
+  v0 record envelopes and pins. Include schemas, a standard, ADR-0018 and
+  logical vectors with mutation controls; no storage backend is qualified.
+
 - **Data acquisition contract (proposed).** Add the experimental
   `data-acquisition/v0` family with source-policy, acquisition-plan and
   registration-result schemas, exact-byte digest pins, attributed scope
@@ -43,8 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Durable index independent reader.** Add `scripts/durable-index-reader.ts`,
   a TypeScript checker written from the standard's text and sharing no code
   with the Python checker. It checks plan vectors, transition vectors and
-  transition rejects against their authored outcomes and runs in contract shard
-  3. Windows contract shards set up Node.js, and the shard guard now requires
+  transition rejects against their authored outcomes and runs in contract shard 3. Windows contract shards set up Node.js, and the shard guard now requires
   every TypeScript tool under `scripts/` to run in exactly one shard.
 
 - **Data acquisition contract hardening (proposed).** Define half-open

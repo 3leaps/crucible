@@ -58,6 +58,7 @@ Examples:
 | [ADR-0013](ADR-0013-durable-record-contract.md)                            | Durable Record as a Portable Contract with Declared Stratum Guarantees | proposed | 2026-10-12 |
 | [ADR-0014](ADR-0014-data-acquisition-contract.md)                          | Data Acquisition Policy and Planning as a Portable Contract            | proposed | 2026-10-17 |
 | [ADR-0017](ADR-0017-durable-index-contract.md)                             | Durable Object Inventories as a Segmented Snapshot Profile             | proposed | 2026-10-18 |
+| [ADR-0018](ADR-0018-durable-record-tombstoning.md)                         | Durable Record Tombstoning with Retained Audit History                 | proposed | 2026-10-20 |
 | [DDR-0001](DDR-0001-application-control-data-contract.md)                  | Application Control Data Contract                                      | proposed | 2026-09-06 |
 | [DDR-0002](DDR-0002-segmented-snapshot-identity-and-evidence.md)           | Segmented Snapshot Identity and Evidence                               | proposed | 2026-09-30 |
 | [DDR-0003](DDR-0003-portable-path-serialization-at-tool-boundaries.md)     | Portable Path Serialization at Tool Boundaries                         | proposed | 2026-10-02 |
