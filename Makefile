@@ -234,7 +234,7 @@ check-contracts-shard-1: contract-tools lint-schemas lint-role-prompts lint-cove
 
 check-contracts-shard-2: contract-tools lint-contracts-2 ## Contract shard 2: agent-wait and service-job controls
 
-check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue and durable-index controls
+check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue and durable-index controls and independent reader
 
 contract-shards: ## Print the contract shard ids
 	@echo $(CONTRACT_SHARDS)
@@ -446,6 +446,8 @@ lint-contracts-3: ## Contract controls for shard 3
 		sh scripts/test-durable-queue-controls.sh || exit 1; \
 		echo "    Durable-index design controls..."; \
 		python3 scripts/test-durable-index-controls.py || exit 1; \
+		echo "    Durable-index independent reader (Node)..."; \
+		node --experimental-strip-types scripts/durable-index-reader.ts || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi

@@ -86,6 +86,6 @@
     }
   },
   "expected": {
-    "refusal": "enrichment_revision"
+    "refusal": "enrichment_target"
   }
 }

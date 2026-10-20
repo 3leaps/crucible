@@ -3,7 +3,7 @@ id: "PDR-0006"
 title: "Crucible ships no consumer-linked code"
 status: "accepted"
 date: "2026-07-28"
-last_updated: "2026-07-28"
+last_updated: "2026-10-19"
 deciders:
   - "entarch"
   - "@3leapsdave"
@@ -179,6 +179,70 @@ That is the same property that made linkage win over purpose in Rule 1, and it i
 why the declaration is mandatory rather than advisory: a rule you can only
 satisfy by explaining yourself is a rule that erodes.
 
+#### Rule 2c — Validation interpreters and scope
+
+> Contract tooling in this repository MAY run on a **validation interpreter**:
+> a language runtime that executes the tool's own source with that runtime's
+> standard library and nothing else. The validation interpreters are fixed by
+> this record: **Python >= 3.9** and **Node.js >= 22.6**, as pinned by this
+> repository's continuous integration. Node.js 22.6 is the first release with
+> built-in TypeScript type stripping. Raising a floor is a continuous-integration
+> change; lowering one, or adding an interpreter, is an amendment. Conformance is
+> judged on these interpreters alone. TypeScript tooling uses **erasable syntax
+> only** (type annotations that Node.js removes without emitting code: no enums,
+> namespaces, constructor parameter properties or decorators), so the same
+> source runs unchanged under Node.js type stripping. A developer MAY run it
+> under another runtime such as Bun for convenience, but that runtime is not a
+> validation interpreter and its result is not conformance evidence.
+>
+> A validation interpreter is not an invocation under Rule 2b. Every other Rule
+> 2 constraint still binds, and is checked by inspection: a validation tool's
+> imports resolve only to its interpreter's standard library, and it runs from a
+> clean checkout with no install step. The build invokes it through its
+> interpreter directly, never through a package script. A repository-level
+> package manifest for Rule 2a development tooling, such as a formatter, is
+> permitted; it MUST NOT list, install or invoke a validation tool.
+>
+> Such tooling exists **solely to establish contract compliance**: to falsify a
+> contract, or to show that independent implementations agree with its
+> conformance corpus. Benchmarking, load testing, soak testing and other
+> general-purpose harnesses are **out of scope** for this repository. They live
+> in separate test repositories that use synthetic data only and pin a released
+> contract.
+
+Rule 2b already admitted interpreted tooling in practice — every contract
+checker here runs on Python — without saying so. This rule names the referent
+the repository was already relying on, so the dependency on a language runtime
+is stated rather than inferred. The runtimes are named for the same reason the
+Rule 2b baseline is a written list: a category such as "a scripting language" is
+arguable, and an enumerated list is not. Adding a runtime is an amendment.
+
+**An independent reader is not a reference implementation.** The worked
+examples below decline a crucible-hosted reference encoder, because a designated
+reference implementation competes with the conformance corpus as the arbiter of
+conformance. A second, independently authored checker has the opposite effect.
+It emits nothing, and it holds no authority: it is admitted only when it agrees
+with the corpus's authored expectations, and a disagreement is a finding against
+the corpus, the standard or one of the checkers, resolved by the contract text.
+Independent agreement is how the corpus earns its authority. Writing the second
+checker in a different language and by a different author from the first
+strengthens that evidence, because it reduces correlated implementation
+mistakes. It cannot rule out a conceptual mistake both share, such as a
+misreading of the contract text; that is what review of the text is for.
+
+A checker MAY record a **known disagreement** so that the build stays usable
+while a finding is open, provided the record fails the build if the outcome
+changes. A known disagreement is an open finding against the standard, the
+corpus or a checker, and it is a case where the corpus has not yet earned its
+authority. It MUST be resolved before the next tagged release: the known
+disagreement record is empty at tag.
+
+**Reference, not adoption.** Contract tooling is published so that it can be
+inspected and run. It is not held out as a library or a production component.
+Anyone may copy it, as with any open source code, but that choice and its
+consequences are theirs. A larger-scale or adopter-specific harness belongs in
+its own repository, outside this charter.
+
 ## Worked examples
 
 Applying both rules to the work items that surfaced the conflict:
@@ -192,6 +256,8 @@ Applying both rules to the work items that surfaced the conflict:
 | Canonical chain verifier (shell; invokes an OpenPGP implementation and a fingerprint oracle)         | **In** — standalone falsifiability tooling | **Compliant** — declared set: `sh`/coreutils (baseline), the OpenPGP implementation and the fingerprint oracle (subject-matter; the contract names both) | **Ships in crucible**                                                                                     |
 | This repository's release-signing scripts (shell; invoke `git` and an OpenPGP implementation)        | **In** — class (b), held out as a template | **Compliant** substantively — `git` baseline, OpenPGP subject-matter — but the declaration is **required when next touched**                             | **Ships**, conformance by declaration rather than by coincidence                                          |
 | A shell tool invoking a general-purpose JSON processor for its own convenience                       | **In**                                     | **Refused** — clears neither ground                                                                                                                      | **Does not ship** as written: declare the need and argue the baseline addition in daylight, or do without |
+| Independent logical reader for a contract (TypeScript; reads authored fixtures; agrees or reports)   | **In** — standalone falsifiability tooling | **Compliant** — Node.js validation interpreter (Rule 2c), standard-library modules only, no manifest                                                     | **Ships in crucible** as compliance evidence, not as a reference implementation                           |
+| A load-testing or benchmarking harness for a contract's adopters                                     | **In** — standalone                        | Outside Rule 2c's compliance scope                                                                                                                       | **Does not ship here**: lives in a separate test repository with synthetic data                           |
 
 The fourth row is the important one. A crucible-hosted reference encoder is
 permitted by both rules and was still declined, because a designated reference
@@ -223,6 +289,15 @@ rules; a design question is still argued on its merits afterward.
 - Charter conformance for shell tooling is now decidable by reading the tool.
   Both rules are answerable by inspection, which was the property Rule 1 was
   designed for and Rule 2 previously lacked.
+- Interpreted contract tooling now has a stated basis. Python >= 3.9 and
+  Node.js >= 22.6 are the named validation interpreters; any other runtime, or a
+  lower floor, requires an amendment.
+- Independent checkers block a release while they disagree with the corpus. A
+  recorded known disagreement keeps the build usable during review, but must be
+  resolved before the next tag.
+- The repository's tooling is bounded to contract compliance. Requests for
+  benchmarking or load-testing harnesses are answered by pointing to a separate
+  test repository, not by widening this one.
 
 ## Alternatives considered
 
@@ -264,6 +339,22 @@ Rejected for the same reason a purpose test was rejected for Rule 1: a category
 is arguable by anyone motivated to argue it. The list is short and explicit, and
 extending it is an amendment in daylight.
 
+_The alternatives below were considered when Rule 2c was added._
+
+**Leave interpreters implicit.** Rejected: every checker already depended on
+Python without any record saying so. A second runtime would have doubled an
+unstated dependency, which is the implicit-charter condition this record exists
+to end.
+
+**Admit "any scripting language".** Rejected for the same reason the Rule 2b
+baseline is a written list: a category is arguable, and an enumerated list is
+not.
+
+**Write the independent reader in Rust or another compiled language.**
+Considered and declined on its merits: a compiled toolchain adds a large
+build-time footprint to a standards repository for no gain in what the reader
+proves. A second interpreted language gives the same independence.
+
 **Rewrite the affected tooling in a compiled language to satisfy the literal
 rule.** Rejected as not constructible, and it is worth recording why rather than
 leaving a future reader to rediscover it. No mainstream systems language ships an
@@ -280,7 +371,8 @@ chosen.
 
 ## Revision History
 
-| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-07-28 | Initial record. Charter ruled by entarch; two-rule form adopted after review found the dependency constraint was independent of the linkage discriminator.                                                                                                                                                                                                                                                                     |
-| 2026-07-28 | Amendment: Rule 2a (which tools Rule 2 governs) and Rule 2b (the declared external-invocation set, with the subject-matter and baseline grounds). Added on the charter's first hard case — Rule 2's "standard-library-only" had no defined referent for a tool that orchestrates other programs, and the literal reading refused tooling this repository already ships. Rule 1 and the original Rule 2 sentence are unchanged. |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-28 | Initial record. Charter ruled by entarch; two-rule form adopted after review found the dependency constraint was independent of the linkage discriminator.                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-07-28 | Amendment: Rule 2a (which tools Rule 2 governs) and Rule 2b (the declared external-invocation set, with the subject-matter and baseline grounds). Added on the charter's first hard case — Rule 2's "standard-library-only" had no defined referent for a tool that orchestrates other programs, and the literal reading refused tooling this repository already ships. Rule 1 and the original Rule 2 sentence are unchanged.                                                                                        |
+| 2026-10-19 | Amendment ruled by cxotech: Rule 2c names Python >= 3.9 and Node.js >= 22.6 as validation interpreters, with erasable-syntax TypeScript and an inspectable no-install test; limits contract tooling to establishing contract compliance, with benchmarking and load testing in separate test repositories using synthetic data only; distinguishes an independent reader from a reference implementation; and requires known disagreements to be resolved before a tagged release. Rules 1, 2, 2a and 2b are unchanged. |

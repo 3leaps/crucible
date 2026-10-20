@@ -102,8 +102,9 @@ storage enforcement still require adopter evidence.
   Schema/producer-version changes preserve the old set token; a changed token
   requires an explicit cutover to a new baseline, never a cross-set parent.
 - Canonical plans: reordering, duplicate and redundant prefix compiler inputs;
-  reader refusal of noncanonical wire plans; empty versus unknown; raw path-like
-  keys; Unicode scalar byte order and framed-hash collision pairs. Serialization
+  namespace-major order and containment only within one namespace; reader refusal
+  of noncanonical wire plans; empty versus unknown; raw path-like keys; Unicode
+  scalar byte order and framed-hash collision pairs. Serialization
   round-trips preserve compiler-emitted prefix bytes; reader cleanup, implicit
   delimiter insertion and boundary-semantic widening are refused.
 - Admission: addition, broader containment, same-count substitution, net growth

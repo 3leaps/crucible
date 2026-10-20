@@ -23,6 +23,46 @@ Unknown, missing or unlisted cases fail the gate. All shape inputs pass strict
 JSON parsing before the existing offline goneat validator. Tool failures do not
 count as data refusals.
 
+## Independent logical reader
+
+`scripts/durable-index-reader.ts` is a second, independently written checker.
+It was written from the standard's text, not from the Python checker, and shares
+no code with it. Its independence can be inspected:
+
+| Checker                                  | Language   | Author role | Model           | Dependencies                                              |
+| ---------------------------------------- | ---------- | ----------- | --------------- | --------------------------------------------------------- |
+| `scripts/test-durable-index-controls.py` | Python     | entarch     | GPT-6 (Codex)   | standard library; invokes goneat (Rule 2b subject matter) |
+| `scripts/durable-index-reader.ts`        | TypeScript | devlead     | Claude Opus 5.5 | `node:` standard modules only; invokes nothing            |
+
+The commit attribution trailers record the author role and model of each. A
+different language and author reduce correlated implementation mistakes; they
+cannot rule out a conceptual mistake both share, which is what review of the
+contract text is for.
+
+Its validation interpreter is Node.js >= 22.6 (`node
+--experimental-strip-types`), using only `node:` standard modules with no install
+step; conformance is judged on Node.js. It uses erasable TypeScript syntax only,
+and its type annotations are documentation: Node.js strips them and continuous
+integration runs no type checker. Bun may run the same source as a developer
+convenience. It is contract compliance tooling under
+[PDR-0006](../../../docs/decisions/PDR-0006-shipping-charter.md) Rule 2c: it
+emits nothing and holds no authority. It is not a reference implementation or a
+library.
+
+It reads the authored fixtures and reports whether its own results agree with
+their expected outcomes. A disagreement is a finding against a fixture, the
+standard or one of the checkers, and is resolved by the contract text, never by
+copying the other checker. Disagreements kept on purpose are listed in the
+reader's `KNOWN_DISAGREEMENTS` table. An entry that agrees, disagrees
+differently or names no current fixture fails the run, so a fix or a renamed
+fixture is noticed. Each entry is an open finding that must be resolved before
+the next tagged release: the table is empty at tag.
+
+Current coverage is partial: plan vectors (canonicalization, framed digest,
+scope loss and membership), positive transition vectors with exact output rows,
+and transition rejects. Binding, graph, cutover, row and parsing scenarios are
+not yet independently checked by it.
+
 Examples are standalone structural objects. Binding scenarios verify an index
 metadata/plan/coverage subgraph with actual pinned bytes and authored enumeration
 evidence. They check scope order/count/digest, coverage subject/time/volume,

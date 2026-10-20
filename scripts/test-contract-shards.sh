@@ -43,8 +43,8 @@ if ! cmp -s "${tmp}/union.sorted" "${tmp}/all.sorted"; then
     fail "shard recipes differ from lint-schemas + lint-config + test-portability (check run twice or not at all)"
 fi
 
-# Each control script is wired into exactly one shard.
-for script in "${repo_root}"/scripts/test-*-controls.sh "${repo_root}"/scripts/test-*-controls.py; do
+# Each control script and every TypeScript tool is wired into exactly one shard.
+for script in "${repo_root}"/scripts/test-*-controls.sh "${repo_root}"/scripts/test-*-controls.py "${repo_root}"/scripts/*.ts; do
     name="scripts/$(basename "${script}")"
     count="$(grep -cF "${name}" "${tmp}/union" || true)"
     [ "${count}" -eq 1 ] || fail "${name} runs in ${count} contract shards; want exactly 1"

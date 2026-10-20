@@ -23,6 +23,7 @@ scopes:
       - jq
       - yq
       - prettier
+      - biome
       - yamlfmt
       - yamllint
       - shfmt
@@ -37,6 +38,7 @@ scopes:
       - jq
       - yq
       - prettier
+      - biome
       - yamlfmt
       - yamllint
       - shfmt
@@ -121,6 +123,22 @@ tools:
     description: Code formatter for markdown and JSON
     kind: node
     detect_command: prettier --version
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - bun
+        - npm
+
+  biome:
+    name: biome
+    description: TypeScript formatter and linter for contract tooling (scoped by biome.json)
+    kind: node
+    detect_command: biome --version
+    version_args:
+      - --version
     installer_priority:
       darwin:
         - brew

@@ -61,8 +61,9 @@ flowchart TD
   im -. state parent .-> parent[Exact parent publication]
 ```
 
-All selections MUST agree exactly on namespace, snapshot and artifact. The
-namespace is the opaque index-set token; an adopter MUST carry it from the
+All selections MUST agree exactly on `namespace_id`, snapshot and artifact. The
+selection's `namespace_id` is the opaque index-set token, not a row or scope
+object `namespace`; an adopter MUST carry it from the
 verified parent, never recompute it from current configuration, format or producer
 version. If a producer changes identity-derivation inputs, including schema or
 producer version, it MUST either carry the prior set token verbatim or record an
@@ -110,7 +111,9 @@ or define a separately reviewed scope profile. Provider-specific filters and win
 are not v0 scope predicates. A filtered index needs a stable declared keyspace
 whose complete enumeration can actually be qualified.
 
-A plan's `set_id` MUST equal the selected namespace. Plan scopes MUST be sorted
+A plan's `set_id` MUST equal the segmented-snapshot selection's `namespace_id`.
+This is the index-set identity, distinct from a scope's object `namespace`. Plan
+scopes MUST be sorted
 by unsigned UTF-8 `(namespace, prefix)`, duplicate-free and prefix-minimal:
 remove any scope fully contained by another scope in the same namespace. Empty
 plans are permitted and describe no new observation. An empty plan is not an
@@ -221,7 +224,11 @@ First-seen MUST not follow last-seen or last-changed. Deletion MUST not precede
 last-seen, and its stamp MUST equal last-changed. Observation time MUST not precede any inherited observation/change
 stamp. Snapshot ids cannot be reused with new times to fabricate
 freshness. A reader checks internal consistency; proving the _transition_ also
-requires the exact verified parent and publication inputs.
+requires the exact verified parent and publication inputs. A single-step check
+cannot tell whether an inherited stamp names a snapshot in the verified chain;
+only full transition verification from a baseline establishes that, because it
+recomputes every inherited stamp. An R2 snapshot-only reader MUST NOT report
+inherited lineage as verified.
 
 ## I5 — Successors and stale retained state
 
@@ -273,9 +280,12 @@ without the named adopter profile. Omitted attribute means unobserved; null valu
 means the source operation observed absence. They are distinct.
 
 An enrichment MUST match the row's non-null revision and may target only an
-active row. A positive observation that changes revision, or has unknown revision,
-clears prior enrichments; it must not relabel them as fresh. Tombstoning also
-clears enrichment, since the target is no longer active. Other updates preserve
+active row. For both inherited attributes and new updates, an absent or deleted
+target is refused as `enrichment_target` before revision matching; an active
+target with a missing or mismatched revision is refused as
+`enrichment_revision`. A positive observation that changes revision, or has
+unknown revision, clears prior enrichments; it must not relabel them as fresh.
+Tombstoning also clears enrichment, since the target is no longer active. Other updates preserve
 valid enrichment. An attribute update at an older time is refused. Timestamp and
 matching token alone do not prove that a provider served coherent metadata;
 providers must qualify that mechanism.
@@ -423,9 +433,9 @@ remain separate qualification surfaces.
 | `duplicate_observation`     | Positive observations contain a repeated key.                                                                   |
 | `enrichment_observation`    | Enrichment mode attempts fresh observations or absence authority.                                               |
 | `enrichment_order`          | Inherited attributes are unsorted or duplicate.                                                                 |
-| `enrichment_revision`       | Enrichment does not match a non-null active-row revision.                                                       |
+| `enrichment_revision`       | Enrichment on an existing active row does not match its non-null revision.                                       |
 | `enrichment_scope_change`   | Enrichment mode changes the effective plan.                                                                     |
-| `enrichment_target`         | Enrichment targets an absent or deleted row.                                                                    |
+| `enrichment_target`         | Enrichment targets an absent or deleted row; this refusal takes precedence over `enrichment_revision`.         |
 | `enumerated_key_omitted`    | A confirmed-complete scope omits a returned in-scope key.                                                       |
 | `fabricated_freshness`      | An inherited row stamp names the proposed successor snapshot.                                                   |
 | `generation_mismatch`       | Successor generation is not parent generation plus one.                                                         |
