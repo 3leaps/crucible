@@ -17,7 +17,7 @@ conformance claims.
 
 | Field | Value |
 | --- | --- |
-| Corpus digest | `sha256:bf996538a8b478708ba2be3a2fb620d059e09b38d5392a9a70f1836223f222b1` |
+| Corpus digest | `sha256:10d6466a22acfdce6894f774cf7bf5af691e8ae6666cd279a4ae82e66b2bb1a9` |
 | tzdb version | `2026e` |
 | tzdb artifact | `tzdata2026e.tar.gz`, `sha256:b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652` |
 
@@ -36,7 +36,10 @@ other corpus file. Conformance is claimed per (corpus digest, tzdb version).
 Coverage includes DST gaps that consume no `COUNT` (`America/New_York`,
 `Australia/Lord_Howe`), overlaps that resolve to the first instant, an explicit
 time in a gap (including the UTC lower bound it sets), `BYSETPOS` after gap
-removal, `UNTIL` before `DTSTART`, an `RDATE` before `DTSTART`, month-end and leap-day skipping, negative `BYMONTHDAY` and
+removal, a gap `DTSTART` as a `BYSETPOS` seed, an explicit gap `EXDATE` matched
+by resolved instant, `UNTIL` before `DTSTART`, an `RDATE` before `DTSTART`,
+normalization before `DTSTART` synchronization, empty lists, an unreachable
+ordinal beside a plain weekday, month-end and leap-day skipping, negative `BYMONTHDAY` and
 `BYSETPOS`, `EXDATE` over `RDATE`, inclusive `UNTIL` against a half-open
 query, `WKST`, sub-daily frequencies, the 2026e change for `America/Winnipeg`,
 a zone without DST (`Asia/Tokyo`), and normalization equivalence.

@@ -652,7 +652,7 @@ def check_manifest():
 def reason_table():
     text = STANDARD.read_text(encoding="utf-8").split("## Refusal reasons", 1)[1]
     text = text.split("\n## ", 1)[0]
-    return re.findall(r"^\| `([a-z_]+)` \|", text, re.M)
+    return re.findall(r"^\| `([a-z_]+)` +\|", text, re.M)
 
 
 def run_corpus(zones, quiet=False):

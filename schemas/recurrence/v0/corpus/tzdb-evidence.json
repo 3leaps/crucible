@@ -107,10 +107,7 @@
     "Asia/Tokyo": {
       "initial_offset": "+09:00",
       "transitions": [],
-      "source": [
-        "asia:2169-2170 Zone Asia/Tokyo",
-        "asia:2163-2166 Rule Japan (last rule 1951)"
-      ]
+      "source": ["asia:2169-2170 Zone Asia/Tokyo", "asia:2163-2166 Rule Japan (last rule 1951)"]
     },
     "Australia/Lord_Howe": {
       "initial_offset": "+11:00",
@@ -180,9 +177,7 @@
     "Etc/UTC": {
       "initial_offset": "+00:00",
       "transitions": [],
-      "source": [
-        "etcetera:21 Zone Etc/UTC"
-      ]
+      "source": ["etcetera:21 Zone Etc/UTC"]
     },
     "Europe/Berlin": {
       "initial_offset": "+01:00",
@@ -244,27 +239,19 @@
           "offset": "+01:00"
         }
       ],
-      "source": [
-        "europe:1590-1594 Zone Europe/Berlin",
-        "europe:590-591 Rule EU"
-      ]
+      "source": ["europe:1590-1594 Zone Europe/Berlin", "europe:590-591 Rule EU"]
     }
   },
   "links": {
     "Europe/Oslo": {
       "target": "Europe/Berlin",
-      "source": [
-        "backward:237 Link Europe/Berlin Europe/Oslo",
-        "zone.tab:300 Europe/Oslo"
-      ]
+      "source": ["backward:237 Link Europe/Berlin Europe/Oslo", "zone.tab:300 Europe/Oslo"]
     }
   },
   "deprecated_aliases": {
     "US/Eastern": {
       "target": "America/New_York",
-      "source": [
-        "backward:125 Link America/New_York US/Eastern"
-      ]
+      "source": ["backward:125 Link America/New_York US/Eastern"]
     }
   },
   "accepted_names": [
@@ -714,5 +701,19 @@
     "Pacific/Tongatapu",
     "Pacific/Wake",
     "Pacific/Wallis"
-  ]
+  ],
+  "accepted_names_source": {
+    "zone_files": [
+      "africa",
+      "antarctica",
+      "asia",
+      "australasia",
+      "europe",
+      "northamerica",
+      "southamerica",
+      "etcetera"
+    ],
+    "location_file": "zone.tab",
+    "operation": "union of Zone names and zone.tab location names; exact case; retain names without Link-target normalization"
+  }
 }
