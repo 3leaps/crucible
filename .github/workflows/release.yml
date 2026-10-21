@@ -12,7 +12,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.10@sha256:42e95c5d7aa961010454b0c29c07e676b220d1cde71dd2fc71c338d1ca2adbe8
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.12@sha256:616a4b5361d2cf7d32ac32496d58e9c288660d5606f0a27efdbf56e3a462ab2d
       # Use UID 1001 to match GitHub-hosted runner workspace ownership.
       options: --user 1001
     steps:
