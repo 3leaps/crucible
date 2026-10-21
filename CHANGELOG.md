@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Recurrence rule contract (proposed).** Add the `recurrence/v0` family: a
+  canonical JSON form of an RFC 5545 RRULE subset, normative expansion
+  semantics (DST gaps skipped without consuming `COUNT`, overlaps resolved to
+  the first instant, inclusive `UNTIL`, half-open queries), normalization
+  before JCS digests, and a conformance corpus pinned by digest to IANA tzdb
+  2026e. Promotion requires two independent implementations to pass the
+  corpus.
+
 - **Durable record tombstoning (proposed, experimental).** Add the
   `durable-record/v1` family with retained audit history, scoped holds, targeted
   restoration, shared keyed replay and current-cut export decisions. Preserve
