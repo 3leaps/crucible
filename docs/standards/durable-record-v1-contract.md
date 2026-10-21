@@ -11,11 +11,12 @@ so this is v1. The v0 schemas and semantics remain unchanged. Repository release
 numbers and contract versions are independent; an experimental v1 contract does
 not imply a stable implementation.
 
-The v0 record envelope, including its `v: 0`, canonicalization, body digest and
+The record's `v: 0` denotes its envelope version, not the contract-family
+version. The v0 record envelope, including its canonicalization, body digest and
 revision pin rules, is reused as a structurally identical schema copy, enforced
 by the controls. A record does not become a new revision when a restriction
-changes. Journals, write receipts, reconciliation
-results and protection requests use `v: 1`. Stratum profiles advertise the v1
+changes. Journals, write receipts, reconciliation results and protection
+requests use `v: 1`. Stratum profiles advertise the v1
 capability and require `tombstoning` in both compiled and enabled capabilities.
 Readers MUST negotiate the journal capability and MUST refuse unknown entry
 types; recognizing the record envelope alone is insufficient.
@@ -27,6 +28,20 @@ or migration of outstanding receipts and live keys. Relabeling a v0 journal as
 v1 is not a migration protocol. A v1 reader MUST refuse v0 journals and
 receipts. One implementation MAY serve both capabilities through distinct
 version-aware entry points; it MUST NOT silently reinterpret one as the other.
+
+A live v0 stream remains v0. An adopter needing restrictions opens a separately
+addressed v1 stream and re-records content under v1 acceptance rules; v0 keys,
+receipts and journal history MUST NOT carry over, and retry safety for outstanding
+v0 keys stays with the v0 stream. Unchanged envelopes and pins MAY be re-recorded
+only when the new version-aware store retains the same logical `stream`
+identifier: that identifier is part of both the envelope and pin. Choosing a
+new identifier changes the envelope and therefore requires new digests and pins.
+Re-recording MUST satisfy the ordinary revision-chain rules, including any
+required predecessors. It produces new v1 journal entries and receipts, not
+copies of v0 acknowledgments. The adopter MUST establish applicable retirement
+state, restrictions and inherited protection before making the content available for
+ordinary serving, export or reuse. A retained v0 copy cannot authorize release
+on behalf of the v1 store.
 
 ## Meaning of restriction
 
@@ -41,7 +56,9 @@ Retirement is per record, not stream closure. Repeated retirement entries are
 permitted audit observations; their effect remains withdrawal, not a new state. Restoration does not unretire a
 record, undo classification, clear an inherited restriction, or clear another
 hold. Tombstoning is not deletion, cryptographic erasure, or recall of a copy
-already released. Storage strata retain their declared deletion limits.
+already released. Releasing to a consumer that cannot negotiate v1 produces a
+copy outside management; a later hold does not reach that copy. Storage strata
+retain their declared deletion limits.
 
 An audit path MUST require separate authorization. A caller-supplied `audit`
 purpose MUST NOT bypass ordinary serving, export or reuse checks. Provenance
@@ -205,6 +222,7 @@ Schema validation precedes semantic evaluation.
 | `protected_use`          | Matching or inherited hold, or a retired record selected for serving       |
 | `export_selection`       | Selection and omissions do not partition the inventory                     |
 | `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body      |
+| `invalid_purpose`        | Use purpose is not serve, export or reuse                                  |
 | `invalid_deduplication`  | Content audit does not identify a live accepted content key and its record |
 | `receipt_mismatch`       | Received protection receipt disagrees with the accepted journal operation  |
 | `request_digest`         | Journal request does not match its canonical digest                        |

@@ -3,7 +3,7 @@ id: "ADR-0019"
 title: "Durable record tombstoning with retained audit history"
 status: "proposed"
 date: "2026-10-20"
-last_updated: "2026-10-20"
+last_updated: "2026-10-21"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -16,7 +16,9 @@ tags: ["records", "journal", "retention", "interchange-contract"]
 
 ## Status
 
-Listed deciders are prospective; their assent is not recorded by this draft.
+Cxotech assents to the version boundary and adoption scope, subject to the
+promotion gate and v0-adopter path stated here. Other listed deciders remain
+prospective; this scoped assent does not promote the family to accepted.
 
 Proposed. Defines an experimental `contract: durable-record/v1` family.
 
@@ -32,8 +34,17 @@ the separately reserved managed-redaction capability.
 Add `tombstoned` and `untombstoned` journal operations in v1. Retain the v0
 record envelope and revision digests unchanged. V1 readers refuse v0 journals
 and receipts. Implementations may expose both capabilities through distinct
-version-aware entry points. No automatic migration or relabeling is defined. Require exact targets,
-attributed evidence, observations, independent holds and targeted restoration.
+version-aware entry points. No automatic migration or relabeling is defined.
+A live v0 stream stays v0; an adopter needing restrictions opens a separately
+addressed v1 stream and re-records content under the standard's acceptance rules.
+Unchanged envelopes and pins require retaining the same logical stream
+identifier; a new identifier requires new digests and pins. V0 keys, receipts
+and journal history do not carry over; outstanding v0 retry safety remains
+with v0. Retirement and protection state must be established before releasing
+re-recorded content.
+
+Require exact targets, attributed evidence, observations, independent holds
+and targeted restoration.
 Use one key namespace across content and protection operations, with original
 receipt replay preceding mutable-state checks.
 
@@ -55,3 +66,12 @@ and contracts remain valid. Held content and its immutable pins remain available
 for authorized audit. Consumers must enforce restrictions through derived
 artifacts; schema validation alone cannot establish release authorization or
 revoke previously released copies.
+
+V1 remains proposed and experimental until (a) an independently authored reader
+agrees with the logical vectors with no known disagreements, as required by
+[PDR-0006 Rule 2c](PDR-0006-shipping-charter.md), and (b) at least one adopter
+qualifies a store against the contract. It MAY ship in a tagged release under
+the proposed/experimental label before those promotion gates are met. The
+current checker reuses v0 helpers and does not satisfy the independent-reader
+gate. Schema validation and logical-vector agreement alone do not qualify a
+production store.

@@ -56,7 +56,8 @@
             "protected_use",
             "target_not_found",
             "export_selection",
-            "body_closure"
+            "body_closure",
+            "invalid_purpose"
           ]
         }
       },

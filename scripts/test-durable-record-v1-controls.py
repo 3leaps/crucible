@@ -284,6 +284,8 @@ class State:
         def refused(reason):
             return dict(outcome="refused", reason=reason)
 
+        if r["purpose"] not in ("serve", "export", "reuse"):
+            return refused("invalid_purpose")
         if (
             r["stream"] != self.stream
             or r["protection_state"] != "verified"
@@ -475,6 +477,8 @@ def mutation_controls():
     # one selected guard and yield acceptance or a precisely named alternative.
     source = Path(__file__).read_text().split("def reason_controls(", 1)[0]
     specs = [
+        ("ingest", "slide_dedup", "", 0, "dedup-non-sliding", None),
+        ("use", "if_reason", "invalid_purpose", 0, "unknown-purpose", None),
         ("ingest", "require", "retired_record", 0, "write-retired-record", None),
         ("ingest", "require", "accepted_key_reuse", 0, "content-live-key-reuse", None),
         ("ingest", "require", "accepted_key_reuse", 1, "journal-live-key-reuse", None),
@@ -605,6 +609,12 @@ def mutation_controls():
                     ):
                         matches.append(n)
             elif (
+                kind == "slide_dedup"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "typ == 'deduplicated'"
+            ):
+                matches.append(n)
+            elif (
                 kind == "body_length"
                 and isinstance(n, ast.Tuple)
                 and ast.literal_eval(n) == ("digest", "length")
@@ -637,7 +647,13 @@ def mutation_controls():
             len(matches),
         )
         target = matches[occurrence]
-        if kind == "require":
+        if kind == "slide_dedup":
+            target.body.append(
+                ast.parse(
+                    "self.remember(e['idempotency_key'], prior[0], e['at'], prior[2])"
+                ).body[0]
+            )
+        elif kind == "require":
             target.args[0] = ast.Constant(True)
         elif kind in ("if_reason", "body_match"):
             target.test = ast.Constant(False)
@@ -743,6 +759,10 @@ def main():
         )
         for i, e in enumerate(c["journal"]):
             assert shape(e, "journal-entry") == (i not in invalid), path
+        invalid_uses = c.get("invalid_use_steps", [])
+        assert len(invalid_uses) == len(set(invalid_uses)) and all(
+            0 <= i < len(c["steps"]) and "use" in c["steps"][i] for i in invalid_uses
+        )
         invalid_receipts = c.get("invalid_receipt_steps", [])
         assert len(invalid_receipts) == len(set(invalid_receipts)) and all(
             0 <= i < len(c["steps"]) and "receipt" in c["steps"][i]
@@ -752,7 +772,9 @@ def main():
             if "request" in step:
                 assert shape(step["request"], "protection-request"), path
             elif "use" in step:
-                assert shape(step["use"], "export-request"), path
+                assert shape(step["use"], "export-request") == (
+                    step_index not in invalid_uses
+                ), path
             elif "receipt" in step:
                 assert shape(step["receipt"], "protection-receipt") == (
                     step_index not in invalid_receipts

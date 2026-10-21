@@ -5,6 +5,7 @@ Vectors declare exact expected outcomes. `invalid_journal_entries` identifies
 zero-based positions deliberately failing shape validation; the same cases
 also prove the semantic version and operation-type guards.
 `invalid_receipt_steps` similarly identifies version-rejected receipt steps.
+`invalid_use_steps` identifies schema-rejected purposes also refused semantically.
 
 ## Schema rejects
 
@@ -87,3 +88,7 @@ also prove the semantic version and operation-type guards.
 - [wrong-current-cut.json](../vectors/wrong-current-cut.json)
 - [zero-window.json](../vectors/zero-window.json)
 - [v0-receipt.json](../vectors/v0-receipt.json)
+
+- [dedup-non-sliding.json](../vectors/dedup-non-sliding.json)
+- [unknown-purpose.json](../vectors/unknown-purpose.json)
+- [audit-purpose.json](../vectors/audit-purpose.json)
