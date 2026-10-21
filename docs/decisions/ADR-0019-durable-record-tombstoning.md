@@ -42,6 +42,10 @@ identifier; a new identifier requires new digests and pins. V0 keys, receipts
 and journal history do not carry over; outstanding v0 retry safety remains
 with v0. Retirement and protection state must be established before releasing
 re-recorded content.
+Once content is re-recorded under the same stream identifier, the v0 stream
+accepts no further content writes for that identifier; its retained records are
+copies outside v1 management, and ordinary serving, export or reuse of those
+pins must resolve through the v1 store.
 
 Require exact targets, attributed evidence, observations, independent holds
 and targeted restoration.

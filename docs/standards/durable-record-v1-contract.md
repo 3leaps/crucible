@@ -42,6 +42,10 @@ copies of v0 acknowledgments. The adopter MUST establish applicable retirement
 state, restrictions and inherited protection before making the content available for
 ordinary serving, export or reuse. A retained v0 copy cannot authorize release
 on behalf of the v1 store.
+Once content is re-recorded under the same stream identifier, the v0 stream
+MUST accept no further content writes for that identifier; its retained records
+are copies outside v1 management, and ordinary serving, export or reuse of those
+pins MUST resolve through the v1 store.
 
 ## Meaning of restriction
 
