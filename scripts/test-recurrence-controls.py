@@ -137,6 +137,7 @@ class Zones:
 
 def civil(match):
     y, mo, d, h, mi, s = (int(g) for g in match.groups())
+    require(y >= 1, "invalid_date")
     require(1 <= mo <= 12 and 1 <= d <= calendar.monthrange(y, mo)[1], "invalid_date")
     require(h <= 23 and mi <= 59 and s <= 59, "invalid_date")
     return dt.datetime(y, mo, d, h, mi, s)
@@ -364,7 +365,8 @@ def shape(doc, schema=SCHEMA):
 
 
 def validate(rule, zones):
-    """Semantic checks after schema acceptance. Returns the parsed rule."""
+    """Semantic checks after schema acceptance, on the normalized rule so that
+    duplicates cannot shift BYSETPOS positions during synchronization."""
     zones.check(rule["tzid"])
     start = civil(LOCAL.match(rule["dtstart"]))
     for key in ("rdate", "exdate"):
@@ -582,10 +584,10 @@ def evaluate(vector, zones):
             rule = vector["rule"]
             if not shape(rule):
                 raise Refusal("invalid_rule")
+        rule = normalize(rule)
         validate(rule, zones)
     except Refusal as e:
         return {"refusal": e.reason}
-    rule = normalize(rule)
     # Text round trip is lossless on the subset: model -> text -> model.
     assert normalize(parse_text(serialize(rule))) == normalize(rule), (
         "round trip",
@@ -599,10 +601,11 @@ def evaluate(vector, zones):
         "next_after": [],
     }
     for q in vector.get("queries", []):
-        got = expand(
-            rule, zones, utc_instant(q["from"]), utc_instant(q["to"]), q["limit"]
-        )
-        out["queries"].append(got)
+        lo, hi, limit = utc_instant(q["from"]), utc_instant(q["to"]), q["limit"]
+        # Query arguments are API preconditions, not rule refusals.
+        assert type(limit) is int and limit >= 1, ("query limit", q)
+        assert lo <= hi, ("reversed query range", q)
+        out["queries"].append(expand(rule, zones, lo, hi, limit))
     for q in vector.get("next_after", []):
         after = utc_instant(q["after"])
         out["next_after"].append(next_after(rule, zones, after))
@@ -680,6 +683,24 @@ def check_rejects(rejects):
             assert shape(vector["rule"]) == (reason != "invalid_rule"), path.name
         used.add(reason)
     assert used == set(rows), ("reason_table_drift", set(rows) - used, used - set(rows))
+
+
+def check_input_edges():
+    # Calendar edges refuse by name rather than raising from the date library.
+    for text in ("0000-01-01T00:00:00", "2026-02-29T00:00:00", "2026-01-01T24:00:00"):
+        try:
+            local_time(text)
+        except Refusal as e:
+            assert e.reason == "invalid_date", text
+        else:
+            raise AssertionError(("calendar edge accepted", text))
+    for text in ("0000-01-01T00:00:00Z", "2026-04-31T00:00:00Z"):
+        try:
+            civil(UTC.match(text))
+        except Refusal as e:
+            assert e.reason == "invalid_date", text
+        else:
+            raise AssertionError(("UNTIL edge accepted", text))
 
 
 def check_schema_keywords():
@@ -874,6 +895,7 @@ def mutation_controls(zones):
 
 def main():
     check_schema_keywords()
+    check_input_edges()
     corpus_digest, evidence = check_manifest()
     zones = Zones(evidence)
     examples = check_examples(zones)

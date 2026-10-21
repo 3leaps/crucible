@@ -140,34 +140,64 @@
       "if": {
         "required": [
           "by_set_pos"
-        ]
+        ],
+        "properties": {
+          "by_set_pos": {
+            "minItems": 1
+          }
+        }
       },
       "then": {
         "anyOf": [
           {
             "required": [
               "by_day"
-            ]
+            ],
+            "properties": {
+              "by_day": {
+                "minItems": 1
+              }
+            }
           },
           {
             "required": [
               "by_month_day"
-            ]
+            ],
+            "properties": {
+              "by_month_day": {
+                "minItems": 1
+              }
+            }
           },
           {
             "required": [
               "by_month"
-            ]
+            ],
+            "properties": {
+              "by_month": {
+                "minItems": 1
+              }
+            }
           },
           {
             "required": [
               "by_hour"
-            ]
+            ],
+            "properties": {
+              "by_hour": {
+                "minItems": 1
+              }
+            }
           },
           {
             "required": [
               "by_minute"
-            ]
+            ],
+            "properties": {
+              "by_minute": {
+                "minItems": 1
+              }
+            }
           }
         ]
       }
@@ -211,54 +241,10 @@
         "not": {
           "required": [
             "by_month_day"
-          ]
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "freq": {
-            "const": "MONTHLY"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "by_day": {
-            "items": {
-              "properties": {
-                "ordinal": {
-                  "minimum": -5,
-                  "maximum": 5
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "freq": {
-            "const": "YEARLY"
-          }
-        },
-        "required": [
-          "by_month"
-        ]
-      },
-      "then": {
-        "properties": {
-          "by_day": {
-            "items": {
-              "properties": {
-                "ordinal": {
-                  "minimum": -5,
-                  "maximum": 5
-                }
-              }
+          ],
+          "properties": {
+            "by_month_day": {
+              "minItems": 1
             }
           }
         }
