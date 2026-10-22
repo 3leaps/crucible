@@ -5,12 +5,13 @@ stable snapshots of documentation, schemas, and configuration. No binaries are s
 
 ## Variables (Quick Reference)
 
-Required for every tag step (guard, tag, verify, push):
+Required:
 
-- `THREELEAPS_CRUCIBLE_RELEASE_TAG`: the release tag (e.g., `v0.2.1`). Never derived from
-  `VERSION`, `git describe`, or the branch.
+- `THREELEAPS_CRUCIBLE_RELEASE_TAG`: the release tag (e.g., `v0.2.1`), for every tag step
+  (guard, tag, verify, push). Never derived from `VERSION`, `git describe`, or the branch.
 - `THREELEAPS_CRUCIBLE_DECERNOR_BIN`: absolute path to the designated checker, decernor 0.1.8
-  or newer. Must be a regular, executable, non-symlink file; there is no `PATH` fallback.
+  or newer, for every step that reads pins (tag, verify, push, `release-check-anchors`). The
+  version guard does not need it. Must be a regular, executable, non-symlink file; there is no `PATH` fallback.
   See [`docs/security/README.md`](docs/security/README.md).
 
 Optional:
@@ -258,7 +259,8 @@ one line per platform. To move to a newer decernor release, verify the release's
 `SHA256SUMS` with its minisign signature against `docs/security/crucible-minisign.pub`,
 then replace the lines (same version on every line) in a reviewed PR.
 `scripts/release-fetch-decernor.sh` installs exactly one pinned archive per
-platform and refuses any digest mismatch.
+platform and refuses any digest mismatch before extraction
+(`scripts/test-release-fetch-decernor.sh` proves it, offline, in `make test`).
 
 **Expiry is rotation you did not schedule.** A pinned key that passes its
 expiration date fails verification exactly as a missing pin does — the release

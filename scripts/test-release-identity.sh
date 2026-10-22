@@ -161,29 +161,28 @@ label="tagger identity mismatch" expect_refused "does not match committed tagger
 label="absent tag" expect_refused "tag v9.9.9 absent" v9.9.9
 git_fixture tag v1.0.7
 label="lightweight tag" expect_refused "annotated tag required" v1.0.7
-if (cd "$repo" && env -i PATH="$PATH" HOME="$work" THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" \
-    ./scripts/verify-pinned-tag.sh) >"$work/out" 2>"$work/err"; then
-    fail "verify with no tag argument: accepted"
-else
-    pass "verify with no tag argument: refused"
-fi
+# Usage: expect_reason LABEL PATTERN (after a command wrote $work/err and set $rc)
+expect_reason() {
+    if ((rc == 0)); then
+        fail "$1: accepted"
+    elif ! grep -q -- "$2" "$work/err"; then
+        fail "$1: refused for the wrong reason: $(cat "$work/err")"
+    else
+        pass "$1: refused"
+    fi
+}
+rc=0 && (cd "$repo" && env -i PATH="$PATH" HOME="$work" THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" \
+    ./scripts/verify-pinned-tag.sh) >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "verify with no tag argument" "the release tag is never derived"
 
 # --- anchor derivation --------------------------------------------------------
-label="derive --write over existing anchors"
-if (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --write) \
-    >"$work/out" 2>"$work/err"; then
-    fail "$label: accepted"
-else
-    pass "$label: refused"
-fi
+rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --write) \
+    >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "derive --write over existing anchors" "keys/expected-fingerprints.txt exists"
 printf 'gpg %040d\nminisign %064d\n' 0 0 >"$repo/keys/expected-fingerprints.txt"
-label="derive --check against an edited anchor"
-if (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
-    >"$work/out" 2>"$work/err"; then
-    fail "$label: accepted"
-else
-    pass "$label: refused"
-fi
+rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
+    >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "derive --check against an edited anchor" "keys/expected-fingerprints.txt differs from the checker's derivation"
 cp "$work/anchors.saved" "$repo/keys/expected-fingerprints.txt"
 
 # --- this repository's committed pins ----------------------------------------

@@ -29,7 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Negative controls for every new refusal: `make test` covers the release
-  inputs and checker binding, and a new `release-identity` CI job runs the
+  inputs, the checker binding and the checker download digest gate (offline,
+  with a stubbed download), and a new `release-identity` CI job runs the
   end-to-end tag controls with the digest-pinned checker.
 
 ## [0.2.0] - 2026-10-22

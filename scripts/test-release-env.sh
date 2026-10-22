@@ -122,23 +122,25 @@ run_make() {
     env -i PATH="$PATH" HOME="$work" "$@" make --no-print-directory -s -C "$root" release-guard-tag-version \
         >"$work/out" 2>"$work/err"
 }
-if run_make; then fail "make guard without tag: accepted"; else pass "make guard without tag: refused"; fi
-if env -i PATH="$PATH" HOME="$work" make --no-print-directory -s -C "$root" release-guard-tag-version \
-    "RELEASE_TAG=v$version" >"$work/out" 2>"$work/err"; then
-    fail "make guard with RELEASE_TAG on the command line: accepted"
-else
-    pass "make guard with RELEASE_TAG on the command line: refused"
-fi
-if run_make "CRUCIBLE_RELEASE_TAG=v$version"; then
-    fail "make guard with legacy CRUCIBLE_RELEASE_TAG: accepted"
-else
-    pass "make guard with legacy CRUCIBLE_RELEASE_TAG: refused"
-fi
-if run_make "THREELEAPS_CRUCIBLE_RELEASE_TAG=v0.0.0"; then
-    fail "make guard with a tag that is not VERSION: accepted"
-else
-    pass "make guard with a tag that is not VERSION: refused"
-fi
+# Usage: expect_reason LABEL PATTERN (after a command wrote $work/err and set $rc)
+expect_reason() {
+    if ((rc == 0)); then
+        fail "$1: accepted"
+    elif ! grep -q -- "$2" "$work/err"; then
+        fail "$1: refused for the wrong reason: $(cat "$work/err")"
+    else
+        pass "$1: refused"
+    fi
+}
+rc=0 && run_make || rc=$?
+expect_reason "make guard without tag" "THREELEAPS_CRUCIBLE_RELEASE_TAG is required"
+rc=0 && env -i PATH="$PATH" HOME="$work" make --no-print-directory -s -C "$root" release-guard-tag-version \
+    "RELEASE_TAG=v$version" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "make guard with RELEASE_TAG on the command line" "retired or unprefixed release variable set: RELEASE_TAG"
+rc=0 && run_make "CRUCIBLE_RELEASE_TAG=v$version" || rc=$?
+expect_reason "make guard with legacy CRUCIBLE_RELEASE_TAG" "retired or unprefixed release variable set: CRUCIBLE_RELEASE_TAG"
+rc=0 && run_make "THREELEAPS_CRUCIBLE_RELEASE_TAG=v0.0.0" || rc=$?
+expect_reason "make guard with a tag that is not VERSION" "release tag/version mismatch"
 if run_make "THREELEAPS_CRUCIBLE_RELEASE_TAG=v$version"; then
     pass "make guard with the explicit prefixed tag: accepted"
 else
@@ -162,11 +164,8 @@ for script in release-tag.sh release-verify-tag.sh release-push-tag.sh; do
         pass "$script without a checker: refused"
     fi
 done
-if "$root/scripts/verify-pinned-tag.sh" >"$work/out" 2>"$work/err"; then
-    fail "verify-pinned-tag.sh without a tag: accepted"
-else
-    pass "verify-pinned-tag.sh without a tag: refused"
-fi
+rc=0 && "$root/scripts/verify-pinned-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "verify-pinned-tag.sh without a tag" "the release tag is never derived"
 
 if ((failures)); then
     echo "[!!] release input controls: $failures failure(s)" >&2
