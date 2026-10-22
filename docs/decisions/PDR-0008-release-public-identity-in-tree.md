@@ -194,9 +194,11 @@ file.
 
 Variable names follow one shape, `<REPO>_<PURPOSE>`, uppercased: the
 repository's own short name as prefix, so two repositories' ceremonies run
-in one shell without colliding. The exact names, the checker's identity and
-pinned version, and the adoption state of each repository are operating
-detail recorded outside this repository.
+in one shell without colliding. Each adopting repository records its exact
+variable names, its checker's identity and pinned minimum version, and its
+adoption state in its own tooling or decision lane; this repository's values
+are recorded here with its §4 adoption change. The cross-repository
+adoption ledger is operating detail kept outside this repository.
 
 ### 4. Adoption
 
