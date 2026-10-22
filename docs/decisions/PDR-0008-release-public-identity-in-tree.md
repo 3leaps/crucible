@@ -159,8 +159,9 @@ form. An ignore rule is not the boundary.
    falls under the §2.6 equality test against the retired file. Historical
    tags are never re-signed (PDR-0004). A verifier never tries both keys for
    one tag. For a retired OpenPGP key the recorded fingerprint is
-   sufficient; the export it verified against is already in the tagged
-   commits that key signed, and no committed retired `.asc` is required.
+   sufficient; the fingerprint is the pin, and the public export is
+   available from the releases that key signed. No committed retired
+   `.asc` is required.
 
 9. **A verifier-facing README states what is checked.** The directory that
    holds the pins carries a short document naming the signature set, the
