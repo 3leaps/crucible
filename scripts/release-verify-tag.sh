@@ -2,40 +2,26 @@
 # release-verify-tag.sh - Verify a signed git tag
 #
 # Environment variables:
-# - THREELEAPS_CRUCIBLE_RELEASE_TAG: override tag to verify (default: v$(cat VERSION))
+# - THREELEAPS_CRUCIBLE_RELEASE_TAG: the tag to verify (required; never derived)
+# - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
+#     (required; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 #
-# Legacy aliases (still supported):
-# - CRUCIBLE_RELEASE_TAG, CRUCIBLE_GPG_HOMEDIR
+# Retired names (refused): RELEASE_TAG and the unprefixed CRUCIBLE_* aliases.
 
 set -euo pipefail
 
-repo_root() {
-    git rev-parse --show-toplevel
-}
-
-read_version() {
-    if [ ! -f VERSION ]; then
-        echo "error: VERSION file not found" >&2
-        exit 1
-    fi
-    tr -d ' \t\r\n' <VERSION
-}
-
 main() {
-    local root
-    root="$(repo_root)"
-    cd "$root"
+    cd "$(git rev-parse --show-toplevel)"
 
-    local version
-    version="$(read_version)"
+    # shellcheck source=scripts/release-env.sh
+    source scripts/release-env.sh
+    refuse_legacy_release_env
+    local tag
+    tag="$(require_release_tag)"
+    resolve_release_decernor
 
-    # Tag precedence: THREELEAPS_CRUCIBLE_RELEASE_TAG > CRUCIBLE_RELEASE_TAG (legacy) > RELEASE_TAG > v${version}
-    local tag="${THREELEAPS_CRUCIBLE_RELEASE_TAG:-${CRUCIBLE_RELEASE_TAG:-${RELEASE_TAG:-v${version}}}}"
-
-    # Set up GPG homedir if specified (THREELEAPS_CRUCIBLE_ takes precedence)
-    local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-${CRUCIBLE_GPG_HOMEDIR:-}}"
-
+    local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}"
     if [ -n "${gpg_homedir}" ]; then
         if [ ! -d "${gpg_homedir}" ]; then
             echo "error: GPG homedir '${gpg_homedir}' is not a directory" >&2

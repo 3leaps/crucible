@@ -9,8 +9,12 @@
 # - When gh is available, confirms GitHub reports the tag verified
 #
 # Environment variables:
-# - THREELEAPS_CRUCIBLE_RELEASE_TAG: override tag (default: v$(cat VERSION))
+# - THREELEAPS_CRUCIBLE_RELEASE_TAG: the tag to push (required; never derived)
+# - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
+#     (required; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
+#
+# Retired names (refused): RELEASE_TAG and the unprefixed CRUCIBLE_* aliases.
 
 set -euo pipefail
 
@@ -20,13 +24,15 @@ die() {
 }
 
 cd "$(git rev-parse --show-toplevel)"
-[ -f VERSION ] || die "VERSION file not found"
-version="$(tr -d ' \t\r\n' <VERSION)"
-tag="${THREELEAPS_CRUCIBLE_RELEASE_TAG:-${CRUCIBLE_RELEASE_TAG:-${RELEASE_TAG:-v${version}}}}"
+# shellcheck source=scripts/release-env.sh
+source scripts/release-env.sh
+refuse_legacy_release_env
+tag="$(require_release_tag)"
+resolve_release_decernor
 
 git rev-parse -q --verify "refs/tags/${tag}^{tag}" >/dev/null ||
     die "${tag} is not a local annotated tag (run 'make release-tag' first)"
-THREELEAPS_CRUCIBLE_RELEASE_TAG="$tag" ./scripts/release-verify-tag.sh
+./scripts/release-verify-tag.sh
 
 git fetch --quiet origin main
 tag_commit="$(git rev-parse "refs/tags/${tag}^{commit}")"
