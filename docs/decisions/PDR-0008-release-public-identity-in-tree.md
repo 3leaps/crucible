@@ -90,7 +90,8 @@ form. An ignore rule is not the boundary.
    verification time: a release verifier or installer does not accept an
    environment override of a committed pin. A test fixture that needs a
    different key goes through an explicit test-only flag or path, never the
-   production variable.
+   production variable, and a release verifier, an installer, and a
+   ceremony build refuse that flag or path outright.
 
 2. **One designated checker derives and verifies fingerprint anchors.** The
    repository names the checker and its minimum version. Anchor values are
@@ -112,7 +113,9 @@ form. An ignore rule is not the boundary.
    `PATH`. The repository that ships the checker is not exempt: its own
    ceremony uses a previously published, digest-pinned release, because a
    checker verifying its own uncommitted build proves nothing. Checks that
-   are not part of the ceremony MAY fall back.
+   are not part of the ceremony MAY fall back, provided they do not derive
+   an anchor, verify a pin, or select a signing key; the tag workflow, an
+   installer, and a binary self-check are never in that class.
 
 4. **The release tag is an explicit input, never derived.** Tag-consuming
    targets take the tag from one repository-prefixed variable. A bare,
