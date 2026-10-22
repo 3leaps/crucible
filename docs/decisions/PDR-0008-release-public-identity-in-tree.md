@@ -172,7 +172,7 @@ form. An ignore rule is not the boundary.
 
 As with ADR-0003's position on record storage, the mandate is the controls
 above; the layout below is the default an adopting repository takes unless it
-has a reason not to. Crucible uses it.
+has a reason not to. Crucible adopts it under §4.
 
 | Path | Contents |
 | --- | --- |
@@ -207,6 +207,13 @@ explicit inputs, and adds the CI verification. Review is against the local
 branch; the first tag after adoption is the proof. A repository that cannot
 meet a control records the deviation in its own decision lane rather than
 silently weakening it (EPR-0002).
+
+This repository is not yet conformant and adopts on the same terms. Its
+adoption change renames `docs/security/release-minisign.pub` to
+`docs/security/crucible-minisign.pub`, adds the verifier-facing README and
+the NDJSON anchor file, pins the checker CI downloads, and replaces the
+inline anchor check with the designated checker. Until that change lands,
+this record describes the target, not the tree.
 
 ## Rationale
 
@@ -262,8 +269,9 @@ silently weakening it (EPR-0002).
   The circularity is the point: the thing being released is the thing
   doing the checking.
 - **Grandfather existing file names.** Rejected for this repository, which
-  publishes the default and should not be its first exception. Other
-  repositories may keep a historical name if they record the deviation.
+  publishes the default and should not be its first exception; its own pin
+  is renamed in its adoption change (§4). Other repositories may keep a
+  historical name if they record the deviation.
 
 ## Appendix: verifier-facing README (reference wording)
 
