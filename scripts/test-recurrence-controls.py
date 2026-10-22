@@ -52,6 +52,10 @@ TEXT_UTC = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$")
 INT = re.compile(r"^[+-]?[1-9][0-9]*$|^0$")
 DAY = re.compile(r"^([+-]?[1-9][0-9]?)?(MO|TU|WE|TH|FR|SA|SU)$")
 MARGIN = dt.timedelta(days=2)
+# Checker resource limits. Exceeding one is a named refusal, never an
+# extrapolation and never a claim that the occurrence set has ended.
+MAX_PERIODS = 2_000_000
+INT_DIGITS = 9
 
 
 class Refusal(Exception):
@@ -105,21 +109,21 @@ class Zones:
         """Map a civil time to UTC. Generated gap instances return None;
         explicit gap times use the pre-gap offset; overlaps take the earlier
         instant."""
-        assert tzid in self.zones, ("no transition evidence for", tzid)
+        # Raised on the ordinary path so that `python -O` cannot turn
+        # "fail closed" into "extrapolate the last offset".
+        if tzid not in self.zones:
+            raise Refusal("outside_evidence_window")
         segments = self.zones[tzid]
+        if not (
+            self.window[0] + MARGIN <= local - segments[0][1] < self.window[1] - MARGIN
+        ):
+            raise Refusal("outside_evidence_window")
         found = []
         for i, (start, offset) in enumerate(segments):
             end = segments[i + 1][0] if i + 1 < len(segments) else self.window[1]
             instant = local - offset
             if start <= instant < end:
                 found.append(instant)
-        assert (
-            self.window[0] + MARGIN <= local - segments[0][1] < self.window[1] - MARGIN
-        ), (
-            "outside evidence window",
-            tzid,
-            local,
-        )
         if found:
             return min(found)
         if not explicit:
@@ -129,7 +133,7 @@ class Zones:
             prior = segments[i - 1][1]
             if offset > prior and start + prior <= local < start + offset:
                 return local - prior
-        raise AssertionError(("unresolvable local time", tzid, local))
+        raise RuntimeError(("unresolvable local time", tzid, local))
 
 
 # --- value parsing -----------------------------------------------------------
@@ -145,13 +149,15 @@ def civil(match):
 
 def local_time(text):
     match = LOCAL.match(text)
-    assert match, ("schema admitted a non-local time", text)
+    if not match:
+        raise RuntimeError(("schema admitted a non-local time", text))
     return civil(match)
 
 
 def utc_instant(text):
     match = UTC.match(text)
-    assert match, ("not a UTC instant", text)
+    if not match:
+        raise RuntimeError(("not a UTC instant", text))
     return civil(match)
 
 
@@ -241,6 +247,8 @@ def serialize(rule):
 
 def text_int(value):
     require(INT.match(value) is not None, "invalid_text")
+    # Bound the lexeme before conversion; range limits are the schema's.
+    require(len(value.lstrip("+-")) <= INT_DIGITS, "invalid_text")
     return int(value)
 
 
@@ -536,7 +544,8 @@ def generate(rule, zones, horizon):
             if count is not None and len(produced) == count:
                 return produced, True
         k += 1
-        assert k < 2_000_000, "unbounded expansion"
+        if k >= MAX_PERIODS:
+            raise Refusal("expansion_limit")
 
 
 def occurrence_set(rule, zones, horizon):
@@ -567,7 +576,7 @@ def next_after(rule, zones, after):
             return fmt_utc(later[0])
         if finished:
             return None
-    raise AssertionError(("next_after horizon exhausted", after))
+    raise Refusal("expansion_limit")
 
 
 # --- corpus --------------------------------------------------------------------
@@ -589,10 +598,8 @@ def evaluate(vector, zones):
     except Refusal as e:
         return {"refusal": e.reason}
     # Text round trip is lossless on the subset: model -> text -> model.
-    assert normalize(parse_text(serialize(rule))) == normalize(rule), (
-        "round trip",
-        rule,
-    )
+    if normalize(parse_text(serialize(rule))) != normalize(rule):
+        raise RuntimeError(("round trip", rule))
     out = {
         "canonical": normalize(rule),
         "digest": digest(rule),
@@ -603,8 +610,8 @@ def evaluate(vector, zones):
     for q in vector.get("queries", []):
         lo, hi, limit = utc_instant(q["from"]), utc_instant(q["to"]), q["limit"]
         # Query arguments are API preconditions, not rule refusals.
-        assert type(limit) is int and limit >= 1, ("query limit", q)
-        assert lo <= hi, ("reversed query range", q)
+        if type(limit) is not int or limit < 1 or lo > hi:
+            raise RuntimeError(("invalid query arguments", q))
         out["queries"].append(expand(rule, zones, lo, hi, limit))
     for q in vector.get("next_after", []):
         after = utc_instant(q["after"])
@@ -701,6 +708,84 @@ def check_input_edges():
             assert e.reason == "invalid_date", text
         else:
             raise AssertionError(("UNTIL edge accepted", text))
+
+
+def limit_probes():
+    """Outcomes of the resource-limit probes. Uses no assert, so the result is
+    the same under `python -O`."""
+    zones = Zones(load(CORPUS / "tzdb-evidence.json"))
+    out = []
+    probes = [
+        lambda: zones.resolve("America/New_York", dt.datetime(2040, 6, 1, 9), False),
+        lambda: zones.resolve("America/New_York", dt.datetime(2020, 1, 1, 9), True),
+        lambda: generate(
+            {
+                "dtstart": "2030-12-20T09:00:00",
+                "tzid": "Etc/UTC",
+                "freq": "DAILY",
+                "count": 30,
+            },
+            zones,
+            dt.datetime(2032, 1, 1),
+        ),
+        lambda: next_after(
+            {
+                "dtstart": "2026-01-01T09:00:00",
+                "tzid": "Etc/UTC",
+                "freq": "YEARLY",
+                "by_month": [2],
+                "by_month_day": [30],
+                "rdate": ["2026-01-01T09:00:00"],
+            },
+            zones,
+            dt.datetime(2026, 6, 1),
+        ),
+    ]
+    for probe in probes:
+        try:
+            probe()
+            out.append("accepted")
+        except Refusal as e:
+            out.append(e.reason)
+    try:
+        parse_text(
+            [
+                "DTSTART;TZID=Etc/UTC:20260105T090000",
+                "RRULE:FREQ=DAILY;COUNT=" + "9" * 200,
+            ]
+        )
+        out.append("accepted")
+    except Refusal as e:
+        out.append(e.reason)
+    return out
+
+
+LIMIT_EXPECTED = [
+    "outside_evidence_window",
+    "outside_evidence_window",
+    "outside_evidence_window",
+    "expansion_limit",
+    "invalid_text",
+]
+
+
+def check_limits():
+    # Same probes with asserts stripped: the refusals must not depend on them.
+    assert limit_probes() == LIMIT_EXPECTED, limit_probes()
+    code = (
+        "import importlib.util, json, sys\n"
+        "s = importlib.util.spec_from_file_location('r', sys.argv[1])\n"
+        "m = importlib.util.module_from_spec(s); s.loader.exec_module(m)\n"
+        "print(json.dumps([__debug__, m.limit_probes()]))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-O", "-c", code, __file__],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    debug, outcomes = json.loads(result.stdout)
+    assert debug is False and outcomes == LIMIT_EXPECTED, (debug, outcomes)
 
 
 def check_schema_keywords():
@@ -896,6 +981,7 @@ def mutation_controls(zones):
 def main():
     check_schema_keywords()
     check_input_edges()
+    check_limits()
     corpus_digest, evidence = check_manifest()
     zones = Zones(evidence)
     examples = check_examples(zones)

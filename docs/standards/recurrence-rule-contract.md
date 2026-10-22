@@ -35,7 +35,7 @@ contributes to the rule's digest.
 | Part                 | v0 support                                                   |
 | -------------------- | ------------------------------------------------------------ |
 | `FREQ`               | `MINUTELY`, `HOURLY`, `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY` |
-| `INTERVAL`           | Integer >= 1, default 1                                      |
+| `INTERVAL`           | Integer 1..1000, default 1                                   |
 | `COUNT` / `UNTIL`    | At most one                                                  |
 | `BYDAY`              | Weekdays; ordinals only with `MONTHLY` or `YEARLY`           |
 | `BYMONTHDAY`         | +/-1..31; not with `WEEKLY`                                  |
@@ -57,7 +57,7 @@ changes.
 | `dtstart`                                                        | Local civil date-time `YYYY-MM-DDTHH:MM:SS`, whole seconds, no offset |
 | `tzid`                                                           | IANA time-zone name (see [Time-zone names](#time-zone-names))         |
 | `freq`                                                           | Enumeration above                                                     |
-| `interval`, `count`                                              | Integer >= 1                                                          |
+| `interval`, `count`                                              | Integer; `interval` 1..1000, `count` 1..100000                        |
 | `until`                                                          | UTC instant `YYYY-MM-DDTHH:MM:SSZ`, whole seconds, inclusive          |
 | `wkst`                                                           | `MO` .. `SU`                                                          |
 | `by_day`                                                         | Objects `{"day": "TH"}` or `{"day": "TH", "ordinal": -1}`             |
@@ -115,6 +115,8 @@ BY-part.
 the first complete period when `by_set_pos` is present. Unsynchronized rules are refused rather than
 adopting the undefined behavior described in RFC 5545 section 3.8.5.3. An explicit gap-valued start
 needs the first-period treatment stated below; it is not rewritten to a different wall-clock anchor.
+A producer that derives `dtstart` from the current time MUST first move it to the rule's first
+generated instance; an unsynchronized value is refused, never shifted.
 
 ### Timezone gaps, overlaps, and explicit dates
 
@@ -161,7 +163,8 @@ included; one at `to` is excluded, even if it equals the inclusive RRULE `until`
 produce an empty result. Reversed bounds are invalid. Results are unique and strictly increasing UTC
 instants; a positive integer result limit is required and selects the earliest matching instants.
 `next_after` is strictly after its argument. Implementations MUST distinguish a resource-limit
-failure from proof that no further occurrence exists.
+failure from proof that no further occurrence exists. The `interval` and `count` bounds keep a valid
+rule's expansion finite in practice; they do not remove the need for a resource limit.
 
 ## A4. Conformance corpus and tzdb identity
 
@@ -260,7 +263,7 @@ The JSON Schema enforces:
 - `count` and `until` mutually exclusive;
 - nonempty `by_set_pos` only with another nonempty BY-part;
 - numeric bounds: `by_month` 1..12, `by_month_day` +/-1..31 non-zero, `by_hour` 0..23, `by_minute`
-  0..59, `by_set_pos` +/-1..366 non-zero, `interval` and `count` >= 1, `ordinal` +/-1..53 non-zero;
+  0..59, `by_set_pos` +/-1..366 non-zero, `interval` 1..1000, `count` 1..100000, `ordinal` +/-1..53 non-zero;
 - `by_day` ordinals only with `MONTHLY` or `YEARLY`, and no nonempty `by_month_day` with `WEEKLY`;
 - the frozen enumerations and the civil and UTC date-time formats.
 
