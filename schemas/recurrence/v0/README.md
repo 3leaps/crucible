@@ -17,7 +17,7 @@ conformance claims.
 
 | Field | Value |
 | --- | --- |
-| Corpus digest | `sha256:91d4e15d5a561c3dd69120734e0e2cfe8bee32ad9c89629492f2ca779c411a7d` |
+| Corpus digest | `sha256:69387023c21ca147f2dd59c4e47f48447f5eb3ad77121975aab0e4fe0680b35b` |
 | tzdb version | `2026e` |
 | tzdb artifact | `tzdata2026e.tar.gz`, `sha256:b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652` |
 

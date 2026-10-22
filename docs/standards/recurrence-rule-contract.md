@@ -254,11 +254,14 @@ use normalized order, and positive ordinal text omits the plus sign. Parsers ref
 recurrence parts and repeated singleton rule parts.
 
 Integer values in text (`INTERVAL`, `COUNT`, `BYMONTH`, `BYMONTHDAY`, `BYHOUR`, `BYMINUTE`,
-`BYSETPOS` and `BYDAY` ordinals) are an optional sign followed by at most nine digits. A longer
-lexeme is refused as `invalid_text` before any range check, so a parser never converts an
-unbounded integer. A lexeme within that limit but outside the value bounds in A6 is `invalid_rule`. Serialization MUST use the family's supported
-local-time/TZID forms and UTC UNTIL form; it MUST NOT introduce unsupported properties as a
-convenience.
+`BYSETPOS` and `BYDAY` ordinals) are the literal `0`, or an optional sign followed by a nonzero
+digit and at most eight further digits. Leading zeros and a signed zero are `invalid_text`. A
+longer lexeme is also `invalid_text` and is refused before any range check, so a parser never
+converts an unbounded integer. A lexeme within the grammar but outside the value bounds in A6 is
+`invalid_rule`.
+
+Serialization MUST use the family's supported local-time/TZID forms and UTC UNTIL form; it MUST NOT
+introduce unsupported properties as a convenience.
 
 ## A6. Schema checks and semantic checks
 
