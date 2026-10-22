@@ -118,6 +118,17 @@ expect_rejected "changelog unreleased link still compares from the previous vers
     "[unreleased] link does not compare from v0.1.23" \
     "${version}" "${valid_release_notes}" "$(mutate "${valid_changelog}" 's|v0\.1\.23\.\.\.HEAD|v0.1.22...HEAD|')" 1
 
+# A large changelog whose matching lines come first. A guard that pipes into
+# grep -q under pipefail fails here deterministically: grep exits on the early
+# match and the still-writing producer dies of SIGPIPE.
+large_changelog="$(
+    printf '%s\n' "${valid_changelog}" | sed -n '/^\[unreleased\]/,$p'
+    printf '%s\n' "${valid_changelog}" | sed '/^\[/d'
+    for _ in $(seq 1 20000); do printf '%s\n' '- Filler entry to keep the producer writing.'; done
+)"
+expect_accepted "early matches in a large changelog" \
+    "${version}" "${valid_release_notes}" "${large_changelog}" 1
+
 # Guard inputs themselves.
 expect_rejected "empty version" \
     "VERSION is empty" \

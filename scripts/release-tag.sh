@@ -225,7 +225,7 @@ main() {
             awk -F: '$1=="uid"{print $10}' |
             sed -n 's/.*<\(.*\)>.*/\1/p')"
         if [ -n "${tagger_actual}" ] &&
-            ! printf '%s\n' "${key_uid_emails}" | grep -qxF "${tagger_actual}"; then
+            ! grep -qxF "${tagger_actual}" <<<"${key_uid_emails}"; then
             echo "warning: tagger email '${tagger_actual}' matches no UID on signing key '${key_id}'" >&2
             echo "         GitHub will likely show this tag as Unverified." >&2
             echo "         set THREELEAPS_CRUCIBLE_TAGGER_EMAIL to a UID email on that key" >&2
