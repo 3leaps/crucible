@@ -118,6 +118,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
+│   ├── recurrence/v0/         # RFC 5545 recurrence rule subset and corpus (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
 │   ├── segmented-snapshot/v0/ # Immutable snapshot publication and verification (proposed)
 │   └── service-job/v0/        # Portable service job contract
@@ -282,6 +283,14 @@ defines proposed source-policy, selected-scope and shared-capacity registration
 boundaries. The [schema family and synthetic controls](schemas/data-acquisition/v0/README.md)
 separate shape and semantic acceptance from runtime authority qualification.
 See [ADR-0014](docs/decisions/ADR-0014-data-acquisition-contract.md).
+
+### Proposed recurrence rule contract
+
+The [Recurrence Rule Contract](docs/standards/recurrence-rule-contract.md)
+defines a canonical JSON form for a frozen RFC 5545 RRULE subset, normative
+expansion semantics including DST gaps and overlaps, and a
+[conformance corpus](schemas/recurrence/v0/README.md) pinned by digest to
+IANA tzdb 2026e.
 
 ### Draft durable index contract
 
