@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unicode-prefix scopes. Only confirmed-complete, gap-free scopes authorize
   absence-derived tombstones; reduced scope requires an acknowledgment bound to
   the exact parent and plan. Logical vectors and complete logical projection
-  graphs only: physical Parquet twins and an independent reader are adoption
+  graphs only: physical Parquet twins and a physical reader are adoption
   gates, and no physical reader, producer or storage backend is qualified.
   Composition does not ratify `coverage-attestation/v0`.
 
