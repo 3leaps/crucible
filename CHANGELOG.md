@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
 ### Added
 
 - **Release public identity in the tree (proposed).** PDR-0008 generalizes the
@@ -23,13 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before JCS digests, and a conformance corpus pinned by digest to IANA tzdb
   2026e. Promotion requires two independent implementations to pass the
   corpus.
-
 - **Durable record tombstoning (proposed, experimental).** Add the
   `durable-record/v1` family with retained audit history, scoped holds, targeted
   restoration, shared keyed replay and current-cut export decisions. Preserve
   v0 record envelopes and pins. Include schemas, a standard, ADR-0019 and
   logical vectors with mutation controls; no storage backend is qualified.
-
 - **Data acquisition contract (proposed).** Add the experimental
   `data-acquisition/v0` family with source-policy, acquisition-plan and
   registration-result schemas, exact-byte digest pins, attributed scope
@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unicode-prefix scopes. Only confirmed-complete, gap-free scopes authorize
   absence-derived tombstones; reduced scope requires an acknowledgment bound to
   the exact parent and plan. Logical vectors and complete logical projection
-  graphs only: physical Parquet twins and an independent reader are adoption
+  graphs only: physical Parquet twins and a physical reader are adoption
   gates, and no physical reader, producer or storage backend is qualified.
   Composition does not ratify `coverage-attestation/v0`.
 
@@ -64,9 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Durable index independent reader.** Add `scripts/durable-index-reader.ts`,
   a TypeScript checker written from the standard's text and sharing no code
   with the Python checker. It checks plan vectors, transition vectors and
-  transition rejects against their authored outcomes and runs in contract shard 3. Windows contract shards set up Node.js, and the shard guard now requires
-  every TypeScript tool under `scripts/` to run in exactly one shard.
-
+  transition rejects against their authored outcomes and runs in contract
+  shard 3. Windows contract shards set up Node.js, and the shard guard now
+  requires every TypeScript tool under `scripts/` to run in exactly one shard.
 - **Data acquisition contract hardening (proposed).** Define half-open
   allocation intervals and an aggregate span ceiling, replay and request
   identity scoped to entity/source across authority epochs, and opaque
@@ -89,6 +89,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the synthetic profile-metadata dependency cases are refused by its closed
   shape, not by cycle detection. List the durable-queue and durable-record
   standards in the docs index.
+- **Goneat v0.6.5; glibc tools runner v0.5.12**, consumed by immutable digest.
+  The image carries biome 2.5.15, Node.js 22.23 and Python 3.11, which meet the
+  validation interpreter floors. `biome.json` declares the biome 2.5.15 schema
+  and migrates the deprecated `linter.rules.recommended` to
+  `"preset": "recommended"`.
+- **Recurrence non-slot and shift-policy rules.** The recurrence standard
+  states that a DST-skipped generated instance is a non-slot, never recorded as
+  missed, and that any future shift-forward behaviour is a separately named
+  policy within the rule's identity and digest.
+
+### Fixed
+
+- **Release guards no longer pipe into `grep -q` under `pipefail`.** The
+  release-surface guard and the tag script read from here-strings, so an early
+  match can no longer make the producer die of SIGPIPE and report a false
+  failure on a large changelog. A large-changelog control fails the piped form
+  deterministically.
 
 ## [0.1.34] - 2026-10-16
 
@@ -1270,7 +1287,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.1.34...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/3leaps/crucible/compare/v0.1.34...v0.2.0
 [0.1.34]: https://github.com/3leaps/crucible/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/3leaps/crucible/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/3leaps/crucible/compare/v0.1.31...v0.1.32

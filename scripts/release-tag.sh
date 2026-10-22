@@ -75,7 +75,7 @@ ensure_gpg_signing_ready() {
 
     if [ -n "${key_id}" ]; then
         listing="$(gpg --list-secret-keys --with-colons --keyid-format=long "${key_id}" 2>/dev/null || true)"
-        if ! echo "${listing}" | grep -q '^sec'; then
+        if ! grep -q '^sec' <<<"${listing}"; then
             echo "error: no usable GPG secret key found for key id: ${key_id}" >&2
             echo "hint: ensure your release env vars are loaded" >&2
             if [ -n "${GNUPGHOME:-}" ]; then
@@ -91,7 +91,7 @@ ensure_gpg_signing_ready() {
     fi
 
     listing="$(gpg --list-secret-keys --with-colons --keyid-format=long 2>/dev/null || true)"
-    if ! echo "${listing}" | grep -q '^sec'; then
+    if ! grep -q '^sec' <<<"${listing}"; then
         echo "error: no usable GPG secret key found for signed tag creation" >&2
         echo "hint: ensure your release env vars are loaded" >&2
         if [ -n "${GNUPGHOME:-}" ]; then
@@ -225,7 +225,7 @@ main() {
             awk -F: '$1=="uid"{print $10}' |
             sed -n 's/.*<\(.*\)>.*/\1/p')"
         if [ -n "${tagger_actual}" ] &&
-            ! printf '%s\n' "${key_uid_emails}" | grep -qxF "${tagger_actual}"; then
+            ! grep -qxF "${tagger_actual}" <<<"${key_uid_emails}"; then
             echo "warning: tagger email '${tagger_actual}' matches no UID on signing key '${key_id}'" >&2
             echo "         GitHub will likely show this tag as Unverified." >&2
             echo "         set THREELEAPS_CRUCIBLE_TAGGER_EMAIL to a UID email on that key" >&2

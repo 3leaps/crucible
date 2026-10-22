@@ -54,21 +54,20 @@ validate_release_surfaces() {
         return 1
     fi
 
-    # Consume the whole stream. grep -q exits on the first hit (the version
-    # heading is near the top) and closes the pipe; with pipefail that becomes
-    # a false "missing section" once CHANGELOG is large enough for printf to
-    # still be writing.
-    if ! printf '%s\n' "${changelog}" | grep -F "## [${version}]" >/dev/null; then
+    # Match from a here-string, never a pipe. grep -q exits on the first hit
+    # and closes the pipe; under pipefail the producer's SIGPIPE then turns a
+    # match into a false failure once CHANGELOG is large enough.
+    if ! grep -qF "## [${version}]" <<<"${changelog}"; then
         echo "error: CHANGELOG.md has no section for [${version}]" >&2
         return 1
     fi
 
-    if ! printf '%s\n' "${changelog}" | grep -qE "^\[${version}\]: "; then
+    if ! grep -qE "^\[${version}\]: " <<<"${changelog}"; then
         echo "error: CHANGELOG.md does not define the [${version}] compare link" >&2
         return 1
     fi
 
-    if ! printf '%s\n' "${changelog}" | grep -qE "^\[unreleased\]: .*v${version}\.\.\.HEAD$"; then
+    if ! grep -qE "^\[unreleased\]: .*v${version}\.\.\.HEAD$" <<<"${changelog}"; then
         echo "error: CHANGELOG.md [unreleased] link does not compare from v${version}" >&2
         return 1
     fi

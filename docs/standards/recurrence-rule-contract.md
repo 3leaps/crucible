@@ -122,13 +122,16 @@ generated instance; an unsynchronized value is refused, never shifted.
 
 Generated recurrence instances use RFC 5545 section 3.3.10: a local time that does not exist is
 skipped and consumes no `count`. Invalid month-days likewise do not consume count. A daily 02:30
-rule remains a 02:30 rule after a spring-forward gap.
+rule remains a 02:30 rule after a spring-forward gap. A skipped generated instance is a non-slot: it
+has no slot identity, and a scheduler MUST NOT record it as missed, late, or any other outcome.
 
 Explicit `dtstart`, `rdate`, and `exdate` values use the zoned DATE-TIME interpretation in
 [section 3.3.5](https://www.rfc-editor.org/rfc/rfc5545.html#section-3.3.5): a gap value uses the
 offset before the gap, and an overlap value selects the earlier instant. This distinction applies to
 explicit dates even when the same local label would be discarded as a generated candidate. There is
-no configurable shift policy in this family.
+no configurable shift policy in this family. If a shift-forward behaviour is ever added, it is a
+separately named policy that is part of the rule's identity and canonical digest; it never changes
+the meaning of an existing rule.
 
 For a gap-valued `dtstart`, retain its explicit local value as the first-period seed for pattern and
 position validation. Resolve it using the pre-gap offset. Generated RRULE candidates mapping before

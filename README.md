@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.1.34](https://img.shields.io/badge/version-0.1.34-blue)
+![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -34,7 +34,7 @@ The canonical home for all standards is this repository:
 https://github.com/3leaps/crucible/  (browse or raw files)
 ```
 
-> A hosted docs site at `crucible.3leaps.dev` is **planned** (targeted for v0.1.x).
+> A hosted docs site at `crucible.3leaps.dev` is **planned**.
 > Until it's live, use GitHub as the canonical source.
 
 ### Local Fallback
@@ -64,7 +64,7 @@ org-qualified URL above so the sibling named `crucible` is this catalog.
 | --------- | ---------------------------- | ---------------------------------- |
 | 1         | `github.com/3leaps/crucible` | Canonical source (web + raw files) |
 | 2         | `../crucible/`               | Local sibling (offline)            |
-| (planned) | `crucible.3leaps.dev`        | Hosted docs site (targeted v0.1.x) |
+| (planned) | `crucible.3leaps.dev`        | Hosted docs site                   |
 
 This is a **reference-based model**—we don't sync standards into repositories. For artifacts your code or CI depends on at runtime (schemas, config templates), create local copies with documented provenance. See [Getting Started](docs/getting-started.md) for details.
 
@@ -112,8 +112,10 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── agent-wait/v0/         # Portable agent wait/poll contract
 │   ├── data-artifact/v0/      # Portable data artifact contract
 │   ├── data-acquisition/v0/   # Source policy, acquisition scope and registration (proposed)
+│   ├── durable-index/v0/      # Object-inventory snapshots, observation plans (proposed)
 │   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
 │   ├── durable-record/v0/     # Revisioned record, journal, receipt, stratum profile (proposed)
+│   ├── durable-record/v1/     # Retained records with use restrictions (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
@@ -276,6 +278,13 @@ scope. An experimental
 [schema bundle and reject fixtures](schemas/durable-record/v0/README.md) accompany it.
 See [ADR-0013](docs/decisions/ADR-0013-durable-record-contract.md).
 
+The [durable-record v1 contract](docs/standards/durable-record-v1-contract.md)
+adds holds that block serving, export and reuse of a record while keeping it
+readable for authorized audit. It is a new major contract version; v0 is
+unchanged and there is no automatic migration. Its
+[schemas and logical vectors](schemas/durable-record/v1/README.md) qualify no
+store. See [ADR-0019](docs/decisions/ADR-0019-durable-record-tombstoning.md).
+
 ### Experimental data acquisition contract
 
 The [Data Acquisition Contract](docs/standards/data-acquisition-contract.md)
@@ -326,7 +335,7 @@ identifier. The schema registry remains the retrieval origin; retrieval address
 does not replace logical identity. See
 [ADR-0007](docs/decisions/ADR-0007-separate-documentation-and-schema-registry-origins.md).
 
-> A hosted endpoint at that domain is **planned** (targeted for v0.1.x). Until then,
+> A hosted endpoint at that domain is **planned**. Until then,
 > fetch schemas from GitHub (raw) and vendor a pinned copy with documented provenance —
 > see the per-family schema READMEs.
 
