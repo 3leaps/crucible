@@ -163,8 +163,8 @@ included; one at `to` is excluded, even if it equals the inclusive RRULE `until`
 produce an empty result. Reversed bounds are invalid. Results are unique and strictly increasing UTC
 instants; a positive integer result limit is required and selects the earliest matching instants.
 `next_after` is strictly after its argument. Implementations MUST distinguish a resource-limit
-failure from proof that no further occurrence exists. The `interval` and `count` bounds keep a valid
-rule's expansion finite in practice; they do not remove the need for a resource limit.
+failure from proof that no further occurrence exists. These numeric bounds constrain the input
+domain; they do not bound the work of a query or prove exhaustion.
 
 ## A4. Conformance corpus and tzdb identity
 
@@ -251,7 +251,12 @@ ordering, duplicates, or explicit default spellings. Canonical text writes `DTST
 then nonempty `RDATE` and `EXDATE`. RRULE parts have this order: `FREQ`, `INTERVAL`, `COUNT` or
 `UNTIL`, `BYMONTH`, `BYMONTHDAY`, `BYDAY`, `BYHOUR`, `BYMINUTE`, `BYSETPOS`, `WKST`. List entries
 use normalized order, and positive ordinal text omits the plus sign. Parsers refuse unsupported
-recurrence parts and repeated singleton rule parts. Serialization MUST use the family's supported
+recurrence parts and repeated singleton rule parts.
+
+Integer values in text (`INTERVAL`, `COUNT`, `BYMONTH`, `BYMONTHDAY`, `BYHOUR`, `BYMINUTE`,
+`BYSETPOS` and `BYDAY` ordinals) are an optional sign followed by at most nine digits. A longer
+lexeme is refused as `invalid_text` before any range check, so a parser never converts an
+unbounded integer. A lexeme within that limit but outside the value bounds in A6 is `invalid_rule`. Serialization MUST use the family's supported
 local-time/TZID forms and UTC UNTIL form; it MUST NOT introduce unsupported properties as a
 convenience.
 

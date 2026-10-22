@@ -50,7 +50,7 @@ UTC = re.compile(r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$")
 TEXT_LOCAL = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$")
 TEXT_UTC = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$")
 INT = re.compile(r"^[+-]?[1-9][0-9]*$|^0$")
-DAY = re.compile(r"^([+-]?[1-9][0-9]?)?(MO|TU|WE|TH|FR|SA|SU)$")
+DAY = re.compile(r"^([+-]?[0-9]+)?(MO|TU|WE|TH|FR|SA|SU)$")
 MARGIN = dt.timedelta(days=2)
 # Checker resource limits. Exceeding one is a named refusal, never an
 # extrapolation and never a claim that the occurrence set has ended.
@@ -335,7 +335,7 @@ def parse_rrule(value, rule):
                 require(match is not None, "invalid_text")
                 entry = {"day": match.group(2)}
                 if match.group(1):
-                    entry["ordinal"] = int(match.group(1))
+                    entry["ordinal"] = text_int(match.group(1))
                 entries.append(entry)
             rule["by_day"] = entries
         elif name in TEXT_LISTS:
@@ -396,7 +396,16 @@ def month_add(year, month, n):
 
 
 def period_span(rule, start, k):
-    """Days covered by period k, plus the fixed hour/minute for sub-daily."""
+    """Days covered by period k, plus the fixed hour/minute for sub-daily.
+    A period outside Gregorian years 0001..9999 is a named verifier limit,
+    never a raw date-library error."""
+    try:
+        return _period_span(rule, start, k)
+    except (ValueError, OverflowError):
+        raise Refusal("calendar_range") from None
+
+
+def _period_span(rule, start, k):
     step = k * rule.get("interval", 1)
     freq = rule["freq"]
     if freq == "YEARLY":
@@ -520,7 +529,8 @@ def generate(rule, zones, horizon):
     seed = zones.resolve(tzid, start, explicit=True)
     produced, k = [], 0
     while True:
-        cands = period_candidates(rule, zones, start, k)
+        # Bounds first: a period past the horizon or UNTIL is never resolved,
+        # so it cannot raise an evidence refusal for an answer already known.
         days, _ = period_span(rule, start, k)
         if dt.datetime.combine(days[0], dt.time()) > horizon:
             return produced, False
@@ -529,6 +539,7 @@ def generate(rule, zones, horizon):
             and dt.datetime.combine(days[0], dt.time()) > until + MARGIN
         ):
             return produced, True
+        cands = period_candidates(rule, zones, start, k)
         for local in cands:
             if local == start:
                 instant = seed
@@ -607,6 +618,15 @@ def evaluate(vector, zones):
         "queries": [],
         "next_after": [],
     }
+    try:
+        _answer_queries(vector, rule, zones, out)
+    except Refusal as e:
+        # A verifier limit during a query is an outcome, never an empty answer.
+        out["query_refusal"] = e.reason
+    return out
+
+
+def _answer_queries(vector, rule, zones, out):
     for q in vector.get("queries", []):
         lo, hi, limit = utc_instant(q["from"]), utc_instant(q["to"]), q["limit"]
         # Query arguments are API preconditions, not rule refusals.
@@ -616,7 +636,6 @@ def evaluate(vector, zones):
     for q in vector.get("next_after", []):
         after = utc_instant(q["after"])
         out["next_after"].append(next_after(rule, zones, after))
-    return out
 
 
 def expected_of(vector):
@@ -741,6 +760,25 @@ def limit_probes():
             dt.datetime(2026, 6, 1),
         ),
     ]
+    # The period cap itself, lowered for the probe and restored afterwards.
+    global MAX_PERIODS
+    saved, MAX_PERIODS = MAX_PERIODS, 3
+    try:
+        generate(
+            {
+                "dtstart": "2026-01-05T09:00:00",
+                "tzid": "Etc/UTC",
+                "freq": "DAILY",
+                "count": 4,
+            },
+            zones,
+            dt.datetime(2026, 2, 1),
+        )
+        out.append("accepted")
+    except Refusal as e:
+        out.append(e.reason)
+    finally:
+        MAX_PERIODS = saved
     for probe in probes:
         try:
             probe()
@@ -761,6 +799,7 @@ def limit_probes():
 
 
 LIMIT_EXPECTED = [
+    "expansion_limit",
     "outside_evidence_window",
     "outside_evidence_window",
     "outside_evidence_window",
@@ -786,6 +825,33 @@ def check_limits():
     )
     debug, outcomes = json.loads(result.stdout)
     assert debug is False and outcomes == LIMIT_EXPECTED, (debug, outcomes)
+
+
+def check_calendar_range():
+    # Admitted rules at the Gregorian endpoints get a defined verifier result.
+    zones = Zones(load(CORPUS / "tzdb-evidence.json"))
+    for rule in (
+        {
+            "dtstart": "9999-12-31T09:00:00",
+            "tzid": "Etc/UTC",
+            "freq": "YEARLY",
+            "count": 1,
+        },
+        {
+            "dtstart": "0001-01-01T09:00:00",
+            "tzid": "Etc/UTC",
+            "freq": "WEEKLY",
+            "wkst": "SU",
+            "count": 1,
+        },
+    ):
+        assert shape(rule), rule
+        try:
+            validate(normalize(rule), zones)
+        except Refusal as e:
+            assert e.reason == "calendar_range", (rule, e.reason)
+        else:
+            raise AssertionError(("calendar endpoint accepted", rule))
 
 
 def check_schema_keywords():
@@ -905,6 +971,26 @@ MUTATIONS = [
         "rejects/invalid_date--february-30.json",
     ),
     (
+        "period cap enforced",
+        '        if k >= MAX_PERIODS:\n            raise Refusal("expansion_limit")',
+        "        pass",
+        "limits",
+    ),
+    (
+        "period bounds before candidates",
+        "        days, _ = period_span(rule, start, k)\n        if dt.datetime.combine(days[0], dt.time()) > horizon:",
+        "        cands = period_candidates(rule, zones, start, k)\n        days, _ = period_span(rule, start, k)\n        if dt.datetime.combine(days[0], dt.time()) > horizon:",
+        "vectors/setpos-period-bounds-before-candidates.json",
+    ),
+    (
+        "BYSETPOS over the complete period",
+        # Models clipping later periods to a query starting 2026-02-10 before
+        # selection; the first period stays whole so the rule still validates.
+        '    positions = rule.get("by_set_pos") or []\n    if positions:',
+        '    positions = rule.get("by_set_pos") or []\n    out = [x for x in out if k == 0 or x >= dt.datetime(2026, 2, 10)]\n    if positions:',
+        "vectors/monthly-first-last-weekday-setpos.json",
+    ),
+    (
         "gap removed before BYSETPOS",
         '        out = [x for x in out if x == start or exists(zones, rule["tzid"], x)]',
         "        out = out",
@@ -965,6 +1051,12 @@ def mutation_controls(zones):
         assert source.count(old) == 1, ("mutation does not match exactly once", label)
         ns = {"__file__": __file__, "__name__": "recurrence_mutation"}
         exec(compile(source.replace(old, new), __file__, "exec"), ns)
+        if witness == "limits":
+            # The cap witness is the limit probe set, not a corpus vector.
+            got = ns["limit_probes"]()
+            assert got != LIMIT_EXPECTED, ("mutation ineffective", label)
+            print("[ok] mutation:", label, "-> limit probes")
+            continue
         vector = load(CORPUS / witness)
         mutant_zones = ns["Zones"](load(CORPUS / "tzdb-evidence.json"))
         try:
@@ -982,6 +1074,7 @@ def main():
     check_schema_keywords()
     check_input_edges()
     check_limits()
+    check_calendar_range()
     corpus_digest, evidence = check_manifest()
     zones = Zones(evidence)
     examples = check_examples(zones)
