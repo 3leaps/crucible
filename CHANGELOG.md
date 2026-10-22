@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Release public identity in the tree (proposed).** PDR-0008 generalizes the
+  committed-key-pin posture of PDR-0004: public pins are committed blobs read
+  from the tagged commit, one designated checker derives and verifies
+  fingerprint anchors, the ceremony binds its checker and tag as explicit
+  inputs with no fallback, and third-party verification keys are committed
+  files named by origin. Layout is a recommended default; controls are the
+  mandate.
 - **Recurrence rule contract (proposed).** Add the `recurrence/v0` family: a
   canonical JSON form of an RFC 5545 RRULE subset, normative expansion
   semantics (DST gaps skipped without consuming `COUNT`, overlaps resolved to
