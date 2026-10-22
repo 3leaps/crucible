@@ -75,7 +75,7 @@ ensure_gpg_signing_ready() {
 
     if [ -n "${key_id}" ]; then
         listing="$(gpg --list-secret-keys --with-colons --keyid-format=long "${key_id}" 2>/dev/null || true)"
-        if ! echo "${listing}" | grep -q '^sec'; then
+        if ! grep -q '^sec' <<<"${listing}"; then
             echo "error: no usable GPG secret key found for key id: ${key_id}" >&2
             echo "hint: ensure your release env vars are loaded" >&2
             if [ -n "${GNUPGHOME:-}" ]; then
@@ -91,7 +91,7 @@ ensure_gpg_signing_ready() {
     fi
 
     listing="$(gpg --list-secret-keys --with-colons --keyid-format=long 2>/dev/null || true)"
-    if ! echo "${listing}" | grep -q '^sec'; then
+    if ! grep -q '^sec' <<<"${listing}"; then
         echo "error: no usable GPG secret key found for signed tag creation" >&2
         echo "hint: ensure your release env vars are loaded" >&2
         if [ -n "${GNUPGHOME:-}" ]; then
