@@ -142,7 +142,10 @@ verification gate. See the [CLI publication behavior][gh-create].
 
 After publishing, independently read the published state and require:
 
-- The release exists, is not a draft, and is immutable.
+- The release exists, is not a draft, and is immutable, as reported by the
+  release object's own immutability field. That field is readable with the
+  ceremony's ordinary release-read access; the repository setting is not
+  evidence that a given release is immutable.
 - Its tag resolves to the verified annotated tag object and commit. Companion
   version tags, including module-prefixed tags, are separately protected and
   verified; a release's tag lock does not establish their protection.
@@ -234,6 +237,17 @@ release, and any explicitly approved deviation. The tooling change is reviewed
 separately from product changes and release version bumps. The first published
 release supplies adoption evidence; a setting alone does not prove conformance.
 
+Immutable publication locks the attached asset set. Before enabling the setting
+for a repository, verify that its active ceremony completes all required asset
+additions, replacements, and removals while the release is a draft and does not
+depend on changing the associated tag after publication. A ceremony that still
+requires those operations after publication must be changed first. A repository
+already satisfying this condition may enable immutability before formally
+adopting this profile. The same readiness check applies to every repository
+covered by an organization-wide policy, whether explicitly selected or included
+by default. Early enablement is not conformance: adoption evidence comes from a
+release under the reviewed profile that passes all required checks.
+
 The verification gates carry executable positive and negative controls under
 EPR-0002. At minimum, demonstrate rejection of a missing required asset, an
 unexpected asset, altered staged bytes, an internally consistent replacement
@@ -279,3 +293,4 @@ require new versions rather than replacing published bytes.
 | 2026-10-23 | → proposed    | Verify staged assets before immutable release publication | entarch    |
 | 2026-10-23 | proposed      | Declaration, record, surfaces, attestation and CI scope    | entarch    |
 | 2026-10-23 | proposed      | State that the profile is not build provenance             | cxotech    |
+| 2026-10-23 | proposed      | Order enablement before adoption; immutability evidence source | devlead    |
