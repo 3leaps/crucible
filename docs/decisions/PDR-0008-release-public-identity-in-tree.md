@@ -3,7 +3,7 @@ id: "PDR-0008"
 title: "Release public identity is committed, checked by one tool, and bound by explicit inputs"
 status: "proposed"
 date: "2026-10-22"
-last_updated: "2026-10-22"
+last_updated: "2026-10-23"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -213,12 +213,17 @@ branch; the first tag after adoption is the proof. A repository that cannot
 meet a control records the deviation in its own decision lane rather than
 silently weakening it (EPR-0002).
 
-This repository is not yet conformant and adopts on the same terms. Its
-adoption change renames `docs/security/release-minisign.pub` to
-`docs/security/crucible-minisign.pub`, adds the verifier-facing README and
-the NDJSON anchor file, pins the checker CI downloads, and replaces the
-inline anchor check with the designated checker. Until that change lands,
-this record describes the target, not the tree.
+This repository is conformant as of its adoption change. That change renamed
+`docs/security/release-minisign.pub` to
+`docs/security/crucible-minisign.pub`, added the verifier-facing README and
+the NDJSON anchor file, pinned the checker CI downloads, and replaced the
+inline anchor check with the designated checker. Its checker is decernor 0.1.8
+or newer, bound through `THREELEAPS_CRUCIBLE_DECERNOR_BIN`, and its tag input is
+`THREELEAPS_CRUCIBLE_RELEASE_TAG`. Crucible publishes signed tags only, so the
+minisign pin is committed and anchored but signs no release file; manifest
+controls apply if it ever publishes assets. Tags up to v0.2.0 predate the
+adoption and verify with the script from their own commit. Its first release
+under the adopted ceremony records the proof.
 
 ## Rationale
 
@@ -321,3 +326,4 @@ this record describes the target, not the tree.
 | ---------- | ------------- | ------------------------------------------------------------- | ---------- |
 | 2026-10-22 | → proposed    | Committed pins, one checker, explicit checker and tag inputs | cxotech    |
 | 2026-10-22 | proposed      | Installer literals, retired-key selection, no env override at verify | cxotech    |
+| 2026-10-23 | proposed      | Record this repository's adoption (§4)                       | devlead    |

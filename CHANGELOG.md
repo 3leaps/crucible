@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-23
+
 ### Changed
 
-- **Release tooling adopts PDR-0008.** The minisign pin is renamed
+- **Release tooling adopts PDR-0008.** This release's tag is the first made
+  under the adopted ceremony. The minisign pin is renamed
   `docs/security/crucible-minisign.pub`, and `keys/expected-fingerprints.ndjson`
   joins the text anchors. Both are derived by decernor (0.1.8 or newer), twice
   and compared, and tag verification checks them with that tool. CI downloads
@@ -25,9 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updated to match.
 - **goneat is verified against a committed key.** Bootstrap passes
   `docs/security/fulmenhq-goneat-minisign.pub` to sfetch with `--minisign-key`.
+- **CI baseline.** `docs/operations/ci-baseline.md` pins images by digest,
+  actions by commit and tools by version and digest, and adds gotchas for
+  `grep -q` under `pipefail`, Windows runners and images missing a tool, plus a
+  supply-chain section.
 
 ### Added
 
+- **Verified immutable release publication (proposed).** PDR-0010 sets controls
+  for verifying a release's staged assets before immutable publication: a
+  committed release definition that resolves to an exact asset set, a
+  pre-publication verification record checked again after publication, distinct
+  outcomes, and enablement only once a repository's ceremony makes every asset
+  change while the release is a draft. PDR-0004 carries a proposed-successor
+  notice and governs until a repository adopts it.
 - Negative controls for every new refusal: `make test` covers the release
   inputs, the checker binding and the checker download digest gate (offline,
   with a stubbed download), and a new `release-identity` CI job runs the
@@ -1313,7 +1327,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/3leaps/crucible/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/3leaps/crucible/compare/v0.1.34...v0.2.0
 [0.1.34]: https://github.com/3leaps/crucible/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/3leaps/crucible/compare/v0.1.32...v0.1.33
