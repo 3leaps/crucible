@@ -53,6 +53,29 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git diff --exit-code || (echo "Formatting changed files. Run 'make fmt' and commit." && exit 1)
 
+  release-identity:
+    # End-to-end release identity controls (PDR-0008): the digest-pinned
+    # checker, a throwaway signing key, and every refusal. Runs on the host
+    # because the tools-runner image does not carry gpg.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install digest-pinned decernor
+        run: |
+          set -euo pipefail
+          tool_dir="$(mktemp -d "$RUNNER_TEMP/decernor.XXXXXX")"
+          bin="$(./scripts/release-fetch-decernor.sh linux_amd64 "$tool_dir")"
+          echo "THREELEAPS_CRUCIBLE_DECERNOR_BIN=${bin}" >> "$GITHUB_ENV"
+
+      - name: Run release identity controls
+        run: make test-release-identity
+
   windows-shard:
     # Contract checks on Windows catch path-separator and file-permission
     # differences that the Linux container cannot. Shards match the Makefile

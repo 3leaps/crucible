@@ -85,8 +85,9 @@ jobs:
     #
     # Two assertions, both required:
     #   1. The tag is signed by the PINNED release signing subkey committed at
-    #      docs/security/release-signing-keys.asc, whose primary must match
-    #      keys/expected-fingerprints.txt, with the committed tagger identity.
+    #      docs/security/release-signing-keys.asc, with the committed tagger
+    #      identity. The committed pins must match keys/expected-fingerprints.*
+    #      under the digest-pinned designated checker (PDR-0008 §2.5).
     #      GitHub's verified flag alone accepts any key on the tagger's
     #      account; the pin is what makes the signature an authorization
     #      rather than an attribution.
@@ -105,6 +106,12 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Install digest-pinned decernor
+        run: |
+          set -euo pipefail
+          tool_dir="$(mktemp -d "$RUNNER_TEMP/decernor.XXXXXX")"
+          bin="$(./scripts/release-fetch-decernor.sh linux_amd64 "$tool_dir")"
+          echo "THREELEAPS_CRUCIBLE_DECERNOR_BIN=${bin}" >> "$GITHUB_ENV"
       - name: Verify version-tag publication policy
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,9 +141,10 @@ jobs:
             echo "Tag ${TAG} changed while its authorization was being verified"
             exit 1
           fi
-          # Reads the pin, fingerprint anchors and tagger identity from the
-          # tagged commit and requires one good, unexpired signature by the
-          # pinned signing subkey.
+          # Reads the pins, fingerprint anchors and tagger identity from the
+          # tagged commit, verifies the anchors with the designated checker,
+          # and requires one good, unexpired signature by the pinned signing
+          # subkey.
           ./scripts/verify-pinned-tag.sh "${TAG}"
           ./scripts/release-guard-tag-ruleset.sh --verify-tag-attestation "${tag_object_sha}"
           echo "tag_object_sha=${tag_object_sha}" >> "${GITHUB_OUTPUT}"

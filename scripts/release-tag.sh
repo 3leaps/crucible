@@ -2,17 +2,22 @@
 # release-tag.sh - Create a signed git tag with safety checks
 #
 # Safety checks:
+# - Explicit inputs only: the tag and the checker come from prefixed variables;
+#   retired or unprefixed variables are refused (PDR-0008 §2.3, §2.4)
 # - Tag format validation (vMAJOR.MINOR.PATCH)
 # - Clean working tree required
 # - Must be on main branch (overridable)
 # - Tag must not already exist
 # - Live tag publication ruleset matches the full expected policy
+# - Committed pins match their anchors under the designated checker
 # - GPG signing key availability
 # - Signed tag carries the validated publication-policy fingerprint
 # - Automatic signature verification after creation
 #
 # Environment variables:
-# - THREELEAPS_CRUCIBLE_RELEASE_TAG: override tag (default: v$(cat VERSION))
+# - THREELEAPS_CRUCIBLE_RELEASE_TAG: the tag to create (required; never derived)
+# - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
+#     (required; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_TAGGER_EMAIL: tagger email stamped on the tag object
@@ -24,9 +29,8 @@
 #     (cosmetic for verification; set it to the signing key's identity name)
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
 #
-# Legacy aliases (still supported):
-# - CRUCIBLE_RELEASE_TAG, CRUCIBLE_GPG_HOMEDIR, CRUCIBLE_PGP_KEY_ID,
-#   CRUCIBLE_TAGGER_EMAIL, CRUCIBLE_TAGGER_NAME, CRUCIBLE_ALLOW_NON_MAIN
+# Retired names (refused, see scripts/release-env.sh): RELEASE_TAG and the
+# unprefixed CRUCIBLE_* aliases.
 
 set -euo pipefail
 
@@ -70,7 +74,7 @@ ensure_gpg_signing_ready() {
         exit 1
     fi
 
-    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-${CRUCIBLE_PGP_KEY_ID:-}}"
+    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-}"
     local listing
 
     if [ -n "${key_id}" ]; then
@@ -110,15 +114,18 @@ main() {
     root="$(repo_root)"
     cd "$root"
 
+    # Explicit inputs, checked before any side effect (PDR-0008 §2.3, §2.4).
+    # shellcheck source=scripts/release-env.sh
+    source scripts/release-env.sh
+    refuse_legacy_release_env
+    local tag
+    tag="$(require_release_tag)"
+    resolve_release_decernor
+
     local version
     version="$(read_version)"
-
-    # Tag precedence: THREELEAPS_CRUCIBLE_RELEASE_TAG > CRUCIBLE_RELEASE_TAG (legacy) > RELEASE_TAG > v${version}
-    local tag="${THREELEAPS_CRUCIBLE_RELEASE_TAG:-${CRUCIBLE_RELEASE_TAG:-${RELEASE_TAG:-v${version}}}}"
-
-    # Validate tag format
-    if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        echo "error: invalid release tag '$tag' (expected vMAJOR.MINOR.PATCH)" >&2
+    if [ "$tag" != "v${version}" ]; then
+        echo "error: release tag $tag does not match VERSION $version" >&2
         exit 1
     fi
 
@@ -132,7 +139,7 @@ main() {
     # Check branch (must be main unless overridden)
     local branch
     branch="$(git branch --show-current 2>/dev/null || true)"
-    local allow_non_main="${THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN:-${CRUCIBLE_ALLOW_NON_MAIN:-}}"
+    local allow_non_main="${THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN:-}"
     if [ "$branch" != "main" ] && [ "${allow_non_main}" != "1" ]; then
         echo "error: refusing to tag from branch '$branch' (set THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1 to override)" >&2
         exit 1
@@ -144,6 +151,16 @@ main() {
         exit 1
     fi
 
+    # The pins this tag will carry must match their anchors under the
+    # designated checker before anything is signed.
+    local pins
+    pins="$(mktemp -d)"
+    if ! ./scripts/release-verify-anchors.sh HEAD "${pins}"; then
+        rm -rf "${pins}"
+        exit 1
+    fi
+    rm -rf "${pins}"
+
     # Validate the complete ruleset and bind its canonical policy fingerprint
     # into the signed tag object for publication verification.
     local policy_attestation
@@ -153,8 +170,8 @@ main() {
         exit 1
     fi
 
-    # Set up GPG homedir if specified (THREELEAPS_CRUCIBLE_ takes precedence)
-    local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-${CRUCIBLE_GPG_HOMEDIR:-}}"
+    # Set up GPG homedir if specified
+    local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}"
 
     if [ -n "${gpg_homedir}" ]; then
         if [ ! -d "${gpg_homedir}" ]; then
@@ -169,13 +186,13 @@ main() {
 
     echo "Creating signed tag: $tag"
 
-    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-${CRUCIBLE_PGP_KEY_ID:-}}"
+    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-}"
 
     # Stamp the tagger identity so it matches the signing key. Without this the
     # tag object inherits git's user.email, which will not match a shared/org
     # signing key and leaves the tag "Unverified" on GitHub. See header notes.
-    local tagger_name="${THREELEAPS_CRUCIBLE_TAGGER_NAME:-${CRUCIBLE_TAGGER_NAME:-}}"
-    local tagger_email="${THREELEAPS_CRUCIBLE_TAGGER_EMAIL:-${CRUCIBLE_TAGGER_EMAIL:-}}"
+    local tagger_name="${THREELEAPS_CRUCIBLE_TAGGER_NAME:-}"
+    local tagger_email="${THREELEAPS_CRUCIBLE_TAGGER_EMAIL:-}"
     if [ -n "${tagger_email}" ]; then
         export GIT_COMMITTER_EMAIL="${tagger_email}"
         [ -n "${tagger_name}" ] && export GIT_COMMITTER_NAME="${tagger_name}"

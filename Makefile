@@ -13,7 +13,7 @@
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
-.PHONY: release-tag release-verify-tag release-push-tag release-tag-push release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
+.PHONY: test-release-identity release-check-anchors release-tag release-verify-tag release-push-tag release-tag-push release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -82,8 +82,9 @@ help: ## Show available targets
 	@echo ""
 	@echo "Release management:"
 	@echo "  release-tag             Create signed git tag with safety checks"
-	@echo "  release-verify-tag      Verify signed tag signature"
-	@echo "  release-guard-tag-version  Verify tag matches VERSION file"
+	@echo "  release-verify-tag      Verify signed tag signature and pinned anchors"
+	@echo "  release-check-anchors   Re-derive fingerprint anchors with the checker and compare"
+	@echo "  release-guard-tag-version  Verify THREELEAPS_CRUCIBLE_RELEASE_TAG matches VERSION"
 	@echo "  release-guard-tag-ruleset Verify version-tag ruleset policy"
 	@echo "  release-guard-release-surfaces Verify release notes and changelog match VERSION"
 	@echo "  sync-changelog-links    Sync CHANGELOG compare-link footers to VERSION"
@@ -147,7 +148,8 @@ bootstrap-release-tools: bootstrap-sfetch ## Install verified repo-local sfetch 
 	@if [ ! -x "$(GONEAT_LOCAL)" ]; then \
 		echo "[..] Installing goneat $(GONEAT_VERSION) via verified sfetch..."; \
 		"$(SFETCH_LOCAL)" --repo fulmenhq/goneat --tag "$(GONEAT_VERSION)" \
-			--dest-dir "$(BIN_DIR)" --cache-dir "$(SFETCH_CACHE_DIR)" --require-minisign; \
+			--dest-dir "$(BIN_DIR)" --cache-dir "$(SFETCH_CACHE_DIR)" --require-minisign \
+			--minisign-key "$(CURDIR)/docs/security/fulmenhq-goneat-minisign.pub"; \
 	fi
 	@if [ ! -x "$(GONEAT_LOCAL)" ]; then echo "[!!] goneat installation failed (expected $(GONEAT_LOCAL))"; exit 1; fi
 	@if ! "$(GONEAT_LOCAL)" version 2>&1 | head -n1 | grep -Fq "$(GONEAT_VERSION)"; then \
@@ -245,9 +247,14 @@ contract-tools: ## Fail closed when a required contract-validation tool is missi
 	done
 
 test: test-bootstrap-engine-verification test-check-attribution test-portability test-contract-shards ## Run release-control and attribution-footer tests
+	@./scripts/test-release-env.sh
+	@./scripts/test-release-fetch-decernor.sh
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
+
+test-release-identity: ## End-to-end release identity controls (needs gpg and THREELEAPS_CRUCIBLE_DECERNOR_BIN)
+	@./scripts/test-release-identity.sh
 
 test-bootstrap-engine-verification: ## Prove engine digest failure prevents execution
 	@./scripts/test-bootstrap-engine-verification.sh
@@ -595,14 +602,19 @@ version-major: ## Bump major version (0.1.0 -> 1.0.0)
 # -----------------------------------------------------------------------------
 #
 # Safety-first release tagging with automated checks:
+# - Explicit inputs: tag and checker from prefixed variables, never derived;
+#   retired or unprefixed variables are refused (PDR-0008)
 # - Tag format validation (vMAJOR.MINOR.PATCH)
 # - Clean working tree required
 # - Must be on main branch (overridable)
 # - Tag must not already exist
+# - Committed pins match their anchors under the designated checker
 # - GPG signing key availability verified
 # - Automatic signature verification after creation
 #
 # Environment variables (see scripts/release-tag.sh for full list):
+# - THREELEAPS_CRUCIBLE_RELEASE_TAG: the release tag (required)
+# - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker (required)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
@@ -610,7 +622,7 @@ version-major: ## Bump major version (0.1.0 -> 1.0.0)
 release-tag: ## Create signed git tag with safety checks
 	@./scripts/release-tag.sh
 
-release-verify-tag: ## Verify signed tag signature
+release-verify-tag: ## Verify signed tag signature and pinned anchors
 	@./scripts/release-verify-tag.sh
 
 release-push-tag: ## Verify and push the signed version tag, then confirm the remote tag
@@ -618,7 +630,10 @@ release-push-tag: ## Verify and push the signed version tag, then confirm the re
 
 release-tag-push: release-push-tag
 
-release-guard-tag-version: ## Verify tag matches VERSION file
+release-check-anchors: ## Re-derive fingerprint anchors with the designated checker and compare
+	@./scripts/release-derive-anchors.sh --check
+
+release-guard-tag-version: ## Verify THREELEAPS_CRUCIBLE_RELEASE_TAG matches VERSION
 	@./scripts/release-guard-tag-version.sh
 
 release-guard-tag-ruleset: ## Verify version-tag ruleset policy

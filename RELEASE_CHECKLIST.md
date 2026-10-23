@@ -5,20 +5,55 @@ stable snapshots of documentation, schemas, and configuration. No binaries are s
 
 ## Variables (Quick Reference)
 
-- `THREELEAPS_CRUCIBLE_RELEASE_TAG`: optional override tag (e.g., `v0.1.3`)
+Three groups. Set **Required** on every tag step. Set **Optional** only for
+the behavior that line names. Every **Refused** name must be unset.
+
+Required:
+
+- `THREELEAPS_CRUCIBLE_RELEASE_TAG`: the release tag (e.g., `v0.2.1`), for every tag step
+  (guard, tag, verify, push). Never derived from `VERSION`, `git describe`, or the branch.
+- `THREELEAPS_CRUCIBLE_DECERNOR_BIN`: absolute path to the checker, decernor 0.1.8
+  or newer, for every step that reads a committed pin or anchor (tag, verify, push,
+  `release-check-anchors`). The version guard does not need it. Must be a regular,
+  executable, non-symlink file; there is no `PATH` fallback.
+  See [`docs/security/README.md`](docs/security/README.md).
+
+Optional:
+
 - `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`: dedicated signing keyring directory (recommended)
 - `THREELEAPS_CRUCIBLE_PGP_KEY_ID`: key id/email/fingerprint for signing
 - `THREELEAPS_CRUCIBLE_TAGGER_NAME`: tagger name stamped on signed tag objects
 - `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`: tagger email stamped on signed tag objects
 - `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN`: set to `1` to allow tagging from non-main branch
 
-Legacy aliases (still supported):
+Refused (unset every one of these; if any is set, even empty, every tag step
+fails before it signs or pushes):
 
-- `CRUCIBLE_RELEASE_TAG`, `CRUCIBLE_GPG_HOMEDIR`, `CRUCIBLE_PGP_KEY_ID`, `CRUCIBLE_ALLOW_NON_MAIN`
+- `RELEASE_TAG`
+- `THREELEAPS_CRUCIBLE_REQUIRE_TAG`
+- `DECERNOR_BIN`
+- Retired unprefixed aliases: `CRUCIBLE_RELEASE_TAG`, `CRUCIBLE_GPG_HOMEDIR`,
+  `CRUCIBLE_PGP_KEY_ID`, `CRUCIBLE_TAGGER_NAME`, `CRUCIBLE_TAGGER_EMAIL`,
+  `CRUCIBLE_ALLOW_NON_MAIN`, `CRUCIBLE_REQUIRE_TAG`, `CRUCIBLE_DECERNOR_BIN`
 
-> **Why `THREELEAPS_CRUCIBLE_`?** The prefix disambiguates this repository's release environment from other Crucible-style repositories and avoids generic environment variable names.
+There is no precedence among these names. A refused name does not fall through
+to a required one
+([PDR-0008](docs/decisions/PDR-0008-release-public-identity-in-tree.md) §2.4).
 
-Note: These are not secrets and typically aren't stored in encrypted env bundles.
+The `THREELEAPS_CRUCIBLE_` prefix is the name of this repository's release
+environment. These variables are not secrets and typically are not stored in
+encrypted env bundles.
+
+Install the checker from the digest pin rather than pointing at a copy found on `PATH`
+(use `darwin_arm64` or `linux_amd64` to match the host; both are pinned):
+
+```bash
+decernor_dir="$(mktemp -d)"
+export THREELEAPS_CRUCIBLE_DECERNOR_BIN="$(./scripts/release-fetch-decernor.sh darwin_arm64 "$decernor_dir")"
+export THREELEAPS_CRUCIBLE_RELEASE_TAG="vX.Y.Z"   # type the intended tag
+```
+
+Type the tag rather than computing it: the guard then checks the stated intent against `VERSION`.
 
 ## Pre-Release
 
@@ -38,9 +73,28 @@ Note: These are not secrets and typically aren't stored in encrypted env bundles
   ```bash
   make release-guard-tag-ruleset
   ```
-- [ ] Guard: ensure tag/version match:
+- [ ] No retired release variable is exported in the release shell (any one, even
+      empty, fails every tag step):
   ```bash
-  make release-guard-tag-version
+  env | grep -E '^(RELEASE_TAG|DECERNOR_BIN|CRUCIBLE_[A-Z_]+|THREELEAPS_CRUCIBLE_REQUIRE_TAG)=' \
+    && echo "unset the variables above" || echo "[ok] no retired variables"
+  ```
+- [ ] The committed anchors match the committed public exports under the checker:
+  ```bash
+  make release-check-anchors
+  ```
+- [ ] Guard: the explicit tag matches `VERSION`:
+  ```bash
+  make release-guard-tag-version   # requires THREELEAPS_CRUCIBLE_RELEASE_TAG
+  ```
+- [ ] Dry ceremony, before anything is signed. Run each command below. Each
+      command must **fail**, and the failure text must include the quoted
+      string on that line. If a command succeeds, stop. That success is a
+      defect:
+  ```bash
+  env -u THREELEAPS_CRUCIBLE_RELEASE_TAG make release-tag        # "THREELEAPS_CRUCIBLE_RELEASE_TAG is required"
+  RELEASE_TAG="${THREELEAPS_CRUCIBLE_RELEASE_TAG}" make release-tag   # "retired or unprefixed release variable set"
+  THREELEAPS_CRUCIBLE_DECERNOR_BIN=decernor make release-tag    # "must be an absolute path"
   ```
 
 ### Release surfaces
@@ -86,6 +140,9 @@ make release-tag
 
 The script performs these safety checks before creating the tag:
 
+- Explicit inputs: `THREELEAPS_CRUCIBLE_RELEASE_TAG` and `THREELEAPS_CRUCIBLE_DECERNOR_BIN` are
+  set and valid, the tag matches `VERSION`, and no retired variable is set
+- The committed pins at `HEAD` match their anchors under the designated checker
 - Live `Tag Publish Protection` ruleset matches the required policy
 - Canonical publication-policy fingerprint is embedded in the signed tag
 - Tag format validation (`vMAJOR.MINOR.PATCH`)
@@ -100,7 +157,7 @@ The script performs these safety checks before creating the tag:
 ```bash
 make release-verify-tag
 # or:
-git tag -v v$(cat VERSION)
+git tag -v "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 ```
 
 Expected output includes:
@@ -112,7 +169,7 @@ The annotated tag must also carry the policy fingerprint produced by the full
 pre-tag guard:
 
 ```bash
-git cat-file tag "v$(cat VERSION)" | grep '^Tag-Publish-Policy-SHA256: '
+git cat-file tag "${THREELEAPS_CRUCIBLE_RELEASE_TAG}" | grep '^Tag-Publish-Policy-SHA256: '
 ```
 
 ### 4. Push
@@ -126,6 +183,19 @@ make release-push-tag
 This verifies the local signature, requires the tagged commit to be on
 `origin/main` and the remote tag to be absent, pushes the tag ref, and confirms
 the remote tag object (and GitHub's verified flag, when `gh` is available).
+
+**Expect a bypass notice.** After `make release-push-tag`, read the output
+before you treat the tag as pushed.
+
+The notice is present when the push output reports bypassed rule violations
+for the tag ref ("creations being restricted"). Tag creation is restricted by
+the `Tag Publish Protection` ruleset. The maintainer
+push uses the organization-admin bypass
+([PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md)), so the
+notice is the expected result.
+
+The notice is absent when the push prints no bypass line. The ruleset did
+not apply. Stop, and check the ruleset before the release proceeds.
 
 ## Post-Release
 
@@ -146,10 +216,12 @@ invisible to every consumer while the repository looks healthy.
 - [ ] Verify the release is **published, not draft**, and — for a stable release
       — carries the **Latest** flag:
   ```bash
-  gh release view "v$(cat VERSION)" --json isDraft,isLatest,isPrerelease,url
+  gh release view "${THREELEAPS_CRUCIBLE_RELEASE_TAG}" --json isDraft,isPrerelease,url
+  gh api repos/3leaps/crucible/releases/latest --jq .tag_name
   ```
-  Expected for a stable release: `isDraft: false`, `isLatest: true`.
-  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, `isLatest: false`.
+  Expected for a stable release: `isDraft: false`, and `releases/latest` names this tag.
+  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, and `releases/latest`
+  still names the previous stable tag.
 - [ ] Verify the published release is reachable and its notes render correctly:
       https://github.com/3leaps/crucible/releases/latest
 
@@ -165,13 +237,18 @@ diagnosis.
 
 ```bash
 git fetch --tags origin
-git tag -v v$(cat VERSION)
+git tag -v "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
+# needs THREELEAPS_CRUCIBLE_DECERNOR_BIN (see Variables)
+./scripts/verify-pinned-tag.sh "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 ```
+
+Tags up to and including `v0.2.0` predate the current pin layout; verify one of
+those with the `scripts/verify-pinned-tag.sh` from that tag's own commit.
 
 **GitHub API** (CI-friendly):
 
 ```bash
-TAG_SHA=$(gh api repos/3leaps/crucible/git/ref/tags/v$(cat VERSION) --jq .object.sha)
+TAG_SHA=$(gh api "repos/3leaps/crucible/git/ref/tags/${THREELEAPS_CRUCIBLE_RELEASE_TAG}" --jq .object.sha)
 gh api repos/3leaps/crucible/git/tags/$TAG_SHA --jq .verification
 ```
 
@@ -184,28 +261,46 @@ Otherwise GitHub may show "Unverified" even though `git tag -v` succeeds locally
 
 ## Release-key rotation
 
-CI publishes only tags that `scripts/verify-pinned-tag.sh` accepts (PDR-0004 §2).
-It reads these estate-wide files from the tagged commit, not the working tree:
+CI publishes only tags that `scripts/verify-pinned-tag.sh` accepts (PDR-0004 §2,
+PDR-0008). It reads these files from the tagged commit, not the working tree, and
+verifies the anchors with the digest-pinned designated checker:
 
 | File | Holds |
 | --- | --- |
 | `docs/security/release-signing-keys.asc` | Public primary plus exactly one signing subkey |
-| `docs/security/release-minisign.pub` | Estate minisign public key |
+| `docs/security/crucible-minisign.pub` | Minisign public pin (shared 3leaps key; signs no crucible asset today) |
 | `keys/expected-fingerprints.txt` | `gpg <primary fingerprint>` then `minisign <sha256 of key blob>` |
+| `keys/expected-fingerprints.ndjson` | The checker's fingerprint records for the same two keys |
 | `config/release/tagger-identity.txt` | Required tagger name and email |
+| `config/release/decernor-ci-sha256.txt` | Digest of each checker archive CI or the ceremony downloads |
 
 The tag must carry one good, unexpired signature by the pinned signing subkey.
-`make release-verify-tag` runs the same check locally. These files are the same
-bytes across 3leaps repositories; copy them from a sibling rather than
-re-exporting. When the release key rotates:
+`make release-verify-tag` runs the same check locally. The key exports are the
+same bytes across 3leaps repositories; copy them from a sibling rather than
+re-exporting. The anchors are never copied or typed: derive them from the
+committed exports with the checker. When the release key rotates:
 
-- [ ] Update the pin and `keys/expected-fingerprints.txt` together by reviewed PR
-      **before** pushing the first tag signed by the new key (a stale pin fails
-      closed: the release stays unpublished and `verify-signature` is red)
+- [ ] Replace the exports, delete both anchor files, and re-derive them with
+      `./scripts/release-derive-anchors.sh --write` (it derives twice and refuses
+      to overwrite), all in one reviewed PR merged **before** pushing the first
+      tag signed by the new key (a stale pin fails closed: the release stays
+      unpublished and `verify-signature` is red)
 - [ ] Upload the new public key to the maintainer GitHub account (keeps the
       secondary account-linkage assertion and the Verified badge green)
 - [ ] The verifier accepts exactly one signing subkey, so the pin switches
       in the same PR; tags already pushed under the old key are unaffected
+- [ ] Keep the retired minisign pin committed under a retired name with the tag
+      range it signed (PDR-0008 §2.8)
+
+### Checker upgrade
+
+The checker archive is pinned by digest in `config/release/decernor-ci-sha256.txt`,
+one line per platform. To move to a newer decernor release, verify the release's
+`SHA256SUMS` with its minisign signature against `docs/security/crucible-minisign.pub`,
+then replace the lines (same version on every line) in a reviewed PR.
+`scripts/release-fetch-decernor.sh` installs exactly one pinned archive per
+platform and refuses any digest mismatch before extraction
+(`scripts/test-release-fetch-decernor.sh` proves it, offline, in `make test`).
 
 **Expiry is rotation you did not schedule.** A pinned key that passes its
 expiration date fails verification exactly as a missing pin does — the release
@@ -229,10 +324,10 @@ deletion below:
 
 ```bash
 # Delete remote tag
-git push origin --delete v<VERSION>
+git push origin --delete "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 
 # Delete local tag
-git tag -d v<VERSION>
+git tag -d "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 
 # If VERSION file needs revert
 git revert <commit-hash>
@@ -245,9 +340,11 @@ git revert <commit-hash>
 | Target                                | Purpose                                          |
 | ------------------------------------- | ------------------------------------------------ |
 | `make release-tag`                    | Create signed git tag with all safety checks     |
-| `make release-verify-tag`             | Verify an existing signed tag                    |
+| `make release-verify-tag`             | Verify an existing signed tag and its anchors    |
 | `make release-push-tag`               | Verify, push and confirm the signed version tag  |
-| `make release-guard-tag-version`      | Verify tag matches VERSION file (CI-friendly)    |
+| `make release-check-anchors`          | Re-derive anchors with the checker and compare   |
+| `make release-guard-tag-version`      | Verify the explicit tag matches VERSION          |
+| `make test-release-identity`          | End-to-end identity controls (gpg + checker)     |
 | `make release-guard-tag-ruleset`      | Verify live version-tag publication policy       |
 | `make release-guard-release-surfaces` | Verify release notes and changelog match VERSION |
 
@@ -257,21 +354,30 @@ All scripts are in `scripts/` and can be run directly if needed.
 
 **`scripts/release-tag.sh`** - The primary release script. Safety checks:
 
-1. Validates tag format (`vMAJOR.MINOR.PATCH`)
-2. Ensures working tree is clean (no uncommitted changes)
-3. Ensures on `main` branch (override with `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1`)
-4. Ensures tag doesn't already exist
-5. Validates the complete live ruleset, including bypass actors
-6. Embeds the canonical policy fingerprint in the tag message
-7. Verifies GPG signing key is available
-8. Creates signed annotated tag
-9. Automatically verifies signature after creation
+1. Refuses retired variables; requires the explicit tag and checker
+2. Validates tag format (`vMAJOR.MINOR.PATCH`) and that it matches `VERSION`
+3. Ensures working tree is clean (no uncommitted changes)
+4. Ensures on `main` branch (override with `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN=1`)
+5. Ensures tag doesn't already exist
+6. Verifies the committed pins at `HEAD` against their anchors with the checker
+7. Validates the complete live ruleset, including bypass actors
+8. Embeds the canonical policy fingerprint in the tag message
+9. Verifies GPG signing key is available
+10. Creates signed annotated tag
+11. Automatically verifies signature after creation
 
 **`scripts/release-guard-tag-version.sh`** - Version consistency check:
 
-- Compares current git tag (or `THREELEAPS_CRUCIBLE_RELEASE_TAG` env var) against `VERSION` file
-- Use in CI with `THREELEAPS_CRUCIBLE_REQUIRE_TAG=1` to enforce tag presence
+- Requires `THREELEAPS_CRUCIBLE_RELEASE_TAG` and compares it against the `VERSION` file
+- Never falls back to `git describe`; a missing tag is an error
 - Exits 0 if match, exits 1 if mismatch
+
+**`scripts/release-env.sh`** - Explicit release inputs, sourced by every tag step:
+
+- Refuses retired and unprefixed variables
+- Requires the canonical tag from `THREELEAPS_CRUCIBLE_RELEASE_TAG`
+- Binds the checker from `THREELEAPS_CRUCIBLE_DECERNOR_BIN` with identity and
+  minimum-version checks; no `PATH` fallback
 
 **`scripts/release-guard-tag-ruleset.sh`** - Publication-boundary check:
 
@@ -292,7 +398,8 @@ All scripts are in `scripts/` and can be run directly if needed.
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
-- Verifies GPG signature on the tag for `VERSION` (or `THREELEAPS_CRUCIBLE_RELEASE_TAG`)
+- Verifies the GPG signature on `THREELEAPS_CRUCIBLE_RELEASE_TAG`, then the pinned-key
+  and anchor check (`scripts/verify-pinned-tag.sh`)
 - Respects `THREELEAPS_CRUCIBLE_GPG_HOMEDIR` for dedicated keyrings
 
 ---
