@@ -217,6 +217,8 @@ Avoid:
 
 ### Pipes Under `pipefail`
 
+**Problem**: A pipeline that found a match is reported as a failure.
+
 `producer | grep -q pattern` can fail under `set -o pipefail`, sometimes or every time.
 `grep -q` exits at the first match and closes the pipe; a producer still writing
 then dies of `SIGPIPE`, and `pipefail` reports the match as a failure. The larger
@@ -229,10 +231,12 @@ listing="$(gpg --list-secret-keys --with-colons)"
 grep -q '^sec' <<<"$listing"
 ```
 
-A control for this needs a large input with an early match; a small input passes
-either way.
+A test of this failure needs a large input with an early match. A small input
+passes either way, so it never shows the bug.
 
 ### Windows Runners
+
+**Problem**: A Windows runner can rewrite text-file bytes, and it often has no `python3`.
 
 - Set `git config --global core.autocrlf false` **before** checkout when the
   repository's bytes matter (digests, golden files, fixtures). Otherwise text
@@ -252,7 +256,14 @@ When adding debug output to diagnose CI issues:
 
 ## Supply Chain
 
+Lessons for any repository that downloads a tool or publishes from CI. A pin
+here means a committed value the check must match exactly: a commit SHA, an
+image digest, a file digest, or a public key file.
+
 ### Pin Everything by Content
+
+**Problem**: A tag, or `latest`, can be moved after you trusted it. A digest
+cannot.
 
 - **Actions**: reference by full commit SHA with the version in a comment
   (`uses: actions/checkout@<sha> # v5.0.1`). A tag can be moved; a commit cannot.
@@ -266,27 +277,40 @@ When adding debug output to diagnose CI issues:
 
 ### Least Privilege
 
+**Problem**: A job that can publish can also publish the wrong thing. A job
+that only checks does not need that power.
+
 - Set `permissions: contents: read` at the workflow level and grant write scope
   only to the one job that needs it (for example, the job that creates a
   release).
 - Use `persist-credentials: false` on checkout unless a later step must push.
-- A verification job that passes is a consistency signal, not authorization:
-  keep verification read-only, and keep publication in a separate job.
+- A verification job that passes shows that the checks agreed. It does not
+  authorize publication. Keep verification read-only, and keep publication in
+  a separate job.
 
 ### Pins and Keys
 
-Public keys used to verify downloaded tools are committed files named for the
-producing organization and tool (for example
-`docs/security/fulmenhq-goneat-minisign.pub`), passed to the verifier
-explicitly. A key fetched from the same release it verifies is not independent
-authentication. See
+**Problem**: A public key downloaded from the release it verifies comes from
+the same place as the files it checks. Whoever can replace those files can
+replace the key too.
+
+- Commit the public key in the repository. Name the file for the organization
+  and the tool that produced it (for example
+  `docs/security/fulmenhq-goneat-minisign.pub`).
+- Pass that file to the verifier on the command line.
+- Do not fetch the key from the same release you are verifying.
+
+This repository records the same rule in
 [PDR-0008](../decisions/PDR-0008-release-public-identity-in-tree.md).
 
 ### Negative Controls
 
-Every gate CI relies on needs a committed test that proves it can fail: feed it
-the bad input (wrong digest, tampered key, missing variable) and assert both
-that it fails and **why**. A check that has never failed is not yet evidence. See
+**Problem**: A check that has never failed is not yet evidence that it can
+fail.
+
+Commit a test that feeds the gate a bad input (wrong digest, tampered key,
+missing variable) and asserts both that it fails and the reason it fails.
+This repository records the same rule in
 [EPR-0002](../decisions/EPR-0002-verification-gate-integrity.md).
 
 ## Related Resources
