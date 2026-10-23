@@ -12,19 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release tooling adopts PDR-0008.** The minisign pin is renamed
   `docs/security/crucible-minisign.pub`, and `keys/expected-fingerprints.ndjson`
   joins the text anchors. Both are derived by decernor (0.1.8 or newer), twice
-  and compared, and tag verification checks them with that tool instead of an
-  inline parser. CI downloads decernor by the digest pinned in
+  and compared, and tag verification checks them with that tool. CI downloads
+  decernor by the digest pinned in
   `config/release/decernor-ci-sha256.txt`. `docs/security/README.md` states
   what a release carries: a signed tag only, with no signed checksum manifests.
 - **Release inputs are explicit.** Every tag step requires
-  `THREELEAPS_CRUCIBLE_RELEASE_TAG` and `THREELEAPS_CRUCIBLE_DECERNOR_BIN`. The
-  tag is no longer derived from `VERSION` or `git describe`, the checker has no
-  `PATH` fallback, and `RELEASE_TAG`, `THREELEAPS_CRUCIBLE_REQUIRE_TAG` and the
-  unprefixed `CRUCIBLE_*` aliases are refused. `RELEASE_CHECKLIST.md` is
+  `THREELEAPS_CRUCIBLE_RELEASE_TAG`, and every step that reads a pin also
+  requires `THREELEAPS_CRUCIBLE_DECERNOR_BIN`. The tag is never derived from
+  `VERSION` or `git describe`, the checker has no `PATH` fallback, and
+  `RELEASE_TAG`, `THREELEAPS_CRUCIBLE_REQUIRE_TAG` and the unprefixed
+  `CRUCIBLE_*` aliases are refused. `RELEASE_CHECKLIST.md` is
   updated to match.
 - **goneat is verified against a committed key.** Bootstrap passes
-  `docs/security/fulmenhq-goneat-minisign.pub` to sfetch with `--minisign-key`
-  instead of taking the key from the goneat release.
+  `docs/security/fulmenhq-goneat-minisign.pub` to sfetch with `--minisign-key`.
 
 ### Added
 

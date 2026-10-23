@@ -5,13 +5,17 @@ stable snapshots of documentation, schemas, and configuration. No binaries are s
 
 ## Variables (Quick Reference)
 
+Three groups. Set **Required** on every tag step. Set **Optional** only for
+the behavior that line names. Every **Refused** name must be unset.
+
 Required:
 
 - `THREELEAPS_CRUCIBLE_RELEASE_TAG`: the release tag (e.g., `v0.2.1`), for every tag step
   (guard, tag, verify, push). Never derived from `VERSION`, `git describe`, or the branch.
-- `THREELEAPS_CRUCIBLE_DECERNOR_BIN`: absolute path to the designated checker, decernor 0.1.8
-  or newer, for every step that reads pins (tag, verify, push, `release-check-anchors`). The
-  version guard does not need it. Must be a regular, executable, non-symlink file; there is no `PATH` fallback.
+- `THREELEAPS_CRUCIBLE_DECERNOR_BIN`: absolute path to the checker, decernor 0.1.8
+  or newer, for every step that reads a committed pin or anchor (tag, verify, push,
+  `release-check-anchors`). The version guard does not need it. Must be a regular,
+  executable, non-symlink file; there is no `PATH` fallback.
   See [`docs/security/README.md`](docs/security/README.md).
 
 Optional:
@@ -22,16 +26,23 @@ Optional:
 - `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`: tagger email stamped on signed tag objects
 - `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN`: set to `1` to allow tagging from non-main branch
 
-**Refused:** `RELEASE_TAG`, `THREELEAPS_CRUCIBLE_REQUIRE_TAG`, `DECERNOR_BIN`, and the retired
-unprefixed aliases (`CRUCIBLE_RELEASE_TAG`, `CRUCIBLE_GPG_HOMEDIR`, `CRUCIBLE_PGP_KEY_ID`,
-`CRUCIBLE_TAGGER_NAME`, `CRUCIBLE_TAGGER_EMAIL`, `CRUCIBLE_ALLOW_NON_MAIN`,
-`CRUCIBLE_REQUIRE_TAG`, `CRUCIBLE_DECERNOR_BIN`). If any is set, even empty, every tag step
-fails before side effects. Unset them rather than relying on precedence
+Refused (unset every one of these; if any is set, even empty, every tag step
+fails before it signs or pushes):
+
+- `RELEASE_TAG`
+- `THREELEAPS_CRUCIBLE_REQUIRE_TAG`
+- `DECERNOR_BIN`
+- Retired unprefixed aliases: `CRUCIBLE_RELEASE_TAG`, `CRUCIBLE_GPG_HOMEDIR`,
+  `CRUCIBLE_PGP_KEY_ID`, `CRUCIBLE_TAGGER_NAME`, `CRUCIBLE_TAGGER_EMAIL`,
+  `CRUCIBLE_ALLOW_NON_MAIN`, `CRUCIBLE_REQUIRE_TAG`, `CRUCIBLE_DECERNOR_BIN`
+
+There is no precedence among these names. A refused name does not fall through
+to a required one
 ([PDR-0008](docs/decisions/PDR-0008-release-public-identity-in-tree.md) §2.4).
 
-> **Why `THREELEAPS_CRUCIBLE_`?** The prefix disambiguates this repository's release environment from other Crucible-style repositories and avoids generic environment variable names.
-
-Note: These are not secrets and typically aren't stored in encrypted env bundles.
+The `THREELEAPS_CRUCIBLE_` prefix is the name of this repository's release
+environment. These variables are not secrets and typically are not stored in
+encrypted env bundles.
 
 Install the checker from the digest pin rather than pointing at a copy found on `PATH`
 (use `darwin_arm64` or `linux_amd64` to match the host; both are pinned):
@@ -76,8 +87,10 @@ Type the tag rather than computing it: the guard then checks the stated intent a
   ```bash
   make release-guard-tag-version   # requires THREELEAPS_CRUCIBLE_RELEASE_TAG
   ```
-- [ ] Dry ceremony: the inputs refuse as expected before anything is signed. Each
-      command must **fail** with the quoted reason; a success here is a defect:
+- [ ] Dry ceremony, before anything is signed. Run each command below. Each
+      command must **fail**, and the failure text must include the quoted
+      string on that line. If a command succeeds, stop. That success is a
+      defect:
   ```bash
   env -u THREELEAPS_CRUCIBLE_RELEASE_TAG make release-tag        # "THREELEAPS_CRUCIBLE_RELEASE_TAG is required"
   RELEASE_TAG="${THREELEAPS_CRUCIBLE_RELEASE_TAG}" make release-tag   # "retired or unprefixed release variable set"
@@ -171,12 +184,18 @@ This verifies the local signature, requires the tagged commit to be on
 `origin/main` and the remote tag to be absent, pushes the tag ref, and confirms
 the remote tag object (and GitHub's verified flag, when `gh` is available).
 
-**Expect a bypass notice.** Tag creation is restricted by the `Tag Publish
-Protection` ruleset, and the maintainer pushes through the organization-admin
-bypass ([PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md)). The
-push output therefore reports bypassed rule violations ("creations being
-restricted"). That notice is expected. Its **absence** means the ruleset did
-not apply to the push: stop and check the ruleset before the release proceeds.
+**Expect a bypass notice.** After `make release-push-tag`, read the output
+before you treat the tag as pushed.
+
+The notice is present when the push output reports bypassed rule violations
+for the tag ref ("creations being restricted"). Tag creation is restricted by
+the `Tag Publish Protection` ruleset. The maintainer
+push uses the organization-admin bypass
+([PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md)), so the
+notice is the expected result.
+
+The notice is absent when the push prints no bypass line. The ruleset did
+not apply. Stop, and check the ruleset before the release proceeds.
 
 ## Post-Release
 
