@@ -26,6 +26,15 @@ relates-to:
 **Accepted.** Corrects a release-process defect that has recurred on consecutive
 releases. Implemented in the same change that files this record.
 
+**Proposed successor (2026-10-23):**
+[PDR-0010](PDR-0010-verified-immutable-release-publication.md) proposes a draft
+asset-verification and maintainer-controlled immutable publication profile.
+On acceptance and per-repository adoption, it replaces the automatic CI
+publication and no-normal-draft requirements within that scope while retaining
+the signature, tag-binding, protection, and published-state verification
+obligations. This record remains applicable until that adoption; its historical
+decision below is unchanged.
+
 ## Context
 
 Crucible publishes releases as signed git tags. `release.yml` triggers on tag
@@ -244,9 +253,10 @@ publishes. The manual undraft step is eliminated.**
 
 ## Revision History
 
-| Date       | Status Change | Summary                                                  | Updated By |
-| ---------- | ------------- | -------------------------------------------------------- | ---------- |
-| 2026-07-17 | → proposed    | Signed tag authorizes publication; CI verifies+publishes | cxotech    |
-| 2026-07-19 | → accepted    | Filed with its implementation; draft posture removed     | cxotech    |
-| 2026-07-20 | accepted      | Bind exact tag object; enforce ruleset and action pins   | secrev     |
-| 2026-07-20 | accepted      | Add signed policy attestation and read-only CI check     | secrev     |
+| Date       | Status Change | Summary                                                       | Updated By |
+| ---------- | ------------- | ------------------------------------------------------------- | ---------- |
+| 2026-07-17 | → proposed    | Signed tag authorizes publication; CI verifies+publishes      | cxotech    |
+| 2026-07-19 | → accepted    | Filed with its implementation; draft posture removed          | cxotech    |
+| 2026-07-20 | accepted      | Bind exact tag object; enforce ruleset and action pins        | secrev     |
+| 2026-07-20 | accepted      | Add signed policy attestation and read-only CI check          | secrev     |
+| 2026-10-23 | accepted      | Note proposed PDR-0010 successor and scoped adoption boundary | entarch    |
