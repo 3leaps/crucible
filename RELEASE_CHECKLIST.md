@@ -33,9 +33,13 @@ fails before side effects. Unset them rather than relying on precedence
 
 Note: These are not secrets and typically aren't stored in encrypted env bundles.
 
+Install the checker from the digest pin rather than pointing at a copy found on `PATH`
+(use `darwin_arm64` or `linux_amd64` to match the host; both are pinned):
+
 ```bash
+decernor_dir="$(mktemp -d)"
+export THREELEAPS_CRUCIBLE_DECERNOR_BIN="$(./scripts/release-fetch-decernor.sh darwin_arm64 "$decernor_dir")"
 export THREELEAPS_CRUCIBLE_RELEASE_TAG="vX.Y.Z"   # type the intended tag
-export THREELEAPS_CRUCIBLE_DECERNOR_BIN="/absolute/path/to/decernor"
 ```
 
 Type the tag rather than computing it: the guard then checks the stated intent against `VERSION`.
@@ -58,6 +62,12 @@ Type the tag rather than computing it: the guard then checks the stated intent a
   ```bash
   make release-guard-tag-ruleset
   ```
+- [ ] No retired release variable is exported in the release shell (any one, even
+      empty, fails every tag step):
+  ```bash
+  env | grep -E '^(RELEASE_TAG|DECERNOR_BIN|CRUCIBLE_[A-Z_]+|THREELEAPS_CRUCIBLE_REQUIRE_TAG)=' \
+    && echo "unset the variables above" || echo "[ok] no retired variables"
+  ```
 - [ ] The committed anchors match the committed public exports under the checker:
   ```bash
   make release-check-anchors
@@ -65,6 +75,13 @@ Type the tag rather than computing it: the guard then checks the stated intent a
 - [ ] Guard: the explicit tag matches `VERSION`:
   ```bash
   make release-guard-tag-version   # requires THREELEAPS_CRUCIBLE_RELEASE_TAG
+  ```
+- [ ] Dry ceremony: the inputs refuse as expected before anything is signed. Each
+      command must **fail** with the quoted reason; a success here is a defect:
+  ```bash
+  env -u THREELEAPS_CRUCIBLE_RELEASE_TAG make release-tag        # "THREELEAPS_CRUCIBLE_RELEASE_TAG is required"
+  RELEASE_TAG="${THREELEAPS_CRUCIBLE_RELEASE_TAG}" make release-tag   # "retired or unprefixed release variable set"
+  THREELEAPS_CRUCIBLE_DECERNOR_BIN=decernor make release-tag    # "must be an absolute path"
   ```
 
 ### Release surfaces
@@ -202,8 +219,12 @@ diagnosis.
 ```bash
 git fetch --tags origin
 git tag -v "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
+# needs THREELEAPS_CRUCIBLE_DECERNOR_BIN (see Variables)
 ./scripts/verify-pinned-tag.sh "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 ```
+
+Tags up to and including `v0.2.0` predate the current pin layout; verify one of
+those with the `scripts/verify-pinned-tag.sh` from that tag's own commit.
 
 **GitHub API** (CI-friendly):
 
@@ -240,11 +261,11 @@ same bytes across 3leaps repositories; copy them from a sibling rather than
 re-exporting. The anchors are never copied or typed: derive them from the
 committed exports with the checker. When the release key rotates:
 
-- [ ] Replace the exports, delete both anchor files, and re-derive them in the
-      same reviewed PR with `./scripts/release-derive-anchors.sh --write`
-      (it derives twice and refuses to overwrite)
-      **before** pushing the first tag signed by the new key (a stale pin fails
-      closed: the release stays unpublished and `verify-signature` is red)
+- [ ] Replace the exports, delete both anchor files, and re-derive them with
+      `./scripts/release-derive-anchors.sh --write` (it derives twice and refuses
+      to overwrite), all in one reviewed PR merged **before** pushing the first
+      tag signed by the new key (a stale pin fails closed: the release stays
+      unpublished and `verify-signature` is red)
 - [ ] Upload the new public key to the maintainer GitHub account (keeps the
       secondary account-linkage assertion and the Verified badge green)
 - [ ] The verifier accepts exactly one signing subkey, so the pin switches
@@ -284,10 +305,10 @@ deletion below:
 
 ```bash
 # Delete remote tag
-git push origin --delete v<VERSION>
+git push origin --delete "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 
 # Delete local tag
-git tag -d v<VERSION>
+git tag -d "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 
 # If VERSION file needs revert
 git revert <commit-hash>

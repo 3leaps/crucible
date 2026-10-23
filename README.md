@@ -75,8 +75,9 @@ This is a **reference-based model**—we don't sync standards into repositories.
 ├── config/                    # Configuration data (YAML/JSON, schema-validated)
 │   ├── agentic/
 │   │   └── roles/             # AI agent role prompts (20 definitions)
-│   └── classifiers/
-│       └── dimensions/        # Classifier dimension definitions (11 dimensions)
+│   ├── classifiers/
+│   │   └── dimensions/        # Classifier dimension definitions (11 dimensions)
+│   └── release/               # Tagger identity, release checker digest pins
 ├── docs/                      # Standards documentation
 │   ├── catalog/               # Reusable templates and indexes
 │   │   ├── classifiers/       # Classifier dimension catalog
@@ -88,6 +89,8 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   │   ├── rust.md            # Rust coding standards
 │   │   └── typescript.md      # TypeScript coding standards
 │   ├── decisions/             # Decision & governance records (the *DR family)
+│   ├── releases/              # Detailed release notes per version
+│   ├── security/              # Release signing pins and verifier guide
 │   ├── operations/
 │   │   ├── ci-baseline.md     # CI/CD patterns and gotchas
 │   │   └── upstream-sync-guide.md  # How to vendor crucible content
@@ -124,6 +127,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
 │   ├── segmented-snapshot/v0/ # Immutable snapshot publication and verification (proposed)
 │   └── service-job/v0/        # Portable service job contract
+├── keys/                      # Release key fingerprint anchors
 └── scripts/                   # Release and automation scripts
 ```
 
@@ -359,6 +363,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 ## Policies
 
 - Security policy and reporting: [SECURITY.md](SECURITY.md)
+- Verifying a release (signed tags, key pins): [docs/security/README.md](docs/security/README.md);
+  maintainers release with [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 - Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Governance policies: [3leaps/oss-policies](https://github.com/3leaps/oss-policies)
 
