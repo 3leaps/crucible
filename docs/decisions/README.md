@@ -71,7 +71,7 @@ Examples:
 | [PDR-0005](PDR-0005-adopt-fierce-collaboration-review.md)                  | Adopt the fierce-collaboration multi-agent review process              | proposed | 2026-07-23 |
 | [PDR-0006](PDR-0006-shipping-charter.md)                                   | Crucible ships no consumer-linked code                                 | accepted | 2026-07-28 |
 | [PDR-0007](PDR-0007-curate-role-catalog.md)                                | Curate the role catalog around proven decision boundaries              | accepted | 2026-08-19 |
-| [PDR-0008](PDR-0008-release-public-identity-in-tree.md)                   | Release public identity is committed, checked by one tool, bound explicitly | proposed | 2026-10-22 |
+| [PDR-0008](PDR-0008-release-public-identity-in-tree.md)                   | Release public identity is committed, checked by one tool, bound explicitly | accepted | 2026-10-22 |
 | [PDR-0010](PDR-0010-verified-immutable-release-publication.md)            | Verify staged assets before immutable release publication                  | proposed | 2026-10-23 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)            | Published Artifacts Carry an Integral Dependency Graph                 | accepted | 2026-07-22 |
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)                        | Gates Assert on Resolved State and Are Proven Able to Fail             | accepted | 2026-07-20 |

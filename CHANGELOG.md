@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **PDR-0008 is accepted.** Its proof is `v0.2.1`, the first release tagged
+  under the adopted ceremony: the tag workflow and an independent verification
+  both checked the committed pins with the digest-pinned checker and the
+  signature against the pinned subkey.
 - **The default GPG keyring is never used.** `release-tag` requires
   `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`, an absolute path to a dedicated,
   non-symlink keyring; an unset value, a path that resolves to the default
