@@ -12,6 +12,11 @@
 #   THREELEAPS_CRUCIBLE_DECERNOR_BIN, an absolute path to a regular,
 #   executable, non-symlink decernor >= RELEASE_DECERNOR_MIN_VERSION. There is
 #   no fallback to PATH or to another variable.
+# - require_signing_keyring: set RELEASE_GNUPGHOME from
+#   THREELEAPS_CRUCIBLE_GPG_HOMEDIR, a dedicated signing keyring. The default
+#   keyring is never used: an unset value, the default location (however it
+#   is spelled), a symlink, or an inherited GNUPGHOME naming a different
+#   directory is refused.
 
 RELEASE_DECERNOR_MIN_VERSION="0.1.8"
 
@@ -105,4 +110,34 @@ resolve_release_decernor() {
     done
     # shellcheck disable=SC2034 # Consumed by scripts that source this file.
     RELEASE_DECERNOR_BIN="$candidate"
+}
+
+require_signing_keyring() {
+    local homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}" resolved default_home
+    if [[ -z "$homedir" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_GPG_HOMEDIR is required; the default GPG keyring is never used" >&2
+        echo "hint: point it at a dedicated signing keyring, such as a throwaway directory you remove afterwards" >&2
+        return 1
+    fi
+    if ! [[ "$homedir" == /* && -d "$homedir" && ! -L "$homedir" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_GPG_HOMEDIR must be an absolute path to an existing, non-symlink directory" >&2
+        return 1
+    fi
+    resolved="$(cd "$homedir" && pwd -P)"
+    if [[ -n "${HOME:-}" && -d "$HOME/.gnupg" ]]; then
+        default_home="$(cd "$HOME/.gnupg" && pwd -P)"
+        if [[ "$resolved" == "$default_home" ]]; then
+            echo "error: THREELEAPS_CRUCIBLE_GPG_HOMEDIR resolves to the default GPG keyring; use a dedicated keyring" >&2
+            return 1
+        fi
+    fi
+    if [[ -n "${GNUPGHOME:-}" ]]; then
+        if ! [[ -d "$GNUPGHOME" ]] || [[ "$(cd "$GNUPGHOME" && pwd -P)" != "$resolved" ]]; then
+            echo "error: GNUPGHOME is set to a different directory than THREELEAPS_CRUCIBLE_GPG_HOMEDIR" >&2
+            echo "hint: unset GNUPGHOME, or set it to the same keyring" >&2
+            return 1
+        fi
+    fi
+    # shellcheck disable=SC2034 # Consumed by scripts that source this file.
+    RELEASE_GNUPGHOME="$resolved"
 }

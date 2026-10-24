@@ -52,7 +52,8 @@ signing="$(gpg --batch --with-colons --with-subkey-fingerprint --list-keys "$pri
 # --- fixture repository -------------------------------------------------------
 repo="$work/repo"
 mkdir -p "$repo/scripts" "$repo/docs/security" "$repo/config/release" "$repo/keys"
-for script in release-env.sh release-verify-anchors.sh release-derive-anchors.sh verify-pinned-tag.sh; do
+for script in release-env.sh release-verify-anchors.sh release-derive-anchors.sh verify-pinned-tag.sh \
+    release-verify-tag.sh; do
     cp "$root/scripts/$script" "$repo/scripts/$script"
 done
 gpg --batch --armor --export "$primary" >"$repo/docs/security/release-signing-keys.asc"
@@ -116,6 +117,37 @@ label="committed anchors re-derive" && if (cd "$repo" && THREELEAPS_CRUCIBLE_DEC
 else
     fail "$label: $(cat "$work/err")"
 fi
+
+# --- the ambient keyring is never consulted ---------------------------------
+# An ambient keyring holding a key outside the pin, which signed a forged tag,
+# must not make that tag verify; an empty ambient keyring must not stop the
+# pinned tag verifying. Run through the release-verify-tag.sh entry point.
+mkdir -m 700 "$work/rogue-gnupg" "$work/empty-gnupg"
+GNUPGHOME="$work/rogue-gnupg" gpg --batch --quiet --passphrase '' \
+    --quick-generate-key "$tagger_name <$tagger_email>" ed25519 sign 1d 2>/dev/null
+rogue="$(GNUPGHOME="$work/rogue-gnupg" gpg --batch --with-colons --list-keys "$tagger_email" |
+    awk -F: '$1=="fpr" {print $10; exit}')"
+GNUPGHOME="$work/rogue-gnupg" git_fixture -c gpg.program=gpg tag -s -a v1.0.8 -u "$rogue!" -m "Release v1.0.8"
+entry() {
+    local tag="$1" ambient="$2"
+    rc=0
+    (cd "$repo" && env -i PATH="$PATH" HOME="$work" GNUPGHOME="$ambient" \
+        THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" THREELEAPS_CRUCIBLE_RELEASE_TAG="$tag" \
+        ./scripts/release-verify-tag.sh) >"$work/out" 2>"$work/err" || rc=$?
+}
+entry v1.0.0 "$work/empty-gnupg"
+if ((rc == 0)); then pass "pinned tag with an empty ambient keyring: accepted"; else
+    fail "pinned tag with an empty ambient keyring: refused: $(cat "$work/err")"
+fi
+entry v1.0.8 "$work/rogue-gnupg"
+if ((rc == 0)); then
+    fail "tag signed by an ambient-only key: accepted"
+elif ! grep -q "tag signature invalid under pin\|not a single good signature by the pinned signing subkey" "$work/err"; then
+    fail "tag signed by an ambient-only key: refused for the wrong reason: $(cat "$work/err")"
+else
+    pass "tag signed by an ambient-only key: refused"
+fi
+gpgconf --homedir "$work/rogue-gnupg" --kill all >/dev/null 2>&1 || true
 
 # --- checker binding at verify time -------------------------------------------
 label="verify without a checker" expect_refused "THREELEAPS_CRUCIBLE_DECERNOR_BIN is required" v1.0.0 \

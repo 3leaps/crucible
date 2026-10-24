@@ -12,7 +12,6 @@
 # - THREELEAPS_CRUCIBLE_RELEASE_TAG: the tag to push (required; never derived)
 # - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
 #     (required; see scripts/release-env.sh)
-# - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 #
 # Retired names (refused): RELEASE_TAG and the unprefixed CRUCIBLE_* aliases.
 

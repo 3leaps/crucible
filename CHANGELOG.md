@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The default GPG keyring is never used.** `release-tag` requires
+  `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`, an absolute path to a dedicated,
+  non-symlink keyring; an unset value, a path that resolves to the default
+  keyring, or an inherited `GNUPGHOME` naming a different directory is refused
+  before any side effect. `release-verify-tag` no longer runs a check against
+  the ambient keyring; it uses only the pinned check, which imports the
+  committed pin into a throwaway keyring. Negative controls cover each refusal,
+  and an end-to-end control proves that verification ignores the ambient
+  keyring.
+- **Release targets use one naming pattern.** The `release-tag-push` alias is
+  removed; use `make release-push-tag`.
+
 ### Fixed
 
 - **The durable-queue reference model keeps a fractional `clock_start`.** Its
