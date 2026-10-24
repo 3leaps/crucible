@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "found 0" rulesets. The guard now stops with a message that the ruleset was
   not checked and the credential is the likely cause, and a negative control
   covers both reads.
+- **`release-push-tag` separates a pushed tag from an unreadable verified
+  flag.** After the push and the remote-object match, a failure to read
+  GitHub's verified flag is reported as such, with a warning not to push or
+  delete the tag again; an explicit "not verified" stays an error. The
+  repository is no longer looked up through `gh`.
 
 ## [0.2.1] - 2026-10-23
 

@@ -249,6 +249,7 @@ contract-tools: ## Fail closed when a required contract-validation tool is missi
 test: test-bootstrap-engine-verification test-check-attribution test-portability test-contract-shards ## Run release-control and attribution-footer tests
 	@./scripts/test-release-env.sh
 	@./scripts/test-release-fetch-decernor.sh
+	@./scripts/test-release-github-verified.sh
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
