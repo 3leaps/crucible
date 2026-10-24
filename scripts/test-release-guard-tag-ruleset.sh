@@ -130,6 +130,48 @@ if [[ "$binary_ruleset" != "$valid_ruleset" ]]; then
     echo 'error: binary-mode ruleset ID control failed' >&2
     exit 1
 fi
+# A failed GitHub read (for example an authentication error) must refuse as a
+# read failure, never parse as an empty ruleset list.
+expect_read_failure() {
+    local description="$1" failing_call="$2" output
+    if output="$(
+        gh() {
+            case "${*: -1}" in
+                'repos/3leaps/crucible/rulesets?per_page=100')
+                    [ "$failing_call" = list ] && {
+                        echo 'gh: Bad credentials (HTTP 401)' >&2
+                        return 1
+                    }
+                    printf '%s\n' '[[{"id":123,"name":"Tag Publish Protection"}]]'
+                    ;;
+                repos/3leaps/crucible/rulesets/123)
+                    [ "$failing_call" = detail ] && {
+                        echo 'gh: Bad credentials (HTTP 401)' >&2
+                        return 1
+                    }
+                    printf '%s\n' "$valid_ruleset"
+                    ;;
+                *) return 2 ;;
+            esac
+        }
+        resolve_live_ruleset 2>&1
+    )"; then
+        echo "error: ${description} was accepted" >&2
+        exit 1
+    fi
+    if ! grep -q 'could not read .* from GitHub; the ruleset was not checked' <<<"$output"; then
+        echo "error: ${description} refused for the wrong reason: ${output}" >&2
+        exit 1
+    fi
+    if grep -q 'found 0' <<<"$output"; then
+        echo "error: ${description} was reported as a missing ruleset" >&2
+        exit 1
+    fi
+    echo "[ok] rejected: ${description}"
+}
+expect_read_failure "failed ruleset list read" list
+expect_read_failure "failed ruleset detail read" detail
+
 if ! [[ "${policy_attestation}" =~ ^Tag-Publish-Policy-SHA256:\ [0-9a-f]{64}$ ]]; then
     echo "error: malformed expected policy attestation" >&2
     exit 1

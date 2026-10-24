@@ -73,6 +73,17 @@ Type the tag rather than computing it: the guard then checks the stated intent a
   ```bash
   make release-guard-tag-ruleset
   ```
+  If this step, or `make release-tag`, reports that it could not read the
+  ruleset from GitHub, the credential `gh` is using was rejected or lacks
+  access; the ruleset itself was not checked. `gh` uses `GH_TOKEN` or
+  `GITHUB_TOKEN` when either is set, and its stored login otherwise. A token
+  can be set without your noticing, for example by a per-directory environment
+  such as a direnv `.envrc`. Check with `gh auth status` in the same
+  environment. To use the stored login for one
+  command without changing your shell:
+  ```bash
+  env -u GH_TOKEN -u GITHUB_TOKEN make release-guard-tag-ruleset
+  ```
 - [ ] No retired release variable is exported in the release shell (any one, even
       empty, fails every tag step):
   ```bash

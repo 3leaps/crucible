@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carry at the ledger `at`, `lease_until` and `not_before` endpoints, and a
   mutation control requires the old formatting to fail it. The existing vectors
   are unchanged.
+- **The tag-ruleset guard reports a failed GitHub read as a read failure.** An
+  authentication error from `gh` produced empty output that was reported as
+  "found 0" rulesets. The guard now stops with a message that the ruleset was
+  not checked and the credential is the likely cause, and a negative control
+  covers both reads.
 
 ## [0.2.1] - 2026-10-23
 
