@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The durable-queue reference model keeps a fractional `clock_start`.** Its
+  timestamp formatting took the fraction from `at_ms` alone, so a non-whole-second
+  `clock_start` lost its fraction or carried wrongly; the contract already
+  derives each instant from `clock_start` plus `at_ms`. The model now formats the
+  computed instant. A new `fractional-clock-start-carry` vector exercises second
+  carry at the ledger `at`, `lease_until` and `not_before` endpoints, and a
+  mutation control requires the old formatting to fail it. The existing vectors
+  are unchanged.
+
 ## [0.2.1] - 2026-10-23
 
 ### Changed
