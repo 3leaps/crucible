@@ -3,14 +3,25 @@
 #
 # Stubs gh to prove check_github_verified distinguishes a verified tag, a
 # failed read of an already-pushed tag, an explicit "not verified", and a
-# missing gh. Needs no network and pushes nothing.
+# missing gh. Needs no network and pushes nothing. The check runs with PATH
+# set to a controlled directory only, so a gh installed on the host is never
+# found or invoked.
 
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+bash_bin="$(command -v bash)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-mkdir "$work/bin"
+mkdir "$work/bin" "$work/sysbin"
+
+# Stands in for a gh installed on the host; it must never run.
+cat >"$work/sysbin/gh" <<EOF
+#!$bash_bin
+echo SYSTEM_GH_WAS_INVOKED >&2
+exit 91
+EOF
+chmod 755 "$work/sysbin/gh"
 
 failures=0
 pass() { echo "[ok] $1"; }
@@ -24,7 +35,7 @@ run() {
     rm -f "$work/bin/gh"
     if [[ "$1" != absent ]]; then
         cat >"$work/bin/gh" <<EOF
-#!/usr/bin/env bash
+#!$bash_bin
 case "$1" in
   verified) echo true ;;
   unverified) echo false ;;
@@ -34,7 +45,7 @@ EOF
         chmod 755 "$work/bin/gh"
     fi
     rc=0
-    env -i PATH="$work/bin:/usr/bin:/bin" bash -c \
+    env -i PATH="$work/bin" "$bash_bin" -c \
         'source "$1"; check_github_verified v9.9.9 0123456789abcdef0123456789abcdef01234567' \
         _ "$root/scripts/release-github-verified.sh" >"$work/out" 2>"$work/err" || rc=$?
 }
@@ -71,6 +82,16 @@ if ((rc == 0)) && grep -q 'was not checked' "$work/out"; then
     pass "gh absent: check reported as skipped"
 else
     fail "gh absent: rc=$rc $(cat "$work/out" "$work/err")"
+fi
+
+# A gh on the caller's PATH must not leak into the absent case.
+PATH="$work/sysbin:$PATH" run absent
+if grep -q SYSTEM_GH_WAS_INVOKED "$work/out" "$work/err"; then
+    fail "gh absent with a host gh: the host gh was invoked"
+elif ((rc == 0)) && grep -q 'was not checked' "$work/out"; then
+    pass "gh absent with a host gh: host gh not used, check reported as skipped"
+else
+    fail "gh absent with a host gh: rc=$rc $(cat "$work/out" "$work/err")"
 fi
 
 if ((failures)); then
