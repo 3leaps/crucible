@@ -52,6 +52,7 @@ schema: "contract:taxonomy/v0/repo-declaration.schema.json"
 class: prims            # prims | bolt | wit | voy | presser
 profile: B              # prims only: A (Rust core) | B (dual Go + Rust)
 profile_status: bootstrapping   # B only: bootstrapping (operating tree named in README) | locked
+leaf: false             # prims only: true = depends on no other prim, enforced by a CI dependency check (§4.1)
 category: library       # fulmen repository-categories key; MUST equal .fulmen/app.yaml metadata.repository_category if present
 env_prefix: EXAMPLEPRIMS_
 umbrella_prefix: null   # optional, e.g. LANYTE_ for family-shared variables only
@@ -75,7 +76,7 @@ holds generated SSOT sync metadata in consumer repos.
 | C3 | Env vars use `<NAME>_` | every env var name read in source starts with `env_prefix` or the declared `umbrella_prefix` |
 | C4 | Minimum Make targets | `make -n` succeeds for the targets in `docs/repository/makefile-minimum.md` |
 | C5 | Any CLI separates data and diagnostics, and offers JSON | `<bin> version --extended` exits 0; `<bin> <verb> --format json 2>/dev/null` parses and validates against `schemas/` |
-| C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL, so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged. Repos that today carry a root module plus a nested `bindings/go/<name>` module with dual tags keep that layout as a declared extension (`scope: legacy-go-module`) until their migration is decided; C6 does not block their releases in the meantime |
+| C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL, so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged. Repos that today carry nested Go modules (a cgo `bindings/go/<name>` module beside a root module, or a pure-Go tree under `go/<pkg>` with its own tag prefix) keep that layout as a declared extension (`scope: legacy-go-module`) until their migration is decided; C6 does not block their releases in the meantime. A Profile B prim that has not yet tagged puts its Go tree at the root now, while the move is cheap |
 | C7 | Signed release | *(pre-release only)* `CHANGELOG.md`, `RELEASE_NOTES.md` and `RELEASE_CHECKLIST.md` present; the tag is annotated and signed (`git tag -v`); assets carry checksums, a detached signature and an SBOM |
 | C8 | No secrets in the repo | no tracked `.env*` other than `.env.example`; the secret scan passes |
 
@@ -120,7 +121,7 @@ release-notes entry, not a silent change.
 | P4 | Contract pin | `contract/PIN` (or equivalent) names the crucible schema version when a crucible contract is implemented |
 | P5 | No daemon, no server | no `serve` verb; `surfaces` excludes daemon and http |
 | P6 | Permissive licence, gated deps | LICENSE is MIT and/or Apache-2.0; `deny.toml` (Rust) or equivalent licence gate is present |
-| P7 | Sibling prims as dependencies | every dependency on another prim is a tagged version; no sibling implementation type appears in the public API, `contract/` or `conformance/`; a Profile B Go tree depends only on cgo-free Go modules; any per-tree gap is an explicit `unsupported` vector (§4.1) |
+| P7 | Sibling prims as dependencies | at the first public release every prim dependency is a tagged version (exact-commit pins allowed before it); an exported-API scan per tree shows no sibling package or crate path (Go: exported identifiers and their import paths, e.g. `go doc -all` or `apidiff`; Rust: `cargo public-api`); a Profile B Go tree depends only on cgo-free Go modules; any per-tree gap is an `extensions` entry and an explicit `unsupported` vector; a `leaf: true` prim's dependency check passes; the prim graph has no cycle (§4.1) |
 
 MUST NOT (stated, not mechanically checked): hold application policy, recipes, scheduling or operations; expose backend
 or third-party types in the contract.
@@ -128,10 +129,13 @@ or third-party types in the contract.
 ### 4.1 Depending on another prim
 
 A prim MAY depend on a sibling prim. Reuse is the point of the family; a second implementation of a primitive that a
-sibling already provides is the failure this class exists to prevent. Three rules keep the dependency honest:
+sibling already provides is the failure this class exists to prevent. Four rules keep the dependency honest:
 
-1. **Pinned and public first.** The dependency is a tagged release of the sibling, never a branch or an unpinned path.
-   The sibling MUST be public before the dependent's own first public release.
+1. **Pinned and public first.** At the dependent's first public release and after, the dependency is a tagged
+   release of the sibling, never a branch or an unpinned path, and the sibling MUST already be public. Before that
+   release a dependent MAY pin a private sibling at an exact commit, recorded the same way as a contract pin
+   (repository, commit, digest), so development on two unreleased prims can proceed. P7 checks the tag at release,
+   not on every PR.
 2. **No sibling types in the contract.** The dependent's public API, `contract/` and `conformance/` expose none of the
    sibling's implementation or package-specific types. For this rule a separately versioned sibling prim is third-party
    under the §4 MUST NOT. Wrap it; do not re-export it. Referencing the sibling's public algorithm, a neutral schema it
@@ -142,7 +146,13 @@ sibling already provides is the failure this class exists to prevent. Three rule
    MUST NOT reimplement the sibling's logic in Go to close the gap. A declared gap is a per-tree capability
    difference: the shared vectors test the common semantics in both trees and test the gap as an explicit
    `unsupported` refusal on the tree that lacks it. They never grade one tree against behaviour only the other has, and
-   the prim's declared profile or capability report advertises the difference.
+   the prim's declared profile or capability report advertises the difference. The gap is listed in `.fulmen/repo.yaml`
+   `extensions` with the tree that has the capability (`scope: rust-only` or `go-only`), and that capability alone is
+   scoped out of the cross-tree byte-identical requirement in P3. The rest of the suite still holds for both trees.
+4. **Leaves and no cycles.** The prim dependency graph MUST be acyclic. A prim MAY declare `leaf: true`: it depends on
+   no other prim, and a dependency check in its CI fails on any prim import. Foundation prims (canonical bytes,
+   identity, digests) SHOULD be leaves; a leaf is what makes depending on a prim safe. A non-leaf prim allow-lists the
+   siblings it uses, per tree, and the same check fails on any other prim import.
 
 Example: a record store prim that adds an object-storage stratum depends on storageprims in its Rust tree. Its Go
 tree ships the filesystem stratum and declares object storage as a Go-side gap until a pure-Go storageprims exists.

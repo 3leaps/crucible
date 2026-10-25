@@ -50,17 +50,22 @@ is Rust-core-only?
    authors vector expectations as data rather than snapshotting them from the
    operating tree. The same-PR lockstep rule for both trees starts when the
    repo declares both trees operating.
-3. **Prims may depend on sibling prims** under three rules: the sibling is
-   pinned at a tagged release and is public before the dependent's own first
-   public release; no sibling implementation or package-specific type appears
-   in the dependent's public API, contract or conformance vectors (a sibling's
-   public algorithm, a neutral schema, or a byte-level expected result may be
-   referenced); and a Profile B pure-Go tree depends only on cgo-free Go
-   modules, so a Profile A sibling serves the Rust tree only. When the Go tree
-   needs the same capability, the sibling grows a pure-Go tree or the dependent
-   declares the gap as a per-tree capability difference, tested as an explicit
-   unsupported refusal and advertised in its profile. The dependent does not
-   reimplement the sibling's logic to close it.
+3. **Prims may depend on sibling prims** under four rules. The sibling is
+   pinned at a tagged release and is public by the dependent's own first
+   public release; before that, an exact-commit pin of a private sibling is
+   allowed. No sibling implementation or package-specific type appears in the
+   dependent's public API, contract or conformance vectors (a sibling's public
+   algorithm, a neutral schema, or a byte-level expected result may be
+   referenced), checked by an exported-API scan per tree. A Profile B pure-Go
+   tree depends only on cgo-free Go modules, so a Profile A sibling serves the
+   Rust tree only; when the Go tree needs the same capability, the sibling
+   grows a pure-Go tree or the dependent declares the gap as a per-tree
+   capability difference in its repo declaration, tested as an explicit
+   unsupported refusal, advertised in its profile, and scoped out of the
+   cross-tree byte-identical requirement for that capability alone. The
+   dependent does not reimplement the sibling's logic to close it. The prim
+   dependency graph is acyclic; a prim may declare itself a leaf, enforced by a
+   dependency check, and foundation prims should be leaves.
 
 ## Consequences
 
