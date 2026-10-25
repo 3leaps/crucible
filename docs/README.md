@@ -71,6 +71,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [durable-record-v1-contract.md](standards/durable-record-v1-contract.md) - Experimental retained-record tombstoning and export restrictions
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
 - [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
+- [repository-classes.md](standards/repository-classes.md) - Repository classes (prims, bolts, wits, voys, pressers): who calls it, per-class checks, prim profiles and sibling dependencies (draft)
 - [recurrence-rule-contract.md](standards/recurrence-rule-contract.md) - Proposed RFC 5545 recurrence rule subset, expansion semantics, and pinned conformance corpus
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [project-work-contract.md](standards/project-work-contract.md) - Portable ready-packet, project-state, control-record, and progress-ledger contract

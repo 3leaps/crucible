@@ -1,0 +1,220 @@
+---
+title: "Repository Classes: prims, bolts, wits and voys"
+description: "Pick a repo's class by who calls it; per-class MUST characteristics with observable checks, a repo declaration and a new-repo template; pressers as an adjacent class"
+category: "standards"
+status: "draft"
+version: "0.1.0"
+lastUpdated: "2026-10-25"
+maintainer: "core-standards"
+reviewers: ["devlead", "entarch", "cxotech"]
+approvers: ["lead-maintainer"]
+tags: ["repository", "taxonomy", "naming", "prims", "bindings", "conformance", "dependencies"]
+content_license: "CC0"
+supervised_by: "@3leapsdave"
+relatedDocs:
+  - "docs/decisions/ADR-0018-prims-multi-language-commitment.md"
+  - "docs/repository/makefile-minimum.md"
+  - "https://github.com/fulmenhq/crucible/blob/main/config/taxonomy/repository-categories.yaml"
+  - "https://github.com/fulmenhq/crucible/blob/main/docs/architecture/fulmen-forge-workhorse-standard.md"
+  - "https://github.com/fulmenhq/crucible/blob/main/docs/architecture/fulmen-forge-microtool-standard.md"
+audience: "maintainers"
+---
+
+# Repository Classes
+
+MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119. This spec adds a **class layer** over the fulmen
+repository categories and forge standards. Where those already cover a requirement, they are linked, not repeated.
+
+## 1. The test: who calls it?
+
+Pick the class by its **primary caller**, not by language, size or how the brand sounds.
+
+| Class | Name | Primary caller | Fulmen category (base) | Public examples |
+|---|---|---|---|---|
+| **prims** | `<noun>prims` | another program, **in-process** (import, FFI, binding) | `library` | sysprims, ipcprims, docprims, waitprims, yamlprims |
+| **bolt** | `<noun>bolt` | a human or agent running **one command** that does one thing and returns | `cli` | refbolt |
+| **wit** | `<noun>wit` | an operator or automation that relies on the tool's **know-how for one job** | `microtool` (+ declared extensions) | spanwit, gearwit |
+| **voy** | `<noun>voy` | **other actors** who submit work and **wait on it** through a long-running service | `workhorse` (or `service`) | chanvoy |
+| presser *(adjacent)* | `<subject>presser` | maintainers and CI qualifying a subject; **never a production caller** | `cli` | none public yet |
+
+A repo has exactly one class. A thin CLI over a prim does not make it a bolt. A one-shot mode of a voy does not make it a
+bolt. Unsuffixed operator CLIs are outside these classes. Choose unsuffixed on its merits, never to dodge a class decision.
+
+## 2. Repo declaration
+
+Every classed repo MUST carry `.fulmen/repo.yaml`. Its schema is planned at
+`schemas/taxonomy/v0/repo-declaration.schema.json`; until it ships, the class check reads the file as shown:
+
+```yaml
+# .fulmen/repo.yaml: what this repo claims to be. The class check validates against this file.
+schema: "contract:taxonomy/v0/repo-declaration.schema.json"
+class: prims            # prims | bolt | wit | voy | presser
+profile: B              # prims only: A (Rust core) | B (dual Go + Rust)
+category: library       # fulmen repository-categories key; MUST equal .fulmen/app.yaml metadata.repository_category if present
+env_prefix: EXAMPLEPRIMS_
+umbrella_prefix: null   # optional, e.g. LANYTE_ for family-shared variables only
+surfaces: [library, cli]            # any of: library, cli, daemon, pane, tui, http
+bindings: {rust: shipped, go: shipped, typescript: planned, python: planned}   # prims only
+extensions:             # anything beyond the class or fulmen base; each one is named and justified
+  - id: go-mmap-reader
+    scope: go-only
+    reason: "capability only Go's runtime provides here"
+```
+
+`.fulmen/` is used because fulmen app identity (`.fulmen/app.yaml`) already lives there. `.crucible/` is not used: it
+holds generated SSOT sync metadata in consumer repos.
+
+## 3. Common MUST characteristics (all classes)
+
+| # | MUST | Observable check |
+|---|---|---|
+| C1 | Declare the class | `.fulmen/repo.yaml` validates; the name suffix matches `class` |
+| C2 | VERSION is the single version source | root `VERSION` is bare semver (no `v`); `make version` prints it; Cargo/npm/PyPI/embedded versions equal it |
+| C3 | Env vars use `<NAME>_` | every env var name read in source starts with `env_prefix` or the declared `umbrella_prefix` |
+| C4 | Minimum Make targets | `make -n` succeeds for the targets in `docs/repository/makefile-minimum.md` |
+| C5 | Any CLI separates data and diagnostics, and offers JSON | `<bin> version --extended` exits 0; `<bin> <verb> --format json 2>/dev/null` parses and validates against `schemas/` |
+| C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL, so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged |
+| C7 | Signed release | *(pre-release only)* `CHANGELOG.md`, `RELEASE_NOTES.md` and `RELEASE_CHECKLIST.md` present; the tag is annotated and signed (`git tag -v`); assets carry checksums, a detached signature and an SBOM |
+| C8 | No secrets in the repo | no tracked `.env*` other than `.env.example`; the secret scan passes |
+
+SHOULD (guidance, not checked): `doctor` and `docs list|show` from embedded, generated docs; exit codes and signals as
+in the fulmen helper libraries; `LIFECYCLE_PHASE`.
+
+## 4. prims: contract-first libraries with a multi-language commitment (normative)
+
+A prims repo is a library whose public, versioned **contract** (schemas, documented semantics, conformance vectors) is
+the product. Programs call it in-process. A CLI MAY exist only as a thin diagnostic surface over the same library. It is
+never a second implementation. Every prim MUST be consumable from **Rust, Go, TypeScript and Python**. A binding not yet
+shipped MUST be on the roadmap, with its package name reserved.
+
+**Profile A: Rust core (default).** One Rust core. Go uses cgo over the prims JSON C-ABI (error code return, JSON
+string out, thread-local last error, caller-freed strings, options as JSON), with prebuilt static libraries per platform.
+TypeScript uses napi-rs. Python uses **PyO3/maturin**. All bindings come from the core and MUST NOT re-implement logic.
+Choose A whenever consumers can live with cgo.
+
+**Profile B: dual implementation.** Choose B when pure Go is required (no cgo). Use ONE repo with **locked parallel
+native implementations** in pure Go and Rust, under the same contract, docs and decision records, passing one shared
+conformance suite. A language-only capability is allowed only as a declared **extension** (§2), and it MUST NOT change
+shared behaviour. TypeScript (napi-rs) and Python (PyO3/maturin) come from the Rust implementation. Both implementations
+share **one version and one tag** (C6). A contract or behaviour change lands only with both implementations and the
+shared tests changed **in the same PR**. Layout: root `go.mod` + Go packages, `crates/`, `conformance/`
+(language-neutral vectors) and `contract/` (pinned crucible schemas). The first Profile B prim is a planned record-store
+prim implementing `durable-record/v1`.
+
+| # | MUST | Observable check |
+|---|---|---|
+| P1 | Four-language commitment | `bindings` in repo.yaml lists rust, go, typescript and python as `shipped` or `planned`; each `planned` one has a reserved package name in the README |
+| P2 | A: bindings generated from the core | `ffi/` has a C header; TS `package.json` builds with napi-rs; `pyproject.toml` has `build-backend = "maturin"` |
+| P3 | B: shared conformance | `conformance/` exists; CI runs it under both `go test` and `cargo test`; a PR changing `contract/` or `conformance/` touches both trees |
+| P4 | Contract pin | `contract/PIN` (or equivalent) names the crucible schema version when a crucible contract is implemented |
+| P5 | No daemon, no server | no `serve` verb; `surfaces` excludes daemon and http |
+| P6 | Permissive licence, gated deps | LICENSE is MIT and/or Apache-2.0; `deny.toml` (Rust) or equivalent licence gate is present |
+| P7 | Sibling prims as dependencies | every dependency on another prim is a tagged version; no sibling type appears in the public API, `contract/` or `conformance/`; a Profile B Go tree depends only on cgo-free Go modules (§4.1) |
+
+MUST NOT (stated, not mechanically checked): hold application policy, recipes, scheduling or operations; expose backend
+or third-party types in the contract.
+
+### 4.1 Depending on another prim
+
+A prim MAY depend on a sibling prim. Reuse is the point of the family; a second implementation of a primitive that a
+sibling already provides is the failure this class exists to prevent. Three rules keep the dependency honest:
+
+1. **Pinned and public first.** The dependency is a tagged release of the sibling, never a branch or an unpinned path.
+   The sibling MUST be public before the dependent's own first public release.
+2. **No sibling types in the contract.** The dependent's public API, `contract/` and `conformance/` expose none of the
+   sibling's types. For this rule a sibling prim is third-party. Wrap it; do not re-export it.
+3. **Profile compatibility per tree.** A Profile B prim's pure-Go tree MAY depend only on Go modules that need no cgo.
+   A Profile A sibling therefore serves the Rust tree only. When the Go tree needs the same capability, either the
+   sibling grows a pure-Go tree (becomes Profile B) or the dependent declares the gap for Go consumers. The dependent
+   MUST NOT reimplement the sibling's logic in Go to close the gap.
+
+Example: a record store prim that adds an object-storage stratum depends on storageprims in its Rust tree. Its Go
+tree ships the filesystem stratum and declares object storage as a Go-side gap until a pure-Go storageprims exists.
+
+## 5. bolts: one fast do
+
+A CLI that does one thing, quickly, for humans and agents equally, then exits. It is Go or Rust, shipped as a single
+host binary. It fails closed on uncertain permission, identity or output safety. A bolt MAY ship a library for its own CLI.
+If another program needs that library, extract a prim. A bolt MAY run a **helper process that serves only its one
+capability** (e.g. an OS-permission capture host), declared in `extensions`.
+
+| # | MUST | Observable check |
+|---|---|---|
+| B1 | One capability | `<bin> --help` lists one capability verb (plus reserved `version`, `doctor`, `docs`) |
+| B2 | No waiting, no daemon | no `serve` or `watch` verb; any helper process is declared in `extensions` with `scope: helper` |
+| B3 | Pure stdout | C5 holds for the capability verb |
+
+## 6. wits: single-purpose know-how
+
+A wit is a **single-purpose know-how tool**. It owns one job with domain judgement (e.g. disk reclamation). It is
+**CLI-first**, and it MAY add a daemon (`<name>d`), a pane or a TUI. All surfaces share one operation model. Base: the
+fulmen microtool standard (single purpose, helper library, exit codes, signals, `.fulmen/app.yaml`). A daemon,
+local IPC endpoint or client library for the wit's own daemon is a declared **extension** of microtool. It does not move
+the wit to `workhorse`.
+
+| # | MUST | Observable check |
+|---|---|---|
+| W1 | Dry run by default | each mutating verb run without `--execute` exits 0, reports a plan and changes nothing |
+| W2 | Surface parity | every surface in `surfaces` lists the same operation set (`<bin> ops --format json` = `<bin>d` `ops.list` = library operation table) |
+| W3 | App identity | `.fulmen/app.yaml` validates; `env_prefix` equals repo.yaml |
+| W4 | Extensions declared | any daemon, pane, TUI or exported package appears in `extensions` |
+
+SHOULD: every mutation emits a receipt that separates requested, approved, attempted and observed.
+MUST NOT: become a gateway others queue on (voy), become the library others build on (prim), or grow a second job.
+
+## 7. voys: workhorse gateways and brokers
+
+A long-running service that **other actors call and wait on**: a gateway, broker, plane or policy enforcement point. It
+admits requests, applies policy, routes to drivers or workers and keeps durable receipts. Base: the fulmen workhorse
+standard (`serve`, loopback-by-default host, health, version, metrics and request IDs for HTTP, control/data plane split).
+A voy MAY offer a one-shot CLI mode. A voy that today ships CLI-plus-audit and has no `serve` is **catching up**: it holds
+the class and owes V1 to V3 by its next minor release.
+
+| # | MUST | Observable check |
+|---|---|---|
+| V1 | Service entry point | `<bin> serve --help` exits 0 (or a `<name>d` binary exists) |
+| V2 | Local by default | the default bind is a Unix socket or `127.0.0.1` (`<bin> doctor` or `envinfo` shows it) |
+| V3 | Surface parity | library, CLI and control plane list the same operation set (as W2) |
+| V4 | Receipts are a contract | a receipt schema exists under `schemas/`, separating admitted, accepted and observed |
+| V5 | No vendor credentials at rest | the secret scan passes; config schemas carry no credential fields with defaults |
+
+MUST NOT: run the agent or harness it fronts, or decide for it; re-implement a primitive that a prim provides.
+
+## 8. pressers: qualification harnesses (adjacent)
+
+Stress, scale, fault and conformance-at-load testing for a **subject** (a contract or family of systems) lives in an
+independent `<subject>presser` repo. It names the subject, not one backend, and carries many selectable suites. A prim's
+`conformance/` proves correctness with small vectors. A presser proves behaviour at scale and under faults.
+
+| # | MUST | Observable check |
+|---|---|---|
+| R1 | Deterministic packs | two runs with the same `--seed` produce the same pack digest |
+| R2 | Independent oracle | the oracle package's dependency graph does not include the system under test |
+| R3 | Offline evidence | `<bin> verify <pack>` succeeds with the network disabled |
+
+SHOULD: report profiles, not a universal winner score.
+
+## 9. When the check runs
+
+At two moments only: **minting a repo** (C1 to C6 plus the class table) and **before a release** (all, including C7).
+A failing MUST blocks that moment. SHOULD items are never checked. There is no score and no certificate. Future tooling
+(`goneat assess --categories repo-class` or `crucible lint`) is out of scope for this spec.
+
+## 10. New repo spec template
+
+Fill this in, in the new repo's README or its first brief, before code:
+
+1. **Name and class.** The suffix and the one-sentence primary-caller statement (§1).
+2. **The job.** One sentence. What it never does (the class MUST NOT list, made concrete).
+3. **Fulmen base and extensions.** Category, forge template (if any), each declared extension with its reason.
+4. **Surfaces and operations.** The operation list and which surfaces expose it (parity, W2/V3).
+5. **Contract.** Schemas it implements or emits, with crucible pins; for prims, profile A or B and the binding roadmap.
+6. **Identity.** `env_prefix` (and any umbrella prefix), config path, `VERSION` start.
+7. **Release.** Platforms, distribution channels, signing.
+8. **Neighbours.** Prims it consumes, voys it calls, the presser that qualifies it.
+9. **`.fulmen/repo.yaml`.** The filled-in declaration.
+
+## 11. Changing class
+
+A class change needs a decision record. Typical moves: extract a prim when a second program needs a bolt's or wit's
+logic; promote a wit to a voy when others start queueing on it; split a wit that grows a second job.
