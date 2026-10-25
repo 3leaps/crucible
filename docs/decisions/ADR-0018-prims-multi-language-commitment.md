@@ -33,25 +33,34 @@ is Rust-core-only?
 
 ## Decision
 
-1. **Every prim is consumable from Rust, Go, TypeScript and Python.** A binding
-   not yet shipped is on the roadmap with its package name reserved. A CLI, if
-   present, is a thin diagnostic surface over the same library and never a
-   second implementation.
+1. **Every prim declares a commitment to Rust, Go, TypeScript and Python
+   consumers.** Each binding is shipped or planned; a planned binding has its
+   package name reserved. A CLI, if present, is a thin diagnostic surface over
+   the same library and never a second implementation. It is a declared
+   extension of fulmen's `library` category, which otherwise has no
+   executables.
 2. **Two profiles.** Profile A is one Rust core; Go uses cgo over the prim's
    JSON C ABI, TypeScript uses napi-rs, Python uses PyO3 and maturin, and no
    binding re-implements logic. Profile B is locked parallel implementations in
    pure Go and Rust, in one repo, under one contract, one version and one tag,
    passing one shared conformance suite; TypeScript and Python come from the
    Rust tree. Profile A is the default. Profile B is chosen when pure Go is a
-   requirement.
+   requirement. A Profile B prim bootstraps one tree at a time: it declares
+   which tree operates, grades only that tree against the shared vectors, and
+   authors vector expectations as data rather than snapshotting them from the
+   operating tree. The same-PR lockstep rule for both trees starts when the
+   repo declares both trees operating.
 3. **Prims may depend on sibling prims** under three rules: the sibling is
    pinned at a tagged release and is public before the dependent's own first
-   public release; no sibling type appears in the dependent's public API,
-   contract or conformance vectors; and a Profile B pure-Go tree depends only
-   on cgo-free Go modules, so a Profile A sibling serves the Rust tree only.
-   When the Go tree needs the same capability, the sibling grows a pure-Go tree
-   or the dependent declares the gap. The dependent does not reimplement the
-   sibling's logic to close it.
+   public release; no sibling implementation or package-specific type appears
+   in the dependent's public API, contract or conformance vectors (a sibling's
+   public algorithm, a neutral schema, or a byte-level expected result may be
+   referenced); and a Profile B pure-Go tree depends only on cgo-free Go
+   modules, so a Profile A sibling serves the Rust tree only. When the Go tree
+   needs the same capability, the sibling grows a pure-Go tree or the dependent
+   declares the gap as a per-tree capability difference, tested as an explicit
+   unsupported refusal and advertised in its profile. The dependent does not
+   reimplement the sibling's logic to close it.
 
 ## Consequences
 
@@ -65,4 +74,8 @@ is Rust-core-only?
 - Reimplementing a sibling's primitive in Go to avoid the dependency is ruled
   out. It recreates the duplication the family exists to retire.
 - The machine-readable taxonomy and the repo-declaration schema named by the
-  standard follow in a separate change.
+  standard follow in a separate change. Until they land, the class check is a
+  manual review step, not an executable gate.
+- How a dependent names a sibling-provided stratum on the wire (for example
+  the `runtime.stratum` field of a durable-record stratum profile) belongs to
+  the contract it implements, not to the repository-classes standard.

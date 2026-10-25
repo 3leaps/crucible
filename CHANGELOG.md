@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Repository classes (draft).** `docs/standards/repository-classes.md` picks a
   repo's class by its primary caller (prims, bolts, wits, voys; pressers as an
   adjacent class), lists per-class MUST characteristics with observable checks,
-  a repo declaration and a new-repo template. Prims carry a four-language
-  commitment in two profiles (Rust core, or locked pure-Go and Rust twins) and
-  may depend on sibling prims under three rules: pinned and public first, no
-  sibling types in the contract, and a pure-Go tree depends only on cgo-free
-  modules. ADR-0018 records the decision.
+  a repo declaration and a new-repo template. Prims declare a four-language
+  commitment in two profiles (Rust core, or pure-Go and Rust twins that lock
+  step once both operate) and may depend on sibling prims under three rules:
+  pinned and public first, no sibling implementation types in the contract,
+  and a pure-Go tree depends only on cgo-free modules. The class check is a
+  manual review step until the declaration schema ships. ADR-0018 records the
+  decision.
 
 ### Changed
 
