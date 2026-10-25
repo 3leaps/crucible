@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `seq` is stated to be non-portable. All v1 vectors and examples are
   re-derived; new vectors cover each rule. ADR-0019 records the amendment.
   The v0 family is unchanged.
+- **Durable-record/v1 stratum profiles name the commit step from a closed set.**
+  `runtime.commit_strategy` is now one of `fsync_file_and_dir`, `fsync_file`,
+  `backend_acknowledged` or `none`, so profiles can be compared; free-text
+  detail moves to the optional `commit_note`. Both remain information only and
+  never upgrade `failure_model`. The v1 standard also states that selection by
+  label is an exact string match defined by the adopter, not a store
+  guarantee. Record envelopes and digests are unchanged, and v0 is untouched.
 
 ### Fixed
 

@@ -17,6 +17,8 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [reject-journal-at-impossible-date.json](schema/reject-journal-at-impossible-date.json)
 - [reject-journal-at-spelling.json](schema/reject-journal-at-spelling.json)
 - [reject-journal-retired-key-without-digest.json](schema/reject-journal-retired-key-without-digest.json)
+- [reject-profile-commit-note-empty.json](schema/reject-profile-commit-note-empty.json)
+- [reject-profile-commit-strategy-free-text.json](schema/reject-profile-commit-strategy-free-text.json)
 - [reject-profile-positive-window.json](schema/reject-profile-positive-window.json)
 - [reject-profile-required-capability.json](schema/reject-profile-required-capability.json)
 - [reject-receipt-retired-with-pin.json](schema/reject-receipt-retired-with-pin.json)

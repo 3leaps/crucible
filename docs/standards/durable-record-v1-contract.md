@@ -27,6 +27,12 @@ before any implementation of v1 had been released. They are not additive:
 v1 records written before this amendment are `v: 0` records and are refused by
 an amended reader. The v0 family is unchanged. Stratum profiles advertise the v1
 capability and require `tombstoning` in both compiled and enabled capabilities.
+A profile's optional `commit_strategy` is one of `fsync_file_and_dir`,
+`fsync_file`, `backend_acknowledged` or `none`, with free-text detail in
+`commit_note`. `backend_acknowledged` means the configured backend acknowledged
+the operation, without implying which failure it survives; `none` means no
+explicit commit step, not that data cannot persist. Both fields are
+information only; `failure_model` remains the sole durability guarantee.
 Readers MUST negotiate the journal capability and MUST refuse unknown entry
 types; recognizing the record envelope alone is insufficient.
 
@@ -246,6 +252,12 @@ Selected records keep their original pins and digests. Implementations MUST
 NOT silently omit protected records from an allegedly complete export.
 Omission metadata itself requires authorization; this contract does not
 promise that revealing record identities is safe.
+
+Selection by label is an exact, case-sensitive string match against a
+record's `labels`. What a label means is defined by the adopter; the store
+never interprets labels, so a label selection is not a store guarantee of
+completeness or classification. The resulting selection is still an
+exact-pin list subject to every rule above.
 
 Closure remains orthogonal to permission:
 
