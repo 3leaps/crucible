@@ -167,6 +167,24 @@ fi
 echo "    durable-queue: vectors (requests, responses, bindings, ledger, groups, fold, digests)..."
 python3 -I scripts/validate-durable-queue-vectors.py vectors "$base" || exit 1
 
+echo "    durable-queue: a fractional clock_start is kept (mutation control)..."
+# The reference Model once took the timestamp fraction from at_ms alone, so a
+# fractional clock_start lost its fraction. Restore that formatting in a copy
+# and require the carry vector to be rejected on the ledger timestamp.
+carry="$base/vectors/core/fractional-clock-start-carry.json"
+# The validator loads its canonicalizer from its own directory; give the copy one.
+cp scripts/rfc8785-canonicalize.py "$tmpd/rfc8785-canonicalize.py"
+python3 -I scripts/mutate-durable-queue-ts.py scripts/validate-durable-queue-vectors.py \
+    "$tmpd/validate-old-ts.py" || exit 1
+if got=$(python3 -I "$tmpd/validate-old-ts.py" vector "$base" "$carry" 2>&1); then
+    echo "[!!] fraction-from-at_ms formatting accepted the fractional clock_start vector" >&2
+    exit 1
+fi
+printf '%s\n' "$got" | grep -q 'reject:ledger_mismatch ledger\[0\]\.at' || {
+    echo "[!!] fraction-from-at_ms formatting rejected for the wrong reason: $got" >&2
+    exit 1
+}
+
 echo "    durable-queue: semantic rejects detected with labeled reason, baseline passes..."
 python3 -I scripts/validate-durable-queue-vectors.py vector "$base" "$base/rejects/semantic/baseline-enqueue-claim-ack.json" || exit 1
 for f in "$base"/rejects/semantic/reject-*.json; do

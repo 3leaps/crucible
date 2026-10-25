@@ -48,6 +48,7 @@ REQUIRED_VECTORS = {
         "nack-to-dead-letter",
         "expiry-counts-toward-max-attempts",
         "redrive-resets-budget",
+        "fractional-clock-start-carry",
         "repeated-redrive-fresh-budget",
         "expired-unswept-lease-is-stale",
         "message-expiry-before-delivery",
@@ -156,9 +157,12 @@ def identity_digest(msg: dict) -> str:
 
 
 def ts(start: datetime, ms: int) -> str:
+    # The instant is clock_start plus ms; its fraction comes from that sum,
+    # not from ms alone, so a fractional clock_start is kept and carries.
     d = start + timedelta(milliseconds=ms)
     s = d.strftime("%Y-%m-%dT%H:%M:%S")
-    return s + (".%03d" % (ms % 1000) if ms % 1000 else "") + "Z"
+    frac = d.microsecond // 1000
+    return s + (".%03d" % frac if frac else "") + "Z"
 
 
 class Model:
