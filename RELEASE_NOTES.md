@@ -10,6 +10,28 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.2 (2026-10-25)
+
+**Repository classes drafted; durable-record/v1 amended before adoption.**
+
+- **Repository classes (draft)**: pick a repo's class by its primary caller
+  (prims, bolts, wits, voys; pressers adjacent), with per-class MUST checks, a
+  repo declaration and a new-repo template. ADR-0018 records the prims
+  multi-language commitment and sibling-dependency rules.
+- **Durable-record/v1 (not additive)**: records move to envelope `v: 1` with an
+  optional `produced_at`, so every v1 digest and pin changes; every v1 instant
+  has one canonical spelling; `retired` gains an optional key and receipt;
+  `commit_strategy` is a closed set. Amended on 2026-10-25 with no v1
+  adopters; v0 is unchanged.
+- **Release tooling**: PDR-0008 accepted; the default GPG keyring is never used;
+  failed GitHub reads are reported as such; `release-tag-push` is removed.
+- **Fixed**: the durable-queue reference model keeps a fractional
+  `clock_start`.
+
+See [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md).
+
+---
+
 ## v0.2.1 (2026-10-23)
 
 **Release tooling adopts PDR-0008; PDR-0010 proposed.**
@@ -60,30 +82,3 @@ process decision.**
   2.5.15). The release guards no longer fail spuriously on a large changelog.
 
 See [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md).
-
----
-
-## v0.1.34 (2026-10-16)
-
-**Draft agent interface classifiers and profiles, and faster offline contract
-checks.**
-
-- **Agent interface classifiers (draft)**: four categorical dimensions describe
-  one agent interaction separately: who manages the session lifecycle
-  (`agent-seat-class`), the selected entrypoint (`agent-control-surface`), the
-  carrier at one connection boundary (`agent-transport`) and an
-  evidence-derived adapter assessment (`agent-adapter-confidence`). Policies
-  accept explicit confidence states rather than thresholds. Values describe
-  interfaces; they confer no authority.
-- **Agent interface profiles (draft)**: a companion profile schema declares
-  per-hop protocol stacks, execution lifetime and context continuity, and
-  distinct delivery, execution and cursor-commit signals, with synthetic
-  examples and a local checker. A profile is a declaration, not a grant or a
-  qualification.
-- **CI and toolchain**: Windows contract checks run as three parallel shards
-  with a coverage guard; schema validation runs offline by default; goneat
-  advances to v0.6.4 and the glibc tools runner to v0.5.10, and Check asserts
-  the runner's goneat matches the pin. Goneat v0.6.4 no longer probes package
-  managers on every command, which shortens each validator invocation.
-
-See [docs/releases/v0.1.34.md](docs/releases/v0.1.34.md).
