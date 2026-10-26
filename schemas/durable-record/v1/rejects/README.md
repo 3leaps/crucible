@@ -4,15 +4,30 @@ Schema pairs carry `schema`, `baseline` and `reject` and differ in one field.
 Vectors declare exact expected outcomes. `invalid_journal_entries` identifies
 zero-based positions deliberately failing shape validation; the same cases
 also prove the semantic version and operation-type guards.
-`invalid_receipt_steps` similarly identifies version-rejected receipt steps.
+`invalid_receipt_steps` similarly identifies version-rejected receipt steps,
+and `invalid_request_steps` identifies schema-rejected protection requests also
+refused semantically. A `retire` step is a logical keyed-retirement request
+`{stream, record_id, reason, idempotency_key}`; its receipt is a write receipt.
 `invalid_use_steps` identifies schema-rejected purposes also refused semantically.
 
 ## Schema rejects
 
 - [reject-export-purpose.json](schema/reject-export-purpose.json)
+- [reject-journal-at-hour-24.json](schema/reject-journal-at-hour-24.json)
+- [reject-journal-at-impossible-date.json](schema/reject-journal-at-impossible-date.json)
+- [reject-journal-at-spelling.json](schema/reject-journal-at-spelling.json)
+- [reject-journal-retired-key-without-digest.json](schema/reject-journal-retired-key-without-digest.json)
+- [reject-profile-commit-note-empty.json](schema/reject-profile-commit-note-empty.json)
+- [reject-profile-commit-strategy-free-text.json](schema/reject-profile-commit-strategy-free-text.json)
 - [reject-profile-positive-window.json](schema/reject-profile-positive-window.json)
 - [reject-profile-required-capability.json](schema/reject-profile-required-capability.json)
+- [reject-receipt-retired-with-pin.json](schema/reject-receipt-retired-with-pin.json)
+- [reject-receipt-retired-without-digest.json](schema/reject-receipt-retired-without-digest.json)
 - [reject-receipt-seq.json](schema/reject-receipt-seq.json)
+- [reject-record-envelope-v0.json](schema/reject-record-envelope-v0.json)
+- [reject-record-produced-at-impossible-date.json](schema/reject-record-produced-at-impossible-date.json)
+- [reject-record-produced-at-instant-spelling.json](schema/reject-record-produced-at-instant-spelling.json)
+- [reject-record-trusted-time-without-evidence.json](schema/reject-record-trusted-time-without-evidence.json)
 - [reject-request-extra.json](schema/reject-request-extra.json)
 - [reject-request-reason.json](schema/reject-request-reason.json)
 - [reject-request-restore-required.json](schema/reject-request-restore-required.json)
@@ -22,6 +37,7 @@ also prove the semantic version and operation-type guards.
 ## Behavioral and semantic vectors
 
 - [atomic-content-group.json](../vectors/atomic-content-group.json)
+- [audit-purpose.json](../vectors/audit-purpose.json)
 - [backwards-acceptance.json](../vectors/backwards-acceptance.json)
 - [baseline.json](../vectors/baseline.json)
 - [block-export.json](../vectors/block-export.json)
@@ -36,6 +52,7 @@ also prove the semantic version and operation-type guards.
 - [dedup-absent.json](../vectors/dedup-absent.json)
 - [dedup-content.json](../vectors/dedup-content.json)
 - [dedup-expired.json](../vectors/dedup-expired.json)
+- [dedup-non-sliding.json](../vectors/dedup-non-sliding.json)
 - [dedup-protection.json](../vectors/dedup-protection.json)
 - [dedup-wrong-record.json](../vectors/dedup-wrong-record.json)
 - [duplicate-body.json](../vectors/duplicate-body.json)
@@ -52,6 +69,12 @@ also prove the semantic version and operation-type guards.
 - [incomplete-selection.json](../vectors/incomplete-selection.json)
 - [independent-holds.json](../vectors/independent-holds.json)
 - [inherited-protection.json](../vectors/inherited-protection.json)
+- [instant-hour-24.json](../vectors/instant-hour-24.json)
+- [instant-impossible-date.json](../vectors/instant-impossible-date.json)
+- [instant-journal-at.json](../vectors/instant-journal-at.json)
+- [instant-observed-at-seven-digits.json](../vectors/instant-observed-at-seven-digits.json)
+- [instant-reconcile-attempted-at.json](../vectors/instant-reconcile-attempted-at.json)
+- [instant-stream-opened-offset.json](../vectors/instant-stream-opened-offset.json)
 - [journal-backwards-time.json](../vectors/journal-backwards-time.json)
 - [journal-digest-mismatch.json](../vectors/journal-digest-mismatch.json)
 - [journal-live-key-reuse.json](../vectors/journal-live-key-reuse.json)
@@ -60,6 +83,12 @@ also prove the semantic version and operation-type guards.
 - [key-expiry-boundary.json](../vectors/key-expiry-boundary.json)
 - [missing-target.json](../vectors/missing-target.json)
 - [overlapping-selection.json](../vectors/overlapping-selection.json)
+- [produced-at-impossible-date.json](../vectors/produced-at-impossible-date.json)
+- [produced-at-in-digest.json](../vectors/produced-at-in-digest.json)
+- [produced-at-instant-spelling.json](../vectors/produced-at-instant-spelling.json)
+- [produced-at-producer-clock.json](../vectors/produced-at-producer-clock.json)
+- [produced-at-trusted-time.json](../vectors/produced-at-trusted-time.json)
+- [protection-key-collides-with-retirement.json](../vectors/protection-key-collides-with-retirement.json)
 - [receipt-refusal.json](../vectors/receipt-refusal.json)
 - [receipt-valid.json](../vectors/receipt-valid.json)
 - [receipt-wrong-digest.json](../vectors/receipt-wrong-digest.json)
@@ -68,12 +97,22 @@ also prove the semantic version and operation-type guards.
 - [reconcile-absent.json](../vectors/reconcile-absent.json)
 - [reconcile-expired.json](../vectors/reconcile-expired.json)
 - [reconcile-restored-hold.json](../vectors/reconcile-restored-hold.json)
+- [record-envelope-v0.json](../vectors/record-envelope-v0.json)
 - [record-future-revision.json](../vectors/record-future-revision.json)
 - [repeated-retirement.json](../vectors/repeated-retirement.json)
 - [replay-after-restore.json](../vectors/replay-after-restore.json)
 - [restore-does-not-unretire.json](../vectors/restore-does-not-unretire.json)
 - [restore-old-observation.json](../vectors/restore-old-observation.json)
 - [restore-wrong-scope.json](../vectors/restore-wrong-scope.json)
+- [retire-journal-digest-mismatch.json](../vectors/retire-journal-digest-mismatch.json)
+- [retire-key-collides-with-content.json](../vectors/retire-key-collides-with-content.json)
+- [retire-keyed-changed-request.json](../vectors/retire-keyed-changed-request.json)
+- [retire-keyed-distinct-key.json](../vectors/retire-keyed-distinct-key.json)
+- [retire-keyed-missing-target.json](../vectors/retire-keyed-missing-target.json)
+- [retire-keyed-reconcile-found.json](../vectors/retire-keyed-reconcile-found.json)
+- [retire-keyed.json](../vectors/retire-keyed.json)
+- [retire-receipt-verified.json](../vectors/retire-receipt-verified.json)
+- [retire-unkeyed-no-receipt.json](../vectors/retire-unkeyed-no-receipt.json)
 - [revision-future-revision.json](../vectors/revision-future-revision.json)
 - [shared-body.json](../vectors/shared-body.json)
 - [stale-cut.json](../vectors/stale-cut.json)
@@ -82,13 +121,10 @@ also prove the semantic version and operation-type guards.
 - [unavailable.json](../vectors/unavailable.json)
 - [unheld-filter.json](../vectors/unheld-filter.json)
 - [unknown-export-target.json](../vectors/unknown-export-target.json)
+- [unknown-purpose.json](../vectors/unknown-purpose.json)
 - [v0-journal.json](../vectors/v0-journal.json)
+- [v0-receipt.json](../vectors/v0-receipt.json)
 - [write-retired-record.json](../vectors/write-retired-record.json)
 - [wrong-body.json](../vectors/wrong-body.json)
 - [wrong-current-cut.json](../vectors/wrong-current-cut.json)
 - [zero-window.json](../vectors/zero-window.json)
-- [v0-receipt.json](../vectors/v0-receipt.json)
-
-- [dedup-non-sliding.json](../vectors/dedup-non-sliding.json)
-- [unknown-purpose.json](../vectors/unknown-purpose.json)
-- [audit-purpose.json](../vectors/audit-purpose.json)

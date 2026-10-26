@@ -11,13 +11,28 @@ so this is v1. The v0 schemas and semantics remain unchanged. Repository release
 numbers and contract versions are independent; an experimental v1 contract does
 not imply a stable implementation.
 
-The record's `v: 0` denotes its envelope version, not the contract-family
-version. The v0 record envelope, including its canonicalization, body digest and
-revision pin rules, is reused as a structurally identical schema copy, enforced
-by the controls. A record does not become a new revision when a restriction
-changes. Journals, write receipts, reconciliation results and protection
-requests use `v: 1`. Stratum profiles advertise the v1
+The record's `v` denotes its envelope version, not the contract-family
+version. A v1 journal carries **record envelope `v: 1`**: the v0 envelope with
+`v` changed from `0` to `1` and one optional field, `produced_at`, added. Its
+canonicalization, body digest and revision pin rules are those of v0. The
+controls enforce that the v1 record schema equals the v0 record schema after
+those two changes and no others. A `v: 0` record inside a v1 journal entry is
+refused as `record_version`. A record does not become a new revision when a
+restriction changes. Journals, write receipts, reconciliation results and
+protection requests use `v: 1`.
+
+**Amendment, 2026-10-25.** The record envelope version bump, `produced_at`,
+the canonical instant spelling and keyed retirement were made to v1 in place,
+before any implementation of v1 had been released. They are not additive:
+v1 records written before this amendment are `v: 0` records and are refused by
+an amended reader. The v0 family is unchanged. Stratum profiles advertise the v1
 capability and require `tombstoning` in both compiled and enabled capabilities.
+A profile's optional `commit_strategy` is one of `fsync_file_and_dir`,
+`fsync_file`, `backend_acknowledged` or `none`, with free-text detail in
+`commit_note`. `backend_acknowledged` means the configured backend acknowledged
+the operation, without implying which failure it survives; `none` means no
+explicit commit step, not that data cannot persist. Both fields are
+information only; `failure_model` remains the sole durability guarantee.
 Readers MUST negotiate the journal capability and MUST refuse unknown entry
 types; recognizing the record envelope alone is insufficient.
 
@@ -32,11 +47,10 @@ version-aware entry points; it MUST NOT silently reinterpret one as the other.
 A live v0 stream remains v0. An adopter needing restrictions opens a separately
 addressed v1 stream and re-records content under v1 acceptance rules; v0 keys,
 receipts and journal history MUST NOT carry over, and retry safety for outstanding
-v0 keys stays with the v0 stream. Unchanged envelopes and pins MAY be re-recorded
-only when the new version-aware store retains the same logical `stream`
-identifier: that identifier is part of both the envelope and pin. Choosing a
-new identifier changes the envelope and therefore requires new digests and pins.
-Re-recording MUST satisfy the ordinary revision-chain rules, including any
+v0 keys stays with the v0 stream. Content re-recorded into a v1 stream becomes
+a `v: 1` record, so its digest and pin change even when the logical `stream`
+identifier is kept; choosing a new identifier changes them as well. A v0 pin
+never identifies a v1 record. Re-recording MUST satisfy the ordinary revision-chain rules, including any
 required predecessors. It produces new v1 journal entries and receipts, not
 copies of v0 acknowledgments. The adopter MUST establish applicable retirement
 state, restrictions and inherited protection before making the content available for
@@ -46,6 +60,40 @@ Once content is re-recorded under the same stream identifier, the v0 stream
 MUST accept no further content writes for that identifier; its retained records
 are copies outside v1 management, and ordinary serving, export or reuse of those
 pins MUST resolve through the v1 store.
+
+## Production time, instants and ordering
+
+A record MAY carry `produced_at`, the producer's claim of when the revision was
+produced: `instant`, `source` (`producer_clock` or `trusted_time`) and, required
+when `source` is `trusted_time`, `evidence` (`kind`, opaque `ref`, `digest`).
+The field is inside the record digest, so it survives re-recording when the
+record is carried unchanged. It is a claim: `producer_clock` is attribution,
+like provenance, and `trusted_time` evidence is opaque to the store and
+unverified until an adopter verifies it. Neither makes the time authoritative.
+A store does not assign `produced_at`: the producer computes the digest before
+acceptance. Store acceptance time is the journal entry's `at`, outside the
+record digest.
+
+Every instant on the v1 wire is spelled `YYYY-MM-DDTHH:MM:SS.ffffffZ`: UTC,
+`Z`, exactly six fractional digits, and a valid RFC 3339 date and time (no
+February 30, no hour 24, no leap second). This covers journal `at`, `observed_at`,
+`produced_at.instant`, reconciliation `attempted_at` and coverage endpoints.
+Emitters MUST use this spelling. Readers MUST refuse any other spelling, and any
+canonical-looking instant that is not a valid date and time, as
+`instant_spelling` and MUST NOT normalize it: a digest covers the bytes the
+producer wrote, so a store that rewrote `observed_at` or `produced_at.instant`
+would invalidate the caller's digest. An instant that is not exactly
+representable at microseconds is refused, never rounded.
+
+`seq` orders one stream's journal. It is a store artifact and is not portable:
+it changes when content is re-recorded into another stream. Portable ordering
+uses `produced_at` or an explicit order carried by the payload. Ordering
+records from several streams by `produced_at` is a presentation order, not a
+causal or authoritative total order: ties break by `instant`, `stream`,
+`record_id`, then `revision`, and records without `produced_at` follow those
+with it in the same order. A consumer presenting such an order MUST state that
+`producer_clock` times carry unknown skew; only `trusted_time` with verified
+evidence supports a claim about when something happened.
 
 ## Meaning of restriction
 
@@ -108,10 +156,9 @@ statement, not a durable-record rights restriction.
 `observed_at` MUST be no later than acceptance time. Restoration MUST identify
 an active hold and repeat its exact target, scope and body selector; its
 observation MUST be no earlier than the hold's observation. An observation of
-restoration does not supersede any other hold. Timestamps are parsed RFC 3339
-instants. Implementations MUST refuse precision they cannot represent exactly;
-the logical checker resolves microseconds. Journal acceptance times MUST be
-nondecreasing. The evidence observation can precede acceptance.
+restoration does not supersede any other hold. Timestamps use the canonical
+spelling above. Journal acceptance times MUST be nondecreasing. The evidence
+observation can precede acceptance.
 
 ## Acceptance, journal and replay
 
@@ -146,6 +193,24 @@ key and the same record id. A protection key, absent key, expired key or a
 different record id MUST be refused as `invalid_deduplication`. The audit
 entry does not refresh the key window.
 After expiry, a request is evaluated anew: retry safety is no longer promised.
+
+A `retired` entry MAY carry an `idempotency_key`; it then also carries
+`request_digest`, the `sha256:`-prefixed SHA-256 of the RFC 8785 JCS bytes of
+exactly `{stream, record_id, reason, idempotency_key}`. Journal-assigned `seq`,
+`at`, `group` and `type` are not part of it. A keyed retirement shares the
+stream's key namespace and window with content writes and protection
+operations, and is acknowledged by an accepted write receipt with outcome
+`retired`: `v`, `kind`, `stream`, `idempotency_key`, `seq`, `record_id`,
+`request_digest` and `failure_model`, with no `pin` or `body_status`. Within the
+window, the same key and the same retirement request return the exact original
+receipt, including its sequence, and append nothing; the same key with a
+changed request, or a key already used by another kind of operation, yields
+`idempotency_conflict`. A distinct key MAY append a further retirement audit
+observation with its own receipt and sequence. Reconciliation `found` MAY carry
+a retirement receipt. An unkeyed `retired` entry remains a permitted audit
+observation with no receipt and no replay promise. `retired_record` remains the
+refusal of a content write that would revive a retired record; it is not the
+accepted retirement outcome.
 
 A missing receipt remains indeterminate. The v1 reconciliation schema permits
 `found` to carry either the original accepted content receipt or the original
@@ -188,6 +253,12 @@ NOT silently omit protected records from an allegedly complete export.
 Omission metadata itself requires authorization; this contract does not
 promise that revealing record identities is safe.
 
+Selection by label is an exact, case-sensitive string match against a
+record's `labels`. What a label means is defined by the adopter; the store
+never interprets labels, so a label selection is not a store guarantee of
+completeness or classification. The resulting selection is still an
+exact-pin list subject to every rule above.
+
 Closure remains orthogonal to permission:
 
 - `full_content` requires the bytes for every selected body reference;
@@ -228,11 +299,13 @@ Schema validation precedes semantic evaluation.
 | `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body      |
 | `invalid_purpose`        | Use purpose is not serve, export or reuse                                  |
 | `invalid_deduplication`  | Content audit does not identify a live accepted content key and its record |
-| `receipt_mismatch`       | Received protection receipt disagrees with the accepted journal operation  |
+| `receipt_mismatch`       | Received protection or retirement receipt disagrees with the journal       |
 | `request_digest`         | Journal request does not match its canonical digest                        |
 | `operation_type`         | Journal type disagrees with request action                                 |
 | `accepted_key_reuse`     | A journal accepts a live key again                                         |
 | `journal_version`        | A v1 journal contains another wire version                                 |
+| `record_version`         | A v1 journal entry carries a record envelope other than `v: 1`             |
+| `instant_spelling`       | An instant is not a valid date and time in the canonical six-digit UTC form |
 | `journal_time`           | Acceptance or decision time precedes the accepted journal                  |
 | `idempotency_window`     | Missing positive key-retention window                                      |
 | `retired_record`         | A content write attempts to revive a retired record                        |
@@ -241,7 +314,8 @@ Schema validation precedes semantic evaluation.
 
 Run `python3 scripts/test-durable-record-v1-controls.py`. File-backed vectors
 cover scopes, independent holds, replay, expiration, reconciliation, atomic
-cuts, retirement, export omissions, inherited restrictions and body closure.
+cuts, keyed and unkeyed retirement, production time, instant spelling, record
+envelope version, export omissions, inherited restrictions and body closure.
 Schema reject fixtures differ from a passing baseline in one field. Mutation
 controls deliberately weaken guarded rules. Each must turn a rejected witness
 into acceptance or produce a specifically named wrong outcome; an unrelated

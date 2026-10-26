@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "contract:durable-record/v1/journal-entry.schema.json",
   "title": "Durable Record Journal Entry",
-  "description": "Append-only durable-record/v1 journal. Nested records retain the v0 wire envelope. Protection requests change use eligibility, never record bytes.",
+  "description": "Append-only durable-record/v1 journal. Nested records use record envelope v: 1. Protection requests change use eligibility, never record bytes.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -50,8 +50,7 @@
       "description": "Closed vocabulary. Unknown types are rejected."
     },
     "at": {
-      "type": "string",
-      "format": "date-time",
+      "$ref": "#/$defs/instant",
       "description": "Store clock, RFC 3339 UTC."
     },
     "mode": {
@@ -299,6 +298,23 @@
           "type": {
             "const": "retired"
           }
+        },
+        "if": {
+          "required": [
+            "idempotency_key"
+          ]
+        },
+        "then": {
+          "required": [
+            "request_digest"
+          ]
+        },
+        "else": {
+          "not": {
+            "required": [
+              "request_digest"
+            ]
+          }
         }
       }
     },
@@ -380,17 +396,8 @@
       },
       "else": {
         "not": {
-          "anyOf": [
-            {
-              "required": [
-                "request"
-              ]
-            },
-            {
-              "required": [
-                "request_digest"
-              ]
-            }
+          "required": [
+            "request"
           ]
         }
       }
@@ -432,6 +439,28 @@
               }
             }
           }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "not": {
+              "enum": [
+                "tombstoned",
+                "untombstoned",
+                "retired"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "request_digest"
+          ]
         }
       }
     }
@@ -680,7 +709,7 @@
       },
       "properties": {
         "v": {
-          "const": 0
+          "const": 1
         },
         "stream": {
           "type": "string",
@@ -711,6 +740,60 @@
         },
         "provenance": {
           "$ref": "#/$defs/provenance"
+        },
+        "produced_at": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "instant",
+            "source"
+          ],
+          "description": "Producer's claim of when this revision was produced. Inside the record digest. Attribution, not an authoritative time; trusted_time evidence is opaque to the store and unverified until an adopter verifies it.",
+          "properties": {
+            "instant": {
+              "$ref": "#/$defs/instant"
+            },
+            "source": {
+              "enum": [
+                "producer_clock",
+                "trusted_time"
+              ]
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref",
+                "digest"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+                },
+                "ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+                },
+                "digest": {
+                  "$ref": "#/$defs/digest"
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "source": {
+                "const": "trusted_time"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "evidence"
+            ]
+          }
         },
         "classification": {
           "$ref": "#/$defs/classification"
@@ -815,8 +898,7 @@
           ]
         },
         "observed_at": {
-          "type": "string",
-          "format": "date-time"
+          "$ref": "#/$defs/instant"
         },
         "provenance": {
           "$ref": "#/$defs/provenance"
@@ -897,6 +979,12 @@
           }
         }
       ]
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$",
+      "description": "Canonical v1 instant: UTC, Z, exactly six fractional digits. Any other spelling is refused, never normalized."
     }
   }
 }
