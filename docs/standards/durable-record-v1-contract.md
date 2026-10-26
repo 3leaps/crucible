@@ -249,7 +249,11 @@ source pin is not the destination pin.
 records an authorized review. It carries:
 
 - `source`: capability, `stream`, `cut_seq` and `cut_digest` of the source cut
-  reviewed;
+  reviewed. It has the capability and stream of `continues` and MAY advance
+  beyond the opening cut, so a live continuation can import later source
+  content: `cut_seq` is at least `continues.cut_seq` and ends a complete group,
+  and the source prefix through the opening cut still hashes to
+  `continues.cut_digest`;
 - `destination_cut_seq`: the last destination entry the review covers. The
   review is its own atomic group (`group` equals `seq`, `group_size` 1), so
   `destination_cut_seq` is `seq - 1`, the complete cut immediately before it;
@@ -282,7 +286,8 @@ supplies no restriction state, and a journal relying on it is refused as
 `continuation`; the same holds when the source advances.
 
 A reader MUST refuse, as `continuation`, a journal whose review names a source
-or cut that disagrees with `continues`, whose cut digest or source state
+capability or stream that disagrees with `continues`, a cut before the opening
+cut, or a source whose opening prefix no longer hashes to `continues.cut_digest`, whose cut digest or source state
 digest does not match the observed source, whose applied state digest does
 not match the destination at `destination_cut_seq`, or whose covered
 `imported_from` pins do not exist at or before the reviewed source cut. An

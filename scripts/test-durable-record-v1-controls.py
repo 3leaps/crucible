@@ -344,6 +344,16 @@ class State:
             "continuation",
         )
         prefix = self.source_cut(src)
+        # A review may advance past the opening cut, never before it, and the
+        # opening prefix must still hash to the declared continues digest.
+        # Each of these two guards backs up the other, and the opening prefix
+        # is also checked when the stream opens, so neither has a single-guard
+        # mutation witness; vectors cover both.
+        require(src["cut_seq"] >= self.continues["cut_seq"], "continuation")
+        require(
+            digest(prefix[: self.continues["cut_seq"]]) == self.continues["cut_digest"],
+            "continuation",
+        )
         require(source_manifest(prefix) == e["source_state_digest"], "continuation")
         known = source_pins(prefix)
         require(all(p in known for _, p in self.imports), "continuation")
@@ -1005,7 +1015,7 @@ def mutation_controls():
             "check_review",
             "require",
             "continuation",
-            3,
+            5,
             "review-wrong-source-state",
             None,
         ),
@@ -1013,7 +1023,7 @@ def mutation_controls():
             "check_review",
             "require",
             "continuation",
-            4,
+            6,
             "review-import-beyond-cut",
             None,
         ),
@@ -1021,7 +1031,7 @@ def mutation_controls():
             "check_review",
             "require",
             "continuation",
-            5,
+            7,
             "review-wrong-applied-state",
             None,
         ),
