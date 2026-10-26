@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Repository classes clarifications (draft 0.1.1).** C5 requires a `version`
-  subcommand (a `--version` flag alone does not satisfy it) and exempts a verb
+  subcommand (a `--version` flag alone does not satisfy it), accepts a
+  JSON-only reporting verb without a `--format` flag, and exempts a verb
   whose stdout is the transformed artifact from `--format json` when the CLI
   has a JSON reporting verb. C3 counts test-only and harness variables. C4
   points repos with host-tool release ceremonies at a `doctor` target. P1
