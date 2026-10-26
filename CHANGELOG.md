@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Repository classes (draft).** `docs/standards/repository-classes.md` picks a
+  repo's class by its primary caller (prims, bolts, wits, voys; pressers as an
+  adjacent class), lists per-class MUST characteristics with observable checks,
+  a repo declaration and a new-repo template. Prims declare a four-language
+  commitment in two profiles (Rust core, or pure-Go and Rust twins that lock
+  step once both operate) and may depend on sibling prims under four rules:
+  pinned and public by first public release, no sibling implementation types
+  in the contract, a pure-Go tree depends only on cgo-free modules, and the
+  prim graph is acyclic with declared leaves. The class check is a manual
+  review step until the declaration schema ships. ADR-0018 records the
+  decision.
+
 ### Changed
 
 - **PDR-0008 is accepted.** Its proof is `v0.2.1`, the first release tagged
