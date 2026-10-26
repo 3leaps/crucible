@@ -3,8 +3,8 @@ title: "Repository Classes: prims, bolts, wits and voys"
 description: "Pick a repo's class by who calls it; per-class MUST characteristics with observable checks, a repo declaration and a new-repo template; pressers as an adjacent class"
 category: "standards"
 status: "draft"
-version: "0.1.0"
-lastUpdated: "2026-10-25"
+version: "0.1.1"
+lastUpdated: "2026-10-26"
 maintainer: "core-standards"
 reviewers: ["devlead", "entarch", "cxotech"]
 approvers: ["lead-maintainer"]
@@ -73,9 +73,9 @@ holds generated SSOT sync metadata in consumer repos.
 |---|---|---|
 | C1 | Declare the class | `.fulmen/repo.yaml` validates; the name suffix matches `class` |
 | C2 | VERSION is the single version source | root `VERSION` is bare semver (no `v`); `make version` prints it; Cargo/npm/PyPI/embedded versions equal it |
-| C3 | Env vars use `<NAME>_` | every env var name read in source starts with `env_prefix` or the declared `umbrella_prefix` |
-| C4 | Minimum Make targets | `make -n` succeeds for the targets in `docs/repository/makefile-minimum.md` |
-| C5 | Any CLI separates data and diagnostics, and offers JSON | `<bin> version --extended` exits 0; `<bin> <verb> --format json 2>/dev/null` parses and validates against `schemas/` |
+| C3 | Env vars use `<NAME>_` | every env var name read in source, including test-only and harness variables, starts with `env_prefix` or the declared `umbrella_prefix` |
+| C4 | Minimum Make targets | `make -n` succeeds for the targets in `docs/repository/makefile-minimum.md`. A repo whose release ceremony needs host tools SHOULD also provide `make doctor`, which checks those tools against declared minimums; it is not in the minimum set |
+| C5 | Any CLI separates data and diagnostics, and offers JSON | `<bin> version --extended` exits 0 (a `version` subcommand is required; a `--version` flag alone does not satisfy C5); `<bin> <verb> --format json 2>/dev/null` parses and validates against `schemas/` for every reporting verb. A verb whose stdout is the transformed artifact (e.g. canonical bytes) is exempt from `--format json` if the CLI has at least one reporting verb that emits JSON |
 | C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL, so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged. Repos that have **already tagged** a nested Go module (a cgo `bindings/go/<name>` module beside a root module, or a pure-Go tree under `go/<pkg>` with its own tag prefix) keep that layout as a declared extension (`scope: legacy-go-module`) until their migration is decided; C6 does not block their releases in the meantime. The exception does not apply to an untagged repo: a Profile B prim that has not yet tagged puts its Go tree at the root before its first tag, while the move is cheap |
 | C7 | Signed release | *(pre-release only)* `CHANGELOG.md`, `RELEASE_NOTES.md` and `RELEASE_CHECKLIST.md` present; the tag is annotated and signed (`git tag -v`); assets carry checksums, a detached signature and an SBOM |
 | C8 | No secrets in the repo | no tracked `.env*` other than `.env.example`; the secret scan passes |
@@ -115,7 +115,7 @@ release-notes entry, not a silent change.
 
 | # | MUST | Observable check |
 |---|---|---|
-| P1 | Four-language commitment | `bindings` in repo.yaml lists rust, go, typescript and python as `shipped` or `planned`; each `planned` one has a reserved package name in the README |
+| P1 | Four-language commitment | `bindings` in repo.yaml lists rust, go, typescript and python as `shipped` or `planned`; each `planned` one has a reserved package name in the README. On npm the `@3leaps/` org scope is the reservation. PyPI cannot reserve a name without an upload, so the README names the intended distribution name and the roadmap entry suffices |
 | P2 | A: bindings generated from the core | `ffi/` has a C header; TS `package.json` builds with napi-rs; `pyproject.toml` has `build-backend = "maturin"` |
 | P3 | B: shared conformance | `conformance/` exists; CI runs it under every operating tree; once `profile_status: locked`, CI runs both `go test` and `cargo test` and a PR changing `contract/` or `conformance/` touches both trees |
 | P4 | Contract pin | `contract/PIN` (or equivalent) names the crucible schema version when a crucible contract is implemented |

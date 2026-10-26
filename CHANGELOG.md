@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Repository classes clarifications (draft 0.1.1).** C5 requires a `version`
+  subcommand (a `--version` flag alone does not satisfy it) and exempts a verb
+  whose stdout is the transformed artifact from `--format json` when the CLI
+  has a JSON reporting verb. C3 counts test-only and harness variables. C4
+  points repos with host-tool release ceremonies at a `doctor` target. P1
+  accepts the `@3leaps/` npm scope as the reservation and a named intended
+  PyPI distribution as a planned Python binding.
+
 ## [0.2.2] - 2026-10-25
 
 ### Added
