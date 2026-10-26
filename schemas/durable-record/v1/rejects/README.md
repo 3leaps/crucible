@@ -150,6 +150,8 @@ first; an `ancestor_entry` step appends to the named one.
 - [revision-future-revision.json](../vectors/revision-future-revision.json)
 - [shared-body.json](../vectors/shared-body.json)
 - [source-invalid-restore.json](../vectors/source-invalid-restore.json)
+- [source-journal-empty.json](../vectors/source-journal-empty.json)
+- [source-journal-entry-without-version.json](../vectors/source-journal-entry-without-version.json)
 - [source-record-envelope-v0.json](../vectors/source-record-envelope-v0.json)
 - [source-record-extra-field.json](../vectors/source-record-extra-field.json)
 - [source-state-on-plain-stream.json](../vectors/source-state-on-plain-stream.json)

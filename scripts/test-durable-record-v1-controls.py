@@ -674,7 +674,7 @@ def observed(journal, window, source, upstream):
     require(family in CAPABILITY, "continuation")
     schema = BASE.parent / f"v{family}" / "journal-entry.schema.json"
     for e in journal:
-        require(e["v"] == family and shape(e, schema), "continuation")
+        require(e.get("v") == family and shape(e, schema), "continuation")
     try:
         legacy.check_journal(journal, "source")
         if family == 0:
@@ -696,6 +696,16 @@ def chain(case):
     journals = [case["source_journal"]] + case.get("ancestors", [])
     upstream = None
     for journal in reversed(journals):
+        # A malformed container is refused by name, never by an exception.
+        # Disabling this guard crashes rather than accepts, so its vectors have
+        # no mutation witness.
+        require(
+            isinstance(journal, list)
+            and journal
+            and all(isinstance(e, dict) for e in journal)
+            and "v" in journal[0],
+            "continuation",
+        )
         if journal[0].get("continues") is not None and upstream is None:
             # A continuation source whose own source is not observed cannot
             # show that the chain is current.
