@@ -9,6 +9,9 @@ and `invalid_request_steps` identifies schema-rejected protection requests also
 refused semantically. A `retire` step is a logical keyed-retirement request
 `{stream, record_id, reason, idempotency_key}`; its receipt is a write receipt.
 `invalid_use_steps` identifies schema-rejected purposes also refused semantically.
+A continuation vector carries `source_journal`, the source journal the
+enforcing store observes; a `source_entry` step appends to it, as a source
+change outside the destination stream.
 
 ## Schema rejects
 
@@ -16,7 +19,11 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [reject-journal-at-hour-24.json](schema/reject-journal-at-hour-24.json)
 - [reject-journal-at-impossible-date.json](schema/reject-journal-at-impossible-date.json)
 - [reject-journal-at-spelling.json](schema/reject-journal-at-spelling.json)
+- [reject-journal-continues-capability.json](schema/reject-journal-continues-capability.json)
+- [reject-journal-continues-not-opened.json](schema/reject-journal-continues-not-opened.json)
 - [reject-journal-retired-key-without-digest.json](schema/reject-journal-retired-key-without-digest.json)
+- [reject-journal-review-with-import.json](schema/reject-journal-review-with-import.json)
+- [reject-journal-review-without-authorization.json](schema/reject-journal-review-without-authorization.json)
 - [reject-profile-commit-note-empty.json](schema/reject-profile-commit-note-empty.json)
 - [reject-profile-commit-strategy-free-text.json](schema/reject-profile-commit-strategy-free-text.json)
 - [reject-profile-positive-window.json](schema/reject-profile-positive-window.json)
@@ -48,6 +55,16 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [conflicting-body-lengths.json](../vectors/conflicting-body-lengths.json)
 - [content-key-collision.json](../vectors/content-key-collision.json)
 - [content-live-key-reuse.json](../vectors/content-live-key-reuse.json)
+- [continuation-import-after-review.json](../vectors/continuation-import-after-review.json)
+- [continuation-incomplete-cut.json](../vectors/continuation-incomplete-cut.json)
+- [continuation-inherited.json](../vectors/continuation-inherited.json)
+- [continuation-ordinary-write.json](../vectors/continuation-ordinary-write.json)
+- [continuation-reviewed.json](../vectors/continuation-reviewed.json)
+- [continuation-source-changed.json](../vectors/continuation-source-changed.json)
+- [continuation-source-state-mismatch.json](../vectors/continuation-source-state-mismatch.json)
+- [continuation-source-state-missing.json](../vectors/continuation-source-state-missing.json)
+- [continuation-unreviewed.json](../vectors/continuation-unreviewed.json)
+- [continuation-wrong-capability.json](../vectors/continuation-wrong-capability.json)
 - [corrupt-body.json](../vectors/corrupt-body.json)
 - [dedup-absent.json](../vectors/dedup-absent.json)
 - [dedup-content.json](../vectors/dedup-content.json)
@@ -65,6 +82,7 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [full-content-missing.json](../vectors/full-content-missing.json)
 - [full-content.json](../vectors/full-content.json)
 - [future-observation.json](../vectors/future-observation.json)
+- [import-other-source.json](../vectors/import-other-source.json)
 - [inactive-restore.json](../vectors/inactive-restore.json)
 - [incomplete-selection.json](../vectors/incomplete-selection.json)
 - [independent-holds.json](../vectors/independent-holds.json)
@@ -113,8 +131,16 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [retire-keyed.json](../vectors/retire-keyed.json)
 - [retire-receipt-verified.json](../vectors/retire-receipt-verified.json)
 - [retire-unkeyed-no-receipt.json](../vectors/retire-unkeyed-no-receipt.json)
+- [review-import-beyond-cut.json](../vectors/review-import-beyond-cut.json)
+- [review-not-singleton.json](../vectors/review-not-singleton.json)
+- [review-on-plain-stream.json](../vectors/review-on-plain-stream.json)
+- [review-wrong-applied-state.json](../vectors/review-wrong-applied-state.json)
+- [review-wrong-cut-digest.json](../vectors/review-wrong-cut-digest.json)
+- [review-wrong-destination-cut.json](../vectors/review-wrong-destination-cut.json)
+- [review-wrong-source-state.json](../vectors/review-wrong-source-state.json)
 - [revision-future-revision.json](../vectors/revision-future-revision.json)
 - [shared-body.json](../vectors/shared-body.json)
+- [source-state-on-plain-stream.json](../vectors/source-state-on-plain-stream.json)
 - [stale-cut.json](../vectors/stale-cut.json)
 - [surplus-body.json](../vectors/surplus-body.json)
 - [truncated-group.json](../vectors/truncated-group.json)
