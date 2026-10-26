@@ -13,6 +13,8 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 ## Schema rejects
 
 - [reject-export-purpose.json](schema/reject-export-purpose.json)
+- [reject-journal-at-hour-24.json](schema/reject-journal-at-hour-24.json)
+- [reject-journal-at-impossible-date.json](schema/reject-journal-at-impossible-date.json)
 - [reject-journal-at-spelling.json](schema/reject-journal-at-spelling.json)
 - [reject-journal-retired-key-without-digest.json](schema/reject-journal-retired-key-without-digest.json)
 - [reject-profile-positive-window.json](schema/reject-profile-positive-window.json)
@@ -21,6 +23,7 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [reject-receipt-retired-without-digest.json](schema/reject-receipt-retired-without-digest.json)
 - [reject-receipt-seq.json](schema/reject-receipt-seq.json)
 - [reject-record-envelope-v0.json](schema/reject-record-envelope-v0.json)
+- [reject-record-produced-at-impossible-date.json](schema/reject-record-produced-at-impossible-date.json)
 - [reject-record-produced-at-instant-spelling.json](schema/reject-record-produced-at-instant-spelling.json)
 - [reject-record-trusted-time-without-evidence.json](schema/reject-record-trusted-time-without-evidence.json)
 - [reject-request-extra.json](schema/reject-request-extra.json)
@@ -64,6 +67,8 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [incomplete-selection.json](../vectors/incomplete-selection.json)
 - [independent-holds.json](../vectors/independent-holds.json)
 - [inherited-protection.json](../vectors/inherited-protection.json)
+- [instant-hour-24.json](../vectors/instant-hour-24.json)
+- [instant-impossible-date.json](../vectors/instant-impossible-date.json)
 - [instant-journal-at.json](../vectors/instant-journal-at.json)
 - [instant-observed-at-seven-digits.json](../vectors/instant-observed-at-seven-digits.json)
 - [instant-reconcile-attempted-at.json](../vectors/instant-reconcile-attempted-at.json)
@@ -76,6 +81,7 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 - [key-expiry-boundary.json](../vectors/key-expiry-boundary.json)
 - [missing-target.json](../vectors/missing-target.json)
 - [overlapping-selection.json](../vectors/overlapping-selection.json)
+- [produced-at-impossible-date.json](../vectors/produced-at-impossible-date.json)
 - [produced-at-in-digest.json](../vectors/produced-at-in-digest.json)
 - [produced-at-instant-spelling.json](../vectors/produced-at-instant-spelling.json)
 - [produced-at-producer-clock.json](../vectors/produced-at-producer-clock.json)

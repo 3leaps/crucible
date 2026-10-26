@@ -69,9 +69,11 @@ acceptance. Store acceptance time is the journal entry's `at`, outside the
 record digest.
 
 Every instant on the v1 wire is spelled `YYYY-MM-DDTHH:MM:SS.ffffffZ`: UTC,
-`Z`, exactly six fractional digits. This covers journal `at`, `observed_at`,
+`Z`, exactly six fractional digits, and a valid RFC 3339 date and time (no
+February 30, no hour 24, no leap second). This covers journal `at`, `observed_at`,
 `produced_at.instant`, reconciliation `attempted_at` and coverage endpoints.
-Emitters MUST use this spelling. Readers MUST refuse any other spelling as
+Emitters MUST use this spelling. Readers MUST refuse any other spelling, and any
+canonical-looking instant that is not a valid date and time, as
 `instant_spelling` and MUST NOT normalize it: a digest covers the bytes the
 producer wrote, so a store that rewrote `observed_at` or `produced_at.instant`
 would invalidate the caller's digest. An instant that is not exactly
@@ -291,7 +293,7 @@ Schema validation precedes semantic evaluation.
 | `accepted_key_reuse`     | A journal accepts a live key again                                         |
 | `journal_version`        | A v1 journal contains another wire version                                 |
 | `record_version`         | A v1 journal entry carries a record envelope other than `v: 1`             |
-| `instant_spelling`       | An instant is not in the canonical six-digit UTC spelling                  |
+| `instant_spelling`       | An instant is not a valid date and time in the canonical six-digit UTC form |
 | `journal_time`           | Acceptance or decision time precedes the accepted journal                  |
 | `idempotency_window`     | Missing positive key-retention window                                      |
 | `retired_record`         | A content write attempts to revive a retired record                        |

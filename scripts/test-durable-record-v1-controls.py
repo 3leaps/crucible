@@ -88,8 +88,13 @@ class State:
     def instant(self, text):
         # Every v1 wire instant uses one spelling. A reader refuses any other
         # spelling rather than normalizing it, since digests cover the bytes.
+        # The canonical pattern narrows RFC 3339; it does not replace calendar
+        # validity, so an impossible date or time is refused the same way.
         require(canonical(text), "instant_spelling")
-        return legacy.instant(text)
+        try:
+            return legacy.instant(text)
+        except legacy.Reject:
+            require(False, "instant_spelling")
 
     def remember(self, key, identity, at, receipt):
         self.keys[key] = (identity, self.instant(at), copy.deepcopy(receipt))
