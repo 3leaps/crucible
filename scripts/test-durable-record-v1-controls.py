@@ -654,27 +654,46 @@ class Unobserved:
 UNOBSERVED = Unobserved()
 
 
+def observed(journal, window, source, upstream):
+    """Replay one observed source journal under its declared family.
+
+    An invalid source cannot supply restriction state: shape, journal and
+    family semantics are all checked before its manifest is derived.
+    """
+    family = journal[0]["v"]
+    require(family in CAPABILITY, "continuation")
+    schema = BASE.parent / f"v{family}" / "journal-entry.schema.json"
+    for e in journal:
+        require(e["v"] == family and shape(e, schema), "continuation")
+    try:
+        legacy.check_journal(journal, "source")
+        if family == 0:
+            return None
+        state = State(window)
+        state.source, state.upstream = source, upstream
+        for e in journal:
+            state.ingest(e)
+    except legacy.Reject:
+        require(False, "continuation")
+    return state
+
+
 def chain(case):
     # The observed source chain: the immediate source, then each ancestor the
-    # store observes. A source that is itself a continuation is replayed as a
-    # state over its own source, so its review currency can be checked.
+    # store observes. Each is replayed under its own family; a source that is
+    # itself a continuation is replayed over its own source, so its review
+    # currency can be checked.
     journals = [case["source_journal"]] + case.get("ancestors", [])
     upstream = None
     for journal in reversed(journals):
-        legacy.check_journal(journal, "source")
-        if journal[0].get("continues") is None:
-            upstream_state = None
-        elif upstream is None:
+        if journal[0].get("continues") is not None and upstream is None:
             # A continuation source whose own source is not observed cannot
             # show that the chain is current.
             return copy.deepcopy(journals[0]), UNOBSERVED
-        else:
-            upstream_state = State(case["window_ms"])
-            upstream_state.source = copy.deepcopy(upstream[0])
-            upstream_state.upstream = upstream[1]
-            for e in journal:
-                upstream_state.ingest(e)
-        upstream = (copy.deepcopy(journal), upstream_state)
+        source, above = upstream if upstream else (None, None)
+        state = observed(journal, case["window_ms"], source, above)
+        continuation = state is not None and state.continues is not None
+        upstream = (copy.deepcopy(journal), state if continuation else None)
     return upstream
 
 
@@ -732,7 +751,7 @@ def shape(doc, name):
                 "validate",
                 "data",
                 "--schema-file",
-                str(BASE / (name + ".schema.json")),
+                str(name if isinstance(name, Path) else BASE / (name + ".schema.json")),
                 "--data",
                 str(p),
             ],
@@ -971,6 +990,8 @@ def mutation_controls():
         ),
         ("source_cut", "require", "continuation", 4, "review-wrong-cut-digest", None),
         ("import_record", "require", "continuation", 1, "import-other-source", None),
+        ("observed", "require", "continuation", 1, "source-record-extra-field", None),
+        ("observed", "require", "continuation", 2, "source-invalid-restore", None),
         ("check_review", "require", "continuation", 2, "review-not-singleton", None),
         (
             "check_review",
@@ -1074,12 +1095,13 @@ def mutation_controls():
         state = next(
             n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "State"
         )
+        # State methods first, then module-level functions.
         scope = (
             state
             if method == "State"
             else next(
                 n
-                for n in state.body
+                for n in state.body + tree.body
                 if isinstance(n, ast.FunctionDef) and n.name == method
             )
         )

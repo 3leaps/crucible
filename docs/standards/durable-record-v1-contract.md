@@ -274,6 +274,13 @@ stream: the holds active and records retired in the destination at
 `destination_cut_seq`. Each list is sorted by the JCS bytes of its members and
 has no duplicates.
 
+Every observed source and ancestor journal is validated under its declared
+family before its restriction state is derived: its entries' shape, its v0
+journal rules and, for a v1 source, the v1 semantics of every entry (a restore
+that changes its hold's target is refused, for example). An invalid source
+supplies no restriction state, and a journal relying on it is refused as
+`continuation`; the same holds when the source advances.
+
 A reader MUST refuse, as `continuation`, a journal whose review names a source
 or cut that disagrees with `continues`, whose cut digest or source state
 digest does not match the observed source, whose applied state digest does
