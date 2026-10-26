@@ -39,19 +39,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release targets use one naming pattern.** The `release-tag-push` alias is
   removed; use `make release-push-tag`.
 - **Durable-record/v1 carries record envelope `v: 1`, production time and
-  keyed retirement.** Amended in place before any v1 implementation was
-  released; not additive. A v1 journal now carries `v: 1` records: the v0
+  keyed retirement.** Amended in place on 2026-10-25, when durable-record/v1
+  had no adopters; not additive. The v1 record envelope moves to wire version
+  1, so the digest and pin of every v1 record change, whether or not it
+  carries `produced_at`; the v0 family is untouched. A v1 record is the v0
   envelope with `v` changed to `1` and an optional `produced_at` (`instant`,
   `source` of `producer_clock` or `trusted_time`, and evidence when trusted)
   inside the record digest. A `v: 0` record in a v1 journal is refused as
-  `record_version`, so content re-recorded into v1 always gets a new digest
-  and pin. Every v1 wire instant is spelled with exactly six fractional digits
-  in UTC; readers refuse any other spelling as `instant_spelling` and never
-  normalize under a digest. `retired` gains an optional idempotency key with
-  an accepted `retired` write receipt; an unkeyed retirement keeps no receipt.
-  `seq` is stated to be non-portable. All v1 vectors and examples are
-  re-derived; new vectors cover each rule. ADR-0019 records the amendment.
-  The v0 family is unchanged.
+  `record_version`. Every v1 wire instant is a valid UTC date and time with
+  exactly six fractional digits and no leap second; readers refuse anything
+  else as `instant_spelling` and never normalize under a digest. `retired`
+  gains an optional idempotency key with an accepted `retired` write
+  receipt; an unkeyed retirement keeps no receipt. `seq` is stated to be
+  non-portable. All v1 vectors and examples are re-derived, and new vectors
+  cover each rule. ADR-0019 records the amendment.
 - **Durable-record/v1 stratum profiles name the commit step from a closed set.**
   `runtime.commit_strategy` is now one of `fsync_file_and_dir`, `fsync_file`,
   `backend_acknowledged` or `none`, so profiles can be compared; free-text
