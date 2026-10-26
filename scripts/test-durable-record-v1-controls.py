@@ -58,6 +58,91 @@ def pin_key(p):
     return p["stream"], p["record_id"], p["revision"], p["digest"]
 
 
+CAPABILITY = {
+    0: "contract: durable-record/v0",
+    1: "contract: durable-record/v1",
+}
+
+
+def complete_cut(journal, cut_seq):
+    # A cut ends a complete group: the entry at cut_seq closes its group.
+    if not 1 <= cut_seq <= len(journal):
+        return False
+    e = journal[cut_seq - 1]
+    return e["seq"] == e["group"] + e["group_size"] - 1
+
+
+def manifest_digest(holds, retired, inherited=None):
+    def ordered(members):
+        return sorted(members, key=lambda m: legacy._jcs.jcs_dumps(m))
+
+    body = dict(holds=ordered(holds), retired=ordered(retired))
+    if inherited is not None:
+        body["inherited"] = ordered(inherited)
+    return digest(body)
+
+
+def restriction_state(journal):
+    """Active holds, retired ids and latest review of a journal prefix."""
+    holds, retired, review = {}, set(), None
+    for e in journal:
+        if e["type"] == "tombstoned":
+            holds[e["seq"]] = e["request_digest"]
+        elif e["type"] == "untombstoned":
+            holds.pop(e["request"]["restores"], None)
+        elif e["type"] == "retired":
+            retired.add(e["record_id"])
+        elif e["type"] == "restrictions_reviewed":
+            review = e
+    return holds, retired, review
+
+
+def source_manifest(journal):
+    # Effective source restriction manifest, qualified by capability and
+    # stream, including what the source itself inherited.
+    capability, stream = CAPABILITY[journal[0]["v"]], journal[0]["stream"]
+    holds, retired, review = restriction_state(journal)
+    inherited = []
+    if review is not None:
+        inherited.append(
+            dict(
+                capability=review["source"]["capability"],
+                stream=review["source"]["stream"],
+                source_state_digest=review["source_state_digest"],
+            )
+        )
+    return manifest_digest(
+        [
+            dict(capability=capability, stream=stream, seq=seq, request_digest=d)
+            for seq, d in holds.items()
+        ],
+        [dict(capability=capability, stream=stream, record_id=r) for r in retired],
+        inherited,
+    )
+
+
+def applied_manifest(journal):
+    # Destination applied manifest: the holds and retirements the
+    # destination itself has established.
+    capability, stream = CAPABILITY[1], journal[0]["stream"]
+    holds, retired, _ = restriction_state(journal)
+    return manifest_digest(
+        [
+            dict(capability=capability, stream=stream, seq=seq, request_digest=d)
+            for seq, d in holds.items()
+        ],
+        [dict(capability=capability, stream=stream, record_id=r) for r in retired],
+    )
+
+
+def source_pins(journal):
+    return {
+        (e["stream"], e["record"]["record_id"], e["record"]["revision"], e["digest"])
+        for e in journal
+        if e["type"] in ("appended", "revised")
+    }
+
+
 def require(ok, reason):
     if not ok:
         raise legacy.Reject(reason, "durable-record/v1")
@@ -84,6 +169,12 @@ class State:
         self.retired = set()
         self.stream = None
         self.failure_model = None
+        self.source = None
+        self.continues = None
+        self.imports = []
+        self.review = None
+        self.restricted_at = []
+        self.upstream = None
 
     def instant(self, text):
         # Every v1 wire instant uses one spelling. A reader refuses any other
@@ -128,8 +219,12 @@ class State:
         typ = e["type"]
         if typ == "stream_opened":
             self.stream, self.failure_model = e["stream"], e["failure_model"]
+            if "continues" in e:
+                self.open_continuation(e["continues"])
         elif typ in ("appended", "revised"):
             require(e["record"]["record_id"] not in self.retired, "retired_record")
+            if "imported_from" in e:
+                self.import_record(e)
             require(
                 self.live(e["idempotency_key"], e["at"]) is None, "accepted_key_reuse"
             )
@@ -196,7 +291,105 @@ class State:
                     self.retirement_receipt(r, e["seq"]),
                 )
             self.retired.add(e["record_id"])
+        elif typ == "restrictions_reviewed":
+            self.check_review(e)
+        if typ in ("tombstoned", "untombstoned", "retired"):
+            self.restricted_at.append(e["seq"])
         self.journal.append(copy.deepcopy(e))
+
+    def source_cut(self, cut):
+        # The source journal the store observes; the cut must be a complete
+        # group whose prefix digest matches, under the declared capability.
+        source = self.source
+        require(source is not None, "continuation")
+        require(
+            cut["capability"] == CAPABILITY.get(source[0]["v"])
+            and all(e["v"] == source[0]["v"] for e in source),
+            "continuation",
+        )
+        require(cut["stream"] == source[0]["stream"], "continuation")
+        require(complete_cut(source, cut["cut_seq"]), "continuation")
+        prefix = source[: cut["cut_seq"]]
+        require(digest(prefix) == cut["cut_digest"], "continuation")
+        return prefix
+
+    def open_continuation(self, cut):
+        self.source_cut(cut)
+        self.continues = copy.deepcopy(cut)
+
+    def import_record(self, e):
+        imported = e["imported_from"]
+        require(self.continues is not None, "continuation")
+        require(
+            imported["capability"] == self.continues["capability"]
+            and imported["pin"]["stream"] == self.continues["stream"],
+            "continuation",
+        )
+        self.imports.append((e["seq"], pin_key(imported["pin"])))
+
+    def check_review(self, e):
+        require(self.continues is not None, "continuation")
+        src = e["source"]
+        require(
+            src["capability"] == self.continues["capability"]
+            and src["stream"] == self.continues["stream"],
+            "continuation",
+        )
+        # A review is its own atomic group and covers the complete cut
+        # immediately before it.
+        require(
+            e["group"] == e["seq"]
+            and e["group_size"] == 1
+            and e["destination_cut_seq"] == e["seq"] - 1,
+            "continuation",
+        )
+        prefix = self.source_cut(src)
+        # A review may advance past the opening cut, never before it, and the
+        # opening prefix must still hash to the declared continues digest.
+        # Each of these two guards backs up the other, and the opening prefix
+        # is also checked when the stream opens, so neither has a single-guard
+        # mutation witness; vectors cover both.
+        require(src["cut_seq"] >= self.continues["cut_seq"], "continuation")
+        require(
+            digest(prefix[: self.continues["cut_seq"]]) == self.continues["cut_digest"],
+            "continuation",
+        )
+        require(source_manifest(prefix) == e["source_state_digest"], "continuation")
+        known = source_pins(prefix)
+        require(all(p in known for _, p in self.imports), "continuation")
+        require(
+            applied_manifest(self.journal) == e["destination_applied_state_digest"],
+            "continuation",
+        )
+        self.review = copy.deepcopy(e)
+
+    def review_pending(self, r):
+        # The store supplies the source's current state digest as a trusted
+        # input; it must equal the observed source, then match the review.
+        if self.continues is None:
+            return "source_state_digest" in r
+        if self.upstream is UNOBSERVED:
+            return True
+        if r.get("source_state_digest") != source_manifest(self.source):
+            return True
+        return None
+
+    def review_current(self):
+        # A review covers imports and restriction state through its own cut.
+        # A later import or destination restriction change reopens it; so does
+        # a change in the source's effective state, or in any ancestor's.
+        if self.continues is None:
+            return True
+        if self.review is None:
+            return False
+        after = self.review["seq"]
+        if any(seq > after for seq, _ in self.imports):
+            return False
+        if any(seq > after for seq in self.restricted_at):
+            return False
+        if source_manifest(self.source) != self.review["source_state_digest"]:
+            return False
+        return self.upstream is None or self.upstream.review_current()
 
     def refusal(self, r, at):
         if r["stream"] != self.stream or r["target"]["stream"] != self.stream:
@@ -414,8 +607,11 @@ class State:
             or r["protection_state"] != "verified"
             or r["protection_cut"] != len(self.journal)
             or r["current_cut"] != len(self.journal)
+            or self.review_pending(r)
         ):
             return refused("protection_unavailable")
+        if not self.review_current():
+            return refused("restrictions_pending")
         selected = {pin_key(p) for p in r["selection"]}
         omitted = {pin_key(p) for p in r["omitted"]}
         if not (selected | omitted) <= self.records.keys():
@@ -460,8 +656,61 @@ class State:
         )
 
 
+class Unobserved:
+    def review_current(self):
+        return False
+
+
+UNOBSERVED = Unobserved()
+
+
+def observed(journal, window, source, upstream):
+    """Replay one observed source journal under its declared family.
+
+    An invalid source cannot supply restriction state: shape, journal and
+    family semantics are all checked before its manifest is derived.
+    """
+    family = journal[0]["v"]
+    require(family in CAPABILITY, "continuation")
+    schema = BASE.parent / f"v{family}" / "journal-entry.schema.json"
+    for e in journal:
+        require(e["v"] == family and shape(e, schema), "continuation")
+    try:
+        legacy.check_journal(journal, "source")
+        if family == 0:
+            return None
+        state = State(window)
+        state.source, state.upstream = source, upstream
+        for e in journal:
+            state.ingest(e)
+    except legacy.Reject:
+        require(False, "continuation")
+    return state
+
+
+def chain(case):
+    # The observed source chain: the immediate source, then each ancestor the
+    # store observes. Each is replayed under its own family; a source that is
+    # itself a continuation is replayed over its own source, so its review
+    # currency can be checked.
+    journals = [case["source_journal"]] + case.get("ancestors", [])
+    upstream = None
+    for journal in reversed(journals):
+        if journal[0].get("continues") is not None and upstream is None:
+            # A continuation source whose own source is not observed cannot
+            # show that the chain is current.
+            return copy.deepcopy(journals[0]), UNOBSERVED
+        source, above = upstream if upstream else (None, None)
+        state = observed(journal, case["window_ms"], source, above)
+        continuation = state is not None and state.continues is not None
+        upstream = (copy.deepcopy(journal), state if continuation else None)
+    return upstream
+
+
 def evaluate(case):
     s = State(case["window_ms"])
+    if "source_journal" in case:
+        s.source, s.upstream = chain(case)
     legacy.check_journal(case["journal"], "v1")
     for e in case["journal"]:
         s.ingest(e)
@@ -477,6 +726,20 @@ def evaluate(case):
             results.append(s.reconcile(**step["reconcile"]))
         elif "entry" in step:
             s.ingest(step["entry"])
+            results.append({"outcome": "journaled"})
+        elif "source_entry" in step:
+            # The source journal advances outside this stream.
+            case = copy.deepcopy(case)
+            case["source_journal"].append(copy.deepcopy(step["source_entry"]))
+            s.source, s.upstream = chain(case)
+            results.append({"outcome": "journaled"})
+        elif "ancestor_entry" in step:
+            # An ancestor journal advances outside this stream and its source.
+            case = copy.deepcopy(case)
+            case["ancestors"][step["ancestor"]].append(
+                copy.deepcopy(step["ancestor_entry"])
+            )
+            s.source, s.upstream = chain(case)
             results.append({"outcome": "journaled"})
         else:
             results.append(s.use(step["use"]))
@@ -498,7 +761,7 @@ def shape(doc, name):
                 "validate",
                 "data",
                 "--schema-file",
-                str(BASE / (name + ".schema.json")),
+                str(name if isinstance(name, Path) else BASE / (name + ".schema.json")),
                 "--data",
                 str(p),
             ],
@@ -719,18 +982,136 @@ def mutation_controls():
             "receipt-wrong-digest",
             None,
         ),
+        (
+            "source_cut",
+            "require",
+            "continuation",
+            1,
+            "continuation-wrong-capability",
+            None,
+        ),
+        (
+            "source_cut",
+            "require",
+            "continuation",
+            3,
+            "continuation-incomplete-cut",
+            None,
+        ),
+        ("source_cut", "require", "continuation", 4, "review-wrong-cut-digest", None),
+        ("import_record", "require", "continuation", 1, "import-other-source", None),
+        ("observed", "require", "continuation", 1, "source-record-extra-field", None),
+        ("observed", "require", "continuation", 2, "source-invalid-restore", None),
+        ("check_review", "require", "continuation", 2, "review-not-singleton", None),
+        (
+            "check_review",
+            "require",
+            "continuation",
+            2,
+            "review-wrong-destination-cut",
+            None,
+        ),
+        (
+            "check_review",
+            "require",
+            "continuation",
+            5,
+            "review-wrong-source-state",
+            None,
+        ),
+        (
+            "check_review",
+            "require",
+            "continuation",
+            6,
+            "review-import-beyond-cut",
+            None,
+        ),
+        (
+            "check_review",
+            "require",
+            "continuation",
+            7,
+            "review-wrong-applied-state",
+            None,
+        ),
+        (
+            "review_pending",
+            "compare",
+            "'source_state_digest' in r",
+            0,
+            "source-state-on-plain-stream",
+            None,
+        ),
+        (
+            "review_pending",
+            "compare",
+            "r.get('source_state_digest') != source_manifest(self.source)",
+            0,
+            "continuation-source-state-mismatch",
+            None,
+        ),
+        (
+            "review_pending",
+            "compare",
+            "self.upstream is UNOBSERVED",
+            0,
+            "continuation-ancestor-unobserved",
+            ("reason", "restrictions_pending", 0),
+        ),
+        (
+            "use",
+            "if_reason",
+            "restrictions_pending",
+            0,
+            "continuation-unreviewed",
+            None,
+        ),
+        (
+            "review_current",
+            "compare",
+            "seq > after",
+            0,
+            "continuation-import-after-review",
+            None,
+        ),
+        (
+            "review_current",
+            "compare",
+            "seq > after",
+            1,
+            "continuation-destination-restriction-after-review",
+            None,
+        ),
+        (
+            "review_current",
+            "compare",
+            "source_manifest(self.source) != self.review['source_state_digest']",
+            0,
+            "continuation-source-changed",
+            None,
+        ),
+        (
+            "review_current",
+            "compare_true",
+            "self.upstream is None",
+            0,
+            "continuation-ancestor-changed",
+            None,
+        ),
     ]
     for method, kind, value, occurrence, witness, alternative in specs:
         tree = ast.parse(source)
         state = next(
             n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "State"
         )
+        # State methods first, then module-level functions.
         scope = (
             state
             if method == "State"
             else next(
                 n
-                for n in state.body
+                for n in state.body + tree.body
                 if isinstance(n, ast.FunctionDef) and n.name == method
             )
         )

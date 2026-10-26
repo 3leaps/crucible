@@ -221,6 +221,126 @@ operation. Without complete coverage, return `unknown`, never inferred absence.
 The logical interpreter demonstrates `found` and conservative `unknown`; it
 has no authoritative coverage provider and never manufactures `not_found`.
 
+## Continuation streams and restriction review
+
+A v1 stream that re-records content from another stream is a **continuation**.
+Its `stream_opened` entry carries `continues`: the source journal's capability
+(`contract: durable-record/v0` or `contract: durable-record/v1`), its `stream`,
+and a source cut `{cut_seq, cut_digest}`. The capability is required because a
+v0 and a v1 journal can retain the same logical stream identifier. A stream
+without `continues` is not a continuation, and nothing in this section applies
+to it.
+
+**Cut digest.** `cut_digest` is `sha256:` followed by the lowercase hex SHA-256
+of the RFC 8785 JCS bytes of the JSON array of the source journal's entries
+`1..cut_seq`, in order. `cut_seq` MUST end a complete group. Every entry
+carries its wire version `v` and `stream`, so the preimage already
+distinguishes a v0 from a v1 journal with the same identifier. A cut digest
+binds history; it does not prove that the cut is the source's current
+authoritative cut.
+
+**Imports.** A content entry (`appended` or `revised`) in a continuation that
+re-records source content carries `imported_from`, the exact source pin it
+re-records. `imported_from.stream` MUST equal the stream named by `continues`.
+Re-recording changes the record's digest and pin (see Version boundary), so the
+source pin is not the destination pin.
+
+**Review entry.** A `restrictions_reviewed` entry, in the continuation stream,
+records an authorized review. It carries:
+
+- `source`: capability, `stream`, `cut_seq` and `cut_digest` of the source cut
+  reviewed. It has the capability and stream of `continues` and MAY advance
+  beyond the opening cut, so a live continuation can import later source
+  content: `cut_seq` is at least `continues.cut_seq` and ends a complete group,
+  and the source prefix through the opening cut still hashes to
+  `continues.cut_digest`;
+- `destination_cut_seq`: the last destination entry the review covers. The
+  review is its own atomic group (`group` equals `seq`, `group_size` 1), so
+  `destination_cut_seq` is `seq - 1`, the complete cut immediately before it;
+- `source_state_digest`: the digest of the **effective source restriction
+  manifest** at that source cut;
+- `destination_applied_state_digest`: the digest of the **destination applied
+  manifest** at `destination_cut_seq`;
+- `authorization`: opaque reference and digest, the same shape as protection
+  evidence;
+- `provenance`.
+
+Both digests are `sha256:` of the RFC 8785 JCS bytes of the manifest object.
+The **effective source restriction manifest** is
+`{holds, retired, inherited}` where `holds` lists every active hold at the
+source cut as `{capability, stream, seq, request_digest}`, `retired` lists every
+retired record as `{capability, stream, record_id}`, and `inherited` lists the
+`source_state_digest` of every review the source itself depends on (empty when
+the source is not a continuation), each as `{capability, stream,
+source_state_digest}`. The **destination applied manifest** is
+`{holds, retired}` in the same member form, qualified by the destination
+stream: the holds active and records retired in the destination at
+`destination_cut_seq`. Each list is sorted by the JCS bytes of its members and
+has no duplicates.
+
+Every observed source and ancestor journal is validated under its declared
+family before its restriction state is derived: its entries' shape, its v0
+journal rules and, for a v1 source, the v1 semantics of every entry (a restore
+that changes its hold's target is refused, for example). An invalid source
+supplies no restriction state, and a journal relying on it is refused as
+`continuation`; the same holds when the source advances.
+
+A reader MUST refuse, as `continuation`, a journal whose review names a source
+capability or stream that disagrees with `continues`, a cut before the opening
+cut, or a source whose opening prefix no longer hashes to `continues.cut_digest`, whose cut digest or source state
+digest does not match the observed source, whose applied state digest does
+not match the destination at `destination_cut_seq`, or whose covered
+`imported_from` pins do not exist at or before the reviewed source cut. An
+`imported_from` that names another source, and a `continues`,
+`imported_from` or review in a stream that is not a continuation, are refused
+the same way.
+
+The reviewer MUST verify the mapping from each restricted source pin to the
+destination pins that re-record it, because re-recording changed their
+digests. The logical interpreter checks the manifests' shape and digests, not
+that mapping: mapping and authorization are adopter duties.
+
+**Serving.** A continuation's serve, export and reuse decisions fail closed as
+`restrictions_pending` unless the latest `restrictions_reviewed` entry is
+current:
+
+- it names the same source capability and stream as `continues`;
+- no `imported_from` entry follows its `destination_cut_seq`;
+- no `tombstoned`, `untombstoned` or `retired` entry follows it in the
+  destination, so the applied manifest it verified is still the destination's
+  restriction state;
+- the source's effective restriction manifest, at the source's current
+  authoritative cut, still has the reviewed `source_state_digest`. A source
+  whose state cannot be observed fails closed;
+- if the source is itself a continuation, its own latest review is current by
+  these same rules against its source, and so on through every ancestor. A
+  chain with an ancestor that cannot be observed fails closed, unless each
+  boundary above it has a verified seal.
+
+In the logical form, the enforcing store supplies that current digest as the
+trusted export-request input `source_state_digest`, alongside
+`protection_state`. A missing, unobservable or disagreeing source state, or an
+unobservable ancestor, is `protection_unavailable`; the input on a stream that is not a continuation is
+refused the same way. A current source state that differs from the reviewed
+one, a later import, a later destination restriction change, a pending review
+anywhere in the source chain, or no review at all is `restrictions_pending`.
+
+A later import from the source, a destination restriction change, or a
+change in the effective restrictions of the source or any ancestor makes
+review pending again. Ordinary destination content writes after the review do
+not; they are governed by the destination's own current-cut hold rules. The
+manifests are effective state, not event history: a source hold accepted and
+then restored returns the source to its reviewed state, and the review is
+current again if no release occurred while the state differed. A sealed source, read-only at the reviewed cut, can make the
+source-state check final only with a verified seal of that cut; this bundle
+defines no seal format.
+
+The source-state check and the destination's current-cut release decision
+MUST be held together through release, serialized with protection operations
+on both streams: a source hold accepted between the check and the release
+blocks it. The logical interpreter decides at one observation and does not
+qualify that serialization.
+
 ## Serving, reuse and export
 
 Before releasing selected records or referenced bodies, the consumer MUST
@@ -239,7 +359,8 @@ an untrusted caller may assert. The fixture evaluator checks the two cuts
 against the actual full journal. A production adopter must independently
 establish these inputs and prevent races through release.
 
-`purpose` is `serve`, `export`, or `reuse`; all enforce holds. `serve` also
+`purpose` is `serve`, `export`, or `reuse`; all enforce holds and, for a
+continuation, the restriction review. `serve` also
 excludes retired records. The same selection mechanism is used by the logical
 fixtures. There is no `audit` export purpose.
 
@@ -293,7 +414,7 @@ Schema validation precedes semantic evaluation.
 | `hold_not_active`        | Restoration does not identify an active hold                               |
 | `hold_mismatch`          | Restoration changes the hold's target or scope                             |
 | `observation_order`      | Observation follows acceptance or restoration predates the hold            |
-| `protection_unavailable` | Protection is unavailable, from another stream, or not current             |
+| `protection_unavailable` | Protection or source state is unavailable, from another stream, or not current |
 | `protected_use`          | Matching or inherited hold, or a retired record selected for serving       |
 | `export_selection`       | Selection and omissions do not partition the inventory                     |
 | `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body      |
@@ -309,13 +430,16 @@ Schema validation precedes semantic evaluation.
 | `journal_time`           | Acceptance or decision time precedes the accepted journal                  |
 | `idempotency_window`     | Missing positive key-retention window                                      |
 | `retired_record`         | A content write attempts to revive a retired record                        |
+| `restrictions_pending`   | A continuation has no current restriction review                           |
+| `continuation`           | An import, review or manifest disagrees with the stream's continuation     |
 
 ## Conformance and limits
 
 Run `python3 scripts/test-durable-record-v1-controls.py`. File-backed vectors
 cover scopes, independent holds, replay, expiration, reconciliation, atomic
 cuts, keyed and unkeyed retirement, production time, instant spelling, record
-envelope version, export omissions, inherited restrictions and body closure.
+envelope version, export omissions, inherited restrictions, body closure, and
+continuation review (cut and manifest digests, imports, currency).
 Schema reject fixtures differ from a passing baseline in one field. Mutation
 controls deliberately weaken guarded rules. Each must turn a rejected witness
 into acceptance or produce a specifically named wrong outcome; an unrelated

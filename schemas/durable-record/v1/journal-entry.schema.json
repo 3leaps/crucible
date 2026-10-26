@@ -45,7 +45,8 @@
         "conflicted",
         "retired",
         "tombstoned",
-        "untombstoned"
+        "untombstoned",
+        "restrictions_reviewed"
       ],
       "description": "Closed vocabulary. Unknown types are rejected."
     },
@@ -107,6 +108,33 @@
     },
     "request_digest": {
       "$ref": "#/$defs/digest"
+    },
+    "continues": {
+      "$ref": "#/$defs/sourceCut",
+      "description": "Only on stream_opened: the source journal and cut this stream continues."
+    },
+    "imported_from": {
+      "$ref": "#/$defs/sourcePin",
+      "description": "Only on appended or revised in a continuation: the exact source pin this record re-records."
+    },
+    "source": {
+      "$ref": "#/$defs/sourceCut"
+    },
+    "destination_cut_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_state_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "destination_applied_state_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "authorization": {
+      "$ref": "#/$defs/authorization"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
     }
   },
   "allOf": [
@@ -460,6 +488,177 @@
         "not": {
           "required": [
             "request_digest"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "restrictions_reviewed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source",
+          "destination_cut_seq",
+          "source_state_digest",
+          "destination_applied_state_digest",
+          "authorization",
+          "provenance"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "record"
+              ]
+            },
+            {
+              "required": [
+                "record_id"
+              ]
+            },
+            {
+              "required": [
+                "revision"
+              ]
+            },
+            {
+              "required": [
+                "digest"
+              ]
+            },
+            {
+              "required": [
+                "idempotency_key"
+              ]
+            },
+            {
+              "required": [
+                "reason"
+              ]
+            },
+            {
+              "required": [
+                "presented"
+              ]
+            },
+            {
+              "required": [
+                "current"
+              ]
+            },
+            {
+              "required": [
+                "body_status"
+              ]
+            },
+            {
+              "required": [
+                "mode"
+              ]
+            },
+            {
+              "required": [
+                "failure_model"
+              ]
+            },
+            {
+              "required": [
+                "request"
+              ]
+            },
+            {
+              "required": [
+                "request_digest"
+              ]
+            },
+            {
+              "required": [
+                "continues"
+              ]
+            },
+            {
+              "required": [
+                "imported_from"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "source"
+              ]
+            },
+            {
+              "required": [
+                "destination_cut_seq"
+              ]
+            },
+            {
+              "required": [
+                "source_state_digest"
+              ]
+            },
+            {
+              "required": [
+                "destination_applied_state_digest"
+              ]
+            },
+            {
+              "required": [
+                "authorization"
+              ]
+            },
+            {
+              "required": [
+                "provenance"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "stream_opened"
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "not": {
+          "required": [
+            "continues"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "appended",
+              "revised"
+            ]
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "not": {
+          "required": [
+            "imported_from"
           ]
         }
       }
@@ -985,6 +1184,72 @@
       "format": "date-time",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$",
       "description": "Canonical v1 instant: UTC, Z, exactly six fractional digits. Any other spelling is refused, never normalized."
+    },
+    "capability": {
+      "enum": [
+        "contract: durable-record/v0",
+        "contract: durable-record/v1"
+      ]
+    },
+    "sourceCut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "stream",
+        "cut_seq",
+        "cut_digest"
+      ],
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/capability"
+        },
+        "stream": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "cut_seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cut_digest": {
+          "$ref": "#/$defs/digest",
+          "description": "sha256 of the RFC 8785 JCS bytes of the source journal entries 1..cut_seq as one array."
+        }
+      }
+    },
+    "sourcePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "pin"
+      ],
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/capability"
+        },
+        "pin": {
+          "$ref": "#/$defs/pin"
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "digest"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
     }
   }
 }

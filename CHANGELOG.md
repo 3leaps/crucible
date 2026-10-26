@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **durable-record/v1 continuation streams and restriction review.** A stream
+  that re-records another stream's content declares `continues` (source
+  capability, stream and complete-group cut digest) on `stream_opened`, and
+  marks each re-recorded entry with `imported_from`. A `restrictions_reviewed`
+  entry binds the reviewed source cut, the effective source restriction
+  manifest (including inherited reviews) and the destination's applied
+  manifest, with an authorization reference. Serve, export and reuse of a
+  continuation fail closed as `restrictions_pending` until a current review
+  exists; a later import, a destination restriction change, or a
+  restriction change in the source or any ancestor reopens it. New
+  refusals `restrictions_pending` and `continuation`; vectors, schema rejects
+  and mutation witnesses cover each rule.
+
 ### Changed
 
 - **Repository classes clarifications (draft 0.1.1).** C5 requires a `version`
