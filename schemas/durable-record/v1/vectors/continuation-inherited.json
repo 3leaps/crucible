@@ -191,6 +191,112 @@
       }
     }
   ],
+  "ancestors": [
+    [
+      {
+        "v": 1,
+        "seq": 1,
+        "group": 1,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "stream_opened",
+        "at": "2026-10-20T00:00:01.000000Z",
+        "mode": "revisioned",
+        "failure_model": "survives_power_loss"
+      },
+      {
+        "v": 1,
+        "seq": 2,
+        "group": 2,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "appended",
+        "at": "2026-10-20T00:00:02.000000Z",
+        "record": {
+          "v": 1,
+          "stream": "records.example",
+          "record_id": "first",
+          "revision": 1,
+          "payload_contract": "contract: example/v0",
+          "payload": {
+            "note": "first"
+          },
+          "provenance": {
+            "actor_kind": "human",
+            "actor": "operator"
+          },
+          "classification": {
+            "retention": "standard",
+            "sensitivity": "0-public"
+          }
+        },
+        "digest": "sha256:8b538d41478dce6d555709710a0e55ed4f1c9336ce9de80e6e6c66dd41c871e1",
+        "idempotency_key": "write-records.example-first"
+      },
+      {
+        "v": 1,
+        "seq": 3,
+        "group": 3,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "appended",
+        "at": "2026-10-20T00:00:03.000000Z",
+        "record": {
+          "v": 1,
+          "stream": "records.example",
+          "record_id": "second",
+          "revision": 1,
+          "payload_contract": "contract: example/v0",
+          "payload": {
+            "note": "second"
+          },
+          "provenance": {
+            "actor_kind": "human",
+            "actor": "operator"
+          },
+          "classification": {
+            "retention": "standard",
+            "sensitivity": "0-public"
+          }
+        },
+        "digest": "sha256:cd5cd9e31fc183a38c2b47be8d505acc2a63dee1c035b2fb951f4be19cd52c73",
+        "idempotency_key": "write-records.example-second"
+      },
+      {
+        "v": 1,
+        "seq": 4,
+        "group": 4,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "tombstoned",
+        "at": "2026-10-20T00:00:04.000000Z",
+        "request": {
+          "v": 1,
+          "stream": "records.example",
+          "idempotency_key": "hold-1",
+          "action": "tombstone",
+          "target": {
+            "stream": "records.example",
+            "record_id": "first",
+            "revision": 1,
+            "digest": "sha256:8b538d41478dce6d555709710a0e55ed4f1c9336ce9de80e6e6c66dd41c871e1"
+          },
+          "scope": "record",
+          "reason": "source_removed",
+          "evidence": {
+            "ref": "source-observation:example",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "observed_at": "2026-10-20T00:00:04.000000Z",
+          "provenance": {
+            "actor_kind": "human",
+            "actor": "operator"
+          }
+        },
+        "request_digest": "sha256:5c5b35265a50717fa99c3b93c74b8e05deb7b56947f931e438776e0d335d3906"
+      }
+    ]
+  ],
   "expected": {
     "results": [
       {

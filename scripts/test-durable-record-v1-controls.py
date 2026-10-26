@@ -173,6 +173,8 @@ class State:
         self.continues = None
         self.imports = []
         self.review = None
+        self.restricted_at = []
+        self.upstream = None
 
     def instant(self, text):
         # Every v1 wire instant uses one spelling. A reader refuses any other
@@ -291,6 +293,8 @@ class State:
             self.retired.add(e["record_id"])
         elif typ == "restrictions_reviewed":
             self.check_review(e)
+        if typ in ("tombstoned", "untombstoned", "retired"):
+            self.restricted_at.append(e["seq"])
         self.journal.append(copy.deepcopy(e))
 
     def source_cut(self, cut):
@@ -354,9 +358,28 @@ class State:
         # input; it must equal the observed source, then match the review.
         if self.continues is None:
             return "source_state_digest" in r
+        if self.upstream is UNOBSERVED:
+            return True
         if r.get("source_state_digest") != source_manifest(self.source):
             return True
         return None
+
+    def review_current(self):
+        # A review covers imports and restriction state through its own cut.
+        # A later import or destination restriction change reopens it; so does
+        # a change in the source's effective state, or in any ancestor's.
+        if self.continues is None:
+            return True
+        if self.review is None:
+            return False
+        after = self.review["seq"]
+        if any(seq > after for seq, _ in self.imports):
+            return False
+        if any(seq > after for seq in self.restricted_at):
+            return False
+        if source_manifest(self.source) != self.review["source_state_digest"]:
+            return False
+        return self.upstream is None or self.upstream.review_current()
 
     def refusal(self, r, at):
         if r["stream"] != self.stream or r["target"]["stream"] != self.stream:
@@ -577,11 +600,7 @@ class State:
             or self.review_pending(r)
         ):
             return refused("protection_unavailable")
-        if self.continues is not None and (
-            self.review is None
-            or any(seq > self.review["seq"] for seq, _ in self.imports)
-            or r["source_state_digest"] != self.review["source_state_digest"]
-        ):
+        if not self.review_current():
             return refused("restrictions_pending")
         selected = {pin_key(p) for p in r["selection"]}
         omitted = {pin_key(p) for p in r["omitted"]}
@@ -627,11 +646,42 @@ class State:
         )
 
 
+class Unobserved:
+    def review_current(self):
+        return False
+
+
+UNOBSERVED = Unobserved()
+
+
+def chain(case):
+    # The observed source chain: the immediate source, then each ancestor the
+    # store observes. A source that is itself a continuation is replayed as a
+    # state over its own source, so its review currency can be checked.
+    journals = [case["source_journal"]] + case.get("ancestors", [])
+    upstream = None
+    for journal in reversed(journals):
+        legacy.check_journal(journal, "source")
+        if journal[0].get("continues") is None:
+            upstream_state = None
+        elif upstream is None:
+            # A continuation source whose own source is not observed cannot
+            # show that the chain is current.
+            return copy.deepcopy(journals[0]), UNOBSERVED
+        else:
+            upstream_state = State(case["window_ms"])
+            upstream_state.source = copy.deepcopy(upstream[0])
+            upstream_state.upstream = upstream[1]
+            for e in journal:
+                upstream_state.ingest(e)
+        upstream = (copy.deepcopy(journal), upstream_state)
+    return upstream
+
+
 def evaluate(case):
     s = State(case["window_ms"])
     if "source_journal" in case:
-        s.source = copy.deepcopy(case["source_journal"])
-        legacy.check_journal(s.source, "source")
+        s.source, s.upstream = chain(case)
     legacy.check_journal(case["journal"], "v1")
     for e in case["journal"]:
         s.ingest(e)
@@ -650,8 +700,17 @@ def evaluate(case):
             results.append({"outcome": "journaled"})
         elif "source_entry" in step:
             # The source journal advances outside this stream.
-            s.source.append(copy.deepcopy(step["source_entry"]))
-            legacy.check_journal(s.source, "source")
+            case = copy.deepcopy(case)
+            case["source_journal"].append(copy.deepcopy(step["source_entry"]))
+            s.source, s.upstream = chain(case)
+            results.append({"outcome": "journaled"})
+        elif "ancestor_entry" in step:
+            # An ancestor journal advances outside this stream and its source.
+            case = copy.deepcopy(case)
+            case["ancestors"][step["ancestor"]].append(
+                copy.deepcopy(step["ancestor_entry"])
+            )
+            s.source, s.upstream = chain(case)
             results.append({"outcome": "journaled"})
         else:
             results.append(s.use(step["use"]))
@@ -959,6 +1018,14 @@ def mutation_controls():
             "r.get('source_state_digest') != source_manifest(self.source)",
             0,
             "continuation-source-state-mismatch",
+            None,
+        ),
+        (
+            "review_pending",
+            "compare",
+            "self.upstream is UNOBSERVED",
+            0,
+            "continuation-ancestor-unobserved",
             ("reason", "restrictions_pending", 0),
         ),
         (
@@ -970,19 +1037,35 @@ def mutation_controls():
             None,
         ),
         (
-            "use",
+            "review_current",
             "compare",
-            "seq > self.review['seq']",
+            "seq > after",
             0,
             "continuation-import-after-review",
             None,
         ),
         (
-            "use",
+            "review_current",
             "compare",
-            "r['source_state_digest'] != self.review['source_state_digest']",
+            "seq > after",
+            1,
+            "continuation-destination-restriction-after-review",
+            None,
+        ),
+        (
+            "review_current",
+            "compare",
+            "source_manifest(self.source) != self.review['source_state_digest']",
             0,
             "continuation-source-changed",
+            None,
+        ),
+        (
+            "review_current",
+            "compare_true",
+            "self.upstream is None",
+            0,
+            "continuation-ancestor-changed",
             None,
         ),
     ]

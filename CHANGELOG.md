@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manifest (including inherited reviews) and the destination's applied
   manifest, with an authorization reference. Serve, export and reuse of a
   continuation fail closed as `restrictions_pending` until a current review
-  exists; a later import or a source restriction change reopens it. New
+  exists; a later import, a destination restriction change, or a
+  restriction change in the source or any ancestor reopens it. New
   refusals `restrictions_pending` and `continuation`; vectors, schema rejects
   and mutation witnesses cover each rule.
 

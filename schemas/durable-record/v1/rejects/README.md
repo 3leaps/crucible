@@ -11,7 +11,9 @@ refused semantically. A `retire` step is a logical keyed-retirement request
 `invalid_use_steps` identifies schema-rejected purposes also refused semantically.
 A continuation vector carries `source_journal`, the source journal the
 enforcing store observes; a `source_entry` step appends to it, as a source
-change outside the destination stream.
+change outside the destination stream. `ancestors` lists the further source
+journals the store observes when the source is itself a continuation, nearest
+first; an `ancestor_entry` step appends to the named one.
 
 ## Schema rejects
 
@@ -55,6 +57,9 @@ change outside the destination stream.
 - [conflicting-body-lengths.json](../vectors/conflicting-body-lengths.json)
 - [content-key-collision.json](../vectors/content-key-collision.json)
 - [content-live-key-reuse.json](../vectors/content-live-key-reuse.json)
+- [continuation-ancestor-changed.json](../vectors/continuation-ancestor-changed.json)
+- [continuation-ancestor-unobserved.json](../vectors/continuation-ancestor-unobserved.json)
+- [continuation-destination-restriction-after-review.json](../vectors/continuation-destination-restriction-after-review.json)
 - [continuation-import-after-review.json](../vectors/continuation-import-after-review.json)
 - [continuation-incomplete-cut.json](../vectors/continuation-incomplete-cut.json)
 - [continuation-inherited.json](../vectors/continuation-inherited.json)

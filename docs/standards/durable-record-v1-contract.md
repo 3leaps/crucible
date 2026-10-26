@@ -294,21 +294,32 @@ current:
 
 - it names the same source capability and stream as `continues`;
 - no `imported_from` entry follows its `destination_cut_seq`;
+- no `tombstoned`, `untombstoned` or `retired` entry follows it in the
+  destination, so the applied manifest it verified is still the destination's
+  restriction state;
 - the source's effective restriction manifest, at the source's current
   authoritative cut, still has the reviewed `source_state_digest`. A source
-  whose state cannot be observed fails closed.
+  whose state cannot be observed fails closed;
+- if the source is itself a continuation, its own latest review is current by
+  these same rules against its source, and so on through every ancestor. A
+  chain with an ancestor that cannot be observed fails closed, unless each
+  boundary above it has a verified seal.
 
 In the logical form, the enforcing store supplies that current digest as the
 trusted export-request input `source_state_digest`, alongside
-`protection_state`. A missing, unobservable or disagreeing source state is
-`protection_unavailable`; the input on a stream that is not a continuation is
+`protection_state`. A missing, unobservable or disagreeing source state, or an
+unobservable ancestor, is `protection_unavailable`; the input on a stream that is not a continuation is
 refused the same way. A current source state that differs from the reviewed
-one, a later import, or no review at all is `restrictions_pending`.
+one, a later import, a later destination restriction change, a pending review
+anywhere in the source chain, or no review at all is `restrictions_pending`.
 
-A later import from the source, or a change in the source's effective
-restrictions, makes review pending again. Ordinary destination writes after
-the review do not; they are governed by the destination's own current-cut hold
-rules. A sealed source, read-only at the reviewed cut, can make the
+A later import from the source, a destination restriction change, or a
+change in the effective restrictions of the source or any ancestor makes
+review pending again. Ordinary destination content writes after the review do
+not; they are governed by the destination's own current-cut hold rules. The
+manifests are effective state, not event history: a source hold accepted and
+then restored returns the source to its reviewed state, and the review is
+current again if no release occurred while the state differed. A sealed source, read-only at the reviewed cut, can make the
 source-state check final only with a verified seal of that cut; this bundle
 defines no seal format.
 
