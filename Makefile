@@ -13,7 +13,7 @@
 # lint-config added as dependency of lint - validates config/*.yaml against schemas
 .PHONY: version-set version-patch version-minor version-major
 .PHONY: precommit prepush deps-check
-.PHONY: test-release-identity release-check-anchors release-tag release-verify-tag release-push-tag release-tag-push release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
+.PHONY: test-release-identity release-check-anchors release-tag release-verify-tag release-push-tag release-guard-tag-version release-guard-tag-ruleset release-guard-release-surfaces sync-version-badge sync-changelog-links
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -249,6 +249,7 @@ contract-tools: ## Fail closed when a required contract-validation tool is missi
 test: test-bootstrap-engine-verification test-check-attribution test-portability test-contract-shards ## Run release-control and attribution-footer tests
 	@./scripts/test-release-env.sh
 	@./scripts/test-release-fetch-decernor.sh
+	@./scripts/test-release-github-verified.sh
 	@./scripts/test-release-guard-tag-ruleset.sh
 	@./scripts/test-release-guard-release-surfaces.sh
 	@./scripts/release-guard-release-surfaces.sh
@@ -615,7 +616,7 @@ version-major: ## Bump major version (0.1.0 -> 1.0.0)
 # Environment variables (see scripts/release-tag.sh for full list):
 # - THREELEAPS_CRUCIBLE_RELEASE_TAG: the release tag (required)
 # - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker (required)
-# - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
+# - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring (required; never the default keyring)
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
 
@@ -627,8 +628,6 @@ release-verify-tag: ## Verify signed tag signature and pinned anchors
 
 release-push-tag: ## Verify and push the signed version tag, then confirm the remote tag
 	@./scripts/release-push-tag.sh
-
-release-tag-push: release-push-tag
 
 release-check-anchors: ## Re-derive fingerprint anchors with the designated checker and compare
 	@./scripts/release-derive-anchors.sh --check

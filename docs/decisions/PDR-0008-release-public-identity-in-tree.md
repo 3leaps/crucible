@@ -1,9 +1,9 @@
 ---
 id: "PDR-0008"
 title: "Release public identity is committed, checked by one tool, and bound by explicit inputs"
-status: "proposed"
+status: "accepted"
 date: "2026-10-22"
-last_updated: "2026-10-23"
+last_updated: "2026-10-24"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -25,8 +25,9 @@ relates-to:
 
 ## Status
 
-**Proposed.** Generalizes the key-pin posture that PDR-0004 established for this
-repository into a rule that any adopting repository can follow. The layout in
+**Accepted.** Generalizes the key-pin posture that PDR-0004 established for this
+repository into a rule that any adopting repository can follow. Accepted on the
+evidence of this repository's first release under the adopted ceremony (§4). The layout in
 §3 is a recommended default; the controls in §2 are the mandate.
 
 ## Context
@@ -222,8 +223,15 @@ or newer, bound through `THREELEAPS_CRUCIBLE_DECERNOR_BIN`, and its tag input is
 `THREELEAPS_CRUCIBLE_RELEASE_TAG`. Crucible publishes signed tags only, so the
 minisign pin is committed and anchored but signs no release file; manifest
 controls apply if it ever publishes assets. Tags up to v0.2.0 predate the
-adoption and verify with the script from their own commit. Its first release
-under the adopted ceremony records the proof.
+adoption and verify with the script from their own commit.
+
+Its first release under the adopted ceremony is `v0.2.1`: tag object
+`0f2929ba0fdc5cd20bf73062d7379a60af22f6f3` on commit
+`16e6abcb1ee498da60e98f0712a29087ba55bbee`. The tag workflow installed the
+digest-pinned checker, verified the committed pins against their anchors and
+the signature against the pinned signing subkey, and published the release. An
+independent verification from a separate clone, with its own pinned checker and
+a throwaway keyring holding only the committed pin, also passed.
 
 ## Rationale
 
@@ -327,3 +335,4 @@ under the adopted ceremony records the proof.
 | 2026-10-22 | → proposed    | Committed pins, one checker, explicit checker and tag inputs | cxotech    |
 | 2026-10-22 | proposed      | Installer literals, retired-key selection, no env override at verify | cxotech    |
 | 2026-10-23 | proposed      | Record this repository's adoption (§4)                       | devlead    |
+| 2026-10-24 | → accepted    | Proven by `v0.2.1` (tag `0f2929b`, commit `16e6abc`); independent verify passed | devlead    |

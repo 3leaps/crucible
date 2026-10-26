@@ -114,6 +114,51 @@ PATH="$work/bin:$PATH" expect_refused "checker on PATH only" "is required" resol
 expect_accepted "checker 0.1.9" resolve_release_decernor "THREELEAPS_CRUCIBLE_DECERNOR_BIN=$work/bin/decernor"
 expect_accepted "checker at minimum" resolve_release_decernor "THREELEAPS_CRUCIBLE_DECERNOR_BIN=$work/bin/at-minimum"
 
+# --- signing keyring: the default keyring is never used ---------------------
+# A fake HOME with a default keyring lets these run without touching the real
+# one; HOME is passed explicitly so the check resolves that fake default.
+mkdir -m 700 "$work/home" "$work/signing" "$work/other"
+mkdir -m 700 "$work/home/.gnupg"
+ln -s "$work/signing" "$work/signing-link"
+ln -s "$work/home/.gnupg" "$work/default-link"
+keyring() { in_env require_signing_keyring HOME="$work/home" "$@"; }
+expect_keyring_refused() {
+    local label="$1" pattern="$2"
+    shift 2
+    if keyring "$@"; then
+        fail "$label: accepted"
+    elif ! grep -q -- "$pattern" "$work/err"; then
+        fail "$label: refused for the wrong reason: $(cat "$work/err")"
+    else
+        pass "$label: refused"
+    fi
+}
+expect_keyring_refused "keyring unset" "the default GPG keyring is never used"
+expect_keyring_refused "keyring empty" "the default GPG keyring is never used" THREELEAPS_CRUCIBLE_GPG_HOMEDIR=
+expect_keyring_refused "keyring relative path" "absolute path" THREELEAPS_CRUCIBLE_GPG_HOMEDIR=signing
+expect_keyring_refused "keyring missing" "absolute path" "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/absent"
+expect_keyring_refused "keyring symlink" "non-symlink" "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing-link"
+expect_keyring_refused "keyring is the default" "resolves to the default GPG keyring" \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/home/.gnupg"
+expect_keyring_refused "keyring is the default, other spelling" "resolves to the default GPG keyring" \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/home/.gnupg/../.gnupg"
+expect_keyring_refused "keyring reached through a symlinked parent" "non-symlink" \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/default-link"
+expect_keyring_refused "inherited GNUPGHOME differs" "GNUPGHOME is set to a different directory" \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/other"
+expect_keyring_refused "inherited GNUPGHOME missing" "GNUPGHOME is set to a different directory" \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/absent"
+if keyring "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing"; then
+    pass "dedicated keyring: accepted"
+else
+    fail "dedicated keyring: refused: $(cat "$work/err")"
+fi
+if keyring "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/signing"; then
+    pass "dedicated keyring with matching GNUPGHOME: accepted"
+else
+    fail "dedicated keyring with matching GNUPGHOME: refused: $(cat "$work/err")"
+fi
+
 # --- entry points refuse before side effects --------------------------------
 # The outermost layer the maintainer invokes must refuse a bare variable,
 # including one passed on the make command line (PDR-0008 §2.4).
@@ -166,6 +211,17 @@ for script in release-tag.sh release-verify-tag.sh release-push-tag.sh; do
 done
 rc=0 && "$root/scripts/verify-pinned-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
 expect_reason "verify-pinned-tag.sh without a tag" "the release tag is never derived"
+
+fake_checker "$work/bin/entry-decernor" "decernor 0.1.9" 0.1.9
+if env -i PATH="$PATH" HOME="$work/home" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err"; then
+    fail "release-tag.sh without a signing keyring: accepted"
+elif ! grep -q "the default GPG keyring is never used" "$work/err"; then
+    fail "release-tag.sh without a signing keyring: refused for the wrong reason: $(cat "$work/err")"
+else
+    pass "release-tag.sh without a signing keyring: refused"
+fi
 
 if ((failures)); then
     echo "[!!] release input controls: $failures failure(s)" >&2

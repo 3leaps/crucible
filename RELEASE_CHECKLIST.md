@@ -17,10 +17,14 @@ Required:
   `release-check-anchors`). The version guard does not need it. Must be a regular,
   executable, non-symlink file; there is no `PATH` fallback.
   See [`docs/security/README.md`](docs/security/README.md).
+- `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`: the signing keyring, for `release-tag`. An
+  absolute path to a dedicated, non-symlink directory. The default GPG keyring is
+  never used: an unset value, a path that resolves to the default keyring, or an
+  inherited `GNUPGHOME` naming a different directory is refused. Use a throwaway
+  keyring holding only the signing key, and remove it afterwards.
 
 Optional:
 
-- `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`: dedicated signing keyring directory (recommended)
 - `THREELEAPS_CRUCIBLE_PGP_KEY_ID`: key id/email/fingerprint for signing
 - `THREELEAPS_CRUCIBLE_TAGGER_NAME`: tagger name stamped on signed tag objects
 - `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`: tagger email stamped on signed tag objects
@@ -73,6 +77,17 @@ Type the tag rather than computing it: the guard then checks the stated intent a
   ```bash
   make release-guard-tag-ruleset
   ```
+  If this step, or `make release-tag`, reports that it could not read the
+  ruleset from GitHub, the credential `gh` is using was rejected or lacks
+  access; the ruleset itself was not checked. `gh` uses `GH_TOKEN` or
+  `GITHUB_TOKEN` when either is set, and its stored login otherwise. A token
+  can be set without your noticing, for example by a per-directory environment
+  such as a direnv `.envrc`. Check with `gh auth status` in the same
+  environment. To use the stored login for one
+  command without changing your shell:
+  ```bash
+  env -u GH_TOKEN -u GITHUB_TOKEN make release-guard-tag-ruleset
+  ```
 - [ ] No retired release variable is exported in the release shell (any one, even
       empty, fails every tag step):
   ```bash
@@ -124,8 +139,8 @@ contents are right.
 export GPG_TTY="$(tty)"
 gpg-connect-agent updatestartuptty /bye
 
-# Point to dedicated signing keyring (recommended)
-export THREELEAPS_CRUCIBLE_GPG_HOMEDIR="/path/to/signing-keyring"
+# Point to the dedicated signing keyring (required; never the default keyring)
+export THREELEAPS_CRUCIBLE_GPG_HOMEDIR="/absolute/path/to/throwaway-signing-keyring"
 export THREELEAPS_CRUCIBLE_PGP_KEY_ID="your-key-id"
 
 # Verify key is available
@@ -398,9 +413,10 @@ All scripts are in `scripts/` and can be run directly if needed.
 
 **`scripts/release-verify-tag.sh`** - Signature verification:
 
-- Verifies the GPG signature on `THREELEAPS_CRUCIBLE_RELEASE_TAG`, then the pinned-key
-  and anchor check (`scripts/verify-pinned-tag.sh`)
-- Respects `THREELEAPS_CRUCIBLE_GPG_HOMEDIR` for dedicated keyrings
+- Runs the pinned-key and anchor check (`scripts/verify-pinned-tag.sh`) on
+  `THREELEAPS_CRUCIBLE_RELEASE_TAG`
+- Imports only the committed pin into a throwaway keyring; never reads the
+  default keyring or an ambient `GNUPGHOME`
 
 ---
 

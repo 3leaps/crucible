@@ -19,6 +19,7 @@
 # - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
 #     (required; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
+#     (required; the default GPG keyring is never used, see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
 # - THREELEAPS_CRUCIBLE_TAGGER_EMAIL: tagger email stamped on the tag object
 #     For GitHub to show the tag as "Verified" this MUST match a user ID (UID)
@@ -82,11 +83,7 @@ ensure_gpg_signing_ready() {
         if ! grep -q '^sec' <<<"${listing}"; then
             echo "error: no usable GPG secret key found for key id: ${key_id}" >&2
             echo "hint: ensure your release env vars are loaded" >&2
-            if [ -n "${GNUPGHOME:-}" ]; then
-                echo "hint: GNUPGHOME=${GNUPGHOME}" >&2
-            else
-                echo "hint: set THREELEAPS_CRUCIBLE_GPG_HOMEDIR to your signing keyring directory" >&2
-            fi
+            echo "hint: signing keyring: ${GNUPGHOME}" >&2
             echo "hint: run: gpg --list-secret-keys --keyid-format=long" >&2
             echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
             exit 1
@@ -98,11 +95,7 @@ ensure_gpg_signing_ready() {
     if ! grep -q '^sec' <<<"${listing}"; then
         echo "error: no usable GPG secret key found for signed tag creation" >&2
         echo "hint: ensure your release env vars are loaded" >&2
-        if [ -n "${GNUPGHOME:-}" ]; then
-            echo "hint: GNUPGHOME=${GNUPGHOME}" >&2
-        else
-            echo "hint: set THREELEAPS_CRUCIBLE_GPG_HOMEDIR to your signing keyring directory" >&2
-        fi
+        echo "hint: signing keyring: ${GNUPGHOME}" >&2
         echo "hint: run: gpg --list-secret-keys --keyid-format=long" >&2
         echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
         exit 1
@@ -121,6 +114,7 @@ main() {
     local tag
     tag="$(require_release_tag)"
     resolve_release_decernor
+    require_signing_keyring
 
     local version
     version="$(read_version)"
@@ -170,16 +164,8 @@ main() {
         exit 1
     fi
 
-    # Set up GPG homedir if specified
-    local gpg_homedir="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}"
-
-    if [ -n "${gpg_homedir}" ]; then
-        if [ ! -d "${gpg_homedir}" ]; then
-            echo "error: GPG homedir '${gpg_homedir}' is not a directory" >&2
-            exit 1
-        fi
-        export GNUPGHOME="${gpg_homedir}"
-    fi
+    # Every gpg and git signing call below uses only the dedicated keyring.
+    export GNUPGHOME="${RELEASE_GNUPGHOME}"
 
     setup_gpg_tty
     ensure_gpg_signing_ready

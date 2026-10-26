@@ -6,13 +6,13 @@
 # - Tagged commit is on origin/main
 # - Remote tag does not already exist
 # - Pushes only the tag ref, then confirms the remote tag object matches local
-# - When gh is available, confirms GitHub reports the tag verified
+# - When gh is available, confirms GitHub reports the tag verified; a failure to
+#   read that flag is reported as such, after the push (release-github-verified.sh)
 #
 # Environment variables:
 # - THREELEAPS_CRUCIBLE_RELEASE_TAG: the tag to push (required; never derived)
 # - THREELEAPS_CRUCIBLE_DECERNOR_BIN: absolute path to the designated checker
 #     (required; see scripts/release-env.sh)
-# - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 #
 # Retired names (refused): RELEASE_TAG and the unprefixed CRUCIBLE_* aliases.
 
@@ -50,14 +50,9 @@ remote_object="$(git ls-remote origin "refs/tags/${tag}" | awk '{print $1}')"
 [ "$remote_object" = "$local_object" ] ||
     die "remote tag object (${remote_object:-missing}) differs from local (${local_object})"
 
-if command -v gh >/dev/null 2>&1; then
-    repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-    verified="$(gh api "repos/${repo}/git/tags/${local_object}" --jq .verification.verified)"
-    [ "$verified" = "true" ] ||
-        die "GitHub does not report ${tag} verified (verification.verified=${verified})"
-    echo "[ok] GitHub reports ${tag} verified"
-else
-    echo "[--] gh not found; skipped GitHub verification check"
-fi
+echo "[ok] Pushed ${tag} (${local_object}); the remote tag object matches"
 
-echo "[ok] Pushed ${tag} (${local_object}); release workflow will publish"
+# shellcheck source=scripts/release-github-verified.sh
+source scripts/release-github-verified.sh
+check_github_verified "${tag}" "${local_object}"
+echo "[ok] release workflow will publish"

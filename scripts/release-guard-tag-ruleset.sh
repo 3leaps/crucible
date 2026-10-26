@@ -105,13 +105,25 @@ validate_ruleset_json() {
     fi
 }
 
+# Report a failed GitHub API read as a read failure. Without this, an
+# authentication error yields empty output that parses as zero rulesets.
+github_read_failed() {
+    local what="$1"
+    echo "error: could not read ${what} from GitHub; the ruleset was not checked" >&2
+    echo "hint: this is usually an expired, revoked or under-scoped credential" >&2
+    echo "hint: gh uses GH_TOKEN or GITHUB_TOKEN when set, otherwise its stored login;" >&2
+    echo "hint: run 'gh auth status' with the same environment to see which one" >&2
+    exit 1
+}
+
 resolve_live_ruleset() {
     require_command gh
     require_command jq
 
     local ruleset_pages ruleset_ids ruleset_count ruleset_id ruleset_json
     ruleset_pages="$(gh api --paginate --slurp \
-        "repos/${EXPECTED_REPOSITORY}/rulesets?per_page=100")"
+        "repos/${EXPECTED_REPOSITORY}/rulesets?per_page=100")" ||
+        github_read_failed "the ${EXPECTED_REPOSITORY} ruleset list"
     ruleset_ids="$(jq -b -r \
         --arg name "${EXPECTED_RULESET_NAME}" \
         'flatten | map(select(.name == $name)) | .[].id' \
@@ -124,7 +136,8 @@ resolve_live_ruleset() {
     fi
 
     ruleset_id="$(awk 'NF { print; exit }' <<<"${ruleset_ids}")"
-    ruleset_json="$(gh api "repos/${EXPECTED_REPOSITORY}/rulesets/${ruleset_id}")"
+    ruleset_json="$(gh api "repos/${EXPECTED_REPOSITORY}/rulesets/${ruleset_id}")" ||
+        github_read_failed "ruleset ${ruleset_id}"
 
     printf '%s\n' "${ruleset_json}"
 }
