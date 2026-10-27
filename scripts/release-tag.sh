@@ -11,6 +11,9 @@
 # - Live tag publication ruleset matches the full expected policy
 # - Committed pins match their anchors under the designated checker
 # - GPG signing key availability
+# - Signing uses OpenPGP through the gpg on PATH: a configured gpg.format,
+#   gpg.program or gpg.openpgp.program naming anything else is refused, and
+#   the signing command pins all three
 # - Signed tag carries the validated publication-policy fingerprint
 # - Automatic signature verification after creation
 #
@@ -115,6 +118,7 @@ main() {
     tag="$(require_release_tag)"
     resolve_release_decernor
     require_signing_keyring
+    require_signing_program
 
     local version
     version="$(read_version)"
@@ -191,7 +195,7 @@ main() {
     tag_err="$(mktemp)"
 
     if [ -n "${key_id}" ]; then
-        if ! git tag -s -a "$tag" -u "${key_id}" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
+        if ! release_signing_git tag -s -a "$tag" -u "${key_id}" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
             cat "${tag_err}" >&2
             if grep -qi "no secret key" "${tag_err}"; then
                 echo "hint: no secret key available for signing" >&2
@@ -201,7 +205,7 @@ main() {
             exit 1
         fi
     else
-        if ! git tag -s -a "$tag" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
+        if ! release_signing_git tag -s -a "$tag" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
             cat "${tag_err}" >&2
             if grep -qi "no secret key" "${tag_err}"; then
                 echo "hint: no secret key available for signing" >&2
@@ -215,7 +219,7 @@ main() {
     rm -f "${tag_err}"
 
     echo "Verifying tag signature: $tag"
-    git verify-tag "$tag" >/dev/null
+    release_signing_git verify-tag "$tag" >/dev/null
 
     # Safety check: the tagger email must match a UID on the signing key, or
     # GitHub will not mark the tag "Verified" even though the signature is good.

@@ -59,6 +59,7 @@ validate_ruleset_json() {
     local ruleset_json="${1:-}"
     local validation_mode="${2:-full}"
     local failed=0
+    local expected_bypass_filter='.bypass_actors == [{"actor_id":null,"actor_type":"OrganizationAdmin","bypass_mode":"always"}]'
 
     assert_shape() {
         local description="$1"
@@ -81,27 +82,47 @@ validate_ruleset_json() {
         '(.rules | length) == 4 and
          ([.rules[].type] | sort) == ["creation","deletion","non_fast_forward","update"] and
          all(.rules[]; (keys | sort) == ["type"])'
+    # Set only when the exact expected bypass list was seen. A read-only
+    # response with a null or empty list is not a match: it says nothing
+    # about who may bypass.
+    RULESET_BYPASS_ACTORS_CHECKED=0
     case "${validation_mode}" in
         full)
             assert_shape "must allow only organization administrators to bypass, always" \
-                '.bypass_actors == [{"actor_id":null,"actor_type":"OrganizationAdmin","bypass_mode":"always"}]'
+                "${expected_bypass_filter}"
             ;;
         read-only)
-            # A read-only response may omit bypass actors. If actors are
-            # visible, they must still match the complete policy.
+            # A read-only credential may see no bypass actors. A list that is
+            # visible must still be exactly the expected one.
             assert_shape "contains unexpected visible bypass actors" \
-                '(.bypass_actors == null) or
-                 (.bypass_actors == []) or
-                 (.bypass_actors == [{"actor_id":null,"actor_type":"OrganizationAdmin","bypass_mode":"always"}])'
+                "(.bypass_actors == null) or (.bypass_actors == []) or (${expected_bypass_filter})"
             ;;
         *)
             echo "error: unknown validation mode: ${validation_mode}" >&2
             return 1
             ;;
     esac
+    if [ "${failed}" -eq 0 ] && jq -e "${expected_bypass_filter}" >/dev/null 2>&1 <<<"${ruleset_json}"; then
+        RULESET_BYPASS_ACTORS_CHECKED=1
+    fi
 
     if [ "${failed}" -ne 0 ]; then
         return 1
+    fi
+}
+
+# Report what validate_ruleset_json established. Only a visible, exact bypass
+# list is reported as a match in read-only mode.
+report_ruleset_validation() {
+    local validation_mode="$1"
+    if [ "${validation_mode}" = "full" ]; then
+        echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the full publication policy"
+    elif [ "${RULESET_BYPASS_ACTORS_CHECKED}" = 1 ]; then
+        echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the full publication policy, including visible bypass actors"
+    else
+        echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} name, repository, target, enforcement, ref conditions and rules are as expected"
+        echo "[--] bypass actors were not visible to this credential and were not checked"
+        echo "[--] the full policy, including bypass actors, is checked before tagging and carried by the signed tag attestation"
     fi
 }
 
@@ -203,12 +224,7 @@ main() {
         exit 0
     fi
 
-    if [ "${validation_mode}" = "read-only" ]; then
-        echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the read-only publication-policy view"
-        echo "[--] complete policy is carried by the signed tag attestation"
-    else
-        echo "[ok] tag ruleset: ${EXPECTED_RULESET_NAME} matches the full publication policy"
-    fi
+    report_ruleset_validation "${validation_mode}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

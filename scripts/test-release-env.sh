@@ -5,6 +5,10 @@
 # EPR-0002), and that the Makefile entry point does not let a bare variable
 # win. Needs neither gpg nor a real checker: fake checker binaries stand in.
 
+# Stand-in tools and inner shells are written in single quotes on purpose:
+# they expand when they run.
+# shellcheck disable=SC2016
+
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -114,14 +118,50 @@ PATH="$work/bin:$PATH" expect_refused "checker on PATH only" "is required" resol
 expect_accepted "checker 0.1.9" resolve_release_decernor "THREELEAPS_CRUCIBLE_DECERNOR_BIN=$work/bin/decernor"
 expect_accepted "checker at minimum" resolve_release_decernor "THREELEAPS_CRUCIBLE_DECERNOR_BIN=$work/bin/at-minimum"
 
+# Usage: expect_reason LABEL PATTERN (after a command wrote $work/err and set $rc)
+expect_reason() {
+    if ((rc == 0)); then
+        fail "$1: accepted"
+    elif ! grep -q -- "$2" "$work/err"; then
+        fail "$1: refused for the wrong reason: $(cat "$work/err")"
+    else
+        pass "$1: refused"
+    fi
+}
+
 # --- signing keyring: the default keyring is never used ---------------------
-# A fake HOME with a default keyring lets these run without touching the real
-# one; HOME is passed explicitly so the check resolves that fake default.
-mkdir -m 700 "$work/home" "$work/signing" "$work/other"
-mkdir -m 700 "$work/home/.gnupg"
+# Stand-ins for gpg, gpgconf and the user database resolve the default keyring
+# to fixture directories, so these run without gpg and never touch the real
+# keyring. FAKE_GPGCONF_HOME is what gpgconf reports (real gpgconf follows
+# HOME); FAKE_ACCOUNT_HOME is the user-database home; FAKE_OS selects dscl
+# (Darwin) or getent; FAKE_FAIL names one lookup that fails.
+mkdir "$work/fakebin"
+fake_tool() {
+    printf '#!/usr/bin/env bash\n%s\n' "$2" >"$work/fakebin/$1"
+    chmod 755 "$work/fakebin/$1"
+}
+fake_tool gpg 'exit 0'
+fake_tool gpgconf '[ "${FAKE_FAIL:-}" = gpgconf ] && exit 2
+[ "$*" = "--list-dirs homedir" ] && [ -z "${GNUPGHOME:-}" ] && { echo "$FAKE_GPGCONF_HOME"; exit 0; }
+exit 3'
+fake_tool uname '[ "${FAKE_FAIL:-}" = uname ] && exit 1; echo "${FAKE_OS:-Linux}"'
+fake_tool id '[ "${FAKE_FAIL:-}" = id ] && exit 1; [ "$*" = -un ] && echo releaser'
+fake_tool dscl '[ "${FAKE_FAIL:-}" = account ] && exit 1
+[ "$*" = ". -read /Users/releaser NFSHomeDirectory" ] && echo "NFSHomeDirectory: $FAKE_ACCOUNT_HOME"'
+fake_tool getent '[ "${FAKE_FAIL:-}" = account ] && exit 2
+[ "$*" = "passwd releaser" ] && echo "releaser:x:501:20:Releaser:$FAKE_ACCOUNT_HOME:/bin/sh"'
+fakepath="$work/fakebin:$PATH"
+
+mkdir -m 700 "$work/home" "$work/signing" "$work/other" "$work/account" "$work/bare-home"
+mkdir -m 700 "$work/home/.gnupg" "$work/account/.gnupg"
 ln -s "$work/signing" "$work/signing-link"
 ln -s "$work/home/.gnupg" "$work/default-link"
-keyring() { in_env require_signing_keyring HOME="$work/home" "$@"; }
+# Baseline: gpgconf's default is HOME's .gnupg, and the account home differs
+# from HOME.
+keyring() {
+    in_env require_signing_keyring PATH="$fakepath" HOME="$work/home" \
+        FAKE_GPGCONF_HOME="$work/home/.gnupg" FAKE_ACCOUNT_HOME="$work/account" "$@"
+}
 expect_keyring_refused() {
     local label="$1" pattern="$2"
     shift 2
@@ -133,30 +173,224 @@ expect_keyring_refused() {
         pass "$label: refused"
     fi
 }
+expect_keyring_accepted() {
+    local label="$1"
+    shift
+    if keyring "$@"; then
+        pass "$label: accepted"
+    else
+        fail "$label: refused: $(cat "$work/err")"
+    fi
+}
+signing="THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing"
 expect_keyring_refused "keyring unset" "the default GPG keyring is never used"
 expect_keyring_refused "keyring empty" "the default GPG keyring is never used" THREELEAPS_CRUCIBLE_GPG_HOMEDIR=
 expect_keyring_refused "keyring relative path" "absolute path" THREELEAPS_CRUCIBLE_GPG_HOMEDIR=signing
 expect_keyring_refused "keyring missing" "absolute path" "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/absent"
 expect_keyring_refused "keyring symlink" "non-symlink" "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing-link"
-expect_keyring_refused "keyring is the default" "resolves to the default GPG keyring" \
+expect_keyring_refused "keyring is gpgconf's default" "resolves to the default GPG keyring" \
     "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/home/.gnupg"
-expect_keyring_refused "keyring is the default, other spelling" "resolves to the default GPG keyring" \
+expect_keyring_refused "keyring is gpgconf's default, other spelling" "resolves to the default GPG keyring" \
     "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/home/.gnupg/../.gnupg"
 expect_keyring_refused "keyring reached through a symlinked parent" "non-symlink" \
     "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/default-link"
+# HOME without a .gnupg: gpgconf follows HOME and reports a directory that
+# does not exist, so only the user-database home sees the real keyring.
+bare=(HOME="$work/bare-home" FAKE_GPGCONF_HOME="$work/bare-home/.gnupg")
+expect_keyring_refused "HOME without .gnupg, keyring is the account keyring" \
+    "resolves to the default GPG keyring" "${bare[@]}" "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/account/.gnupg"
+expect_keyring_refused "HOME without .gnupg, keyring is the account keyring (dscl)" \
+    "resolves to the default GPG keyring" "${bare[@]}" FAKE_OS=Darwin \
+    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/account/.gnupg"
+expect_keyring_refused "HOME unset, keyring is the account keyring" "resolves to the default GPG keyring" \
+    FAKE_GPGCONF_HOME=/nonexistent/.gnupg "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/account/.gnupg"
+# A resolution that cannot be made is a refusal, never a skipped comparison.
+expect_keyring_refused "gpgconf fails" "gpgconf did not report" FAKE_FAIL=gpgconf "$signing"
+expect_keyring_refused "gpgconf reports a relative homedir" "gpgconf did not report" FAKE_GPGCONF_HOME=.gnupg "$signing"
+expect_keyring_refused "account lookup fails (getent)" "account lookup for releaser failed" FAKE_FAIL=account "$signing"
+expect_keyring_refused "account lookup fails (dscl)" "account lookup for releaser failed" FAKE_FAIL=account \
+    FAKE_OS=Darwin "$signing"
+expect_keyring_refused "account home is relative" "not an absolute path" FAKE_ACCOUNT_HOME=relative "$signing"
+expect_keyring_refused "account home is empty" "not an absolute path" FAKE_ACCOUNT_HOME= "$signing"
+expect_keyring_refused "id fails" "id failed" FAKE_FAIL=id "$signing"
+expect_keyring_refused "uname fails" "uname failed" FAKE_FAIL=uname "$signing"
+mkdir "$work/gpg-only"
+ln -s "$work/fakebin/gpg" "$work/gpg-only/gpg"
+expect_keyring_refused "no gpgconf beside gpg" "no gpgconf beside" PATH="$work/gpg-only:$fakepath" "$signing"
 expect_keyring_refused "inherited GNUPGHOME differs" "GNUPGHOME is set to a different directory" \
-    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/other"
+    "$signing" "GNUPGHOME=$work/other"
 expect_keyring_refused "inherited GNUPGHOME missing" "GNUPGHOME is set to a different directory" \
-    "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/absent"
-if keyring "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing"; then
-    pass "dedicated keyring: accepted"
-else
-    fail "dedicated keyring: refused: $(cat "$work/err")"
+    "$signing" "GNUPGHOME=$work/absent"
+expect_keyring_accepted "dedicated keyring (getent)" "$signing"
+expect_keyring_accepted "dedicated keyring (dscl)" FAKE_OS=Darwin "$signing"
+expect_keyring_accepted "dedicated keyring, HOME without .gnupg" "${bare[@]}" "$signing"
+expect_keyring_accepted "dedicated keyring with matching GNUPGHOME" "$signing" "GNUPGHOME=$work/signing"
+
+# --- signing program: OpenPGP through gpg, nothing else ----------------------
+git init --quiet "$work/sign-repo"
+signing_program() {
+    rc=0
+    (cd "$work/sign-repo" && env -i PATH="$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 "$@" bash -c \
+        'source "$1"; require_signing_program' _ "$root/scripts/release-env.sh") >"$work/out" 2>"$work/err" || rc=$?
+}
+expect_signing_refused() {
+    local label="$1" key="$2" value="$3"
+    git -C "$work/sign-repo" config "$key" "$value"
+    signing_program
+    git -C "$work/sign-repo" config --unset-all "$key"
+    expect_reason "$label" "git config $key is"
+}
+expect_signing_refused "gpg.program is another program" gpg.program "$work/fakebin/gpg"
+expect_signing_refused "gpg.program is gpg2" gpg.program gpg2
+expect_signing_refused "gpg.format is ssh" gpg.format ssh
+expect_signing_refused "gpg.format is x509" gpg.format x509
+expect_signing_refused "gpg.openpgp.program is another program" gpg.openpgp.program "$work/fakebin/gpg"
+signing_program GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh
+expect_reason "gpg.format=ssh from the environment" "git config gpg.format is"
+git -C "$work/sign-repo" config gpg.program gpg
+git -C "$work/sign-repo" config --add gpg.program /usr/local/bin/other
+signing_program
+git -C "$work/sign-repo" config --unset-all gpg.program
+expect_reason "gpg.program set twice" "git config gpg.program is"
+signing_program
+if ((rc == 0)); then pass "no signing configuration: accepted"; else
+    fail "no signing configuration: refused: $(cat "$work/err")"
 fi
-if keyring "THREELEAPS_CRUCIBLE_GPG_HOMEDIR=$work/signing" "GNUPGHOME=$work/signing"; then
-    pass "dedicated keyring with matching GNUPGHOME: accepted"
+git -C "$work/sign-repo" config gpg.program gpg
+git -C "$work/sign-repo" config gpg.format openpgp
+signing_program
+if ((rc == 0)); then pass "gpg.program=gpg, gpg.format=openpgp: accepted"; else
+    fail "gpg.program=gpg, gpg.format=openpgp: refused: $(cat "$work/err")"
+fi
+git -C "$work/sign-repo" config --unset gpg.program
+git -C "$work/sign-repo" config --unset gpg.format
+# The signing command pins all three keys over any lower-precedence value.
+pinned="$(cd "$work/sign-repo" && env -i PATH="$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh \
+    GIT_CONFIG_KEY_1=gpg.openpgp.program GIT_CONFIG_VALUE_1=/elsewhere bash -c \
+    'source "$1"; for k in gpg.format gpg.program gpg.openpgp.program; do release_signing_git config --get "$k"; done' \
+    _ "$root/scripts/release-env.sh" | tr '\n' ' ')"
+if [[ "$pinned" == "openpgp gpg gpg " ]]; then
+    pass "signing command pins gpg.format, gpg.program and gpg.openpgp.program"
 else
-    fail "dedicated keyring with matching GNUPGHOME: refused: $(cat "$work/err")"
+    fail "signing command pins: got '$pinned'"
+fi
+if grep -nE '(^|[^_])git( -c [^ ]+)* (tag -s|verify-tag)' "$root/scripts/release-tag.sh" >"$work/out"; then
+    fail "release-tag.sh signs or verifies without release_signing_git: $(cat "$work/out")"
+else
+    pass "release-tag.sh signs and verifies only through release_signing_git"
+fi
+
+# --- release transport: one URL, the org token, nothing else -----------------
+# Fixture: an org directory with a repository below it. A stand-in direnv
+# exports FAKE_ENVRC as DIRENV_FILE and FAKE_ENVRC_TOKEN as GH_TOKEN, or
+# fails when FAKE_DIRENV_BLOCKED is set. A stand-in git runs real git for
+# config; for any other command it asks real git, under the same -c options,
+# which credential answers for github.com, and logs the subcommand, its last
+# two arguments and that answer. A stray helper in the repository config
+# answers if the helper reset does not hold.
+real_git="$(command -v git)"
+mkdir -p "$work/org/repo/scripts" "$work/transport-bin"
+"$real_git" init --quiet "$work/org/repo"
+cp "$root/scripts/release-env.sh" "$work/org/repo/scripts/release-env.sh"
+printf '#!/usr/bin/env bash\n[ "$1" = get ] && printf "username=stray\\npassword=stray-secret\\n"\nexit 0\n' \
+    >"$work/stray-helper"
+chmod 755 "$work/stray-helper"
+"$real_git" -C "$work/org/repo" config credential.helper "$work/stray-helper"
+"$real_git" -C "$work/org/repo" config credential.https://github.com.helper "$work/stray-helper"
+printf '%s\n' '#!/usr/bin/env bash' \
+    '[ "$1" = exec ] || exit 2' \
+    '[ -n "${FAKE_DIRENV_BLOCKED:-}" ] && { echo "direnv: error .envrc is blocked" >&2; exit 1; }' \
+    'shift 2' \
+    '[ -n "${FAKE_ENVRC:-}" ] && export DIRENV_FILE="$FAKE_ENVRC"' \
+    '[ -n "${FAKE_ENVRC_TOKEN:-}" ] && export GH_TOKEN="$FAKE_ENVRC_TOKEN"' \
+    'exec "$@"' >"$work/transport-bin/direnv"
+printf '%s\n' '#!/usr/bin/env bash' \
+    '[ "$*" = "auth git-credential get" ] && printf "username=x-access-token\npassword=%s\n" "$GH_TOKEN"' \
+    'exit 0' >"$work/transport-bin/gh"
+printf '%s\n' '#!/usr/bin/env bash' \
+    "real_git='$real_git' log='$work/git.log'" \
+    'opts=()' \
+    'while [ "${1:-}" = -c ]; do opts+=(-c "$2"); shift 2; done' \
+    'if [ "${1:-}" = config ] || [ "${#opts[@]}" -eq 0 ]; then exec "$real_git" "${opts[@]}" "$@"; fi' \
+    'answer="$(printf "protocol=https\nhost=github.com\npath=3leaps/crucible.git\n\n" |' \
+    '    "$real_git" "${opts[@]}" credential fill 2>/dev/null | grep -E "^(username|password)=" | tr "\n" " ")"' \
+    'echo "$1 ${*: -2:1} ${*: -1} | $answer" >>"$log"' >"$work/transport-bin/git"
+chmod 755 "$work/transport-bin/direnv" "$work/transport-bin/gh" "$work/transport-bin/git"
+transport_path="$work/transport-bin:$PATH"
+transport() {
+    rc=0
+    : >"$work/git.log"
+    (cd "$work/org/repo" && env -i PATH="$transport_path" HOME="$work" GIT_CONFIG_NOSYSTEM=1 \
+        FAKE_ENVRC="$work/org/.envrc" FAKE_ENVRC_TOKEN=org-token "$@" bash -c \
+        'source scripts/release-env.sh; release_remote_git "$PWD" ls-remote --tags "$RELEASE_PUSH_URL" refs/tags/v0.0.0') \
+        >"$work/out" 2>"$work/err" || rc=$?
+}
+expect_no_contact() {
+    local label="$1" pattern="$2"
+    shift 2
+    transport "$@"
+    if [ -s "$work/git.log" ]; then
+        fail "$label: git contacted the remote: $(cat "$work/git.log")"
+    else
+        expect_reason "$label" "$pattern"
+    fi
+}
+expected_contact="ls-remote https://github.com/3leaps/crucible.git refs/tags/v0.0.0 | username=x-access-token password=org-token "
+transport
+if ((rc == 0)) && [[ "$(cat "$work/git.log")" == "$expected_contact" ]]; then
+    pass "transport: explicit URL, org token through gh only"
+else
+    fail "transport: rc=$rc log='$(cat "$work/git.log")' err='$(cat "$work/err")'"
+fi
+transport GH_TOKEN=ambient-token GITHUB_TOKEN=ambient-token
+if ((rc == 0)) && [[ "$(cat "$work/git.log")" == "$expected_contact" ]]; then
+    pass "transport: an inherited GH_TOKEN is replaced by the org token"
+else
+    fail "transport with an inherited token: rc=$rc log='$(cat "$work/git.log")'"
+fi
+expect_no_contact "transport: no org token, inherited GH_TOKEN" "did not set GH_TOKEN" \
+    FAKE_ENVRC_TOKEN= GH_TOKEN=ambient-token
+expect_no_contact "transport: no .envrc loaded, inherited DIRENV_FILE and token" "no .envrc was loaded" \
+    FAKE_ENVRC= DIRENV_FILE="$work/org/.envrc" GH_TOKEN=ambient-token
+expect_no_contact "transport: .envrc inside the repository" "is not above the repository" \
+    FAKE_ENVRC="$work/org/repo/.envrc"
+mkdir "$work/elsewhere"
+expect_no_contact "transport: .envrc beside, not above, the repository" "is not above the repository" \
+    FAKE_ENVRC="$work/elsewhere/.envrc"
+expect_no_contact "transport: .envrc directory does not exist" "could not resolve the loaded .envrc" \
+    FAKE_ENVRC="$work/absent/.envrc"
+expect_no_contact "transport: blocked .envrc" ".envrc is blocked" FAKE_DIRENV_BLOCKED=1
+mkdir "$work/no-direnv" "$work/no-gh"
+ln -s "$work/transport-bin/git" "$work/no-direnv/git"
+ln -s "$work/transport-bin/gh" "$work/no-direnv/gh"
+ln -s "$work/transport-bin/git" "$work/no-gh/git"
+ln -s "$work/transport-bin/direnv" "$work/no-gh/direnv"
+expect_no_contact "transport: direnv missing" "direnv not found" PATH="$work/no-direnv:/usr/bin:/bin"
+expect_no_contact "transport: gh missing" "gh not found" PATH="$work/no-gh:/usr/bin:/bin"
+for setting in "url.git@github.com:.insteadOf=https://github.com/" \
+    "url.https://example.invalid/.pushInsteadOf=https://github.com/" \
+    "http.https://github.com/.extraHeader=AUTHORIZATION: basic eA==" \
+    "http.extraHeader=AUTHORIZATION: basic eA=="; do
+    key="${setting%%=*}"
+    "$real_git" -C "$work/org/repo" config "$key" "${setting#*=}"
+    expect_no_contact "transport: repository $key" "rewrites or adds headers"
+    "$real_git" -C "$work/org/repo" config --unset "$key"
+done
+printf '[url "git@github.com:"]\n\tinsteadOf = https://github.com/\n' >"$work/.gitconfig"
+expect_no_contact "transport: global insteadOf" "rewrites or adds headers"
+rm "$work/.gitconfig"
+expect_no_contact "transport: insteadOf from the environment" "rewrites or adds headers" \
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.git@github.com:.insteadOf GIT_CONFIG_VALUE_0=https://github.com/
+if grep -nE '^[^#"]*\<origin\>' "$root/scripts/release-push-tag.sh" >"$work/out"; then
+    fail "release-push-tag.sh uses origin: $(cat "$work/out")"
+else
+    pass "release-push-tag.sh does not use origin"
+fi
+if grep -nE '^[^#]*(^|[^_])git ([^ ]+ )*(fetch|push|ls-remote)' "$root/scripts/release-push-tag.sh" >"$work/out"; then
+    fail "release-push-tag.sh contacts a remote outside release_remote_git: $(cat "$work/out")"
+else
+    pass "release-push-tag.sh contacts the remote only through release_remote_git"
 fi
 
 # --- entry points refuse before side effects --------------------------------
@@ -166,16 +400,6 @@ version="$(tr -d ' \t\r\n' <"$root/VERSION")"
 run_make() {
     env -i PATH="$PATH" HOME="$work" "$@" make --no-print-directory -s -C "$root" release-guard-tag-version \
         >"$work/out" 2>"$work/err"
-}
-# Usage: expect_reason LABEL PATTERN (after a command wrote $work/err and set $rc)
-expect_reason() {
-    if ((rc == 0)); then
-        fail "$1: accepted"
-    elif ! grep -q -- "$2" "$work/err"; then
-        fail "$1: refused for the wrong reason: $(cat "$work/err")"
-    else
-        pass "$1: refused"
-    fi
 }
 rc=0 && run_make || rc=$?
 expect_reason "make guard without tag" "THREELEAPS_CRUCIBLE_RELEASE_TAG is required"
@@ -222,6 +446,15 @@ elif ! grep -q "the default GPG keyring is never used" "$work/err"; then
 else
     pass "release-tag.sh without a signing keyring: refused"
 fi
+
+# A configured signer other than OpenPGP through gpg stops the tag step
+# before anything else runs.
+rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
+    FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "release-tag.sh with gpg.format=ssh" "git config gpg.format is 'ssh'"
 
 if ((failures)); then
     echo "[!!] release input controls: $failures failure(s)" >&2
