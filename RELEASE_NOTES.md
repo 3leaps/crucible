@@ -10,6 +10,26 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.3 (2026-10-27)
+
+**Durable-record/v1 gains continuation streams and restriction review.**
+
+- **Continuation streams (durable-record/v1, additive)**: a stream that
+  re-records another stream's content declares `continues` and marks imports
+  with `imported_from`. A `restrictions_reviewed` entry binds the reviewed
+  source cut, the effective source restrictions and the destination's applied
+  restrictions. Serving, export and reuse fail closed as `restrictions_pending`
+  until a current review exists. Existing v1 records and journals are
+  unchanged. The logical controls qualify no store.
+- **Repository classes (draft 0.1.1)**: C5 requires a `version` subcommand
+  and settles JSON-only and artifact-output verbs; C3 counts test variables;
+  C4 points host-tool ceremonies at `make doctor`; P1 settles npm and PyPI
+  reservation.
+
+See [docs/releases/v0.2.3.md](docs/releases/v0.2.3.md).
+
+---
+
 ## v0.2.2 (2026-10-25)
 
 **Repository classes drafted; durable-record/v1 amended before adoption.**
@@ -50,35 +70,3 @@ See [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md).
   guidance.
 
 See [docs/releases/v0.2.1.md](docs/releases/v0.2.1.md).
-
----
-
-## v0.2.0 (2026-10-22)
-
-**Four proposed contract families (recurrence rules, durable records with use
-restrictions, durable indexes and data acquisition) and a release-identity
-process decision.**
-
-- **Recurrence rules (proposed)**: `recurrence/v0` publishes a canonical JSON
-  form of an RFC 5545 RRULE subset with normative expansion semantics. DST-gap
-  times are skipped as non-slots without consuming `COUNT`, overlaps resolve to
-  the first instant, and a conformance corpus is pinned to IANA tzdb 2026e.
-  Promotion requires two independent implementations to pass it.
-- **Durable records with use restrictions (proposed, experimental)**:
-  `durable-record/v1` adds holds that block serving, export and reuse while
-  keeping records readable for audit. It is a new major contract version; v0 is
-  unchanged, and there is no automatic migration.
-- **Durable indexes (proposed, experimental)**: `durable-index/v0` describes
-  object-inventory snapshots as a segmented-snapshot profile, with an
-  independent TypeScript reader. Evidence is logical only.
-- **Data acquisition (proposed)**: `data-acquisition/v0` covers source policy,
-  acquisition scope and shared-capacity registration with exact-byte pins.
-- **Decisions and charter**: PDR-0008 (proposed) sets controls for committed
-  release public identity; PDR-0006 names the validation interpreters
-  (Python >= 3.9, Node.js >= 22.6).
-- **Schema revision**: the segmented-snapshot manifest gains an optional
-  `profile_metadata` binding; readers that do not implement it must refuse it.
-- **Toolchain**: goneat v0.6.5 and the glibc tools runner v0.5.12 (biome
-  2.5.15). The release guards no longer fail spuriously on a large changelog.
-
-See [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md).
