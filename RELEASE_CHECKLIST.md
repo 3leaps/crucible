@@ -130,6 +130,90 @@ What stays a manual review: **which** entries `RELEASE_NOTES.md` retains, and th
 content of what is kept. The guard asserts the surface is current, not that its
 contents are right.
 
+## v0.2.3 tag ceremony
+
+For v0.2.3, run these steps in place of `make release-tag` and
+`make release-push-tag`, in one shell, from the repository root. Each block
+checks every step explicitly, exits non-zero on any failed check and never
+reaches the sign or push step after one. `ORG_ROOT` is the directory whose direnv loads the org token.
+
+- [ ] **Signing keyring is dedicated.** The signing keyring must be set, must
+      be a directory, and must differ, by physical path, from both the GPG
+      default homedir and the account home's `.gnupg`:
+  ```bash
+  v023_keyring_ok() (
+    # Every lookup is checked explicitly: errexit does not hold when this is
+    # called as part of an && list.
+    stop() { echo "STOP: $*" >&2; exit 1; }
+    [ -n "${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}" ] && [ -d "$THREELEAPS_CRUCIBLE_GPG_HOMEDIR" ] ||
+      stop "THREELEAPS_CRUCIBLE_GPG_HOMEDIR is not a directory"
+    sign="$(cd "$THREELEAPS_CRUCIBLE_GPG_HOMEDIR" && pwd -P)" || stop "signing keyring did not resolve"
+    gpg_default="$(env -u GNUPGHOME gpgconf --list-dirs homedir)" || stop "gpgconf failed"
+    os="$(uname -s)" && [ -n "$os" ] || stop "uname failed"
+    user="$(id -un)" && [ -n "$user" ] || stop "id failed"
+    case "$os" in
+      Darwin) record="$(dscl . -read "/Users/$user" NFSHomeDirectory)" || stop "account lookup failed"
+              account_home="$(printf '%s\n' "$record" | awk '{print $2}')" ;;
+      *)      record="$(getent passwd "$user")" || stop "account lookup failed"
+              account_home="$(printf '%s\n' "$record" | cut -d: -f6)" ;;
+    esac
+    [ -n "$sign" ] && [ -n "$gpg_default" ] && [ -n "$account_home" ] ||
+      stop "a keyring path did not resolve"
+    for d in "$gpg_default" "$account_home/.gnupg"; do
+      [ -d "$d" ] || continue
+      real="$(cd "$d" && pwd -P)" || stop "could not resolve $d"
+      [ "$real" != "$sign" ] || stop "signing keyring is $d"
+    done
+    echo "[ok] signing keyring is dedicated"
+  )
+  ```
+- [ ] **Pin `gpg.program`** for every git call in this shell. Environment
+      configuration overrides every config file:
+  ```bash
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.program GIT_CONFIG_VALUE_0=gpg
+  git config --get gpg.program   # must print: gpg
+  ```
+      This shows the pin is set in this shell; `make release-tag` inherits it.
+- [ ] **Sign** only after both checks pass:
+  ```bash
+  v023_keyring_ok && [ "$(git config --get gpg.program)" = gpg ] && make release-tag
+  ```
+      Then run `make release-verify-tag`.
+- [ ] **Bypass actors.** Run the full ruleset guard (the Pre-Release step
+      above) with the maintainer credential, and record its result.
+- [ ] **Push** the tag over the explicit HTTPS URL, with only the org token:
+  ```bash
+  v023_push() {
+    [ -n "${ORG_ROOT:-}" ] && [ -d "$ORG_ROOT" ] ||
+      { echo "STOP: ORG_ROOT is not a directory" >&2; return 1; }
+    direnv exec "$ORG_ROOT" bash -c '
+      set -uo pipefail
+      stop() { echo "STOP: $*" >&2; exit 1; }
+      U=https://github.com/3leaps/crucible.git
+      T="${THREELEAPS_CRUCIBLE_RELEASE_TAG:-}"
+      [ -n "$T" ] || stop "release tag not set"
+      [ -n "${GH_TOKEN:-}" ] || stop "no org token; not pushing"
+      if git config --get-regexp "^url\..*insteadof" >/dev/null; then stop "an insteadOf rule is set"; fi
+      g() { git -c credential.helper= -c "credential.helper=!gh auth git-credential" "$@"; }
+      g fetch --quiet "$U" main || stop "fetch failed"
+      commit="$(git rev-parse "refs/tags/$T^{commit}")" || stop "local tag $T not found"
+      git merge-base --is-ancestor "$commit" FETCH_HEAD || stop "tag commit is not on main"
+      remote="$(g ls-remote --tags "$U" "refs/tags/$T")" || stop "remote read failed"
+      [ -z "$remote" ] || stop "remote tag exists"
+      local_obj="$(git rev-parse "refs/tags/$T")" || stop "local tag $T not found"
+      g push "$U" "refs/tags/$T" || stop "push failed"
+      pushed="$(g ls-remote "$U" "refs/tags/$T")" || stop "remote read failed after push"
+      [ "${pushed%%[[:space:]]*}" = "$local_obj" ] || stop "remote tag object does not match"
+      echo "[ok] pushed $T; remote tag object matches"
+    '
+  }
+  v023_push
+  ```
+      Without the org token, the push stops before any network call. A failed
+      fetch or remote read stops it too. Do not retry another way. Expect the
+      bypass notice described under Push.
+- [ ] Record each result above in the release record.
+
 ## Tagging (Signed Tag Required)
 
 ### 1. Set up GPG environment

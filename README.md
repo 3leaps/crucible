@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.2.2](https://img.shields.io/badge/version-0.2.2-blue)
+![Version: 0.2.3](https://img.shields.io/badge/version-0.2.3-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -284,7 +284,9 @@ See [ADR-0013](docs/decisions/ADR-0013-durable-record-contract.md).
 
 The [durable-record v1 contract](docs/standards/durable-record-v1-contract.md)
 adds holds that block serving, export and reuse of a record while keeping it
-readable for authorized audit. It is a new major contract version; v0 is
+readable for authorized audit. A continuation stream that re-records another
+stream's content stays unservable until a journaled review shows its
+restrictions are current. It is a new major contract version; v0 is
 unchanged and there is no automatic migration. Its
 [schemas and logical vectors](schemas/durable-record/v1/README.md) qualify no
 store. See [ADR-0019](docs/decisions/ADR-0019-durable-record-tombstoning.md).
