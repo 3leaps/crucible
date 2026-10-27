@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exists; a later import, a destination restriction change, or a
   restriction change in the source or any ancestor reopens it. New
   refusals `restrictions_pending` and `continuation`; vectors, schema rejects
-  and mutation witnesses cover each rule.
+  and mutation witnesses cover each rule. An empty or malformed observed
+  source journal is refused as `continuation`.
 
 ### Changed
 
