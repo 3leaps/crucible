@@ -371,17 +371,118 @@ expect_no_contact "transport: gh missing" "gh not found" PATH="$work/no-gh:/usr/
 for setting in "url.git@github.com:.insteadOf=https://github.com/" \
     "url.https://example.invalid/.pushInsteadOf=https://github.com/" \
     "http.https://github.com/.extraHeader=AUTHORIZATION: basic eA==" \
-    "http.extraHeader=AUTHORIZATION: basic eA=="; do
+    "http.extraHeader=AUTHORIZATION: basic eA==" \
+    "http.proxy=http://127.0.0.1:9" \
+    "http.https://github.com/.cookieFile=/tmp/cookies" \
+    "credential.username=other-user" \
+    "credential.https://github.com.username=other-user"; do
     key="${setting%%=*}"
     "$real_git" -C "$work/org/repo" config "$key" "${setting#*=}"
-    expect_no_contact "transport: repository $key" "rewrites or adds headers"
+    expect_no_contact "transport: repository $key" "rewrites, proxies or adds credentials"
     "$real_git" -C "$work/org/repo" config --unset "$key"
 done
-printf '[url "git@github.com:"]\n\tinsteadOf = https://github.com/\n' >"$work/.gitconfig"
-expect_no_contact "transport: global insteadOf" "rewrites or adds headers"
+# Global configuration is not read by the transport at all.
+printf '[url "git@github.com:"]\n\tinsteadOf = https://github.com/\n[credential]\n\tusername = other-user\n' \
+    >"$work/.gitconfig"
+transport
+if ((rc == 0)) && [[ "$(cat "$work/git.log")" == "$expected_contact" ]]; then
+    pass "transport: global insteadOf and username are not read"
+else
+    fail "transport with global config: rc=$rc log='$(cat "$work/git.log")' err='$(cat "$work/err")'"
+fi
 rm "$work/.gitconfig"
-expect_no_contact "transport: insteadOf from the environment" "rewrites or adds headers" \
+expect_no_contact "transport: insteadOf from the environment" "rewrites, proxies or adds credentials" \
     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.git@github.com:.insteadOf GIT_CONFIG_VALUE_0=https://github.com/
+# Refusals name the offending key, never its value: values can carry
+# credentials.
+sentinel="SYNTHETIC-HEADER-SENTINEL"
+for setting in "http.https://github.com/.extraHeader=Authorization: Bearer $sentinel" \
+    "url.https://user:$sentinel@example.invalid/.insteadOf=https://github.com/"; do
+    key="${setting%%=*}"
+    "$real_git" -C "$work/org/repo" config "$key" "${setting#*=}"
+    transport
+    "$real_git" -C "$work/org/repo" config --unset "$key"
+    if cat "$work/out" "$work/err" | grep -q "$sentinel"; then
+        fail "transport refusal for ${key%%:*} printed the configured value"
+    else
+        expect_reason "transport refusal for ${key%%:*} (value not printed)" "rewrites, proxies or adds credentials"
+    fi
+done
+
+# --- release transport on the wire: only the org credential is sent ---------
+# Real git against a local server that answers 401 with a Basic challenge to
+# every request and logs each Authorization header it receives. The release
+# shell carries a non-org credential in every home-directory location git or
+# libcurl reads (.netrc, _netrc, NETRC, CURL_HOME, ~/.git-credentials with a
+# store helper in ~/.gitconfig, and an inherited GIT_CONFIG_GLOBAL naming a
+# store helper), and both global configs name another username. Only the org
+# credential may reach the wire.
+if command -v python3 >/dev/null 2>&1; then
+    wire="$work/wire"
+    mkdir -p "$wire/home" "$wire/curlhome" "$wire/bin"
+    cat >"$wire/server.py" <<'EOF'
+import http.server, sys
+log = open(sys.argv[1], "a")
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        log.write((self.headers.get("Authorization") or "none") + "\n"); log.flush()
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="t"')
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+    do_POST = do_GET
+    def log_message(self, *a): pass
+s = http.server.HTTPServer(("127.0.0.1", 0), H)
+open(sys.argv[2], "w").write(str(s.server_address[1]))
+s.serve_forever()
+EOF
+    python3 -I "$wire/server.py" "$wire/auth.log" "$wire/port" &
+    server_pid=$!
+    for _ in $(seq 50); do
+        [ -s "$wire/port" ] && break
+        sleep 0.1
+    done
+    port="$(cat "$wire/port")"
+    for f in "$wire/home/.netrc" "$wire/home/_netrc" "$wire/netrc-env" "$wire/curlhome/.netrc"; do
+        printf 'machine 127.0.0.1 login netrc-user password netrc-sentinel\n' >"$f"
+        chmod 600 "$f"
+    done
+    printf 'http://store-user:store-sentinel@127.0.0.1:%s\n' "$port" >"$wire/home/.git-credentials"
+    printf '[credential]\n\thelper = store\n' >"$wire/home/.gitconfig"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        '[ "$*" = "auth git-credential get" ] && printf "username=org-user\npassword=%s\n" "$GH_TOKEN"' \
+        'exit 0' >"$wire/bin/gh"
+    printf '%s\n' '#!/usr/bin/env bash' '[ "$1" = exec ] || exit 2' 'shift 2' \
+        "export DIRENV_FILE='$work/org/.envrc' GH_TOKEN=org-sentinel" 'exec "$@"' >"$wire/bin/direnv"
+    chmod 755 "$wire/bin/gh" "$wire/bin/direnv"
+    : >"$wire/auth.log"
+    rc=0
+    printf '[credential]\n\thelper = store --file=%s\n\tusername = global-user\n' "$wire/home/.git-credentials" \
+        >"$wire/global-config"
+    printf '[credential]\n\tusername = home-user\n' >>"$wire/home/.gitconfig"
+    (cd "$work/org/repo" && env -i PATH="$wire/bin:$PATH" HOME="$wire/home" NETRC="$wire/netrc-env" \
+        CURL_HOME="$wire/curlhome" GIT_CONFIG_GLOBAL="$wire/global-config" bash -c \
+        'source scripts/release-env.sh; release_remote_git "$PWD" ls-remote "$1"' _ \
+        "http://127.0.0.1:$port/3leaps/crucible.git") >"$work/out" 2>"$work/err" || rc=$?
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+    decoded=""
+    while IFS= read -r line; do
+        case "$line" in
+            Basic\ *) decoded+="$(printf '%s' "${line#Basic }" | base64 -d 2>/dev/null) " ;;
+            *) decoded+="$line " ;;
+        esac
+    done <"$wire/auth.log"
+    if [[ "$decoded" == *org-user:org-sentinel* && "$decoded" != *netrc-* && "$decoded" != *store-* &&
+        "$decoded" != *global-user* && "$decoded" != *home-user* ]]; then
+        pass "transport on the wire: only the org credential is sent ($decoded)"
+    else
+        fail "transport on the wire: sent '$decoded' (rc=$rc, err: $(cat "$work/err"))"
+    fi
+else
+    fail "python3 is required for the on-the-wire transport control"
+fi
+
 if grep -nE '^[^#"]*\<origin\>' "$root/scripts/release-push-tag.sh" >"$work/out"; then
     fail "release-push-tag.sh uses origin: $(cat "$work/out")"
 else

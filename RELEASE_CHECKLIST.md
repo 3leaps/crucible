@@ -213,11 +213,16 @@ object (and GitHub's verified flag, when `gh` is available).
 under the identity CI verifies. The only credential is the `GH_TOKEN` that
 direnv loads from the `.envrc` above the repository, passed through
 `gh auth git-credential`; every other credential helper is cleared, and an
-inherited `GH_TOKEN` or `GITHUB_TOKEN` is dropped first. The push stops before
+inherited `GH_TOKEN` or `GITHUB_TOKEN` is dropped first. git runs with an empty
+home directory and no global or system configuration, so a `.netrc`, a stored
+credential or a global username is never sent. The push stops before
 contacting GitHub when no `.envrc` above the repository loads, when it sets no
-token, or when git configuration carries a `url.*.insteadOf`,
-`url.*.pushInsteadOf` or `http.*.extraHeader` setting. A failed fetch or remote
-read is an error. Do not retry over `origin`, SSH or a stored `gh` login.
+token, or when the remaining configuration (repository, or `GIT_CONFIG_*` in
+the environment) carries a `url.*.insteadOf`, `url.*.pushInsteadOf`,
+`http.*.extraHeader`, `http.*.cookieFile`, `http.*.proxy` or
+`credential.*.username` setting; the refusal names only the kind of setting
+and its scope. A failed fetch or remote read is an error. Do not retry over
+`origin`, SSH or a stored `gh` login.
 
 **Expect a bypass notice.** After `make release-push-tag`, read the output
 before you treat the tag as pushed.

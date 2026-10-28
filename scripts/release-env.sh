@@ -254,14 +254,20 @@ release_signing_git() {
 RELEASE_PUSH_URL="https://github.com/3leaps/crucible.git"
 
 # Refuse git configuration that could send the push to another URL or attach
-# other credentials. git -c cannot clear URL-scoped keys, so these are refused.
+# other credentials, or that names another account. git -c cannot clear
+# URL-scoped keys, so these are refused.
+# Only the kind of setting and its scope are reported: both the values and a
+# url.<base> key name can carry credentials.
 refuse_release_transport_overrides() {
     local found rc=0
-    found="$(git config --get-regexp '^(url\..*\.(insteadof|pushinsteadof)|http\..*\.?extraheader)$')" || rc=$?
+    found="$(git config --show-scope --name-only --get-regexp \
+        '^(url\..*\.(insteadof|pushinsteadof)|http\..*\.?(extraheader|cookiefile|proxy)|credential\..*\.?username)$')" ||
+        rc=$?
     if ((rc == 0)); then
-        echo "error: git configuration rewrites or adds headers to release transport:" >&2
-        printf '%s\n' "$found" | sed 's/^/  /' >&2
-        echo "hint: unset it for the release shell (git config --show-origin --get-regexp '^(url|http)\\.')" >&2
+        echo "error: git configuration rewrites, proxies or adds credentials to release transport:" >&2
+        printf '%s\n' "$found" | sed -E 's/^([a-z]+)[[:space:]]+(url|http|credential)\.(.*\.)?([a-z]+)$/  \1 \2.*.\4/' |
+            sort -u >&2
+        echo "hint: unset it for the release shell (git config --show-origin --name-only --get-regexp '^(url|http)\\.')" >&2
         return 1
     fi
     if ((rc != 1)); then
@@ -321,6 +327,23 @@ release_transport_git() {
         echo "error: gh not found; it is the only credential helper the release push uses" >&2
         return 1
     fi
-    refuse_release_transport_overrides || return 1
-    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' -c core.askPass= "$@"
+    # git's HTTP layer also sends credentials it finds in the home directory's
+    # .netrc or _netrc, ahead of any credential helper, and global config can
+    # name another account. git runs with HOME set to a new empty directory
+    # (not unset: libcurl then falls back to the account home) and with no
+    # global or system config; git does not read NETRC or CURL_HOME. The
+    # override check reads the same configuration git will, so what remains
+    # (repository config and GIT_CONFIG_* from the environment) is refused.
+    local isolated rc=0
+    if ! isolated="$(mktemp -d)" || [[ -z "$isolated" ]]; then
+        echo "error: could not create an isolated home for git; not contacting GitHub" >&2
+        return 1
+    fi
+    (
+        export HOME="$isolated" XDG_CONFIG_HOME="$isolated/.config" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+        refuse_release_transport_overrides || exit 1
+        git -c credential.helper= -c 'credential.helper=!gh auth git-credential' -c core.askPass= "$@"
+    ) || rc=$?
+    rm -rf "$isolated"
+    return "$rc"
 }
