@@ -163,9 +163,10 @@ The script performs these safety checks before creating the tag:
 - Explicit inputs: `THREELEAPS_CRUCIBLE_RELEASE_TAG` and `THREELEAPS_CRUCIBLE_DECERNOR_BIN` are
   set and valid, the tag matches `VERSION`, and no retired variable is set
 - The signing keyring is dedicated (see Variables)
-- Signing uses OpenPGP through the `gpg` on `PATH`: a configured `gpg.format`,
-  `gpg.program` or `gpg.openpgp.program` naming anything else stops the step,
-  and the signing command pins all three
+- Signing uses OpenPGP through the `gpg` on `PATH`: the signing command pins
+  `gpg.format`, `gpg.program` and `gpg.openpgp.program`, so a configured value
+  such as a global `gpg.program` wrapper is reported and overridden, not
+  refused. The step stops only if the pin would not take effect
 - The committed pins at `HEAD` match their anchors under the designated checker
 - Live `Tag Publish Protection` ruleset matches the required policy
 - Canonical publication-policy fingerprint is embedded in the signed tag

@@ -11,9 +11,9 @@
 # - Live tag publication ruleset matches the full expected policy
 # - Committed pins match their anchors under the designated checker
 # - GPG signing key availability
-# - Signing uses OpenPGP through the gpg on PATH: a configured gpg.format,
-#   gpg.program or gpg.openpgp.program naming anything else is refused, and
-#   the signing command pins all three
+# - Signing uses OpenPGP through the gpg on PATH: the signing command pins
+#   gpg.format, gpg.program and gpg.openpgp.program; a configured value it
+#   overrides is reported, and the step stops if the pin would not take effect
 # - Signed tag carries the validated publication-policy fingerprint
 # - Automatic signature verification after creation
 #
