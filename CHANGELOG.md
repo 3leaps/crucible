@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **durable-record/v1 body lifecycle.** A store that declares
+  `deletion.external_bodies: supported` names a `body_removal_stream` in its
+  profile and records `body_published`, `body_removal_started` and
+  `body_removed` there, per `{digest, length}` and strictly increasing
+  `incarnation`. A removal is evidenced only by `body_removed`, written after
+  absence is observed; a start alone proves nothing, and a later publication
+  abandons it. Reader states (`available`, `integrity_loss`, `removal_pending`,
+  `removed`, `publishing`, `unpublished`) are defined at a consistent cut. The
+  section states fencing by incarnation and that lifecycle entries grant no
+  removal eligibility. New refusals `body_removal_stream` and `body_lifecycle`;
+  vectors, schema rejects and mutation witnesses cover them.
+
 ### Changed
 
 - **Release tag tooling closes four silent defaults.** `release-tag` refuses a

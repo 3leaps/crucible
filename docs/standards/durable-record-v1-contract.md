@@ -341,6 +341,121 @@ on both streams: a source hold accepted between the check and the release
 blocks it. The logical interpreter decides at one observation and does not
 qualify that serialization.
 
+## Body lifecycle and removal
+
+A store whose profile declares `deletion.external_bodies: supported` records the
+lifecycle of the bytes held by body references in one ordinary v1 stream, its
+**body-removal stream**, named by the profile's `runtime.body_removal_stream`.
+The profile MUST name that stream when `external_bodies` is `supported` and
+MUST NOT name one otherwise. Bytes are shared by every stream that references
+them, so their lifecycle is recorded once for the store, not in each
+referencing stream. The identifier is an ordinary stream identifier chosen by
+the store; no literal is reserved.
+
+The body-removal stream carries only `stream_opened` and the three lifecycle
+entry types below, and is not a continuation. A reader MUST refuse, as
+`body_removal_stream`, any other entry type in that stream, a `continues` on its
+`stream_opened`, and any lifecycle entry in another stream. Every lifecycle
+entry is its own atomic group (`group` equals `seq`, `group_size` 1).
+
+A lifecycle entry names its body as `body: {digest, length}`, the digest and
+byte length of the body reference, with no media type, encryption or retrieval
+hint, and an `incarnation`. An **incarnation** is one publication of those
+bytes: a positive integer, strictly increasing per `{digest, length}` within
+the store. Gaps are permitted, and the first durable publication need not be
+`1`, because a store may advance its counter before a publication that is then
+interrupted. `at` is the store's acceptance time under the ordinary v1 rules.
+
+| Entry                  | Written                                         | Carries                                                       | Means                                                                 |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `body_published`       | after the bytes are durable                     | `body`, `incarnation`                                         | Incarnation `n` is published; this is publication's commit point      |
+| `body_removal_started` | durable before any byte of incarnation `n` is unlinked | `body`, `incarnation`, `reason`, `provenance`; optional `authorization` | The store decided to remove incarnation `n`; not evidence of removal |
+| `body_removed`         | after the store observed the bytes absent       | `body`, `incarnation`                                         | Incarnation `n` is removed; `at` is completion time                   |
+
+`reason` on `body_removal_started` is one of `retention`, `operator` or
+`rights_restricted`; it attributes a decision and is never a bypass of any
+rule. `authorization` is an opaque reference and digest, the same shape as a
+restriction review's. `reason`, `provenance` and `authorization` appear only on
+`body_removal_started`.
+
+**Transitions.** For one `{digest, length}`, the latest incarnation is the one
+named by its latest `body_published`. A reader MUST refuse as `body_lifecycle`:
+
+- a `body_published` whose incarnation is not greater than every incarnation
+  already named for that body;
+- a `body_removal_started` that does not name the latest incarnation, or whose
+  latest incarnation already has a removal started or completed: removal after
+  completion requires a new publication;
+- a `body_removed` that does not name the latest incarnation and its open
+  `body_removal_started`.
+
+A `body_published` for a body whose latest incarnation has an open removal
+closes that removal as **abandoned**: the store republished the bytes before
+completing the removal. Abandonment is not an error. A completion, or a retry,
+for an older or abandoned incarnation is refused and cannot act on the newer
+one. Publishing a body that is already published and not being removed, and
+repeating a completed removal, append nothing: that is the store's operation
+idempotency. A duplicate lifecycle entry in the journal is an invalid
+transition. Lifecycle entries carry no idempotency key.
+
+**Fencing.** Publication, removal and republication of the same body MUST be
+serialized or fenced by incarnation through their physical effects and their
+lifecycle commit points. After a later incarnation is published, an older or
+abandoned removal MUST NOT unlink its bytes or append a completion. The
+eligibility check and the unlink MUST be protected against intervening
+references and protection operations. A retry MUST re-establish eligibility
+and the current incarnation before any further physical removal. A
+`body_removal_started` entry alone authorizes neither action. An absence the
+store has already observed MAY be recorded as completion of the matching open
+removal without a fresh unlink; recording it authorizes no further removal.
+
+**Eligibility.** Lifecycle entries establish neither the authority for a
+removal nor its eligibility. Removal MUST honor every applicable hold in every
+stream that shares the bytes, including inherited restrictions; unknown
+protection or sharing coverage fails closed. The policy for removing bytes that
+are still referenced and not held belongs to retention policy, with its own
+authorization and reference checks, which this section does not define. Until
+that policy and its controls are specified, a conforming store keeps physical
+removal fail-closed.
+
+**Reader states.** A body's state is read from the designated stream's
+complete, valid journal at a consistent cut, together with an observation of
+the bytes that agrees with that cut, made under the store's exclusion or an
+equivalent consistent protocol. Present means the bytes were read and verified
+against both digest and length; absent means the bytes were observed not to be
+there. A failed read, corrupt bytes or unknown availability is neither, and
+fails the observation. A stale cut combined with a newer observation
+establishes no state.
+
+| Latest lifecycle entry for the body | Bytes present | Bytes absent      |
+| ----------------------------------- | ------------- | ----------------- |
+| none                                | `publishing`  | `unpublished`     |
+| `body_published(n)`                 | `available`   | `integrity_loss`  |
+| `body_removal_started(n)`           | `removal_pending` | `removal_pending` |
+| `body_removed(n)`                   | `publishing`  | `removed`         |
+
+`publishing` means bytes are present whose publication has no committed
+`body_published`; it is not evidence that a publication is in progress.
+`unpublished` requires a valid designated stream at a complete cut with no
+lifecycle entry for the body: a missing, unavailable or invalid journal is not
+an empty history. It is an observation, not permission to serve missing bytes,
+and it does not waive an earlier verified-write or durability promise.
+`removal_pending` with the bytes absent is a removal the store has not
+confirmed; the store completes it by appending `body_removed`. It is neither
+integrity loss nor proof of removal. A `body_removed` explains absence only for
+its own incarnation: absence after a later `body_published` is
+`integrity_loss`.
+
+Ordinary schema, journal and group refusals precede lifecycle refusals: a
+damaged or incomplete designated journal is refused for that defect and yields
+no state, never an empty history. Placement (`body_removal_stream`) is checked
+before transition (`body_lifecycle`).
+
+No cross-stream order is required between `body_published` and the content
+entries that reference the body. Lifecycle does not change any restriction: a
+removed body does not retire, release or restrict a record, and no
+`full_content` export may succeed without every required body.
+
 ## Serving, reuse and export
 
 Before releasing selected records or referenced bodies, the consumer MUST
@@ -432,14 +547,18 @@ Schema validation precedes semantic evaluation.
 | `retired_record`         | A content write attempts to revive a retired record                        |
 | `restrictions_pending`   | A continuation has no current restriction review                           |
 | `continuation`           | An import, review or manifest disagrees with the stream's continuation     |
+| `body_removal_stream`    | A lifecycle entry, type or continuation is outside the designated stream    |
+| `body_lifecycle`         | A lifecycle entry is not a valid transition for its body's incarnation      |
 
 ## Conformance and limits
 
 Run `python3 scripts/test-durable-record-v1-controls.py`. File-backed vectors
 cover scopes, independent holds, replay, expiration, reconciliation, atomic
 cuts, keyed and unkeyed retirement, production time, instant spelling, record
-envelope version, export omissions, inherited restrictions, body closure, and
-continuation review (cut and manifest digests, imports, currency).
+envelope version, export omissions, inherited restrictions, body closure,
+continuation review (cut and manifest digests, imports, currency), and body
+lifecycle (every reader-state cell, incarnation gaps, abandonment,
+republication, invalid transitions, placement and designation).
 Schema reject fixtures differ from a passing baseline in one field. Mutation
 controls deliberately weaken guarded rules. Each must turn a rejected witness
 into acceptance or produce a specifically named wrong outcome; an unrelated

@@ -14,6 +14,12 @@ enforcing store observes; a `source_entry` step appends to it, as a source
 change outside the destination stream. `ancestors` lists the further source
 journals the store observes when the source is itself a continuation, nearest
 first; an `ancestor_entry` step appends to the named one.
+A case may carry `profile`, the stratum profile of the store. When it names a
+`body_removal_stream`, the case's `journal` is that stream. A `body_state` step
+`{body, present}` returns the reader state of that body at the current cut.
+`present` is a trusted observation: `true` is bytes verified against digest and
+length, `false` is observed absence. An unknown or failed observation has no
+step form, so it never reaches a successful state.
 
 ## Schema rejects
 
@@ -23,13 +29,24 @@ first; an `ancestor_entry` step appends to the named one.
 - [reject-journal-at-spelling.json](schema/reject-journal-at-spelling.json)
 - [reject-journal-continues-capability.json](schema/reject-journal-continues-capability.json)
 - [reject-journal-continues-not-opened.json](schema/reject-journal-continues-not-opened.json)
+- [reject-journal-lifecycle-body-media-type.json](schema/reject-journal-lifecycle-body-media-type.json)
+- [reject-journal-lifecycle-group-size.json](schema/reject-journal-lifecycle-group-size.json)
+- [reject-journal-lifecycle-incarnation-zero.json](schema/reject-journal-lifecycle-incarnation-zero.json)
+- [reject-journal-lifecycle-without-incarnation.json](schema/reject-journal-lifecycle-without-incarnation.json)
+- [reject-journal-published-with-reason.json](schema/reject-journal-published-with-reason.json)
+- [reject-journal-removal-reason-free-text.json](schema/reject-journal-removal-reason-free-text.json)
+- [reject-journal-removal-without-provenance.json](schema/reject-journal-removal-without-provenance.json)
+- [reject-journal-removed-with-authorization.json](schema/reject-journal-removed-with-authorization.json)
 - [reject-journal-retired-key-without-digest.json](schema/reject-journal-retired-key-without-digest.json)
+- [reject-journal-retired-with-incarnation.json](schema/reject-journal-retired-with-incarnation.json)
 - [reject-journal-review-with-import.json](schema/reject-journal-review-with-import.json)
 - [reject-journal-review-without-authorization.json](schema/reject-journal-review-without-authorization.json)
 - [reject-profile-commit-note-empty.json](schema/reject-profile-commit-note-empty.json)
 - [reject-profile-commit-strategy-free-text.json](schema/reject-profile-commit-strategy-free-text.json)
+- [reject-profile-external-bodies-without-stream.json](schema/reject-profile-external-bodies-without-stream.json)
 - [reject-profile-positive-window.json](schema/reject-profile-positive-window.json)
 - [reject-profile-required-capability.json](schema/reject-profile-required-capability.json)
+- [reject-profile-stream-without-external-bodies.json](schema/reject-profile-stream-without-external-bodies.json)
 - [reject-receipt-retired-with-pin.json](schema/reject-receipt-retired-with-pin.json)
 - [reject-receipt-retired-without-digest.json](schema/reject-receipt-retired-without-digest.json)
 - [reject-receipt-seq.json](schema/reject-receipt-seq.json)
@@ -52,7 +69,33 @@ first; an `ancestor_entry` step appends to the named one.
 - [block-export.json](../vectors/block-export.json)
 - [block-reuse.json](../vectors/block-reuse.json)
 - [block-serve.json](../vectors/block-serve.json)
+- [body-abandoned-removal.json](../vectors/body-abandoned-removal.json)
+- [body-content-in-removal-stream.json](../vectors/body-content-in-removal-stream.json)
+- [body-content-stream-with-designation.json](../vectors/body-content-stream-with-designation.json)
+- [body-entry-in-content-stream.json](../vectors/body-entry-in-content-stream.json)
+- [body-entry-without-profile.json](../vectors/body-entry-without-profile.json)
+- [body-incarnation-gap.json](../vectors/body-incarnation-gap.json)
+- [body-independent-bodies.json](../vectors/body-independent-bodies.json)
 - [body-length-isolation.json](../vectors/body-length-isolation.json)
+- [body-publish-decreasing.json](../vectors/body-publish-decreasing.json)
+- [body-publish-not-increasing.json](../vectors/body-publish-not-increasing.json)
+- [body-removal-stream-continues.json](../vectors/body-removal-stream-continues.json)
+- [body-removed-abandoned.json](../vectors/body-removed-abandoned.json)
+- [body-removed-twice.json](../vectors/body-removed-twice.json)
+- [body-removed-without-start.json](../vectors/body-removed-without-start.json)
+- [body-republished-after-removal.json](../vectors/body-republished-after-removal.json)
+- [body-start-after-removed.json](../vectors/body-start-after-removed.json)
+- [body-start-twice.json](../vectors/body-start-twice.json)
+- [body-start-unpublished.json](../vectors/body-start-unpublished.json)
+- [body-start-wrong-incarnation.json](../vectors/body-start-wrong-incarnation.json)
+- [body-state-damaged-journal.json](../vectors/body-state-damaged-journal.json)
+- [body-state-none.json](../vectors/body-state-none.json)
+- [body-state-other-stream.json](../vectors/body-state-other-stream.json)
+- [body-state-published.json](../vectors/body-state-published.json)
+- [body-state-removal-started.json](../vectors/body-state-removal-started.json)
+- [body-state-removed.json](../vectors/body-state-removed.json)
+- [body-state-without-profile.json](../vectors/body-state-without-profile.json)
+- [body-step-abandons.json](../vectors/body-step-abandons.json)
 - [changed-live-key.json](../vectors/changed-live-key.json)
 - [conflicting-body-lengths.json](../vectors/conflicting-body-lengths.json)
 - [content-key-collision.json](../vectors/content-key-collision.json)

@@ -143,6 +143,9 @@ def source_pins(journal):
     }
 
 
+LIFECYCLE = ("body_published", "body_removal_started", "body_removed")
+
+
 def require(ok, reason):
     if not ok:
         raise legacy.Reject(reason, "durable-record/v1")
@@ -175,6 +178,8 @@ class State:
         self.review = None
         self.restricted_at = []
         self.upstream = None
+        self.removal_stream = None
+        self.bodies = {}
 
     def instant(self, text):
         # Every v1 wire instant uses one spelling. A reader refuses any other
@@ -217,6 +222,22 @@ class State:
                 "journal_time",
             )
         typ = e["type"]
+        if self.removal_stream is not None or typ in LIFECYCLE:
+            # The designated stream carries only stream_opened and lifecycle
+            # entries, and lifecycle entries appear nowhere else. A continuation
+            # designation is also refused by the continuation checks, so its
+            # vector has no single-guard mutation witness.
+            designated = self.removal_stream == e["stream"]
+            if designated:
+                require(
+                    (typ in LIFECYCLE or typ == "stream_opened")
+                    and "continues" not in e,
+                    "body_removal_stream",
+                )
+            else:
+                require(typ not in LIFECYCLE, "body_removal_stream")
+        if typ in LIFECYCLE:
+            self.track_body(e)
         if typ == "stream_opened":
             self.stream, self.failure_model = e["stream"], e["failure_model"]
             if "continues" in e:
@@ -326,6 +347,37 @@ class State:
             "continuation",
         )
         self.imports.append((e["seq"], pin_key(imported["pin"])))
+
+    def track_body(self, e):
+        # One lifecycle per {digest, length}: (latest incarnation, phase), where
+        # phase is published, started or removed.
+        key = (e["body"]["digest"], e["body"]["length"])
+        latest, phase = self.bodies.get(key, (0, None))
+        n, typ = e["incarnation"], e["type"]
+        if typ == "body_published":
+            # A later publication closes an open removal as abandoned.
+            require(n > latest, "body_lifecycle")
+            self.bodies[key] = (n, "published")
+        elif typ == "body_removal_started":
+            require(n == latest and phase == "published", "body_lifecycle")
+            self.bodies[key] = (n, "started")
+        else:
+            require(n == latest and phase == "started", "body_lifecycle")
+            self.bodies[key] = (n, "removed")
+
+    def body_state(self, step):
+        legacy.check_journal(self.journal, "v1")
+        require(self.removal_stream == self.stream, "body_removal_stream")
+        body = step["body"]
+        _, phase = self.bodies.get((body["digest"], body["length"]), (0, None))
+        present = step["present"]
+        state = {
+            None: "publishing" if present else "unpublished",
+            "published": "available" if present else "integrity_loss",
+            "started": "removal_pending",
+            "removed": "publishing" if present else "removed",
+        }[phase]
+        return {"outcome": "body_state", "state": state}
 
     def check_review(self, e):
         require(self.continues is not None, "continuation")
@@ -719,6 +771,9 @@ def chain(case):
 
 def evaluate(case):
     s = State(case["window_ms"])
+    if "profile" in case:
+        legacy.check_profile(case["profile"], "profile")
+        s.removal_stream = case["profile"]["runtime"].get("body_removal_stream")
     if "source_journal" in case:
         s.source, s.upstream = chain(case)
     legacy.check_journal(case["journal"], "v1")
@@ -737,6 +792,8 @@ def evaluate(case):
         elif "entry" in step:
             s.ingest(step["entry"])
             results.append({"outcome": "journaled"})
+        elif "body_state" in step:
+            results.append(s.body_state(step["body_state"]))
         elif "source_entry" in step:
             # The source journal advances outside this stream.
             case = copy.deepcopy(case)
@@ -1109,6 +1166,83 @@ def mutation_controls():
             "continuation-ancestor-changed",
             None,
         ),
+        (
+            "ingest",
+            "require",
+            "body_removal_stream",
+            1,
+            "body-entry-in-content-stream",
+            None,
+        ),
+        (
+            "ingest",
+            "require",
+            "body_removal_stream",
+            0,
+            "body-content-in-removal-stream",
+            None,
+        ),
+        (
+            "ingest",
+            "require",
+            "body_removal_stream",
+            1,
+            "body-entry-without-profile",
+            None,
+        ),
+        (
+            "track_body",
+            "require",
+            "body_lifecycle",
+            0,
+            "body-publish-not-increasing",
+            None,
+        ),
+        ("track_body", "require", "body_lifecycle", 0, "body-publish-decreasing", None),
+        ("track_body", "require", "body_lifecycle", 1, "body-start-unpublished", None),
+        (
+            "track_body",
+            "require",
+            "body_lifecycle",
+            1,
+            "body-start-wrong-incarnation",
+            None,
+        ),
+        ("track_body", "require", "body_lifecycle", 1, "body-start-twice", None),
+        (
+            "track_body",
+            "require",
+            "body_lifecycle",
+            1,
+            "body-start-after-removed",
+            None,
+        ),
+        (
+            "track_body",
+            "require",
+            "body_lifecycle",
+            2,
+            "body-removed-without-start",
+            None,
+        ),
+        ("track_body", "require", "body_lifecycle", 2, "body-removed-abandoned", None),
+        ("track_body", "require", "body_lifecycle", 2, "body-removed-twice", None),
+        (
+            "body_state",
+            "require",
+            "body_removal_stream",
+            0,
+            "body-state-without-profile",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_removal_stream",
+            0,
+            "body-state-other-stream",
+            None,
+        ),
     ]
     for method, kind, value, occurrence, witness, alternative in specs:
         tree = ast.parse(source)
@@ -1264,6 +1398,7 @@ def mutation_controls():
                 "journaled",
                 "receipt_verified",
                 "allowed",
+                "body_state",
             }
             assert all(r.get("outcome") in accepted for r in outcome["results"]), (
                 "mutation did not accept",
@@ -1320,6 +1455,8 @@ def main():
     assert rejects, "missing schema rejects"
     for path in cases:
         c = load(path)
+        if "profile" in c:
+            assert shape(c["profile"], "stratum-profile"), path
         invalid = c.get("invalid_journal_entries", [])
         assert len(invalid) == len(set(invalid)) and all(
             0 <= i < len(c["journal"]) for i in invalid
@@ -1366,7 +1503,7 @@ def main():
             if result.get("kind") in ("reconciliation", "receipt"):
                 assert shape(result, "write-receipt"), (path.name, result)
                 continue
-            if result["outcome"] in ("journaled", "receipt_verified"):
+            if result["outcome"] in ("journaled", "receipt_verified", "body_state"):
                 continue
             name = (
                 "export-result"
