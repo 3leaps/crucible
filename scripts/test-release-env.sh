@@ -375,7 +375,15 @@ for setting in "url.git@github.com:.insteadOf=https://github.com/" \
     "http.proxy=http://127.0.0.1:9" \
     "http.https://github.com/.cookieFile=/tmp/cookies" \
     "credential.username=other-user" \
-    "credential.https://github.com.username=other-user"; do
+    "credential.https://github.com.username=other-user" \
+    "http.sslVerify=false" \
+    "http.https://github.com/.sslVerify=false" \
+    "http.sslCAInfo=/tmp/other-ca.pem" \
+    "http.sslCAPath=/tmp/other-ca" \
+    "http.sslCert=/tmp/client.pem" \
+    "http.sslKey=/tmp/client.key" \
+    "http.sslBackend=openssl" \
+    "http.proxyAuthMethod=basic"; do
     key="${setting%%=*}"
     "$real_git" -C "$work/org/repo" config "$key" "${setting#*=}"
     expect_no_contact "transport: repository $key" "rewrites, proxies or adds credentials"
@@ -409,6 +417,35 @@ for setting in "http.https://github.com/.extraHeader=Authorization: Bearer $sent
     fi
 done
 
+# TLS and trace environment that git honors does not reach git.
+"$real_git" -C "$work/org/repo" config --unset-all credential.helper || true
+cat >"$work/env-git" <<EOF
+#!/usr/bin/env bash
+args=("\$@")
+while [ "\${1:-}" = -c ]; do shift 2; done
+if [ "\${1:-}" = config ] || [ "\$#" -eq 0 ]; then exec "$real_git" "\${args[@]}"; fi
+env | grep -E '^(GIT_SSL_|GIT_PROXY_|GIT_CURL_VERBOSE|GIT_TRACE_CURL|GIT_HTTP_PROXY_AUTHMETHOD)' >>"$work/git-env.log"
+echo "\$1" >>"$work/git-env.log"
+EOF
+"$real_git" -C "$work/org/repo" config credential.helper "$work/stray-helper"
+mkdir "$work/env-bin"
+cp "$work/env-git" "$work/env-bin/git"
+ln -s "$work/transport-bin/direnv" "$work/env-bin/direnv"
+ln -s "$work/transport-bin/gh" "$work/env-bin/gh"
+chmod 755 "$work/env-bin/git"
+: >"$work/git-env.log"
+rc=0
+(cd "$work/org/repo" && env -i PATH="$work/env-bin:$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 \
+    FAKE_ENVRC="$work/org/.envrc" FAKE_ENVRC_TOKEN=org-token GIT_SSL_NO_VERIFY=1 GIT_SSL_CAINFO=/tmp/other-ca.pem \
+    GIT_PROXY_COMMAND=/bin/false GIT_CURL_VERBOSE=1 GIT_TRACE_CURL=1 GIT_HTTP_PROXY_AUTHMETHOD=basic bash -c \
+    'source scripts/release-env.sh; release_remote_git "$PWD" ls-remote "$RELEASE_PUSH_URL"') \
+    >"$work/out" 2>"$work/err" || rc=$?
+if ((rc == 0)) && [[ "$(cat "$work/git-env.log")" == ls-remote ]]; then
+    pass "transport: TLS, proxy and curl-trace environment does not reach git"
+else
+    fail "transport environment: rc=$rc reached git: '$(cat "$work/git-env.log")' err='$(cat "$work/err")'"
+fi
+
 # --- release transport on the wire: only the org credential is sent ---------
 # Real git against a local server that answers 401 with a Basic challenge to
 # every request and logs each Authorization header it receives. The release
@@ -438,11 +475,16 @@ s.serve_forever()
 EOF
     python3 -I "$wire/server.py" "$wire/auth.log" "$wire/port" &
     server_pid=$!
+    # A second listener stands in for a proxy and logs anything sent to it.
+    python3 -I "$wire/server.py" "$wire/proxy.log" "$wire/proxy-port" &
+    proxy_pid=$!
     for _ in $(seq 50); do
-        [ -s "$wire/port" ] && break
+        [ -s "$wire/port" ] && [ -s "$wire/proxy-port" ] && break
         sleep 0.1
     done
     port="$(cat "$wire/port")"
+    proxy="http://127.0.0.1:$(cat "$wire/proxy-port")"
+    : >"$wire/proxy.log"
     for f in "$wire/home/.netrc" "$wire/home/_netrc" "$wire/netrc-env" "$wire/curlhome/.netrc"; do
         printf 'machine 127.0.0.1 login netrc-user password netrc-sentinel\n' >"$f"
         chmod 600 "$f"
@@ -461,11 +503,13 @@ EOF
         >"$wire/global-config"
     printf '[credential]\n\tusername = home-user\n' >>"$wire/home/.gitconfig"
     (cd "$work/org/repo" && env -i PATH="$wire/bin:$PATH" HOME="$wire/home" NETRC="$wire/netrc-env" \
-        CURL_HOME="$wire/curlhome" GIT_CONFIG_GLOBAL="$wire/global-config" bash -c \
+        CURL_HOME="$wire/curlhome" GIT_CONFIG_GLOBAL="$wire/global-config" \
+        http_proxy="$proxy" HTTP_PROXY="$proxy" https_proxy="$proxy" HTTPS_PROXY="$proxy" \
+        all_proxy="$proxy" ALL_PROXY="$proxy" no_proxy= NO_PROXY= GIT_PROXY_COMMAND=/bin/false bash -c \
         'source scripts/release-env.sh; release_remote_git "$PWD" ls-remote "$1"' _ \
         "http://127.0.0.1:$port/3leaps/crucible.git") >"$work/out" 2>"$work/err" || rc=$?
-    kill "$server_pid" 2>/dev/null || true
-    wait "$server_pid" 2>/dev/null || true
+    kill "$server_pid" "$proxy_pid" 2>/dev/null || true
+    wait "$server_pid" "$proxy_pid" 2>/dev/null || true
     decoded=""
     while IFS= read -r line; do
         case "$line" in
@@ -478,6 +522,11 @@ EOF
         pass "transport on the wire: only the org credential is sent ($decoded)"
     else
         fail "transport on the wire: sent '$decoded' (rc=$rc, err: $(cat "$work/err"))"
+    fi
+    if [ -s "$wire/proxy.log" ]; then
+        fail "transport on the wire: a request went through the inherited proxy"
+    else
+        pass "transport on the wire: inherited proxy variables are not used"
     fi
 else
     fail "python3 is required for the on-the-wire transport control"

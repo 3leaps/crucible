@@ -261,7 +261,7 @@ RELEASE_PUSH_URL="https://github.com/3leaps/crucible.git"
 refuse_release_transport_overrides() {
     local found rc=0
     found="$(git config --show-scope --name-only --get-regexp \
-        '^(url\..*\.(insteadof|pushinsteadof)|http\..*\.?(extraheader|cookiefile|proxy)|credential\..*\.?username)$')" ||
+        '^(url\..*\.(insteadof|pushinsteadof)|http\..*\.?(extraheader|cookiefile|proxy|proxyauthmethod|sslverify|sslcainfo|sslcapath|sslcert|sslkey|sslbackend)|credential\..*\.?username)$')" ||
         rc=$?
     if ((rc == 0)); then
         echo "error: git configuration rewrites, proxies or adds credentials to release transport:" >&2
@@ -334,6 +334,9 @@ release_transport_git() {
     # global or system config; git does not read NETRC or CURL_HOME. The
     # override check reads the same configuration git will, so what remains
     # (repository config and GIT_CONFIG_* from the environment) is refused.
+    # Proxy and TLS environment that libcurl or git would honor is removed
+    # here, after direnv, so neither the release shell nor the .envrc can
+    # route the org token through a proxy or weaken certificate checks.
     local isolated rc=0
     if ! isolated="$(mktemp -d)" || [[ -z "$isolated" ]]; then
         echo "error: could not create an isolated home for git; not contacting GitHub" >&2
@@ -341,6 +344,16 @@ release_transport_git() {
     fi
     (
         export HOME="$isolated" XDG_CONFIG_HOME="$isolated/.config" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+        local name
+        for name in $(compgen -e); do
+            case "$name" in
+                GIT_SSL_* | GIT_PROXY_* | GIT_HTTP_PROXY_AUTHMETHOD | GIT_CURL_VERBOSE | GIT_TRACE_CURL* | \
+                    [Hh][Tt][Tt][Pp][Ss]_[Pp][Rr][Oo][Xx][Yy] | [Hh][Tt][Tt][Pp]_[Pp][Rr][Oo][Xx][Yy] | \
+                    [Aa][Ll][Ll]_[Pp][Rr][Oo][Xx][Yy] | [Nn][Oo]_[Pp][Rr][Oo][Xx][Yy])
+                    unset "$name"
+                    ;;
+            esac
+        done
         refuse_release_transport_overrides || exit 1
         git -c credential.helper= -c 'credential.helper=!gh auth git-credential' -c core.askPass= "$@"
     ) || rc=$?
