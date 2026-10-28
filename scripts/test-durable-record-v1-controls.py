@@ -14,6 +14,7 @@ import hashlib
 from datetime import timedelta
 import importlib.util
 import json
+import math
 import re
 from pathlib import Path
 import subprocess
@@ -145,6 +146,18 @@ def source_pins(journal):
 
 LIFECYCLE = ("body_published", "body_removal_started", "body_removed")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def integral(value):
+    # The JSON Schema integer grammar: a finite, nonnegative number with no
+    # fractional part, however it is spelled (12, 12.0, 1.2e1). A Boolean is
+    # not a number here, though Python treats it as one.
+    return (
+        type(value) in (int, float)
+        and math.isfinite(value)
+        and value == int(value)
+        and value >= 0
+    )
 
 
 def require(ok, reason):
@@ -378,8 +391,7 @@ class State:
             and set(step["body"]) == {"digest", "length"}
             and isinstance(step["body"]["digest"], str)
             and DIGEST.fullmatch(step["body"]["digest"]) is not None
-            and type(step["body"]["length"]) is int
-            and step["body"]["length"] >= 0,
+            and integral(step["body"]["length"]),
             "body_observation",
         )
         legacy.check_journal(self.journal, "v1")
@@ -1265,6 +1277,14 @@ def mutation_controls():
             "body_observation",
             0,
             "body-observation-boolean-length",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-fractional-length",
             None,
         ),
         (
