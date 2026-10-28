@@ -366,6 +366,8 @@ def shape(doc, schema=SCHEMA):
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode not in (0, 1):
             raise RuntimeError(result.stderr)
@@ -821,6 +823,8 @@ def check_limits():
         [sys.executable, "-O", "-c", code, __file__],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     debug, outcomes = json.loads(result.stdout)

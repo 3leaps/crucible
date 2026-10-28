@@ -193,6 +193,8 @@ def check_row_schema(raw: bytes) -> None:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         require(metaschema_result(checked, paths), "SEM-S03")
@@ -555,6 +557,8 @@ def schema_check(
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if result.returncode == 0:

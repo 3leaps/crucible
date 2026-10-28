@@ -862,6 +862,8 @@ def shape(doc, name):
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode not in (0, 1):
             raise RuntimeError(result.stderr)

@@ -17,6 +17,8 @@ def windows_sid():
             "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
         ],
         text=True,
+        encoding="utf-8",
+        errors="replace",
     ).strip()
     if not sid.startswith("S-1-") or not all(c in "S0123456789-" for c in sid):
         raise ValueError("could not resolve the current Windows SID")
