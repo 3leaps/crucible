@@ -174,14 +174,15 @@ form. An ignore rule is not the boundary.
 10. **The signing command pins its signer; machine configuration is reported,
     not refused.** The signing command sets the signature format and signing
     program on its own command line (for git, `-c gpg.format=openpgp
-    -c gpg.program=gpg -c gpg.openpgp.program=gpg`) and runs with the dedicated
-    signing keyring exported, so no configuration file or environment setting
-    can select another signer or keyring. Before signing, the ceremony checks
-    that the values the signing command will use are the pinned ones and stops
-    if they are not. A configured value the pin overrides, such as a global
-    `gpg.program` naming a wrapper, is reported and does not stop the ceremony:
-    adopters do not change their machine configuration, or add environment
-    workarounds, to release.
+    -c gpg.program=gpg -c gpg.openpgp.program=gpg`). The command-line values
+    override Git signing configuration from files and Git configuration
+    environment variables. The ceremony uses `gpg` from its trusted `PATH` and
+    exports `GNUPGHOME` from the validated dedicated-keyring input. Before
+    signing, the ceremony checks that the values the signing command will use
+    are the pinned ones and stops if they are not. A configured value the pin
+    overrides, such as a global `gpg.program` naming a wrapper, is reported and
+    does not stop the ceremony: adopters do not change their machine
+    configuration, or add environment workarounds, to release.
 
 ### 3. Layout (recommended default, not mandated)
 
