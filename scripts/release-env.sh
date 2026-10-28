@@ -217,15 +217,23 @@ require_signing_keyring() {
 }
 
 # The signing call uses OpenPGP through the gpg found on PATH, and nothing
-# else. A configured gpg.format, gpg.program or gpg.openpgp.program naming
-# anything else is refused rather than overridden, so the release shell's
-# configuration is visible; release_signing_git pins the same values again
-# on the signing command.
+# else: release_signing_git pins gpg.format, gpg.program and
+# gpg.openpgp.program on the command line, which overrides every config file
+# and the environment. A configured value the pin overrides is reported, not
+# refused, so a machine whose global config names a gpg wrapper can release
+# unchanged. The check refuses only if the value the signing command would use
+# is not the pin, which means the pin itself did not take effect.
 require_signing_program() {
-    local key want value rc
+    local key want value effective rc
     for key in gpg.format gpg.program gpg.openpgp.program; do
         want=gpg
         [[ "$key" == gpg.format ]] && want=openpgp
+        rc=0
+        effective="$(release_signing_git config --get "$key")" || rc=$?
+        if ((rc != 0)) || [[ "$effective" != "$want" ]]; then
+            echo "error: release signing would not use $key=$want; not signing" >&2
+            return 1
+        fi
         rc=0
         value="$(git config --get-all "$key")" || rc=$?
         if ((rc == 1)); then
@@ -236,9 +244,7 @@ require_signing_program() {
             return 1
         fi
         if [[ "$value" != "$want" ]]; then
-            echo "error: git config $key is '${value//$'\n'/, }'; release signing requires $want" >&2
-            echo "hint: unset it for the release shell (git config --show-origin --get-all $key)" >&2
-            return 1
+            echo "note: git config $key is '${value//$'\n'/, }'; release signing uses $want" >&2
         fi
     done
 }

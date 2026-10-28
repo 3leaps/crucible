@@ -3,7 +3,7 @@ id: "PDR-0008"
 title: "Release public identity is committed, checked by one tool, and bound by explicit inputs"
 status: "accepted"
 date: "2026-10-22"
-last_updated: "2026-10-24"
+last_updated: "2026-10-28"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -171,6 +171,18 @@ form. An ignore rule is not the boundary.
    holds the pins carries a short document naming the signature set, the
    anchors, the checker, and the statement that a passing tag workflow is
    not release authorization. A reference wording is in the appendix.
+10. **The signing command pins its signer; machine configuration is reported,
+    not refused.** The signing command sets the signature format and signing
+    program on its own command line (for git, `-c gpg.format=openpgp
+    -c gpg.program=gpg -c gpg.openpgp.program=gpg`). The command-line values
+    override Git signing configuration from files and Git configuration
+    environment variables. The ceremony uses `gpg` from its trusted `PATH` and
+    exports `GNUPGHOME` from the validated dedicated-keyring input. Before
+    signing, the ceremony checks that the values the signing command will use
+    are the pinned ones and stops if they are not. A configured value the pin
+    overrides, such as a global `gpg.program` naming a wrapper, is reported and
+    does not stop the ceremony: adopters do not change their machine
+    configuration, or add environment workarounds, to release.
 
 ### 3. Layout (recommended default, not mandated)
 
@@ -336,3 +348,4 @@ a throwaway keyring holding only the committed pin, also passed.
 | 2026-10-22 | proposed      | Installer literals, retired-key selection, no env override at verify | cxotech    |
 | 2026-10-23 | proposed      | Record this repository's adoption (§4)                       | devlead    |
 | 2026-10-24 | → accepted    | Proven by `v0.2.1` (tag `0f2929b`, commit `16e6abc`); independent verify passed | devlead    |
+| 2026-10-28 | accepted      | §2.10: the signing command pins its signer; configured values are reported | devlead    |

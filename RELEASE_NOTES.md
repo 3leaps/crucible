@@ -23,7 +23,8 @@ For detailed release content, see [docs/releases/](docs/releases/).
   removal stays fail-closed. Existing v1 records and journals are unchanged.
   The logical controls qualify no store.
 - **Release tag tooling**: `make release-tag` refuses the default keyring and
-  any non-OpenPGP or non-`gpg` signer; `make release-push-tag` uses the
+  signs with a pinned OpenPGP `gpg` signer, reporting any configured signer it
+  overrides; `make release-push-tag` uses the
   explicit HTTPS URL with only the org token, isolated from home credentials,
   proxy and TLS overrides. The read-only ruleset check no longer reports a
   hidden bypass list as a match.

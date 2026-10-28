@@ -226,44 +226,74 @@ expect_keyring_accepted "dedicated keyring (dscl)" FAKE_OS=Darwin "$signing"
 expect_keyring_accepted "dedicated keyring, HOME without .gnupg" "${bare[@]}" "$signing"
 expect_keyring_accepted "dedicated keyring with matching GNUPGHOME" "$signing" "GNUPGHOME=$work/signing"
 
-# --- signing program: OpenPGP through gpg, nothing else ----------------------
+# --- signing program: the pin governs; configured values are reported --------
 git init --quiet "$work/sign-repo"
 signing_program() {
     rc=0
     (cd "$work/sign-repo" && env -i PATH="$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 "$@" bash -c \
         'source "$1"; require_signing_program' _ "$root/scripts/release-env.sh") >"$work/out" 2>"$work/err" || rc=$?
 }
-expect_signing_refused() {
-    local label="$1" key="$2" value="$3"
+# A configured value the signing command overrides is accepted, with a note
+# naming the key, the configured value and what signing uses instead.
+expect_signing_noted() {
+    local label="$1" key="$2" want="$3"
+    if ((rc != 0)); then
+        fail "$label: refused: $(cat "$work/err")"
+    elif ! grep -q -- "note: git config $key is '.*'; release signing uses $want" "$work/err"; then
+        fail "$label: accepted without a note: '$(cat "$work/err")'"
+    else
+        pass "$label: accepted with a note"
+    fi
+}
+expect_signing_config_noted() {
+    local label="$1" key="$2" value="$3" want="$4"
     git -C "$work/sign-repo" config "$key" "$value"
     signing_program
     git -C "$work/sign-repo" config --unset-all "$key"
-    expect_reason "$label" "git config $key is"
+    expect_signing_noted "$label" "$key" "$want"
 }
-expect_signing_refused "gpg.program is another program" gpg.program "$work/fakebin/gpg"
-expect_signing_refused "gpg.program is gpg2" gpg.program gpg2
-expect_signing_refused "gpg.format is ssh" gpg.format ssh
-expect_signing_refused "gpg.format is x509" gpg.format x509
-expect_signing_refused "gpg.openpgp.program is another program" gpg.openpgp.program "$work/fakebin/gpg"
+expect_signing_config_noted "repository gpg.program is another program" gpg.program "$work/fakebin/gpg" gpg
+expect_signing_config_noted "repository gpg.program is gpg2" gpg.program gpg2 gpg
+expect_signing_config_noted "repository gpg.format is ssh" gpg.format ssh openpgp
+expect_signing_config_noted "repository gpg.format is x509" gpg.format x509 openpgp
+expect_signing_config_noted "repository gpg.openpgp.program is another program" gpg.openpgp.program \
+    "$work/fakebin/gpg" gpg
+# A global wrapper, the common machine setup.
+printf '[gpg]\n\tprogram = %s\n' "$work/fakebin/gpg" >"$work/.gitconfig"
+signing_program
+rm "$work/.gitconfig"
+expect_signing_noted "global gpg.program wrapper" gpg.program gpg
 signing_program GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh
-expect_reason "gpg.format=ssh from the environment" "git config gpg.format is"
+expect_signing_noted "gpg.format=ssh from GIT_CONFIG_COUNT" gpg.format openpgp
+signing_program "GIT_CONFIG_PARAMETERS='gpg.program'='$work/fakebin/gpg' 'gpg.format'='x509'"
+expect_signing_noted "gpg.program and gpg.format from GIT_CONFIG_PARAMETERS" gpg.program gpg
 git -C "$work/sign-repo" config gpg.program gpg
 git -C "$work/sign-repo" config --add gpg.program /usr/local/bin/other
 signing_program
 git -C "$work/sign-repo" config --unset-all gpg.program
-expect_reason "gpg.program set twice" "git config gpg.program is"
+expect_signing_noted "gpg.program set twice" gpg.program gpg
 signing_program
-if ((rc == 0)); then pass "no signing configuration: accepted"; else
-    fail "no signing configuration: refused: $(cat "$work/err")"
+if ((rc == 0)) && [ ! -s "$work/err" ]; then pass "no signing configuration: accepted, no note"; else
+    fail "no signing configuration: rc=$rc err='$(cat "$work/err")'"
 fi
 git -C "$work/sign-repo" config gpg.program gpg
 git -C "$work/sign-repo" config gpg.format openpgp
 signing_program
-if ((rc == 0)); then pass "gpg.program=gpg, gpg.format=openpgp: accepted"; else
-    fail "gpg.program=gpg, gpg.format=openpgp: refused: $(cat "$work/err")"
+if ((rc == 0)) && [ ! -s "$work/err" ]; then pass "gpg.program=gpg, gpg.format=openpgp: accepted, no note"; else
+    fail "gpg.program=gpg, gpg.format=openpgp: rc=$rc err='$(cat "$work/err")'"
 fi
 git -C "$work/sign-repo" config --unset gpg.program
 git -C "$work/sign-repo" config --unset gpg.format
+# The check refuses when the signing command would not use the pinned value:
+# a signing command without the pin, under a configured wrapper.
+git -C "$work/sign-repo" config gpg.program "$work/fakebin/gpg"
+rc=0
+(cd "$work/sign-repo" && env -i PATH="$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 bash -c \
+    'source "$1"; release_signing_git() { git "$@"; }; require_signing_program' _ "$root/scripts/release-env.sh") \
+    >"$work/out" 2>"$work/err" || rc=$?
+git -C "$work/sign-repo" config --unset gpg.program
+expect_reason "signing command without the pin, under a configured wrapper" \
+    "release signing would not use gpg\.[a-z.]*=[a-z]*; not signing"
 # The signing command pins all three keys over any lower-precedence value.
 pinned="$(cd "$work/sign-repo" && env -i PATH="$PATH" HOME="$work" GIT_CONFIG_NOSYSTEM=1 \
     GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh \
@@ -597,14 +627,19 @@ else
     pass "release-tag.sh without a signing keyring: refused"
 fi
 
-# A configured signer other than OpenPGP through gpg stops the tag step
-# before anything else runs.
+# The tag step runs the signing check before anything else: a configured
+# signer other than OpenPGP through gpg is reported there, and the step goes
+# on to its later checks.
 rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
     FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
     THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.format GIT_CONFIG_VALUE_0=ssh \
     "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
-expect_reason "release-tag.sh with gpg.format=ssh" "git config gpg.format is 'ssh'"
+if grep -q "note: git config gpg.format is 'ssh'; release signing uses openpgp" "$work/err"; then
+    pass "release-tag.sh with gpg.format=ssh: reported before signing"
+else
+    fail "release-tag.sh with gpg.format=ssh: no note: rc=$rc err='$(cat "$work/err")'"
+fi
 
 if ((failures)); then
     echo "[!!] release input controls: $failures failure(s)" >&2

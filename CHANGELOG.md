@@ -28,9 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release tag tooling closes four silent defaults.** `release-tag` refuses a
   signing keyring that is the default keyring by either `gpgconf`'s homedir or
   the account home from the user database, and stops if either cannot be
-  resolved. Signing requires OpenPGP through `gpg`: a configured `gpg.format`,
-  `gpg.program` or `gpg.openpgp.program` naming anything else is refused, and
-  the signing command pins all three. `release-push-tag` fetches, checks,
+  resolved. Signing uses OpenPGP through `gpg`: the signing command pins
+  `gpg.format`, `gpg.program` and `gpg.openpgp.program`, a configured value it
+  overrides is reported, and the step stops if the pin would not take effect.
+  `release-push-tag` fetches, checks,
   pushes and confirms over `https://github.com/3leaps/crucible.git` instead of
   `origin`, with only the org token direnv loads and gh's credential helper, and
   with git isolated from the home directory, global configuration and proxy or
