@@ -255,8 +255,40 @@
               }
             }
           ]
+        },
+        "body_removal_stream": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+          "description": "The store's body-removal stream, an ordinary v1 stream carrying only body lifecycle entries. Required exactly when deletion.external_bodies is supported."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "deletion": {
+                "properties": {
+                  "external_bodies": {
+                    "const": "supported"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "body_removal_stream"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "body_removal_stream"
+              ]
+            }
+          }
+        }
+      ]
     }
   }
 }

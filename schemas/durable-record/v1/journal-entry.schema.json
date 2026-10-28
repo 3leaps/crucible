@@ -46,7 +46,10 @@
         "retired",
         "tombstoned",
         "untombstoned",
-        "restrictions_reviewed"
+        "restrictions_reviewed",
+        "body_published",
+        "body_removal_started",
+        "body_removed"
       ],
       "description": "Closed vocabulary. Unknown types are rejected."
     },
@@ -135,6 +138,14 @@
     },
     "provenance": {
       "$ref": "#/$defs/provenance"
+    },
+    "body": {
+      "$ref": "#/$defs/lifecycleBody"
+    },
+    "incarnation": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "One publication of a body's bytes; strictly increasing per {digest, length} within the store, gaps permitted."
     }
   },
   "allOf": [
@@ -611,16 +622,6 @@
               "required": [
                 "destination_applied_state_digest"
               ]
-            },
-            {
-              "required": [
-                "authorization"
-              ]
-            },
-            {
-              "required": [
-                "provenance"
-              ]
             }
           ]
         }
@@ -659,6 +660,245 @@
         "not": {
           "required": [
             "imported_from"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "body_published",
+              "body_removal_started",
+              "body_removed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "body",
+          "incarnation"
+        ],
+        "properties": {
+          "group_size": {
+            "const": 1
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "record"
+              ]
+            },
+            {
+              "required": [
+                "record_id"
+              ]
+            },
+            {
+              "required": [
+                "revision"
+              ]
+            },
+            {
+              "required": [
+                "digest"
+              ]
+            },
+            {
+              "required": [
+                "idempotency_key"
+              ]
+            },
+            {
+              "required": [
+                "presented"
+              ]
+            },
+            {
+              "required": [
+                "current"
+              ]
+            },
+            {
+              "required": [
+                "body_status"
+              ]
+            },
+            {
+              "required": [
+                "mode"
+              ]
+            },
+            {
+              "required": [
+                "failure_model"
+              ]
+            },
+            {
+              "required": [
+                "request"
+              ]
+            },
+            {
+              "required": [
+                "request_digest"
+              ]
+            },
+            {
+              "required": [
+                "continues"
+              ]
+            },
+            {
+              "required": [
+                "imported_from"
+              ]
+            },
+            {
+              "required": [
+                "source"
+              ]
+            },
+            {
+              "required": [
+                "destination_cut_seq"
+              ]
+            },
+            {
+              "required": [
+                "source_state_digest"
+              ]
+            },
+            {
+              "required": [
+                "destination_applied_state_digest"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "body"
+              ]
+            },
+            {
+              "required": [
+                "incarnation"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "body_removal_started"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reason",
+          "provenance"
+        ],
+        "properties": {
+          "reason": {
+            "enum": [
+              "retention",
+              "operator",
+              "rights_restricted"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "body_published",
+              "body_removed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "reason"
+              ]
+            },
+            {
+              "required": [
+                "provenance"
+              ]
+            },
+            {
+              "required": [
+                "authorization"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "restrictions_reviewed",
+              "body_removal_started"
+            ]
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "authorization"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "restrictions_reviewed",
+              "body_removal_started"
+            ]
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "provenance"
+              ]
+            }
           ]
         }
       }
@@ -1248,6 +1488,24 @@
         },
         "digest": {
           "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "lifecycleBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "length"
+      ],
+      "description": "Body lifecycle identity: digest and byte length only. No media type, encryption or retrieval hint.",
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
