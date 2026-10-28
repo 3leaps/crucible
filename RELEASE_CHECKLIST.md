@@ -20,8 +20,12 @@ Required:
 - `THREELEAPS_CRUCIBLE_GPG_HOMEDIR`: the signing keyring, for `release-tag`. An
   absolute path to a dedicated, non-symlink directory. The default GPG keyring is
   never used: an unset value, a path that resolves to the default keyring, or an
-  inherited `GNUPGHOME` naming a different directory is refused. Use a throwaway
-  keyring holding only the signing key, and remove it afterwards.
+  inherited `GNUPGHOME` naming a different directory is refused. The default
+  keyring is resolved two ways, compared as physical paths: `gpgconf`'s homedir
+  and the `.gnupg` under the account home from the user database (`dscl` on
+  macOS, `getent` elsewhere), not from `HOME`. If either cannot be resolved,
+  the step stops. Use a throwaway keyring holding only the signing key, and
+  remove it afterwards.
 
 Optional:
 
@@ -73,7 +77,8 @@ Type the tag rather than computing it: the guard then checks the stated intent a
 - [ ] CI passes on main branch
 - [ ] The live version-tag ruleset matches the **full** publication policy,
       including bypass actors (run with the maintainer credential used for
-      release administration):
+      release administration), and record the result. The release workflow
+      cannot see bypass actors, so this run is the bypass-actors check:
   ```bash
   make release-guard-tag-ruleset
   ```
@@ -130,90 +135,6 @@ What stays a manual review: **which** entries `RELEASE_NOTES.md` retains, and th
 content of what is kept. The guard asserts the surface is current, not that its
 contents are right.
 
-## v0.2.3 tag ceremony
-
-For v0.2.3, run these steps in place of `make release-tag` and
-`make release-push-tag`, in one shell, from the repository root. Each block
-checks every step explicitly, exits non-zero on any failed check and never
-reaches the sign or push step after one. `ORG_ROOT` is the directory whose direnv loads the org token.
-
-- [ ] **Signing keyring is dedicated.** The signing keyring must be set, must
-      be a directory, and must differ, by physical path, from both the GPG
-      default homedir and the account home's `.gnupg`:
-  ```bash
-  v023_keyring_ok() (
-    # Every lookup is checked explicitly: errexit does not hold when this is
-    # called as part of an && list.
-    stop() { echo "STOP: $*" >&2; exit 1; }
-    [ -n "${THREELEAPS_CRUCIBLE_GPG_HOMEDIR:-}" ] && [ -d "$THREELEAPS_CRUCIBLE_GPG_HOMEDIR" ] ||
-      stop "THREELEAPS_CRUCIBLE_GPG_HOMEDIR is not a directory"
-    sign="$(cd "$THREELEAPS_CRUCIBLE_GPG_HOMEDIR" && pwd -P)" || stop "signing keyring did not resolve"
-    gpg_default="$(env -u GNUPGHOME gpgconf --list-dirs homedir)" || stop "gpgconf failed"
-    os="$(uname -s)" && [ -n "$os" ] || stop "uname failed"
-    user="$(id -un)" && [ -n "$user" ] || stop "id failed"
-    case "$os" in
-      Darwin) record="$(dscl . -read "/Users/$user" NFSHomeDirectory)" || stop "account lookup failed"
-              account_home="$(printf '%s\n' "$record" | awk '{print $2}')" ;;
-      *)      record="$(getent passwd "$user")" || stop "account lookup failed"
-              account_home="$(printf '%s\n' "$record" | cut -d: -f6)" ;;
-    esac
-    [ -n "$sign" ] && [ -n "$gpg_default" ] && [ -n "$account_home" ] ||
-      stop "a keyring path did not resolve"
-    for d in "$gpg_default" "$account_home/.gnupg"; do
-      [ -d "$d" ] || continue
-      real="$(cd "$d" && pwd -P)" || stop "could not resolve $d"
-      [ "$real" != "$sign" ] || stop "signing keyring is $d"
-    done
-    echo "[ok] signing keyring is dedicated"
-  )
-  ```
-- [ ] **Pin `gpg.program`** for every git call in this shell. Environment
-      configuration overrides every config file:
-  ```bash
-  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.program GIT_CONFIG_VALUE_0=gpg
-  git config --get gpg.program   # must print: gpg
-  ```
-      This shows the pin is set in this shell; `make release-tag` inherits it.
-- [ ] **Sign** only after both checks pass:
-  ```bash
-  v023_keyring_ok && [ "$(git config --get gpg.program)" = gpg ] && make release-tag
-  ```
-      Then run `make release-verify-tag`.
-- [ ] **Bypass actors.** Run the full ruleset guard (the Pre-Release step
-      above) with the maintainer credential, and record its result.
-- [ ] **Push** the tag over the explicit HTTPS URL, with only the org token:
-  ```bash
-  v023_push() {
-    [ -n "${ORG_ROOT:-}" ] && [ -d "$ORG_ROOT" ] ||
-      { echo "STOP: ORG_ROOT is not a directory" >&2; return 1; }
-    direnv exec "$ORG_ROOT" bash -c '
-      set -uo pipefail
-      stop() { echo "STOP: $*" >&2; exit 1; }
-      U=https://github.com/3leaps/crucible.git
-      T="${THREELEAPS_CRUCIBLE_RELEASE_TAG:-}"
-      [ -n "$T" ] || stop "release tag not set"
-      [ -n "${GH_TOKEN:-}" ] || stop "no org token; not pushing"
-      if git config --get-regexp "^url\..*insteadof" >/dev/null; then stop "an insteadOf rule is set"; fi
-      g() { git -c credential.helper= -c "credential.helper=!gh auth git-credential" "$@"; }
-      g fetch --quiet "$U" main || stop "fetch failed"
-      commit="$(git rev-parse "refs/tags/$T^{commit}")" || stop "local tag $T not found"
-      git merge-base --is-ancestor "$commit" FETCH_HEAD || stop "tag commit is not on main"
-      remote="$(g ls-remote --tags "$U" "refs/tags/$T")" || stop "remote read failed"
-      [ -z "$remote" ] || stop "remote tag exists"
-      local_obj="$(git rev-parse "refs/tags/$T")" || stop "local tag $T not found"
-      g push "$U" "refs/tags/$T" || stop "push failed"
-      pushed="$(g ls-remote "$U" "refs/tags/$T")" || stop "remote read failed after push"
-      [ "${pushed%%[[:space:]]*}" = "$local_obj" ] || stop "remote tag object does not match"
-      echo "[ok] pushed $T; remote tag object matches"
-    '
-  }
-  v023_push
-  ```
-      Without the org token, the push stops before any network call. A failed
-      fetch or remote read stops it too. Do not retry another way. Expect the
-      bypass notice described under Push.
-- [ ] Record each result above in the release record.
-
 ## Tagging (Signed Tag Required)
 
 ### 1. Set up GPG environment
@@ -241,6 +162,10 @@ The script performs these safety checks before creating the tag:
 
 - Explicit inputs: `THREELEAPS_CRUCIBLE_RELEASE_TAG` and `THREELEAPS_CRUCIBLE_DECERNOR_BIN` are
   set and valid, the tag matches `VERSION`, and no retired variable is set
+- The signing keyring is dedicated (see Variables)
+- Signing uses OpenPGP through the `gpg` on `PATH`: a configured `gpg.format`,
+  `gpg.program` or `gpg.openpgp.program` naming anything else stops the step,
+  and the signing command pins all three
 - The committed pins at `HEAD` match their anchors under the designated checker
 - Live `Tag Publish Protection` ruleset matches the required policy
 - Canonical publication-policy fingerprint is embedded in the signed tag
@@ -279,9 +204,29 @@ The release commit is already on `main`. Push only the tag:
 make release-push-tag
 ```
 
-This verifies the local signature, requires the tagged commit to be on
-`origin/main` and the remote tag to be absent, pushes the tag ref, and confirms
-the remote tag object (and GitHub's verified flag, when `gh` is available).
+This verifies the local signature, requires the tagged commit to be on `main`
+and the remote tag to be absent, pushes the tag ref, and confirms the remote tag
+object (and GitHub's verified flag, when `gh` is available).
+
+**Transport.** Every remote call (fetch, tag check, push, confirm) uses
+`https://github.com/3leaps/crucible.git`, never `origin`, so the tag ref lands
+under the identity CI verifies. The only credential is the `GH_TOKEN` that
+direnv loads from the `.envrc` above the repository, passed through
+`gh auth git-credential`; every other credential helper is cleared, and an
+inherited `GH_TOKEN` or `GITHUB_TOKEN` is dropped first. git runs with an empty
+home directory and no global or system configuration, so a `.netrc`, a stored
+credential or a global username is never sent, and without proxy variables
+(`https_proxy`, `all_proxy` and the rest, any case), `GIT_SSL_*`, `GIT_PROXY_*`
+or curl tracing in its environment. The push stops before
+contacting GitHub when no `.envrc` above the repository loads, when it sets no
+token, or when the remaining configuration (repository, or `GIT_CONFIG_*` in
+the environment) carries a `url.*.insteadOf`, `url.*.pushInsteadOf`,
+`http.*.extraHeader`, `http.*.cookieFile`, `http.*.proxy`,
+`http.*.proxyAuthMethod`, `http.*.sslVerify`, `http.*.sslCAInfo`,
+`http.*.sslCAPath`, `http.*.sslCert`, `http.*.sslKey`, `http.*.sslBackend` or
+`credential.*.username` setting; the refusal names only the kind of setting
+and its scope. A failed fetch or remote read is an error. Do not retry over
+`origin`, SSH or a stored `gh` login.
 
 **Expect a bypass notice.** After `make release-push-tag`, read the output
 before you treat the tag as pushed.
@@ -311,7 +256,9 @@ invisible to every consumer while the repository looks healthy.
 - [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
       job means publication was refused — investigate, do not publish by hand)
 - [ ] Verify the workflow's read-only ruleset check and signed policy
-      attestation both passed.
+      attestation both passed. The read-only check reports bypass actors as
+      not visible and not checked; the Pre-Release full check is the record
+      for them.
 - [ ] Verify the release is **published, not draft**, and — for a stable release
       — carries the **Latest** flag:
   ```bash
@@ -477,6 +424,11 @@ All scripts are in `scripts/` and can be run directly if needed.
 - Requires the canonical tag from `THREELEAPS_CRUCIBLE_RELEASE_TAG`
 - Binds the checker from `THREELEAPS_CRUCIBLE_DECERNOR_BIN` with identity and
   minimum-version checks; no `PATH` fallback
+- Requires a dedicated signing keyring, refusing the default keyring by
+  either resolution
+- Refuses a non-OpenPGP or non-`gpg` signing configuration
+- Runs each push-step remote call against the explicit URL with only the org
+  token (see Push)
 
 **`scripts/release-guard-tag-ruleset.sh`** - Publication-boundary check:
 
@@ -487,8 +439,11 @@ All scripts are in `scripts/` and can be run directly if needed.
   `always` mode
 - `--print-attestation` performs the full check and emits the canonical policy
   fingerprint for the signed tag
-- `--read-only` checks the read-only policy view; unavailable bypass data is
-  accepted, while unexpected visible actors still fail
+- `--read-only` checks the fields a read-only credential can see (name,
+  repository, target, enforcement, ref conditions, rules). A bypass list that
+  is null or empty is reported as not visible and not checked, never as a
+  match; a visible list must be exactly the expected one, and only then is a
+  match reported
 - `--verify-tag-attestation` requires the signed tag object to carry the exact
   expected full-policy fingerprint
 - Fails closed on missing, duplicate, malformed, or unexpected policy data

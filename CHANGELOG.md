@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Release tag tooling closes four silent defaults.** `release-tag` refuses a
+  signing keyring that is the default keyring by either `gpgconf`'s homedir or
+  the account home from the user database, and stops if either cannot be
+  resolved. Signing requires OpenPGP through `gpg`: a configured `gpg.format`,
+  `gpg.program` or `gpg.openpgp.program` naming anything else is refused, and
+  the signing command pins all three. `release-push-tag` fetches, checks,
+  pushes and confirms over `https://github.com/3leaps/crucible.git` instead of
+  `origin`, with only the org token direnv loads and gh's credential helper, and
+  with git isolated from the home directory, global configuration and proxy or
+  TLS environment; a missing token, a URL rewrite, proxy, TLS, extra header,
+  cookie file or username setting, or a failed remote read stops it. The release workflow's read-only ruleset check
+  no longer reports a hidden bypass list as a match; it says the list was not
+  checked. The one-time v0.2.3 tag ceremony section is removed from
+  `RELEASE_CHECKLIST.md`.
+
 ## [0.2.3] - 2026-10-27
 
 ### Added

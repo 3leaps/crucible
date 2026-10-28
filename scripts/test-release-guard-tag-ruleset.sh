@@ -78,13 +78,55 @@ unexpected_visible_bypass="$(jq '.bypass_actors = [{"actor_id":5,"actor_type":"R
 expect_rejected "omitted bypass actors in full mode" "${redacted_ruleset}"
 expect_rejected "empty bypass actors in full mode" "${empty_bypass_ruleset}"
 
-validate_ruleset_json "${redacted_ruleset}" read-only
-echo "[ok] read-only mode accepted: omitted bypass actors"
-validate_ruleset_json "${empty_bypass_ruleset}" read-only
-echo "[ok] read-only mode accepted: redacted empty bypass actors"
-validate_ruleset_json "${valid_ruleset}" read-only
-echo "[ok] read-only mode accepted: exact visible bypass actors"
+# Read-only mode: a bypass list the credential cannot see passes the visible
+# fields but is reported as not checked, never as a match.
+expect_read_only_report() {
+    local description="$1" candidate="$2" checked="$3" report
+    if ! validate_ruleset_json "${candidate}" read-only >/dev/null 2>&1; then
+        echo "error: read-only mode refused: ${description}" >&2
+        exit 1
+    fi
+    if [ "${RULESET_BYPASS_ACTORS_CHECKED}" != "${checked}" ]; then
+        echo "error: read-only ${description}: bypass actors checked=${RULESET_BYPASS_ACTORS_CHECKED}, want ${checked}" >&2
+        exit 1
+    fi
+    report="$(report_ruleset_validation read-only)"
+    if [ "${checked}" = 1 ]; then
+        grep -q 'matches the full publication policy, including visible bypass actors' <<<"${report}" || {
+            echo "error: read-only ${description}: match not reported: ${report}" >&2
+            exit 1
+        }
+    else
+        if grep -qi 'match' <<<"${report}"; then
+            echo "error: read-only ${description}: reported as a match: ${report}" >&2
+            exit 1
+        fi
+        grep -q 'bypass actors were not visible to this credential and were not checked' <<<"${report}" || {
+            echo "error: read-only ${description}: did not say bypass actors were not checked: ${report}" >&2
+            exit 1
+        }
+    fi
+    echo "[ok] read-only ${description}: reported as $([ "${checked}" = 1 ] && echo matched || echo 'not checked')"
+}
+null_bypass_ruleset="$(jq '.bypass_actors = null' <<<"${valid_ruleset}")"
+expect_read_only_report "omitted bypass actors" "${redacted_ruleset}" 0
+expect_read_only_report "null bypass actors" "${null_bypass_ruleset}" 0
+expect_read_only_report "empty bypass actors" "${empty_bypass_ruleset}" 0
+expect_read_only_report "exact visible bypass actors" "${valid_ruleset}" 1
 expect_rejected_read_only "unexpected visible repository-role bypass" "${unexpected_visible_bypass}"
+expect_rejected_read_only "visible admin bypass in pull-request mode" \
+    "$(jq '.bypass_actors[0].bypass_mode = "pull_request"' <<<"${valid_ruleset}")"
+expect_rejected_read_only "visible admin bypass plus another actor" \
+    "$(jq '.bypass_actors += [{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}]' <<<"${valid_ruleset}")"
+# A failed validation never leaves a stale match behind.
+validate_ruleset_json "${valid_ruleset}" read-only >/dev/null
+if validate_ruleset_json "$(jq '.enforcement = "disabled"' <<<"${valid_ruleset}")" read-only >/dev/null 2>&1 ||
+    [ "${RULESET_BYPASS_ACTORS_CHECKED}" != 0 ]; then
+    echo "error: a refused read-only response left bypass actors marked checked" >&2
+    exit 1
+fi
+echo "[ok] read-only refusal clears the bypass-actors match"
+expect_rejected "null bypass actors in full mode" "${null_bypass_ruleset}"
 
 policy_attestation="$(expected_policy_attestation)"
 expected_attestation="Tag-Publish-Policy-SHA256: e1bd867dd4958d7d412506a2f0f9964984a7e5127e776206e4136c57d8d1903d"
