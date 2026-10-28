@@ -19,7 +19,9 @@ A case may carry `profile`, the stratum profile of the store. When it names a
 `{body, present}` returns the reader state of that body at the current cut.
 `present` is a trusted observation: `true` is bytes verified against digest and
 length, `false` is observed absence. An unknown or failed observation has no
-step form, so it never reaches a successful state.
+step form: a malformed observation is refused as `body_observation`, and
+`invalid_body_state_steps` names the steps that also fail the
+`body-state-request` schema.
 
 ## Schema rejects
 
@@ -77,6 +79,25 @@ step form, so it never reaches a successful state.
 - [body-incarnation-gap.json](../vectors/body-incarnation-gap.json)
 - [body-independent-bodies.json](../vectors/body-independent-bodies.json)
 - [body-length-isolation.json](../vectors/body-length-isolation.json)
+- [body-observation-bad-digest.json](../vectors/body-observation-bad-digest.json)
+- [body-observation-body-media-type.json](../vectors/body-observation-body-media-type.json)
+- [body-observation-boolean-length.json](../vectors/body-observation-boolean-length.json)
+- [body-observation-extra-field.json](../vectors/body-observation-extra-field.json)
+- [body-observation-integer-present.json](../vectors/body-observation-integer-present.json)
+- [body-observation-list-present.json](../vectors/body-observation-list-present.json)
+- [body-observation-missing-present.json](../vectors/body-observation-missing-present.json)
+- [body-observation-negative-length.json](../vectors/body-observation-negative-length.json)
+- [body-observation-none-null.json](../vectors/body-observation-none-null.json)
+- [body-observation-none-string-false.json](../vectors/body-observation-none-string-false.json)
+- [body-observation-none-zero.json](../vectors/body-observation-none-zero.json)
+- [body-observation-null-present.json](../vectors/body-observation-null-present.json)
+- [body-observation-removal-started-null.json](../vectors/body-observation-removal-started-null.json)
+- [body-observation-removal-started-string-false.json](../vectors/body-observation-removal-started-string-false.json)
+- [body-observation-removal-started-zero.json](../vectors/body-observation-removal-started-zero.json)
+- [body-observation-removed-null.json](../vectors/body-observation-removed-null.json)
+- [body-observation-removed-string-false.json](../vectors/body-observation-removed-string-false.json)
+- [body-observation-removed-zero.json](../vectors/body-observation-removed-zero.json)
+- [body-observation-string-present.json](../vectors/body-observation-string-present.json)
 - [body-publish-decreasing.json](../vectors/body-publish-decreasing.json)
 - [body-publish-not-increasing.json](../vectors/body-publish-not-increasing.json)
 - [body-removal-stream-continues.json](../vectors/body-removal-stream-continues.json)

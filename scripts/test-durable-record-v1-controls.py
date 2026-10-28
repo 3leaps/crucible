@@ -144,6 +144,7 @@ def source_pins(journal):
 
 
 LIFECYCLE = ("body_published", "body_removal_started", "body_removed")
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def require(ok, reason):
@@ -366,6 +367,21 @@ class State:
             self.bodies[key] = (n, "removed")
 
     def body_state(self, step):
+        # The observation is closed: an exact body and a real boolean. Anything
+        # else, including an unknown or failed observation, is refused before
+        # any state is derived, never read as present or absent.
+        require(
+            isinstance(step, dict)
+            and set(step) == {"body", "present"}
+            and type(step["present"]) is bool
+            and isinstance(step["body"], dict)
+            and set(step["body"]) == {"digest", "length"}
+            and isinstance(step["body"]["digest"], str)
+            and DIGEST.fullmatch(step["body"]["digest"]) is not None
+            and type(step["body"]["length"]) is int
+            and step["body"]["length"] >= 0,
+            "body_observation",
+        )
         legacy.check_journal(self.journal, "v1")
         require(self.removal_stream == self.stream, "body_removal_stream")
         body = step["body"]
@@ -1230,6 +1246,62 @@ def mutation_controls():
         (
             "body_state",
             "require",
+            "body_observation",
+            0,
+            "body-observation-null-present",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-string-present",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-boolean-length",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-extra-field",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-bad-digest",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-removal-started-null",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
+            "body_observation",
+            0,
+            "body-observation-none-zero",
+            None,
+        ),
+        (
+            "body_state",
+            "require",
             "body_removal_stream",
             0,
             "body-state-without-profile",
@@ -1472,6 +1544,11 @@ def main():
             0 <= i < len(c["steps"]) and "request" in c["steps"][i]
             for i in invalid_requests
         )
+        invalid_states = c.get("invalid_body_state_steps", [])
+        assert len(invalid_states) == len(set(invalid_states)) and all(
+            0 <= i < len(c["steps"]) and "body_state" in c["steps"][i]
+            for i in invalid_states
+        )
         invalid_receipts = c.get("invalid_receipt_steps", [])
         assert len(invalid_receipts) == len(set(invalid_receipts)) and all(
             0 <= i < len(c["steps"]) and "receipt" in c["steps"][i]
@@ -1497,6 +1574,10 @@ def main():
                 ), path
             elif "entry" in step:
                 assert shape(step["entry"], "journal-entry"), path
+            elif "body_state" in step:
+                assert shape(step["body_state"], "body-state-request") == (
+                    step_index not in invalid_states
+                ), path
         got = check_case(c)
         assert got == c["expected"], (path.name, got, c["expected"])
         for result in got.get("results", []):

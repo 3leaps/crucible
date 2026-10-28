@@ -393,10 +393,13 @@ A `body_published` for a body whose latest incarnation has an open removal
 closes that removal as **abandoned**: the store republished the bytes before
 completing the removal. Abandonment is not an error. A completion, or a retry,
 for an older or abandoned incarnation is refused and cannot act on the newer
-one. Publishing a body that is already published and not being removed, and
-repeating a completed removal, append nothing: that is the store's operation
-idempotency. A duplicate lifecycle entry in the journal is an invalid
-transition. Lifecycle entries carry no idempotency key.
+one. A publication retry that finds the latest publication committed, its
+bytes verified available and no removal pending appends nothing, and so does
+repeating a completed removal: that is the store's operation idempotency. A
+publication that restores lost bytes is a new publication with a greater
+incarnation, not a retry. A duplicate lifecycle entry in the journal is an
+invalid transition, not the same as a fresh publication. Lifecycle entries
+carry no idempotency key.
 
 **Fencing.** Publication, removal and republication of the same body MUST be
 serialized or fenced by incarnation through their physical effects and their
@@ -424,7 +427,8 @@ the bytes that agrees with that cut, made under the store's exclusion or an
 equivalent consistent protocol. Present means the bytes were read and verified
 against both digest and length; absent means the bytes were observed not to be
 there. A failed read, corrupt bytes or unknown availability is neither, and
-fails the observation. A stale cut combined with a newer observation
+fails the observation; in the logical form a malformed observation is refused
+as `body_observation` before any state is derived. A stale cut combined with a newer observation
 establishes no state.
 
 | Latest lifecycle entry for the body | Bytes present | Bytes absent      |
@@ -549,6 +553,7 @@ Schema validation precedes semantic evaluation.
 | `continuation`           | An import, review or manifest disagrees with the stream's continuation     |
 | `body_removal_stream`    | A lifecycle entry, type or continuation is outside the designated stream    |
 | `body_lifecycle`         | A lifecycle entry is not a valid transition for its body's incarnation      |
+| `body_observation`       | A body state observation is not an exact body and a verified present or absent |
 
 ## Conformance and limits
 
