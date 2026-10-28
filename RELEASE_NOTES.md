@@ -10,6 +10,28 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.4 (2026-10-28)
+
+**Durable-record/v1 records body lifecycle; release tag tooling closes four silent defaults.**
+
+- **Body lifecycle (durable-record/v1, additive)**: a store that supports
+  removing external bodies names a `body_removal_stream` and records
+  `body_published`, `body_removal_started` and `body_removed` there, per body
+  and incarnation. A removal is evidenced only by `body_removed`; a later
+  publication abandons an open removal. Reader states are defined at a
+  consistent cut. Lifecycle grants no removal eligibility, and physical
+  removal stays fail-closed. Existing v1 records and journals are unchanged.
+  The logical controls qualify no store.
+- **Release tag tooling**: `make release-tag` refuses the default keyring and
+  any non-OpenPGP or non-`gpg` signer; `make release-push-tag` uses the
+  explicit HTTPS URL with only the org token, isolated from home credentials,
+  proxy and TLS overrides. The read-only ruleset check no longer reports a
+  hidden bypass list as a match.
+
+See [docs/releases/v0.2.4.md](docs/releases/v0.2.4.md).
+
+---
+
 ## v0.2.3 (2026-10-27)
 
 **Durable-record/v1 gains continuation streams and restriction review.**
@@ -49,24 +71,3 @@ See [docs/releases/v0.2.3.md](docs/releases/v0.2.3.md).
   `clock_start`.
 
 See [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md).
-
----
-
-## v0.2.1 (2026-10-23)
-
-**Release tooling adopts PDR-0008; PDR-0010 proposed.**
-
-- **Release identity (PDR-0008)**: decernor derives and verifies the
-  release fingerprint anchors, read from the tagged commit, with no second
-  parser. Every tag step needs `THREELEAPS_CRUCIBLE_RELEASE_TAG` (and the
-  checker path where it reads pins); retired names are refused. CI pins the
-  checker by digest. This release's tag is the first under that ceremony.
-- **Verifiers**: the minisign pin is renamed
-  `docs/security/crucible-minisign.pub` (same key). Releases are signed tags
-  only; there are no checksum files.
-- **Immutable release publication (PDR-0010, proposed)**: verify staged assets
-  before immutable publication. No workflow change here.
-- **CI baseline**: digest- and commit-pinned examples and new supply-chain
-  guidance.
-
-See [docs/releases/v0.2.1.md](docs/releases/v0.2.1.md).
