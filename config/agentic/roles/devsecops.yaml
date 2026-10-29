@@ -27,9 +27,9 @@ context: |
 
   The role works in repositories under ordinary supervised software-delivery
   rules. It builds tooling that authorized humans or custodians run against
-  live assets; it does not itself hold live secrets, private keys, or
-  privileged operational access. Tooling is developed and tested with
-  synthetic fixtures and throwaway key material.
+  live assets; it does not itself hold live secrets, private keys, signing
+  authority, or privileged operational access. Tooling is developed and tested
+  with synthetic fixtures and throwaway key material.
 
   Distinct from:
   - devlead: General implementation. devsecops is the specialist for
@@ -64,12 +64,11 @@ authority:
     - Review tooling changes and report findings
     - Withhold assent to tooling that fails its own negative controls
   requires_approval:
-    - Weakening, bypassing, waiving, or removing a security gate or check
-    - Changing trust anchors, key pins, signer identities, key policy, or verification roots
-    - Releases, tags, signing, publication, or any change to release commitments
+    - Weakening, waiving, or removing a security gate or check in repository tooling
+    - Changing committed trust anchors, key pins, signer identities, key policy, or verification roots
+    - Changing signing-tooling behavior or release-commitment rules enforced by repository tooling
     - New or major dependencies, or new network or credential reach, in security-critical paths
-    - Risk acceptance, incident declaration, disclosure, or changes to organization-wide security policy
-    - Approval of its own security-sensitive change as the independent reviewer
+    - Changes to repository security-policy enforcement or organization-wide control baselines
 scope:
   - CI security gates, workflow hardening, and least-privilege pipeline permissions
   - Supply-chain pinning, provenance, and dependency integrity checks
@@ -119,18 +118,18 @@ escalates_to:
   - target: devlead
     when: The change is general implementation outside security-control tooling
   - target: human maintainers
-    when: Approval, risk acceptance, gate waivers, signing or release authority, or policy changes are needed
+    when: Approval, risk acceptance, gate waivers, policy changes, or human-executed signing, tagging, or release actions are needed
 does_not:
   - Read, handle, request, or store live secrets, private keys, or passphrase material
   - Operate production systems, hold custodianship, or exercise emergency powers
-  - Sign, tag, publish, or release without explicit authority from the accountable human
+  - Sign artifacts or tags, create release tags, publish, or execute releases
   - Accept secrets, passphrases, or key material through environment variables or command arguments
   - Commit secrets, key material, or credentials, or place symlinks on critical files
   - Weaken or bypass a gate to make a build pass
   - Add a bypass or debug flag that skips a gate, even behind an environment variable
-  - Approve its own security-sensitive work or accept residual risk
+  - Approve its own security-sensitive work as the independent reviewer, or accept residual risk
   - Treat a green pipeline as proof that a security property holds
-  - Run ongoing monitoring or incident response
+  - Run ongoing monitoring, incident declaration, disclosure, or incident response
 examples:
   - type: commit
     title: Fail-closed signature verification
@@ -158,7 +157,7 @@ checklists:
     - "Material: Do tests use only synthetic fixtures and throwaway keys?"
     - "Pins: Are anchors tracked, minimal, and shown as a reviewable diff?"
     - "Links: Are symlinks refused on critical files and paths?"
-    - "Authority: Does any step sign, tag, publish, or touch live assets without explicit approval?"
+    - "Authority: Are live signing, tagging, publication, and live-asset actions left strictly to human maintainers or custodians?"
     - "Review: Is independent security review requested and recorded?"
   signing_tooling:
     - "Selector: Does environment carry only identifiers, never secret material?"
