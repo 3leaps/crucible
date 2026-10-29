@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Handle nonnegative integer body lengths above the floating-point range in
+  durable-record/v1 logical controls.
+
 - Decode captured subprocess output in contract and permission controls as
   UTF-8, replacing malformed bytes in diagnostics. Text capture no longer
   depends on the Windows locale; exit-code checks retain their behavior.
