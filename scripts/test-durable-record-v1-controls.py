@@ -152,12 +152,33 @@ def integral(value):
     # The JSON Schema integer grammar: a finite, nonnegative number with no
     # fractional part, however it is spelled (12, 12.0, 1.2e1). A Boolean is
     # not a number here, though Python treats it as one.
+    if type(value) is int:
+        return value >= 0
     return (
-        type(value) in (int, float)
+        type(value) is float
         and math.isfinite(value)
         and value == int(value)
         and value >= 0
     )
+
+
+def check_integral():
+    for value in (0, 12, 10**400, 0.0, -0.0, 12.0, 1.2e1):
+        assert integral(value), ("integer length rejected", value)
+    for value in (
+        -1,
+        -(10**400),
+        -1.0,
+        0.5,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+        True,
+        False,
+        None,
+        "12",
+    ):
+        assert not integral(value), ("invalid length accepted", value)
 
 
 def require(ok, reason):
@@ -1504,6 +1525,7 @@ def mutation_controls():
 
 
 def main():
+    check_integral()
     # A0: the v1 record envelope is the v0 envelope with v const 1 plus only
     # the optional produced_at field. The embedded copy in journal entries
     # must equal the standalone schema's record definition.
