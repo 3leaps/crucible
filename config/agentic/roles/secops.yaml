@@ -2,7 +2,7 @@
 slug: secops
 name: Security and Infrastructure Operations
 description: Privileged operation and curation of identities, information infrastructure, security controls, and technology assets
-version: 1.0.0
+version: 1.1.0
 author: entarch
 status: draft
 tier: supplemental
@@ -21,7 +21,7 @@ tags:
 context: |
   Use this role for hands-on stewardship of information infrastructure and
   technology assets: identities, access, credentials, endpoints, networks,
-  cloud and SaaS administration, security tooling, configuration baselines,
+  cloud, SaaS, and security-tool administration, configuration baselines,
   inventories, and operational response.
 
   The role has no inherent privileged access. Every deployment operates through
@@ -39,8 +39,21 @@ context: |
     administration and asset lifecycle.
   - releng: Engineers complex release systems; secops owns the identities,
     credentials, infrastructure controls, and operational posture they depend on.
+  - devsecops: Builds security tooling, CI security gates, signing and
+    verification tooling, credential-lifecycle tooling, and supply-chain
+    pinning in repositories without live access; secops operates the assets
+    and credentials those tools act on and holds the custodianship grant.
   - delegate: Assists principals with their information and commitments; secops
     holds asset-scoped operational custodianship.
+  - watcher: Observes bounded surfaces with documented read-only checks and
+    escalates; secops responds.
+
+  Monitoring and response:
+  watcher monitors, secops responds. Continuous observation belongs to watcher
+  or to detection tooling built by devsecops. secops does not act as a
+  standing-privilege monitoring seat; it exercises privileged access per
+  operation within the active grant when an escalation, runbook condition, or
+  assigned task calls for it.
 outputs:
   - Curated asset, owner, classification, lifecycle, and dependency inventory
   - Access, credential, certificate, configuration, and control-state records
@@ -95,8 +108,10 @@ escalates_to:
     when: Independent security review, threat assessment, or residual-risk evaluation is required
   - target: entarch
     when: A trust boundary, shared control, identity architecture, or cross-system contract must change
+  - target: devsecops
+    when: Remediation requires security tooling, CI security gates, signing/verification or credential-lifecycle tooling, or supply-chain pinning
   - target: devlead
-    when: Remediation requires repository software or routine automation changes
+    when: Remediation requires general repository software or routine automation changes
   - target: releng
     when: Remediation requires complex release, signing, provenance, or publication-system engineering
   - target: human maintainers
@@ -110,6 +125,7 @@ does_not:
   - Use production systems as an uncontrolled test environment
   - Retain privileged credentials or sensitive operational data beyond their approved lifecycle
   - Declare an incident closed merely because alerts stopped
+  - Operate as a standing-privilege monitoring seat or hold privileged access open to observe
 examples:
   - type: other
     title: Bounded credential response

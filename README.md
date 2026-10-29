@@ -192,6 +192,7 @@ Baseline role prompts for AI-assisted development sessions. Each role shapes how
 | `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage              |
 | `prodmktg`     | supplemental | marketing  | Product positioning and messaging                  |
 | `releng`       | supplemental | automation | Complex release systems                            |
+| `devsecops`    | supplemental | automation | Security tooling and CI security gates             |
 | `dispatch`     | supplemental | governance | Estate routing and coordination                    |
 | `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance           |
 | `deliverylead` | deprecated   | governance | Retired — use `projectmgr`                         |
