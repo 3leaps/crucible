@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Windows path-portability and permission-fixture self-tests."""
+"""Windows path, subprocess decoding and permission-fixture self-tests."""
 
+import ast
 import re
 import runpy
 import subprocess
@@ -27,6 +28,60 @@ def require_portable_path(path):
 
 
 class PortabilityTests(unittest.TestCase):
+    def test_subprocess_output_decoding(self):
+        # Exercise the decoding options at each real text-mode helper call with
+        # a child that writes bytes, independent of the host's default locale.
+        payload = b"utf8: \xe2\x9c\x9d; malformed: \xff\n"
+        with self.assertRaises(UnicodeDecodeError):
+            payload.decode("cp1252")
+        expected = "utf8: \u271d; malformed: \ufffd\n"
+        popen = subprocess.Popen
+
+        def windows_default(*args, **kwargs):
+            kwargs.setdefault("encoding", "cp1252")
+            return popen(*args, **kwargs)
+
+        sites = 0
+        for path in sorted(Path("scripts").glob("test-*.py")):
+            if path.name == "test-portability.py":
+                continue
+            for node in ast.walk(ast.parse(path.read_bytes())):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "subprocess"
+                    and node.func.attr in {"run", "check_output"}
+                ):
+                    continue
+                options = {k.arg: ast.literal_eval(k.value) for k in node.keywords}
+                if options.get("text") is not True:
+                    continue
+                sites += 1
+                # check_output uses the same decoder and implies check=True.
+                if node.func.attr == "check_output":
+                    options.update(capture_output=True, check=True)
+                for code in (0, 2):
+                    with self.subTest(site=f"{path}:{node.lineno}", exit=code):
+                        command = [
+                            sys.executable,
+                            "-c",
+                            "import os, sys; "
+                            f"os.write(1, {payload!r}); os.write(2, {payload!r}); "
+                            f"sys.exit({code})",
+                        ]
+                        with patch("subprocess.Popen", side_effect=windows_default):
+                            try:
+                                result = subprocess.run(command, **options)
+                            except subprocess.CalledProcessError as error:
+                                self.assertTrue(options.get("check"))
+                                self.assertEqual(code, 2)
+                                result = error
+                        self.assertEqual(result.returncode, code)
+                        self.assertEqual(result.stdout, expected)
+                        self.assertEqual(result.stderr, expected)
+        self.assertGreater(sites, 0, "no text-mode helper calls exercised")
+
     def test_windows_acl_restore_and_rollback_order(self):
         helper = runpy.run_path("scripts/test-fixture-access.py")["set_access"]
         with tempfile.TemporaryDirectory(prefix="crucible-acl-order-") as work:
