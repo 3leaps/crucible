@@ -10,6 +10,23 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.5 (2026-10-29)
+
+**Role prompts add execution continuity; contract controls fix UTF-8 subprocess decoding and large integer body lengths.**
+
+- **Role prompts (`devlead` 1.2.0, `devrev` 1.3.0, `uxdev` 1.2.0)**: add
+  execution-continuity guidance and bounded implementation, review and
+  interface loops while keeping existing authority and independent-review
+  boundaries unchanged.
+- **Fixed**: contract and permission controls decode captured subprocess output
+  as UTF-8 with replacement rather than the host locale's default encoding, and
+  durable-record/v1 logical controls handle nonnegative integer body lengths
+  above the floating-point range without `OverflowError`.
+
+See [docs/releases/v0.2.5.md](docs/releases/v0.2.5.md).
+
+---
+
 ## v0.2.4 (2026-10-28)
 
 **Durable-record/v1 records body lifecycle; release tag tooling closes four silent defaults.**
@@ -50,25 +67,3 @@ See [docs/releases/v0.2.4.md](docs/releases/v0.2.4.md).
   reservation.
 
 See [docs/releases/v0.2.3.md](docs/releases/v0.2.3.md).
-
----
-
-## v0.2.2 (2026-10-25)
-
-**Repository classes drafted; durable-record/v1 amended before adoption.**
-
-- **Repository classes (draft)**: pick a repo's class by its primary caller
-  (prims, bolts, wits, voys; pressers adjacent), with per-class MUST checks, a
-  repo declaration and a new-repo template. ADR-0018 records the prims
-  multi-language commitment and sibling-dependency rules.
-- **Durable-record/v1 (not additive)**: records move to envelope `v: 1` with an
-  optional `produced_at`, so every v1 digest and pin changes; every v1 instant
-  has one canonical spelling; `retired` gains an optional key and receipt;
-  `commit_strategy` is a closed set. Amended on 2026-10-25 with no v1
-  adopters; v0 is unchanged.
-- **Release tooling**: PDR-0008 accepted; the default GPG keyring is never used;
-  failed GitHub reads are reported as such; `release-tag-push` is removed.
-- **Fixed**: the durable-queue reference model keeps a fractional
-  `clock_start`.
-
-See [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md).

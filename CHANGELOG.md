@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-29
+
+### Changed
+
+- **Role prompt execution continuity.** `devlead` (`1.2.0`), `devrev` (`1.3.0`)
+  and `uxdev` (`1.2.0`) add execution-continuity guidance and mindset
+  principles: carry out the next authorized in-scope step after each result,
+  treat progress reports as intermediate updates rather than handoffs, name
+  blocking dependencies or missing authority before yielding, continue
+  unaffected in-scope work, investigate failed checks, and preserve verified
+  state and the next authorized action across handoffs and resumes. Each role
+  adds a bounded loop within its existing `authority` and `does_not` limits.
+
 ### Fixed
 
 - Handle nonnegative integer body lengths above the floating-point range in
@@ -1476,7 +1489,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.4...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/3leaps/crucible/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/3leaps/crucible/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/3leaps/crucible/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/3leaps/crucible/compare/v0.2.1...v0.2.2
