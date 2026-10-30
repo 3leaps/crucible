@@ -80,6 +80,7 @@ done
 
 echo "    durable-record: semantic rejects detected with labeled reason, baseline passes..."
 python3 -I "$chk" journal "$base/rejects/semantic/baseline-journal.ndjson" || exit 1
+python3 -I "$chk" journal "$base/rejects/semantic/baseline-journal-canceled-exponents.ndjson" || exit 1
 for f in "$base"/rejects/semantic/reject-*.ndjson; do
     name=${f##*/reject-}
     want=${name%%--*}

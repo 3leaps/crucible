@@ -1070,7 +1070,9 @@ def envelope_matches(original, amended):
 
 
 def reason_controls(cases):
-    source = Path(__file__).read_text().split("def reason_controls(", 1)[0]
+    source = (
+        Path(__file__).read_text(encoding="utf-8").split("def reason_controls(", 1)[0]
+    )
     tree = ast.parse(source)
     emitted = set()
     for node in ast.walk(tree):
@@ -1101,7 +1103,9 @@ def reason_controls(cases):
                 and isinstance(n.value, ast.Constant)
                 and isinstance(n.value.value, str)
             )
-    standard = (ROOT / "docs/standards/durable-record-v1-contract.md").read_text()
+    standard = (ROOT / "docs/standards/durable-record-v1-contract.md").read_text(
+        encoding="utf-8"
+    )
     section = standard.split("## Refusal vocabulary", 1)[1].split("## Conformance", 1)[
         0
     ]
@@ -1131,7 +1135,9 @@ def reason_controls(cases):
 def mutation_controls():
     # Fixed AST edits. No fixture-supplied code; a mutation must match exactly
     # one selected guard and yield acceptance or a precisely named alternative.
-    source = Path(__file__).read_text().split("def reason_controls(", 1)[0]
+    source = (
+        Path(__file__).read_text(encoding="utf-8").split("def reason_controls(", 1)[0]
+    )
     specs = [
         ("ingest", "slide_dedup", "", 0, "dedup-non-sliding", None),
         ("use", "if_reason", "invalid_purpose", 0, "unknown-purpose", None),
@@ -2052,7 +2058,7 @@ def main():
     assert cases, "missing conformance corpus"
     rejects = sorted((BASE / "rejects/schema").glob("reject-*.json"))
     examples = sorted((BASE / "examples").glob("*.json"))
-    inventory = (BASE / "rejects/README.md").read_text()
+    inventory = (BASE / "rejects/README.md").read_text(encoding="utf-8")
     listed = re.findall(r"\]\((?:schema/|\.\./vectors/)([^)]+)\)", inventory)
     assert sorted(listed) == sorted(p.name for p in cases + rejects), (
         "fixture inventory drift"

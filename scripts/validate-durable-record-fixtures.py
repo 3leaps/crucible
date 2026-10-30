@@ -119,17 +119,21 @@ def parse_safe_int_token(token: str, where: str) -> int:
     trimmed = digits.rstrip("0")
     trailing_zeros = len(digits) - len(trimmed)
     base_scale = trailing_zeros - len(frac_part)
+    # Exact value is (-1 if sign == "-" else 1) * int(trimmed) * 10**(base_scale + exp_val)
+    # with `trimmed` free of leading/trailing zeros. Integrality requires
+    # effective_scale = base_scale + exp_val >= 0, and magnitude <= MAX_SAFE_INTEGER (< 10**16)
+    # requires len(trimmed) + effective_scale <= 16, bounding |exp_val| <= abs(base_scale) + 16.
     if exp_part is not None:
         exp_neg = exp_part.startswith("-")
         exp_digits = exp_part.lstrip("+-").lstrip("0") or "0"
-        max_exp_len = len(str(len(frac_part) + 20))
-        if len(exp_digits) > max_exp_len:
+        exp_bound = abs(base_scale) + 16
+        if len(exp_digits) > len(str(exp_bound)):
             raise Reject(
                 "numeric_domain",
                 f"{where}: exponent outside safe integer domain ({token!r})",
             )
         exp_abs = int(exp_digits)
-        if exp_abs > len(frac_part) + 20:
+        if exp_abs > exp_bound:
             raise Reject(
                 "numeric_domain",
                 f"{where}: exponent outside safe integer domain ({token!r})",
@@ -143,7 +147,7 @@ def parse_safe_int_token(token: str, where: str) -> int:
             "numeric_domain",
             f"{where}: non-integral numeric token {token!r}",
         )
-    if len(trimmed) + effective_scale > 16:
+    if len(trimmed) > 16 or len(trimmed) + effective_scale > 16:
         raise Reject(
             "numeric_domain",
             f"{where}: {token!r} exceeds safe integer ceiling {MAX_SAFE_INTEGER}",
@@ -979,6 +983,17 @@ def run_v0_suite(base_dir: str) -> None:
         raise Reject("empty", "journal.example.ndjson")
     for idx, ln in enumerate(lines, start=1):
         add(f"ndjson:{idx}", "v0/journal-entry.schema.json", ln + "\n", True)
+    canceled_lines = [
+        ln
+        for ln in (base / "rejects/semantic/baseline-journal-canceled-exponents.ndjson")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if ln.strip()
+    ]
+    if not canceled_lines:
+        raise Reject("empty", "baseline-journal-canceled-exponents.ndjson")
+    for idx, ln in enumerate(canceled_lines, start=1):
+        add(f"ndjson_cancel:{idx}", "v0/journal-entry.schema.json", ln + "\n", True)
 
     # Benchmark-only vs non-benchmark idempotency_window_ms: none.
     prof_doc = json.loads(prof_raw)
@@ -1041,6 +1056,10 @@ def run_v0_suite(base_dir: str) -> None:
         ("neg_zero", "-0.0"),
         ("safe_max_minus_1", "9007199254740990"),
         ("safe_max", "9007199254740991"),
+        ("cancel_12e_21", "12000000000000000000000e-21"),
+        ("cancel_1e_100", "1" + ("0" * 100) + "e-100"),
+        ("cancel_safe_max_e_21", "9007199254740991000000000000000000000e-21"),
+        ("cancel_frac_safe_max_e36", "0.000000000000000000009007199254740991e36"),
     ]:
         raw_rec = (
             '{"v":0,"stream":"pipeline-stage-results.example","record_id":"r1","revision":1,'
@@ -1224,6 +1243,11 @@ def self_test() -> None:
         ("-9007199254740991", -MAX_SAFE_INTEGER),
         ("9007199254740990", MAX_SAFE_INTEGER - 1),
         ("9007199254740991", MAX_SAFE_INTEGER),
+        ("12000000000000000000000e-21", 12),
+        ("1" + ("0" * 100) + "e-100", 1),
+        ("9007199254740991000000000000000000000e-21", MAX_SAFE_INTEGER),
+        ("0.000000000000000000009007199254740991e36", MAX_SAFE_INTEGER),
+        ("-9007199254740991000000000000000000000e-21", -MAX_SAFE_INTEGER),
     ]:
         got = parse_safe_int_token(tok, "self-test")
         assert type(got) is int and got == want, (tok, got, want)
@@ -1232,9 +1256,12 @@ def self_test() -> None:
         "0.5",
         "12.0000000000000001",
         "1.0000000000000001",
+        "1200000000000000000000e-21",
+        "12000000000000000000001e-21",
         "1e-400",
         "1e-99999999",
         "9007199254740992",
+        "9007199254740992000000000000000000000e-21",
         "-9007199254740992",
         "9223372036854775807",
         "18446744073709551615",
