@@ -141,7 +141,9 @@ def main():
     jcs = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(jcs)
     family = root / "schemas/identity-evidence/v0"
-    pack = json.loads((family / "vectors/wire-admission.json").read_text())
+    pack = json.loads(
+        (family / "vectors/wire-admission.json").read_text(encoding="utf-8")
+    )
     ids = [case["id"] for case in pack["cases"]]
     assert len(ids) == len(set(ids)) and set(ids) == EXPECTED_IDS, (
         "vector inventory differs"
@@ -160,10 +162,67 @@ def main():
         assert actual == case["expected"], (
             f"{case['id']}: {actual}, expected {case['expected']}"
         )
+    extra_cases = [
+        ("noncharacter-fffe", b'"\\ufffe"', "noncharacter", None),
+        ("noncharacter-ffff", b'"\\uffff"', "noncharacter", None),
+        (
+            "noncharacter-supplementary",
+            '"\U0001fffe"'.encode("utf-8"),
+            "noncharacter",
+            None,
+        ),
+        (
+            "negative-imprecise-integer",
+            b"-9007199254740993",
+            "integer_outside_binary64",
+            None,
+        ),
+        ("max-safe-integer", b"9007199254740991", "accept", b"9007199254740991"),
+        ("min-safe-integer", b"-9007199254740991", "accept", b"-9007199254740991"),
+        (
+            "string-brackets-not-depth",
+            b'{"s":"' + b"[" * 20 + b'\\"' + b"{" * 20 + b'"}',
+            "accept",
+            b'{"s":"' + b"[" * 20 + b'\\"' + b"{" * 20 + b'"}',
+        ),
+        (
+            "exact-object-depth",
+            b'{"a":' * 16 + b"0" + b"}" * 16,
+            "accept",
+            b'{"a":' * 16 + b"0" + b"}" * 16,
+        ),
+        ("over-object-depth", b'{"a":' * 17 + b"0" + b"}" * 17, "too_deep", None),
+        (
+            "exact-canonical-cap",
+            b"[" + b",".join([b"1e20"] * 11915) + b',"' + b"a" * 10 + b'"]',
+            "accept",
+            b"["
+            + b",".join([b"100000000000000000000"] * 11915)
+            + b',"'
+            + b"a" * 10
+            + b'"]',
+        ),
+        (
+            "over-canonical-cap-by-one",
+            b"[" + b",".join([b"1e20"] * 11915) + b',"' + b"a" * 11 + b'"]',
+            "canonical-report-too-large",
+            None,
+        ),
+    ]
+    for case_id, raw_bytes, expected, canonical_bytes in extra_cases:
+        try:
+            out = witness(raw_bytes, jcs)
+        except ValueError as exc:
+            actual = str(exc)
+        else:
+            actual = "accept"
+            if canonical_bytes is not None:
+                assert out == canonical_bytes, case_id + ": canonical mismatch"
+        assert actual == expected, f"{case_id}: {actual}, expected {expected}"
     for path in (family / "examples").glob("*.json"):
         witness(path.read_bytes(), jcs)
     if not args.check_only:
-        source = Path(__file__).read_text()
+        source = Path(__file__).read_text(encoding="utf-8")
         mutants = [
             (
                 "raw-cap",
@@ -177,12 +236,36 @@ def main():
                 "if False and key in result:",
                 "escaped-member-collision",
             ),
+            (
+                "depth-cap",
+                "if depth > 16:",
+                "if False and depth > 16:",
+                "over-depth",
+            ),
+            (
+                "canonical-cap",
+                "if len(out) > 262144:",
+                "if False and len(out) > 262144:",
+                "canonical-expansion",
+            ),
+            (
+                "noncharacter",
+                "if 0xFDD0 <= cp <= 0xFDEF or cp & 0xFFFF in (0xFFFE, 0xFFFF):",
+                "if False:",
+                "noncharacter",
+            ),
+            (
+                "binary64-int",
+                "if not exact:",
+                "if False and not exact:",
+                "imprecise-integer",
+            ),
         ]
         with tempfile.TemporaryDirectory() as tmp:
             for name, old, new, detecting in mutants:
                 assert old in source
                 path = Path(tmp) / (name + ".py")
-                path.write_text(source.replace(old, new, 1))
+                path.write_text(source.replace(old, new, 1), encoding="utf-8")
                 result = subprocess.run(
                     [sys.executable, str(path), "--check-only", "--root", str(root)],
                     capture_output=True,
@@ -194,7 +277,7 @@ def main():
                     "mutant escaped intended assertion: " + name
                 )
     print(
-        "PASS: 17 hand-authored wire cases, example byte/domain checks, raw-cap and duplicate-member mutation detection"
+        f"PASS: 17 hand-authored wire cases (+{len(extra_cases)} boundary/domain controls), example byte/domain checks, 6 mutation witnesses"
     )
     print(
         "Limited independent vector witness; not complete canonicalization or adopter qualification."

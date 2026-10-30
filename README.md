@@ -121,6 +121,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── durable-record/v1/     # Retained records with use restrictions (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
+│   ├── identity-evidence/v0/  # Scoped identity observations, assessments and wire profiles (proposed)
 │   ├── inference-path-taxonomy/v0/ # Parties, model pins, and declared paths (proposed)
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
 │   ├── recurrence/v0/         # RFC 5545 recurrence rule subset and corpus (proposed)

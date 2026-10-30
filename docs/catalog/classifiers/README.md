@@ -40,12 +40,12 @@ changing their meaning. Profiles are declarations, not observations or grants.
 
 ## Identity assurance dimensions (proposed)
 
-| Dimension | Key | Machine definition |
-| --- | --- | --- |
-| Identity binding | `identity-binding` | `config/classifiers/dimensions/identity-binding.dimension.json` |
-| Key custody | `key-custody` | `config/classifiers/dimensions/key-custody.dimension.json` |
-| Execution isolation | `execution-isolation` | `config/classifiers/dimensions/execution-isolation.dimension.json` |
-| Platform evidence | `platform-evidence` | `config/classifiers/dimensions/platform-evidence.dimension.json` |
+| Dimension           | Key                   | Standard                                               | Definition                                                        |
+| ------------------- | --------------------- | ------------------------------------------------------ | ----------------------------------------------------------------- |
+| Identity binding    | `identity-binding`    | `docs/standards/identity-assurance-classification.md`  | `config/classifiers/dimensions/identity-binding.dimension.json`   |
+| Key custody         | `key-custody`         | `docs/standards/identity-assurance-classification.md`  | `config/classifiers/dimensions/key-custody.dimension.json`        |
+| Execution isolation | `execution-isolation` | `docs/standards/identity-assurance-classification.md`  | `config/classifiers/dimensions/execution-isolation.dimension.json` |
+| Platform evidence   | `platform-evidence`   | `docs/standards/identity-assurance-classification.md`  | `config/classifiers/dimensions/platform-evidence.dimension.json`  |
 
 The [classification standard](../../standards/identity-assurance-classification.md)
 defines these categorical values. The [evidence contract](../../standards/identity-evidence-contract.md)
