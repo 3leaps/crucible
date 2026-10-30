@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-30
+
 ### Added
 
 - **Media engineering and creative production roles (`mediaeng` and `creative`, draft).**
@@ -1536,7 +1538,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.5...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/3leaps/crucible/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/3leaps/crucible/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/3leaps/crucible/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/3leaps/crucible/compare/v0.2.2...v0.2.3
