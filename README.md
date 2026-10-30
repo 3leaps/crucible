@@ -76,7 +76,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── agentic/
 │   │   └── roles/             # AI agent role prompts (23 definitions)
 │   ├── classifiers/
-│   │   └── dimensions/        # Classifier dimension definitions (11 dimensions)
+│   │   └── dimensions/        # Classifier dimension definitions (15 dimensions)
 │   └── release/               # Tagger identity and decernor archive digest
 ├── docs/                      # Standards documentation
 │   ├── catalog/               # Reusable templates and indexes
@@ -318,6 +318,17 @@ and successor rules. The [initial schemas and logical vectors](schemas/durable-i
 are design controls; the [conformance requirements](docs/standards/durable-index-conformance.md)
 identifies the remaining physical corpus and adoption gates. See
 [ADR-0017](docs/decisions/ADR-0017-durable-index-contract.md).
+
+### Proposed identity evidence and assurance
+
+The [identity evidence contract](docs/standards/identity-evidence-contract.md)
+describes scoped identity observations and assessments, including software-only
+environments and optional hardware providers. Its
+[classifier family](docs/standards/identity-assurance-classification.md) separates
+identity binding, key custody, execution isolation and platform evidence.
+A [draft schema and logical corpus](schemas/identity-evidence/v0/README.md)
+checks vocabulary and necessary evidence relationships; it does not qualify
+native providers or cryptographic verification.
 
 ### Draft agent interface classifiers and profiles
 

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "key-custody",
+  "name": "Key Custody",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "Scoped evidence-based assessment. Display order is not an assurance threshold. Apply to an explicit subject and comparison scope; the value alone grants no authority.",
+  "categorical": {
+    "values": [
+      {
+        "key": "unknown",
+        "label": "Unknown",
+        "description": "Evaluation could not establish the requested claim in the stated scope.",
+        "order": 0,
+        "is_none": false
+      },
+      {
+        "key": "not-applicable",
+        "label": "Not applicable",
+        "description": "No key is involved in this assessment.",
+        "order": 1,
+        "is_none": false
+      },
+      {
+        "key": "software",
+        "label": "Software",
+        "description": "Private material held in software within the stated boundary.",
+        "order": 2,
+        "is_none": false
+      },
+      {
+        "key": "os-managed",
+        "label": "Os managed",
+        "description": "Key access mediated by an OS service; hardware custody unestablished.",
+        "order": 3,
+        "is_none": false
+      },
+      {
+        "key": "hardware-backed",
+        "label": "Hardware backed",
+        "description": "Evidence establishes private operations inside the specified hardware boundary.",
+        "order": 4,
+        "is_none": false
+      },
+      {
+        "key": "virtual-hardware-backed",
+        "label": "Virtual hardware backed",
+        "description": "Evidence establishes a virtual security-device boundary with host and migration assumptions explicit.",
+        "order": 5,
+        "is_none": false
+      }
+    ],
+    "index_strategy": {
+      "default_order": [
+        "unknown",
+        "not-applicable",
+        "software",
+        "os-managed",
+        "hardware-backed",
+        "virtual-hardware-backed"
+      ],
+      "missing_handling": "error"
+    }
+  },
+  "governance": {
+    "owner": "3leaps-core",
+    "reviewers": [
+      "architecture",
+      "security"
+    ],
+    "review_cycle": "quarterly",
+    "last_updated": "2026-10-29"
+  },
+  "examples": [
+    {
+      "dataset": "Evaluation occurred but applicable evidence was insufficient",
+      "value": "unknown"
+    }
+  ]
+}

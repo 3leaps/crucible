@@ -38,6 +38,21 @@ standard adds a separate revisioned shape at
 continuity and delivery signal meanings. It reuses the value vocabularies without
 changing their meaning. Profiles are declarations, not observations or grants.
 
-## Framework Overview
+## Identity assurance dimensions (proposed)
+
+| Dimension | Key | Machine definition |
+| --- | --- | --- |
+| Identity binding | `identity-binding` | `config/classifiers/dimensions/identity-binding.dimension.json` |
+| Key custody | `key-custody` | `config/classifiers/dimensions/key-custody.dimension.json` |
+| Execution isolation | `execution-isolation` | `config/classifiers/dimensions/execution-isolation.dimension.json` |
+| Platform evidence | `platform-evidence` | `config/classifiers/dimensions/platform-evidence.dimension.json` |
+
+The [classification standard](../../standards/identity-assurance-classification.md)
+defines these categorical values. The [evidence contract](../../standards/identity-evidence-contract.md)
+binds each assessment to a subject, comparison scope, evidence and validity window.
+Software-only observations are supported; consumer profiles select the evidence
+required for an operation. There is no global assurance score.
+
+## Framework reference
 
 See `docs/standards/classifiers-framework.md` for how the pieces fit together.

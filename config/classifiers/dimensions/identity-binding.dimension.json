@@ -1,0 +1,74 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "identity-binding",
+  "name": "Identity Binding",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "Scoped evidence-based assessment. Display order is not an assurance threshold. Apply to an explicit subject and comparison scope; the value alone grants no authority.",
+  "categorical": {
+    "values": [
+      {
+        "key": "unknown",
+        "label": "Unknown",
+        "description": "Evaluation could not establish the requested claim in the stated scope.",
+        "order": 0,
+        "is_none": false
+      },
+      {
+        "key": "declared",
+        "label": "Declared",
+        "description": "Source-supplied identity without independent observation.",
+        "order": 1,
+        "is_none": false
+      },
+      {
+        "key": "observed",
+        "label": "Observed",
+        "description": "Identity obtained through a named local observation interface.",
+        "order": 2,
+        "is_none": false
+      },
+      {
+        "key": "enrolled-key",
+        "label": "Enrolled key",
+        "description": "Accepted enrollment and fresh possession proof bind the exact key to the subject.",
+        "order": 3,
+        "is_none": false
+      },
+      {
+        "key": "attested-key",
+        "label": "Attested key",
+        "description": "Accepted device or workload attestation and fresh possession proof bind the exact key to the subject.",
+        "order": 4,
+        "is_none": false
+      }
+    ],
+    "index_strategy": {
+      "default_order": [
+        "unknown",
+        "declared",
+        "observed",
+        "enrolled-key",
+        "attested-key"
+      ],
+      "missing_handling": "error"
+    }
+  },
+  "governance": {
+    "owner": "3leaps-core",
+    "reviewers": [
+      "architecture",
+      "security"
+    ],
+    "review_cycle": "quarterly",
+    "last_updated": "2026-10-29"
+  },
+  "examples": [
+    {
+      "dataset": "Evaluation occurred but applicable evidence was insufficient",
+      "value": "unknown"
+    }
+  ]
+}

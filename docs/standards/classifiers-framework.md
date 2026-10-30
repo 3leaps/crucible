@@ -157,6 +157,11 @@ If you need strong stability guarantees, pin to a specific Crucible git commit (
 
 ## Extending the Framework
 
+The proposed [identity assurance family](identity-assurance-classification.md)
+applies this framework to scoped identity, custody, isolation and platform claims.
+Its [evidence contract](identity-evidence-contract.md) keeps capability availability,
+assessment freshness and consumer authorization separate from classifier values.
+
 When adding a new dimension:
 
 1. Add a narrative standard in `docs/standards/`

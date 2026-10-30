@@ -398,6 +398,9 @@ lint-contracts: lint-contracts-1 lint-contracts-2 lint-contracts-3 ## Run contra
 
 lint-contracts-1: ## Contract controls for shard 1 and contract manifest validation
 	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    Identity evidence controls..."; \
+		python3 scripts/test-identity-evidence-controls.py || exit 1; \
+		python3 scripts/test-identity-wire-controls.py || exit 1; \
 		echo "    Agent classifier controls..."; \
 		python3 scripts/test-agent-classifier-controls.py || exit 1; \
 		echo "    Agent interface profile controls..."; \
