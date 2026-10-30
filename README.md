@@ -74,7 +74,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 3leaps/crucible/
 ├── config/                    # Configuration data (YAML/JSON, schema-validated)
 │   ├── agentic/
-│   │   └── roles/             # AI agent role prompts (20 definitions)
+│   │   └── roles/             # AI agent role prompts (23 definitions)
 │   ├── classifiers/
 │   │   └── dimensions/        # Classifier dimension definitions (11 dimensions)
 │   └── release/               # Tagger identity and decernor archive digest
@@ -190,6 +190,8 @@ Baseline role prompts for AI-assisted development sessions. Each role shapes how
 | `projectmgr`   | supplemental | governance | Land a stated unit of work with exact state and GO |
 | `infoarch`     | supplemental | agentic    | Documentation, schemas                             |
 | `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage              |
+| `mediaeng`     | supplemental | agentic    | Audio, video, graphics, DSP, and render pipelines  |
+| `creative`     | supplemental | agentic    | Musical, visual, motion, and editorial craft       |
 | `prodmktg`     | supplemental | marketing  | Product positioning and messaging                  |
 | `releng`       | supplemental | automation | Complex release systems                            |
 | `devsecops`    | supplemental | automation | Security tooling and CI security gates             |

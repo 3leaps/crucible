@@ -120,6 +120,8 @@ cp ../crucible/config/agentic/roles/devrev.yaml \
 | Info Arch   | `infoarch`   | Documentation, schemas, standards                    |
 | Sec Review  | `secrev`     | Security analysis, vulnerability review              |
 | UX Dev      | `uxdev`      | Interactive experience implementation                |
+| Media Eng   | `mediaeng`   | Audio, video, graphics, DSP, and rendering pipelines |
+| Creative    | `creative`   | Musical, visual, motion, and editorial asset craft   |
 | Analyst     | `analyst`    | Evidence, methods, and findings                      |
 | Strategist  | `strategist` | Strategic options and recommendations                |
 | Data Eng    | `dataeng`    | Data systems, quality, and lineage                   |
@@ -138,6 +140,7 @@ cp ../crucible/config/agentic/roles/devrev.yaml \
 | Library/Package | `devlead`, `devrev`, `infoarch`                               |
 | CLI Tool        | `devlead`, `devrev`, `secrev`                                 |
 | Web Application | `devlead`, `devrev`, `secrev`, `uxdev`                        |
+| Media/Creative  | `mediaeng`, `creative`, `devrev`, `secrev`                    |
 | Standards/Docs  | `infoarch`, `devlead`                                         |
 | Infrastructure  | `devlead`, `secrev`; add `releng` for complex release systems |
 
