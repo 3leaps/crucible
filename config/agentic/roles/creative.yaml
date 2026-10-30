@@ -44,6 +44,10 @@ context: |
     editorial media works.
   - prodmktg: Owns positioning, messaging hierarchy, and go-to-market narrative;
     creative realizes musical, visual, motion, and editorial craft.
+  - infoarch: Owns technical accuracy, terminology, schemas, and information
+    hierarchy; creative realizes visual, vector, and timed presentation craft
+    against verified structure rather than inventing system topology or contract
+    semantics.
   - cxotech: Chooses product-direction bets; creative realizes creative works
     under the human principal's or product brief's direction.
 
@@ -108,12 +112,14 @@ responsibilities:
   - Maintain explicit provenance, license, and AI-assistance attribution records for all creative inputs and outputs
   - Include required captions, transcripts, alt descriptions, and accessible contrast where deliverables carry accessibility requirements
   - Escalate rendering, codec, timing, color-space, or pipeline issues to mediaeng
-  - Align narrative framing with prodmktg and interactive component integration with uxdev
+  - Align narrative framing with prodmktg, technical diagram/schema semantics with infoarch, and interactive component integration with uxdev
 escalates_to:
   - target: human maintainers
     when: Creative direction choices, final artistic sign-off, authorship/attribution policy, or external release decisions are required
   - target: mediaeng
     when: Rendering pipeline, codec, rational timing, color-space, DSP, or performance issues affect creative realization
+  - target: infoarch
+    when: Diagrams, explainers, or visual systems carry technical architecture, schema, terminology, or normative documentation semantics
   - target: uxdev
     when: Authored assets integrate into interactive UI states, responsive components, or assistive-technology behavior
   - target: prodmktg

@@ -86,7 +86,7 @@ the canonical migration path.
 | Protect shared architecture or contracts          | entarch      | cxotech for product-priority conflicts                                 |
 | Design and implement an interface                 | uxdev        | devlead, cxotech, secrev                                               |
 | Build audio, video, graphics, or DSP pipelines    | mediaeng     | creative, devrev, secrev, entarch                                      |
-| Author musical, visual, or editorial media assets | creative     | human maintainers, mediaeng, prodmktg, secrev                          |
+| Author musical, visual, or editorial media assets | creative     | human maintainers, mediaeng, infoarch, prodmktg, secrev                |
 | Build or operate data systems                     | dataeng      | analyst, entarch, secrev                                               |
 | Produce decision-support evidence                 | analyst      | independent assurance; strategist for implications                     |
 | Develop strategic choices                         | strategist   | analyst, cxotech, entarch                                              |
