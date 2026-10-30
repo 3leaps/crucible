@@ -10,6 +10,33 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.6 (2026-10-30)
+
+**Durable-record bounds protocol integers at 2^53 - 1 and batches schema validation; role catalog adds draft devsecops, mediaeng and creative prompts and refines secops.**
+
+- **Durable-record (`v0` and `v1`)**: bounds all 53 contract-defined integer
+  fields across all 13 `durable-record/v0` and `durable-record/v1` schemas at
+  `9007199254740991` ($2^{53} - 1$), leaving arbitrary `record.payload` numbers
+  and `scripts/rfc8785-canonicalize.py` unchanged. Defines the four-stage wire
+  evaluation order (`ingest` -> `numeric_domain` -> `shape` -> `logical
+semantics`) with bounded raw-token safe-integer inspection before binary64
+  rounding, counter-exhaustion refusal without wraparound, and typed-boundary
+  range enforcement. Batches schema validation through `goneat validate suite
+--format json` so parser, range or tool failures raise harness errors rather
+  than satisfying negative schema cases.
+- **Role catalog (`devsecops` 1.0.0, `mediaeng` 1.0.0, `creative` 1.0.0, `secops` 1.1.0)**:
+  adds draft `devsecops` (repository-side security tooling, CI security gates,
+  signing/verification automation and supply-chain pinning without live secrets
+  or signing authority), `mediaeng` (deterministic audio, video, graphics,
+  vector, DSP, codec and rendering pipelines) and `creative` (structured
+  musical, video, vector and procedural media production under human artistic
+  direction), and updates `secops` (`1.1.0`) to sharpen boundaries with
+  `devsecops` and `watcher`.
+
+See [docs/releases/v0.2.6.md](docs/releases/v0.2.6.md).
+
+---
+
 ## v0.2.5 (2026-10-29)
 
 **Role prompts add execution continuity; contract controls fix UTF-8 subprocess decoding and large integer body lengths.**
@@ -47,23 +74,3 @@ See [docs/releases/v0.2.5.md](docs/releases/v0.2.5.md).
   hidden bypass list as a match.
 
 See [docs/releases/v0.2.4.md](docs/releases/v0.2.4.md).
-
----
-
-## v0.2.3 (2026-10-27)
-
-**Durable-record/v1 gains continuation streams and restriction review.**
-
-- **Continuation streams (durable-record/v1, additive)**: a stream that
-  re-records another stream's content declares `continues` and marks imports
-  with `imported_from`. A `restrictions_reviewed` entry binds the reviewed
-  source cut, the effective source restrictions and the destination's applied
-  restrictions. Serving, export and reuse fail closed as `restrictions_pending`
-  until a current review exists. Existing v1 records and journals are
-  unchanged. The logical controls qualify no store.
-- **Repository classes (draft 0.1.1)**: C5 requires a `version` subcommand
-  and settles JSON-only and artifact-output verbs; C3 counts test variables;
-  C4 points host-tool ceremonies at `make doctor`; P1 settles npm and PyPI
-  reservation.
-
-See [docs/releases/v0.2.3.md](docs/releases/v0.2.3.md).
