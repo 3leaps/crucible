@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Security tooling role (`devsecops`, draft).** Add supplemental
+  `config/agentic/roles/devsecops.yaml` (`1.0.0`, `status: draft`, category
+  `automation`) and `docs/catalog/roles/devsecops.md` for repository-side
+  security tooling, CI security gates, signing and verification tooling,
+  credential-lifecycle tooling, and supply-chain pinning without live secrets,
+  custodianship grants, or signing authority. Update catalog tables, selection
+  guides, and the security-controls operating chain.
+
+### Changed
+
+- **Security operations role boundary (`secops` `1.1.0`).** Distinguish
+  `secops` from `devsecops` and `watcher`, add `devsecops` as the escalation
+  target for security-tooling remediation while narrowing `devlead` escalation
+  to general repository software, and state that continuous observation belongs
+  to `watcher` or detection tooling rather than a standing-privilege `secops`
+  seat.
+
 ## [0.2.5] - 2026-10-29
 
 ### Changed

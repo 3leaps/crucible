@@ -19,7 +19,7 @@ it does not duplicate the full prompts.
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | [`devlead`](../../../config/agentic/roles/devlead.yaml)   | Implementing or repairing software and its tests                                              | `devrev`, which independently reviews the result     |
 | [`devrev`](../../../config/agentic/roles/devrev.yaml)     | Independently reviewing correctness, contracts, failure behavior, and test strategy           | `secrev`, whose primary lens is security             |
-| [`secrev`](../../../config/agentic/roles/secrev.yaml)     | Independently assessing security, privacy, supply-chain, and trust risk                       | `secops`, which operates controls and infrastructure |
+| [`secrev`](../../../config/agentic/roles/secrev.yaml)     | Independently assessing security, privacy, supply-chain, and trust risk                       | `devsecops`, which builds security controls, and `secops`, which operates them |
 | [`cxotech`](../../../config/agentic/roles/cxotech.yaml)   | Choosing product direction, product-architecture bets, and priorities                         | `entarch`, which protects technical coherence        |
 | [`entarch`](../../../config/agentic/roles/entarch.yaml)   | Governing cross-system boundaries, contracts, compatibility, and architecture coherence       | `cxotech`, which owns product-side choices           |
 | [`uxdev`](../../../config/agentic/roles/uxdev.yaml)       | Designing and implementing interactive terminal, desktop, mobile, or web experiences          | `devlead` for general implementation                 |
@@ -31,14 +31,15 @@ it does not duplicate the full prompts.
 
 ## Draft roles
 
-| Role                                                          | Use it when                                                                                                        | Review focus before approval                                                                           |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [`analyst`](../../../config/agentic/roles/analyst.yaml)       | Turning a defined question and evidence into reproducible findings with explicit uncertainty                       | Stress-test web and social-source research, analytical assurance, and handoff to `strategist`          |
-| [`strategist`](../../../config/agentic/roles/strategist.yaml) | Developing strategic diagnosis, plausible futures, options, trade-offs, and recommendations                        | Verify that advice does not absorb accountable product, technical, or human decisions                  |
-| [`watcher`](../../../config/agentic/roles/watcher.yaml)       | Monitoring a bounded surface, handling documented routine conditions, and escalating uncertainty                   | Validate polling, cursor, retry, deadman, and low-cost/local-model operation                           |
-| [`delegate`](../../../config/agentic/roles/delegate.yaml)     | Assisting one or more principals through privileged access to communications, calendars, and commitments           | Prove compartment isolation and separate read, action, and disclosure grants                           |
-| [`secops`](../../../config/agentic/roles/secops.yaml)         | Curating and operating identities, infrastructure, security controls, and technology assets with privileged access | Prove custodianship grants, rollback, emergency powers, and operator-reviewer separation               |
-| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Landing a stated release arc or other quantifiable unit of work: critical path, risk, reshape, owners, readiness   | Verify exact-state, folded HOLDs, successor checks, and GO teeth without absorbing dispatch or cxotech |
+| Role                                                          | Use it when                                                                                                                                                                      | Review focus before approval                                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`analyst`](../../../config/agentic/roles/analyst.yaml)       | Turning a defined question and evidence into reproducible findings with explicit uncertainty                                                                                     | Stress-test web and social-source research, analytical assurance, and handoff to `strategist`                                                 |
+| [`strategist`](../../../config/agentic/roles/strategist.yaml) | Developing strategic diagnosis, plausible futures, options, trade-offs, and recommendations                                                                                      | Verify that advice does not absorb accountable product, technical, or human decisions                                                         |
+| [`watcher`](../../../config/agentic/roles/watcher.yaml)       | Monitoring a bounded surface, handling documented routine conditions, and escalating uncertainty                                                                                 | Validate polling, cursor, retry, deadman, and low-cost/local-model operation                                                                  |
+| [`delegate`](../../../config/agentic/roles/delegate.yaml)     | Assisting one or more principals through privileged access to communications, calendars, and commitments                                                                         | Prove compartment isolation and separate read, action, and disclosure grants                                                                  |
+| [`secops`](../../../config/agentic/roles/secops.yaml)         | Curating and operating identities, infrastructure, security controls, and technology assets with privileged access                                                               | Prove custodianship grants, rollback, emergency powers, and operator-reviewer separation                                                      |
+| [`devsecops`](../../../config/agentic/roles/devsecops.yaml)   | Building security tooling, CI security gates, signing and verification tooling, credential-lifecycle tooling, and supply-chain pinning without live secrets or privileged access | Confirm the tooling-only boundary (no custodianship grant, live secrets, or signing authority) and the `secops`, `secrev`, and `releng` seams |
+| [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Landing a stated release arc or other quantifiable unit of work: critical path, risk, reshape, owners, readiness                                                                 | Verify exact-state, folded HOLDs, successor checks, and GO teeth without absorbing dispatch or cxotech                                        |
 
 ## Common operating chains
 
@@ -61,6 +62,10 @@ Privileged principal assistance:
 Privileged infrastructure:
 
 `custodianship grant → secops operates → secrev independently reviews → human accepts risk`
+
+Security controls:
+
+`entarch sets the trust boundary → devsecops builds the control → secrev reviews → secops/custodian operates`
 
 These are composable patterns, not mandatory panels. Use the smallest set of
 roles that covers the work's real decision and risk boundaries.
