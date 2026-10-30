@@ -31,6 +31,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **durable-record numeric domain and batched schema controls.** Tightens all
+  contract-defined integer fields across `durable-record/v0` and
+  `durable-record/v1` to the safe-integer upper bound `9007199254740991`
+  ($2^{53} - 1$, RFC 7493 Section 2.2 / RFC 8785 Appendix B) as an explicit
+  protocol interoperability restriction, leaving arbitrary `record.payload`
+  numbers and the shared general-purpose RFC 8785 canonicalizer unchanged. Adds
+  the `numeric_domain` refusal and four-stage evaluation order (`ingest` ->
+  `numeric_domain` -> `shape` -> `logical semantics`), inspecting raw numeric
+  tokens at protocol integer schema paths with bounded exponent handling before
+  binary64 conversion and refusing counter or group-span exhaustion without
+  wraparound; adopters using `int64`/`uint64` internals enforce the wire range
+  at API, import and journal boundaries. Batches `durable-record` schema
+  validation through `goneat validate suite --format json` with strict file and
+  schema membership so parser, range or tool failures raise harness errors
+  rather than satisfying negative schema cases.
+
 - **Security operations role boundary (`secops` `1.1.0`).** Distinguish
   `secops` from `devsecops` and `watcher`, add `devsecops` as the escalation
   target for security-tooling remediation while narrowing `devlead` escalation
