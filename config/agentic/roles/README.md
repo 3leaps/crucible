@@ -27,6 +27,10 @@ For privileged human coordination, `delegate` assists only through explicit,
 principal-specific grants. Access, action authority, and disclosure authority
 are evaluated separately; multiple principals' grants remain compartmented.
 
+For creative works and deterministic media systems:
+
+`human principal / cxotech sets the brief → creative authors structured works ↔ mediaeng engineers codecs, DSP, and rendering → human principal approves`
+
 ## Core roles
 
 | Role                                                | Slug      | Category   | Purpose                                                   |
@@ -54,6 +58,8 @@ are evaluated separately; multiple principals' grants remain compartmented.
 | [Information Architect](infoarch.yaml)                | `infoarch`   | agentic    | Documentation, schemas, and information structure                                                                |
 | [Release Engineering](releng.yaml)                    | `releng`     | automation | Complex release, publication, signing, provenance, and CI systems                                                |
 | [Security Tooling Engineer](devsecops.yaml)           | `devsecops`  | automation | Security tooling, CI security gates, signing/verification and credential-lifecycle tooling, supply-chain pinning |
+| [Media Engineering](mediaeng.yaml)                    | `mediaeng`   | agentic    | Deterministic audio, video, graphics, vector, DSP, and rendering pipelines                                       |
+| [Creative Production](creative.yaml)                  | `creative`   | agentic    | Musical arrangement, video editing, vector illustration, and procedural work                                     |
 
 Draft roles remain supplemental but should not be represented as approved until
 their `status` changes after review.
@@ -72,23 +78,25 @@ the canonical migration path.
 
 ## Selection guide
 
-| Need                                        | Primary role | Escalation or partner                                                  |
-| ------------------------------------------- | ------------ | ---------------------------------------------------------------------- |
-| Implement or fix software                   | devlead      | devrev; secrev when security-sensitive                                 |
-| Review correctness or test strategy         | devrev       | devlead for intent; secrev for security                                |
-| Make a product bet                          | cxotech      | entarch for technical consequences                                     |
-| Protect shared architecture or contracts    | entarch      | cxotech for product-priority conflicts                                 |
-| Design and implement an interface           | uxdev        | devlead, cxotech, secrev                                               |
-| Build or operate data systems               | dataeng      | analyst, entarch, secrev                                               |
-| Produce decision-support evidence           | analyst      | independent assurance; strategist for implications                     |
-| Develop strategic choices                   | strategist   | analyst, cxotech, entarch                                              |
-| Monitor a bounded surface                   | watcher      | dispatch, analyst, secrev                                              |
-| Assist with privileged communications       | delegate     | principals, secrev, projectmgr                                         |
-| Build security tooling or CI security gates | devsecops    | secrev; secops for live-asset work; releng for complex release systems |
-| Operate privileged infrastructure           | secops       | secrev, entarch, maintainers                                           |
-| Land a release arc or other unit of work    | projectmgr   | dispatch for routing; cxotech for path                                 |
-| Route sessions and maintain coordination    | dispatch     | projectmgr or accountable owner                                        |
-| Engineer a complex release system           | releng       | devlead, secrev, maintainers                                           |
+| Need                                              | Primary role | Escalation or partner                                                  |
+| ------------------------------------------------- | ------------ | ---------------------------------------------------------------------- |
+| Implement or fix software                         | devlead      | devrev; secrev when security-sensitive                                 |
+| Review correctness or test strategy               | devrev       | devlead for intent; secrev for security                                |
+| Make a product bet                                | cxotech      | entarch for technical consequences                                     |
+| Protect shared architecture or contracts          | entarch      | cxotech for product-priority conflicts                                 |
+| Design and implement an interface                 | uxdev        | devlead, cxotech, secrev                                               |
+| Build audio, video, graphics, or DSP pipelines    | mediaeng     | creative, devrev, secrev, entarch                                      |
+| Author musical, visual, or editorial media assets | creative     | human maintainers, mediaeng, infoarch, prodmktg, secrev                |
+| Build or operate data systems                     | dataeng      | analyst, entarch, secrev                                               |
+| Produce decision-support evidence                 | analyst      | independent assurance; strategist for implications                     |
+| Develop strategic choices                         | strategist   | analyst, cxotech, entarch                                              |
+| Monitor a bounded surface                         | watcher      | dispatch, analyst, secrev                                              |
+| Assist with privileged communications             | delegate     | principals, secrev, projectmgr                                         |
+| Build security tooling or CI security gates       | devsecops    | secrev; secops for live-asset work; releng for complex release systems |
+| Operate privileged infrastructure                 | secops       | secrev, entarch, maintainers                                           |
+| Land a release arc or other unit of work          | projectmgr   | dispatch for routing; cxotech for path                                 |
+| Route sessions and maintain coordination          | dispatch     | projectmgr or accountable owner                                        |
+| Engineer a complex release system                 | releng       | devlead, secrev, maintainers                                           |
 
 ## Usage
 

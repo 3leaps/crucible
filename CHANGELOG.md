@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Media engineering and creative production roles (`mediaeng` and `creative`, draft).**
+  Add supplemental `config/agentic/roles/mediaeng.yaml` (`1.0.0`, `status: draft`,
+  category `agentic`) and `docs/catalog/roles/mediaeng.md` for deterministic
+  audio, video, graphics, vector, DSP, codec, and rendering pipelines with
+  explicit signal/timing/color invariants, bounded memory and stream execution,
+  and shell-free external-encoder orchestration. Add supplemental
+  `config/agentic/roles/creative.yaml` (`1.0.0`, `status: draft`, category
+  `agentic`) and `docs/catalog/roles/creative.md` for structured musical
+  arrangement, video editing, vector illustration, and procedural media craft
+  under human artistic authority and explicit provenance hygiene. Update role
+  catalog tables, selection guides, and the creative/media operating chain.
+
 - **Security tooling role (`devsecops`, draft).** Add supplemental
   `config/agentic/roles/devsecops.yaml` (`1.0.0`, `status: draft`, category
   `automation`) and `docs/catalog/roles/devsecops.md` for repository-side

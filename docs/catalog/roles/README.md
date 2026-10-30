@@ -35,6 +35,8 @@ set.
 - [`infoarch`](../../../config/agentic/roles/infoarch.yaml) — information structure
 - [`releng`](../../../config/agentic/roles/releng.yaml) — complex release systems
 - [`devsecops`](../../../config/agentic/roles/devsecops.yaml) — security tooling, CI security gates, and supply-chain pinning
+- [`mediaeng`](../../../config/agentic/roles/mediaeng.yaml) — deterministic audio, video, graphics, DSP, and rendering pipelines
+- [`creative`](../../../config/agentic/roles/creative.yaml) — musical arrangement, video editing, vector illustration, and procedural media
 
 ### Deprecated
 
@@ -69,6 +71,12 @@ from independent security review by `secrev`.
 verification tooling, credential-lifecycle tooling, and supply-chain pinning in
 repositories without live secrets or custodianship grants, separate from both
 `secops` operation and independent `secrev` review.
+
+`mediaeng` and `creative` separate deterministic media systems from authored
+craft: `mediaeng` engineers codecs, DSP, graphics/vector processing, and
+rendering pipelines with explicit signal, timing, and resource invariants, while
+`creative` authors musical arrangements, editorial timelines, illustrations, and
+structured media works under human creative direction.
 
 ## Adoption
 
