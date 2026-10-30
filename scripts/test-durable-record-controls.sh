@@ -3,24 +3,24 @@
 #
 # Declared invocation set (PDR-0006 Rule 2b):
 #   sh, coreutils, find, mktemp — baseline
-#   goneat — subject-matter (JSON Schema validation the contract names)
+#   goneat — subject-matter (batched JSON Schema suite validation the contract names)
 #   jq — structural inspection of contract fixtures (house pattern)
 #   python3 — stdlib-only fixture-integrity checker (scripts/validate-durable-record-fixtures.py),
 #             which reuses scripts/rfc8785-canonicalize.py for revision digests
 #
 # Asserts:
-#   - every golden example validates against its schema; journal example lines validate
+#   - every golden example, journal example line, benchmark window rule, schema baseline/reject pair,
+#     receipt reject schema check, and raw-wire integral/boundary/payload case passes batched
+#     `goneat validate suite` with strict membership and error-vs-invalid verdict checks
 #   - shared $defs are identical across record, journal-entry and write-receipt schemas
-#   - benchmark_only profiles may declare idempotency_window_ms none; other conformance may not
-#   - schema-labeled baseline-* pass and reject-* fail; pairs differ in exactly one field
 #   - profile semantic rules: enabled ⊆ compiled capabilities; stratum is compiled
-#   - checker self-test: arbitrary multi-field pairs are rejected; only one change or a sibling rename passes
+#   - checker self-test: multi-field pairs, raw numeric_domain/ingest preflight, and suite error guards
 #   - golden journal: seq gap-free, atomic groups tracked across rows, final cut consistent, digests
 #     match RFC 8785 bytes, revision chain linear, conflicted.current is the head
 #   - every golden receipt and reconciliation matches the journal (stream, key, outcome, pin,
 #     body status, failure model; found embeds the accepted original; not_found coverage contains the attempt)
-#   - every semantic reject-<reason>--* journal and schema-valid receipt reject is detected with
-#     its labeled reason; baselines pass
+#   - every semantic/ingest/numeric_domain reject-<reason>--* journal and schema-valid receipt reject
+#     is detected with its labeled reason; baselines pass
 #   - fixtures contain no credentials, raw tokens, or machine-local paths
 set -eu
 
@@ -29,47 +29,8 @@ chk="scripts/validate-durable-record-fixtures.py"
 tmpd=$(mktemp -d)
 trap 'rm -rf "$tmpd"' EXIT
 
-validate() { goneat validate data --schema-file "$1" --data "$2" >/dev/null 2>&1; }
-schema_for() {
-    case "${1##*/}" in
-        *-record-*) echo "$base/record.schema.json" ;;
-        *-journal-*) echo "$base/journal-entry.schema.json" ;;
-        *-profile-*) echo "$base/stratum-profile.schema.json" ;;
-        *-receipt-* | *-reconciliation-*) echo "$base/write-receipt.schema.json" ;;
-        *)
-            echo ""
-            return 1
-            ;;
-    esac
-}
-must() {
-    validate "$1" "$2" || {
-        echo "[!!] $2 failed $1" >&2
-        exit 1
-    }
-}
-
-echo "    durable-record: golden examples..."
-for f in "$base"/examples/record.*.example.json; do must "$base/record.schema.json" "$f"; done
-for f in "$base"/examples/journal-entry.*.example.json; do must "$base/journal-entry.schema.json" "$f"; done
-for f in "$base"/examples/write-receipt*.example.json "$base"/examples/reconciliation*.example.json; do
-    must "$base/write-receipt.schema.json" "$f"
-done
-must "$base/stratum-profile.schema.json" "$base/examples/stratum-profile.example.json"
-n=0
-while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    printf '%s\n' "$line" >"$tmpd/line.json"
-    validate "$base/journal-entry.schema.json" "$tmpd/line.json" || {
-        echo "[!!] journal example line failed: $line" >&2
-        exit 1
-    }
-    n=$((n + 1))
-done <"$base/examples/journal.example.ndjson"
-[ "$n" -gt 0 ] || {
-    echo "[!!] journal example is empty" >&2
-    exit 1
-}
+echo "    durable-record: batched schema suite (examples, pairs, receipt rejects, raw wire)..."
+python3 -I "$chk" v0-suite "$base" || exit 1
 
 echo "    durable-record: shared definitions identical across schemas..."
 for d in digest revisionPin pin bodyRef provenance classification link record; do
@@ -93,34 +54,6 @@ for d in digest pin; do
     }
 done
 
-echo "    durable-record: benchmark_only may declare no dedup window; others may not..."
-jq '.conformance="benchmark_only" | .runtime.idempotency_window_ms="none"' "$base/examples/stratum-profile.example.json" >"$tmpd/w1.json"
-must "$base/stratum-profile.schema.json" "$tmpd/w1.json"
-jq '.runtime.idempotency_window_ms="none"' "$base/examples/stratum-profile.example.json" >"$tmpd/w2.json"
-if validate "$base/stratum-profile.schema.json" "$tmpd/w2.json"; then
-    echo "[!!] conformance none + window none accepted" >&2
-    exit 1
-fi
-
-echo "    durable-record: schema baselines pass, rejects fail, pairs differ in one field..."
-for f in "$base"/rejects/schema/baseline-*.json; do
-    s=$(schema_for "$f")
-    must "$s" "$f"
-done
-for f in "$base"/rejects/schema/reject-*.json; do
-    s=$(schema_for "$f")
-    if validate "$s" "$f"; then
-        echo "[!!] reject was accepted: $f" >&2
-        exit 1
-    fi
-    twin="$(dirname "$f")/baseline-${f##*/reject-}"
-    [ -f "$twin" ] || {
-        echo "[!!] no baseline twin for $f" >&2
-        exit 1
-    }
-    python3 -I "$chk" pair "$twin" "$f" || exit 1
-done
-
 echo "    durable-record: profile semantic rules..."
 python3 -I "$chk" profile "$base/examples/stratum-profile.example.json" || exit 1
 jq '.runtime.enabled_capabilities += ["unverified_bodies"]' "$base/examples/stratum-profile.example.json" >"$tmpd/p.json"
@@ -129,7 +62,7 @@ if python3 -I "$chk" profile "$tmpd/p.json" >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "    durable-record: checker self-test (multi-field pairs rejected)..."
+echo "    durable-record: checker self-test (pairs, raw numeric_domain, suite error guards)..."
 python3 -I "$chk" self-test >/dev/null || exit 1
 
 echo "    durable-record: golden journal integrity; every golden receipt and reconciliation matches it..."
@@ -164,7 +97,6 @@ done
 echo "    durable-record: receipt rejects schema-valid, detected with labeled reason..."
 python3 -I "$chk" receipt "$base/rejects/receipt/baseline-receipt.json" "$base/examples/journal.example.ndjson" || exit 1
 for f in "$base"/rejects/receipt/reject-*.json; do
-    must "$base/write-receipt.schema.json" "$f"
     name=${f##*/reject-}
     want=${name%%--*}
     if python3 -I "$chk" receipt "$f" "$base/examples/journal.example.ndjson" 2>"$tmpd/err"; then

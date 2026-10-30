@@ -61,6 +61,55 @@ MUST accept no further content writes for that identifier; its retained records
 are copies outside v1 management, and ordinary serving, export or reuse of those
 pins MUST resolve through the v1 store.
 
+## Wire numeric domain and evaluation order
+
+All contract-defined integer fields in `durable-record/v1` — and in any observed
+v0 or v1 continuation source or ancestor journal — share the safe-integer upper
+bound `9007199254740991` ($2^{53} - 1$), keeping each field's `minimum` or
+`const`:
+
+- `record.schema.json`: `v` (`1`), `revision`, `supersedes.revision`,
+  `body.length`, `links[].revision`, and `$defs.pin.revision`;
+- `journal-entry.schema.json`: `v` (`1`), `seq`, `group`, `group_size`,
+  `revision`, `presented.revision`, `current.revision`, `destination_cut_seq`,
+  `incarnation`, `continues.cut_seq`, `source.cut_seq`,
+  `imported_from.pin.revision`, `body.length`, and embedded `record` and
+  `request` integer paths;
+- `write-receipt.schema.json`: `receipt.v` (`1`), `receipt.seq`,
+  `receipt.pin.revision`, `receipt.current.revision`, `reconciliation.v` (`1`),
+  and embedded `receipt` or `protectionReceipt` integer paths;
+- `protection-request.schema.json` and `protection-receipt.schema.json`: `v`
+  (`1`), `target.revision`, `body.length`, `restores`, and `seq`;
+- `export-request.schema.json` and `export-result.schema.json`: `v` (`1`),
+  `protection_cut`, `current_cut`, `selection[].revision`, and
+  `omitted[].revision`;
+- `body-state-request.schema.json`: `body.length`;
+- `stratum-profile.schema.json`: `runtime.clock_skew_bound_ms` and
+  `runtime.idempotency_window_ms`.
+
+As in [v0](durable-record-contract.md#wire-numeric-domain-and-evaluation-order),
+this ceiling is an explicit `durable-record` interoperability tightening per
+[RFC 7493 Section 2.2](https://www.rfc-editor.org/rfc/rfc7493#section-2.2) and
+[RFC 8785 Appendix B](https://www.rfc-editor.org/rfc/rfc8785#appendix-B), not a
+claim that RFC 8785 forbids larger binary64 values in general. Arbitrary
+application `record.payload` numbers are not restricted to integers or to this
+ceiling. Implementations with `int64` or `uint64` internals MUST enforce the
+wire ceiling at API, import and journal boundaries before emitting, hashing or
+incrementing; counter or atomic-group exhaustion (`seq`, `revision`,
+`incarnation`, `group + group_size - 1`) refuses without wraparound.
+
+Evaluation follows the four-stage order: strict JSON ingestion (`ingest`) ->
+exact protocol-integer raw-token preflight (`numeric_domain`, bounded without
+expanding huge exponents; accepting `12`, `12.0`, `1.2e1`, `0.0`, `-0.0` where
+`minimum` permits; rejecting fractional tails such as `12.0000000000000001`,
+underflow `1e-400`, and magnitudes above `9007199254740991`; passing non-numeric
+types and safe negative integers through to field `type`/`minimum` checks) ->
+schema validation (`shape`) -> logical semantics. Direct typed APIs enforce the
+same permitted range, while raw-byte checks certify wire tokens before binary64
+conversion. An observed source or ancestor journal failing any of these four
+stages supplies no restriction state and refuses the relying continuation as
+`continuation`.
+
 ## Production time, instants and ordering
 
 A record MAY carry `produced_at`, the producer's claim of when the revision was
@@ -366,11 +415,11 @@ the store. Gaps are permitted, and the first durable publication need not be
 `1`, because a store may advance its counter before a publication that is then
 interrupted. `at` is the store's acceptance time under the ordinary v1 rules.
 
-| Entry                  | Written                                         | Carries                                                       | Means                                                                 |
-| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `body_published`       | after the bytes are durable                     | `body`, `incarnation`                                         | Incarnation `n` is published; this is publication's commit point      |
+| Entry                  | Written                                                | Carries                                                                 | Means                                                                |
+| ---------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `body_published`       | after the bytes are durable                            | `body`, `incarnation`                                                   | Incarnation `n` is published; this is publication's commit point     |
 | `body_removal_started` | durable before any byte of incarnation `n` is unlinked | `body`, `incarnation`, `reason`, `provenance`; optional `authorization` | The store decided to remove incarnation `n`; not evidence of removal |
-| `body_removed`         | after the store observed the bytes absent       | `body`, `incarnation`                                         | Incarnation `n` is removed; `at` is completion time                   |
+| `body_removed`         | after the store observed the bytes absent              | `body`, `incarnation`                                                   | Incarnation `n` is removed; `at` is completion time                  |
 
 `reason` on `body_removal_started` is one of `retention`, `operator` or
 `rights_restricted`; it attributes a decision and is never a bypass of any
@@ -431,12 +480,12 @@ fails the observation; in the logical form a malformed observation is refused
 as `body_observation` before any state is derived. A stale cut combined with a newer observation
 establishes no state.
 
-| Latest lifecycle entry for the body | Bytes present | Bytes absent      |
-| ----------------------------------- | ------------- | ----------------- |
-| none                                | `publishing`  | `unpublished`     |
-| `body_published(n)`                 | `available`   | `integrity_loss`  |
+| Latest lifecycle entry for the body | Bytes present     | Bytes absent      |
+| ----------------------------------- | ----------------- | ----------------- |
+| none                                | `publishing`      | `unpublished`     |
+| `body_published(n)`                 | `available`       | `integrity_loss`  |
 | `body_removal_started(n)`           | `removal_pending` | `removal_pending` |
-| `body_removed(n)`                   | `publishing`  | `removed`         |
+| `body_removed(n)`                   | `publishing`      | `removed`         |
 
 `publishing` means bytes are present whose publication has no committed
 `body_published`; it is not evidence that a publication is in progress.
@@ -521,39 +570,42 @@ logical fixtures do not qualify them.
 
 ## Refusal vocabulary
 
-Existing v0 shape, journal, receipt and reconciliation refusals remain. The
-following are protection-operation outcomes or v1 logical validation failures.
-Schema validation precedes semantic evaluation.
+Existing v0 ingestion (`ingest`), shape, journal, receipt and reconciliation
+refusals remain. Evaluation proceeds through strict JSON ingestion (`ingest`),
+exact protocol-integer preflight (`numeric_domain`), schema validation
+(`shape`), and logical semantics. The following are protection-operation
+outcomes or v1 validation failures.
 
-| Reason                   | Meaning                                                                    |
-| ------------------------ | -------------------------------------------------------------------------- |
-| `idempotency_conflict`   | A live key identifies another request or content operation                 |
-| `target_not_found`       | No exact target pin in this stream                                         |
-| `body_mismatch`          | The requested body selector disagrees with its target                      |
-| `hold_not_active`        | Restoration does not identify an active hold                               |
-| `hold_mismatch`          | Restoration changes the hold's target or scope                             |
-| `observation_order`      | Observation follows acceptance or restoration predates the hold            |
-| `protection_unavailable` | Protection or source state is unavailable, from another stream, or not current |
-| `protected_use`          | Matching or inherited hold, or a retired record selected for serving       |
-| `export_selection`       | Selection and omissions do not partition the inventory                     |
-| `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body      |
-| `invalid_purpose`        | Use purpose is not serve, export or reuse                                  |
-| `invalid_deduplication`  | Content audit does not identify a live accepted content key and its record |
-| `receipt_mismatch`       | Received protection or retirement receipt disagrees with the journal       |
-| `request_digest`         | Journal request does not match its canonical digest                        |
-| `operation_type`         | Journal type disagrees with request action                                 |
-| `accepted_key_reuse`     | A journal accepts a live key again                                         |
-| `journal_version`        | A v1 journal contains another wire version                                 |
-| `record_version`         | A v1 journal entry carries a record envelope other than `v: 1`             |
-| `instant_spelling`       | An instant is not a valid date and time in the canonical six-digit UTC form |
-| `journal_time`           | Acceptance or decision time precedes the accepted journal                  |
-| `idempotency_window`     | Missing positive key-retention window                                      |
-| `retired_record`         | A content write attempts to revive a retired record                        |
-| `restrictions_pending`   | A continuation has no current restriction review                           |
-| `continuation`           | An import, review or manifest disagrees with the stream's continuation     |
-| `body_removal_stream`    | A lifecycle entry, type or continuation is outside the designated stream    |
-| `body_lifecycle`         | A lifecycle entry is not a valid transition for its body's incarnation      |
-| `body_observation`       | A body state observation is not an exact body and a verified present or absent |
+| Reason                   | Meaning                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `numeric_domain`         | A protocol integer field is non-integral, exceeds the safe-integer ceiling, or exhausts a counter |
+| `idempotency_conflict`   | A live key identifies another request or content operation                                        |
+| `target_not_found`       | No exact target pin in this stream                                                                |
+| `body_mismatch`          | The requested body selector disagrees with its target                                             |
+| `hold_not_active`        | Restoration does not identify an active hold                                                      |
+| `hold_mismatch`          | Restoration changes the hold's target or scope                                                    |
+| `observation_order`      | Observation follows acceptance or restoration predates the hold                                   |
+| `protection_unavailable` | Protection or source state is unavailable, from another stream, or not current                    |
+| `protected_use`          | Matching or inherited hold, or a retired record selected for serving                              |
+| `export_selection`       | Selection and omissions do not partition the inventory                                            |
+| `body_closure`           | Missing required bytes, wrong bytes/length, duplicate or surplus body                             |
+| `invalid_purpose`        | Use purpose is not serve, export or reuse                                                         |
+| `invalid_deduplication`  | Content audit does not identify a live accepted content key and its record                        |
+| `receipt_mismatch`       | Received protection or retirement receipt disagrees with the journal                              |
+| `request_digest`         | Journal request does not match its canonical digest                                               |
+| `operation_type`         | Journal type disagrees with request action                                                        |
+| `accepted_key_reuse`     | A journal accepts a live key again                                                                |
+| `journal_version`        | A v1 journal contains another wire version                                                        |
+| `record_version`         | A v1 journal entry carries a record envelope other than `v: 1`                                    |
+| `instant_spelling`       | An instant is not a valid date and time in the canonical six-digit UTC form                       |
+| `journal_time`           | Acceptance or decision time precedes the accepted journal                                         |
+| `idempotency_window`     | Missing positive key-retention window                                                             |
+| `retired_record`         | A content write attempts to revive a retired record                                               |
+| `restrictions_pending`   | A continuation has no current restriction review                                                  |
+| `continuation`           | An import, review or manifest disagrees with the stream's continuation                            |
+| `body_removal_stream`    | A lifecycle entry, type or continuation is outside the designated stream                          |
+| `body_lifecycle`         | A lifecycle entry is not a valid transition for its body's incarnation                            |
+| `body_observation`       | A body state observation is not an exact body and a verified present or absent                    |
 
 ## Conformance and limits
 
@@ -561,9 +613,16 @@ Run `python3 scripts/test-durable-record-v1-controls.py`. File-backed vectors
 cover scopes, independent holds, replay, expiration, reconciliation, atomic
 cuts, keyed and unkeyed retirement, production time, instant spelling, record
 envelope version, export omissions, inherited restrictions, body closure,
-continuation review (cut and manifest digests, imports, currency), and body
+continuation review (cut and manifest digests, imports, currency), body
 lifecycle (every reader-state cell, incarnation gaps, abandonment,
-republication, invalid transitions, placement and designation).
+republication, invalid transitions, placement and designation), and wire
+ingestion and numeric-domain boundaries (safe-integer ceiling, integral decimal
+and exponent spellings, precision-aliasing fractions, underflow/overflow
+exponents, counter exhaustion, arbitrary payload numbers, and continuation
+source/import paths).
+Schema validation batches cases through `goneat validate suite --format json`
+with exact file and schema membership, separating valid/invalid schema verdicts
+from parser, range or tool errors.
 Schema reject fixtures differ from a passing baseline in one field. Mutation
 controls deliberately weaken guarded rules. Each must turn a rejected witness
 into acceptance or produce a specifically named wrong outcome; an unrelated
