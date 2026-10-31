@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Proposed identity evidence contract (`identity-evidence/v0`) and identity-assurance classifiers.**
+  Adds `docs/standards/identity-evidence-contract.md`,
+  `docs/standards/identity-assurance-classification.md`, four categorical
+  classifier definitions under `config/classifiers/dimensions/`
+  (`identity-binding`, `key-custody`, `execution-isolation`,
+  `platform-evidence`), and the `schemas/identity-evidence/v0/` schema,
+  profile, example, and vector bundle. Defines immutable observation and
+  evaluated report snapshots with separate enrollment identifiers and key
+  descriptors, directed execution-isolation boundaries, exact platform-property
+  claim references, digest-pinned `input_reports` provenance, per-event
+  optional `time_attribution`, a local process/session launch-binding profile
+  (`profiles/local-process-session/`), and an experimental 256 KiB / depth-16
+  wire admission profile (`profiles/report-admission/`) with shared wire
+  vectors and batched logical/wire control scripts.
+
 ## [0.2.6] - 2026-10-30
 
 ### Added

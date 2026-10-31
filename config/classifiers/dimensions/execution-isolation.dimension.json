@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "execution-isolation",
+  "name": "Execution Isolation",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "Assessment of a directed subject/comparison boundary and explicit threats under a pinned profile. No symmetric, transitive or inherited isolation is implied. Display order grants no authority.",
+  "categorical": {
+    "values": [
+      {
+        "key": "unknown",
+        "label": "Unknown",
+        "description": "Evaluation could not establish the requested claim in the stated scope.",
+        "order": 0,
+        "is_none": false
+      },
+      {
+        "key": "shared-account",
+        "label": "Shared account",
+        "description": "Compared workloads share an OS principal without additional established isolation.",
+        "order": 1,
+        "is_none": false
+      },
+      {
+        "key": "separate-account",
+        "label": "Separate account",
+        "description": "Distinct principals and relevant access controls separate the compared workloads.",
+        "order": 2,
+        "is_none": false
+      },
+      {
+        "key": "os-confined",
+        "label": "Os confined",
+        "description": "Applicable OS policy enforces the stated separation.",
+        "order": 3,
+        "is_none": false
+      },
+      {
+        "key": "virtual-machine",
+        "label": "Virtual machine",
+        "description": "Guest boundary separates the subject from the specified outside workloads.",
+        "order": 4,
+        "is_none": false
+      },
+      {
+        "key": "confidential-workload",
+        "label": "Confidential workload",
+        "description": "Applicable attestation establishes the stated protected execution boundary.",
+        "order": 5,
+        "is_none": false
+      }
+    ],
+    "index_strategy": {
+      "default_order": [
+        "unknown",
+        "shared-account",
+        "separate-account",
+        "os-confined",
+        "virtual-machine",
+        "confidential-workload"
+      ],
+      "missing_handling": "error"
+    }
+  },
+  "governance": {
+    "owner": "3leaps-core",
+    "reviewers": [
+      "architecture",
+      "security"
+    ],
+    "review_cycle": "quarterly",
+    "last_updated": "2026-10-29"
+  },
+  "examples": [
+    {
+      "dataset": "Evaluation occurred but applicable evidence was insufficient",
+      "value": "unknown"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://schemas.3leaps.dev/classifiers/v0/dimension-definition.schema.json",
+  "key": "platform-evidence",
+  "name": "Platform Evidence",
+  "version": "0.1.0",
+  "status": "draft",
+  "type": "categorical",
+  "cardinality": "single",
+  "description": "Assessment of exact machine-resolvable property claims for a subject and, where applicable, a key. Evidence for one property cannot establish other properties. Display order grants no authority.",
+  "categorical": {
+    "values": [
+      {
+        "key": "unknown",
+        "label": "Unknown",
+        "description": "Evaluation could not establish the requested claim in the stated scope.",
+        "order": 0,
+        "is_none": false
+      },
+      {
+        "key": "declared",
+        "label": "Declared",
+        "description": "Subject supplies platform properties.",
+        "order": 1,
+        "is_none": false
+      },
+      {
+        "key": "locally-observed",
+        "label": "Locally observed",
+        "description": "A named local interface reports the properties.",
+        "order": 2,
+        "is_none": false
+      },
+      {
+        "key": "authority-verified",
+        "label": "Authority verified",
+        "description": "Accepted external authority verifies the exact properties and subject.",
+        "order": 3,
+        "is_none": false
+      },
+      {
+        "key": "hardware-attested",
+        "label": "Hardware attested",
+        "description": "Verified hardware-rooted evidence covers the exact properties and subject.",
+        "order": 4,
+        "is_none": false
+      }
+    ],
+    "index_strategy": {
+      "default_order": [
+        "unknown",
+        "declared",
+        "locally-observed",
+        "authority-verified",
+        "hardware-attested"
+      ],
+      "missing_handling": "error"
+    }
+  },
+  "governance": {
+    "owner": "3leaps-core",
+    "reviewers": [
+      "architecture",
+      "security"
+    ],
+    "review_cycle": "quarterly",
+    "last_updated": "2026-10-29"
+  },
+  "examples": [
+    {
+      "dataset": "Evaluation occurred but applicable evidence was insufficient",
+      "value": "unknown"
+    }
+  ]
+}

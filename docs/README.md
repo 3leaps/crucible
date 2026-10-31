@@ -70,6 +70,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [durable-record-contract.md](standards/durable-record-contract.md) - Proposed revisioned record and journal semantics, keyed idempotent writes, and stratum profiles
 - [durable-record-v1-contract.md](standards/durable-record-v1-contract.md) - Experimental retained-record tombstoning and export restrictions
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
+- [identity-evidence-contract.md](standards/identity-evidence-contract.md) - Portable observations, provenance, and scoped assurance assessments for hosts, workloads, and keys (draft)
 - [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
 - [repository-classes.md](standards/repository-classes.md) - Repository classes (prims, bolts, wits, voys, pressers): who calls it, per-class checks, prim profiles and sibling dependencies (draft)
 - [recurrence-rule-contract.md](standards/recurrence-rule-contract.md) - Proposed RFC 5545 recurrence rule subset, expansion semantics, and pinned conformance corpus
@@ -89,6 +90,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [data-engineering/data-pipeline-principles.md](standards/data-engineering/data-pipeline-principles.md) - Durable data-pipeline engineering principles (28 across 5 axes; EPR-class)
 - [agent-interface-classification.md](standards/agent-interface-classification.md) - Agent session, entrypoint, carrier and adapter-confidence dimensions (draft)
 - [agent-interface-profiles.md](standards/agent-interface-profiles.md) - Agent interface profiles: per-hop protocols, continuity and signal mappings (draft)
+- [identity-assurance-classification.md](standards/identity-assurance-classification.md) - Identity binding, key custody, execution isolation, and platform evidence dimensions (draft)
 
 ### [Decisions](decisions/)
 
