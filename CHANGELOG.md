@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wire admission profile (`profiles/report-admission/`) with shared wire
   vectors and batched logical/wire control scripts.
 
+### Fixed
+
+- **Durable record (`durable-record/v0` and `durable-record/v1`) wire-preflight oracle (`scripts/validate-durable-record-fixtures.py`).**
+  Catch `OverflowError` alongside `ValueError` when materializing large
+  non-protocol integer tokens (`309` nines and `310`–`315` digits above the
+  IEEE 754 `binary64` finite range) so Stage 1 refuses with `ingest` instead of
+  raising an uncaught exception. Split wire preflight into an explicit
+  document-wide Stage 1 (`ingest`) pass before Stage 2 (`numeric_domain`)
+  protocol-integer checks so documents carrying both an `ingest` defect and a
+  `numeric_domain` defect refuse deterministically as `ingest` regardless of
+  object member order, and add corresponding `v0` semantic reject fixtures and
+  `v1` conformance vectors.
+
 ## [0.2.6] - 2026-10-30
 
 ### Added
