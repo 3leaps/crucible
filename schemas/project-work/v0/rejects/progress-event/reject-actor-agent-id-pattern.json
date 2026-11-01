@@ -1,0 +1,8 @@
+{
+  "ts": "2026-11-01T15:30:00Z",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "created",
+  "actor": { "kind": "agent", "id": "dispatch", "role": "dispatch" },
+  "seq": 0,
+  "data": { "lifecycle_class": "draft" }
+}

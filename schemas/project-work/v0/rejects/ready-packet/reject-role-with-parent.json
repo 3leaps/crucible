@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-role-parent",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A role party does not carry parent.",
+  "owner": { "kind": "role", "id": "devlead", "parent": "agent-seat-builder" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

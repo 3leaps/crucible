@@ -1,0 +1,14 @@
+{
+  "id": "pw-bad-run-no-expires",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A run requires expires; a run cannot own work indefinitely.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder"
+  },
+  "check_by": "2026-11-01T22:00:00Z",
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

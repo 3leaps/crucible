@@ -1,0 +1,13 @@
+{
+  "id": "pw-bad-project-owner-run",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A project owner is never a run.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "lifecycle_class": "active",
+  "updated": "2026-11-01T15:30:00Z"
+}

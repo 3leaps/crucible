@@ -1,0 +1,14 @@
+{
+  "id": "pw-run-owner-done",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A done packet may keep a run owner without check_by; check_by is no longer required once the packet is terminal.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "lifecycle_class": "done",
+  "acceptance": ["Example"],
+  "updated": "2026-11-01T22:45:00Z"
+}

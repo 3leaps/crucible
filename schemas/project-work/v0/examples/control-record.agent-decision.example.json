@@ -1,0 +1,15 @@
+{
+  "id": "pw-decision-002",
+  "packet_id": "pw-run-owner",
+  "kind": "decision",
+  "summary": "Run run-01JC8Z3K5M7Q4W9XBTN2VYE6RD expired; return the packet to its parent agent-seat-builder.",
+  "affects": ["pw-run-owner"],
+  "decider": { "kind": "agent", "id": "agent-seat-planner", "role": "cos" },
+  "actor": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "ts": "2026-11-01T22:30:00Z"
+}

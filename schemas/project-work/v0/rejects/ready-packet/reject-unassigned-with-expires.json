@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-unassigned-expires",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "An unassigned party does not carry expires.",
+  "owner": { "kind": "unassigned", "expires": "2026-11-01T23:00:00Z" },
+  "lifecycle_class": "draft",
+  "acceptance": [],
+  "updated": "2026-11-01T15:30:00Z"
+}

@@ -1,2 +1,4 @@
 {"ts":"2026-08-21T15:00:00Z","packet_id":"pw-ready-packet-001","kind":"created","actor":{"kind":"role","id":"projectmgr"},"seq":0,"data":{"lifecycle_class":"draft"}}
 {"ts":"2026-08-21T15:10:00Z","packet_id":"pw-ready-packet-001","kind":"class-changed","actor":{"kind":"role","id":"projectmgr"},"seq":1,"data":{"from":"draft","to":"ready"}}
+{"ts":"2026-11-01T15:40:00Z","packet_id":"pw-run-owner","kind":"class-changed","actor":{"kind":"agent","id":"agent-seat-router","role":"dispatch"},"seq":2,"data":{"from":"ready","to":"active"}}
+{"ts":"2026-11-01T22:00:00Z","packet_id":"pw-run-owner","kind":"class-changed","actor":{"kind":"run","id":"run-01JC8Z3K5M7Q4W9XBTN2VYE6RD","parent":"agent-seat-builder","expires":"2026-11-01T23:00:00Z"},"seq":3,"data":{"from":"active","to":"review"}}

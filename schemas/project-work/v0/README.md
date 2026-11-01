@@ -30,4 +30,8 @@ does not match, or the entry schema is missing.
 | `control-record.schema.json` | Status note, blocker, or decision                                      |
 | `progress-event.schema.json` | One NDJSON line of the append-only work ledger                         |
 
+Cross-document rules for agent and run parties (seat resolution, run expiry)
+are in [`semantic-validation.md`](semantic-validation.md); consumers **MUST**
+enforce them.
+
 Worked examples in [`examples/`](examples/). Negative fixtures in [`rejects/`](rejects/).

@@ -1,0 +1,10 @@
+{
+  "id": "pw-bad-requested-by-hyphen",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "requested_by role id must match the role-prompt slug shape.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "requested_by": { "kind": "role", "id": "ent-arch" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-08-21T15:30:00Z"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "pw-bad-run-no-parent",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A run requires parent; an orphan run has no accountable party.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "check_by": "2026-11-01T22:00:00Z",
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-person-role",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A person party does not carry role.",
+  "owner": { "kind": "person", "id": "requester-1", "role": "devlead" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

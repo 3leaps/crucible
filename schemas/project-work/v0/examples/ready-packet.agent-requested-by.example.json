@@ -1,0 +1,10 @@
+{
+  "id": "pw-agent-requested-by",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A packet requested by a hosted agent seat and owned by another.",
+  "owner": { "kind": "agent", "id": "agent-seat-lead", "role": "devlead" },
+  "requested_by": { "kind": "agent", "id": "agent-seat-router", "role": "dispatch" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Example"],
+  "updated": "2026-11-01T15:30:00Z"
+}

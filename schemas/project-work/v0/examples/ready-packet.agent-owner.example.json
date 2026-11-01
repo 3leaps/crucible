@@ -1,0 +1,15 @@
+{
+  "id": "pw-agent-owner",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A packet owned by a hosted agent seat, requested by another seat.",
+  "owner": {
+    "kind": "agent",
+    "id": "agent-seat-alpha",
+    "role": "cxotech",
+    "display": "Alpha Seat"
+  },
+  "requested_by": { "kind": "agent", "id": "agent-seat-planner", "role": "cos" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Example"],
+  "updated": "2026-11-01T15:30:00Z"
+}

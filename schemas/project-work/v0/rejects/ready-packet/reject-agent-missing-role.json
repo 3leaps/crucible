@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-agent-no-role",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "An agent party requires role, the hat for this work.",
+  "owner": { "kind": "agent", "id": "agent-seat-router" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}
