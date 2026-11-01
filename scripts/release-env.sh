@@ -19,6 +19,12 @@
 #   directory is refused. The default is resolved twice: gpgconf's homedir
 #   (which follows HOME) and the account home's .gnupg from the user database
 #   (which does not). A failure to resolve either is a refusal.
+# - require_signing_identity: set RELEASE_TAGGER_NAME, RELEASE_TAGGER_EMAIL and
+#   RELEASE_PGP_KEY_ID after requiring THREELEAPS_CRUCIBLE_TAGGER_NAME,
+#   THREELEAPS_CRUCIBLE_TAGGER_EMAIL and THREELEAPS_CRUCIBLE_PGP_KEY_ID
+#   (^[0-9A-F]{40}!$) and verifying they match config/release/tagger-identity.txt
+#   and the signing subkey and UID in docs/security/release-signing-keys.asc
+#   before gpg is invoked.
 
 RELEASE_DECERNOR_MIN_VERSION="0.1.8"
 
@@ -251,6 +257,229 @@ require_signing_program() {
 
 release_signing_git() {
     git -c gpg.format=openpgp -c gpg.program=gpg -c gpg.openpgp.program=gpg "$@"
+}
+
+# Require explicit tagger identity and signing subkey selector before invoking
+# gpg. Never falls back to git config user.name/user.email or the default GPG
+# key. Validates THREELEAPS_CRUCIBLE_TAGGER_NAME,
+# THREELEAPS_CRUCIBLE_TAGGER_EMAIL, and THREELEAPS_CRUCIBLE_PGP_KEY_ID against
+# config/release/tagger-identity.txt and docs/security/release-signing-keys.asc.
+require_signing_identity() {
+    local root="${RELEASE_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+    local tagger_name="${THREELEAPS_CRUCIBLE_TAGGER_NAME:-}"
+    local tagger_email="${THREELEAPS_CRUCIBLE_TAGGER_EMAIL:-}"
+    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-}"
+
+    if [[ -z "$tagger_name" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_TAGGER_NAME is required; tagger identity is never derived from git config" >&2
+        return 1
+    fi
+    if [[ -z "$tagger_email" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_TAGGER_EMAIL is required; tagger identity is never derived from git config" >&2
+        return 1
+    fi
+    local value
+    for value in "$tagger_name" "$tagger_email"; do
+        if [[ "$value" == *$'\n'* || "$value" == *$'\r'* || "$value" == *'<'* || "$value" == *'>'* ]]; then
+            echo "error: invalid tagger identity (must not contain angle brackets or newlines)" >&2
+            return 1
+        fi
+    done
+
+    if [[ -z "$key_id" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_PGP_KEY_ID is required; the default GPG key is never used" >&2
+        return 1
+    fi
+    if ! [[ "$key_id" =~ ^[0-9A-F]{40}!$ ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_PGP_KEY_ID must be the exact uppercase 40-hex signing subkey fingerprint followed by !" >&2
+        return 1
+    fi
+
+    local tagger_file="$root/config/release/tagger-identity.txt"
+    local pin_file="$root/docs/security/release-signing-keys.asc"
+    if ! [[ -f "$tagger_file" && ! -L "$tagger_file" && -s "$tagger_file" ]]; then
+        echo "error: config/release/tagger-identity.txt must be a non-empty regular file" >&2
+        return 1
+    fi
+    if ! [[ -f "$pin_file" && ! -L "$pin_file" && -s "$pin_file" ]]; then
+        echo "error: docs/security/release-signing-keys.asc must be a non-empty regular file" >&2
+        return 1
+    fi
+
+    local expected_tagger actual_tagger
+    expected_tagger="$(tr -d '\r\n' <"$tagger_file")"
+    actual_tagger="${tagger_name} <${tagger_email}>"
+    if [[ "$actual_tagger" != "$expected_tagger" ]]; then
+        echo "error: tagger '$actual_tagger' does not match config/release/tagger-identity.txt ('$expected_tagger')" >&2
+        return 1
+    fi
+
+    local pin_info expected_subkey
+    if ! pin_info="$(
+        python3 -I - "$pin_file" "$tagger_email" <<'PY'
+import base64
+import binascii
+import hashlib
+import pathlib
+import sys
+
+pin_path = pathlib.Path(sys.argv[1])
+expected_email = sys.argv[2]
+
+try:
+    text = pin_path.read_text(encoding="utf-8")
+except OSError as exc:
+    sys.exit(f"error: could not read {pin_path}: {exc}")
+
+if "PRIVATE KEY BLOCK" in text:
+    sys.exit("error: private material in docs/security/release-signing-keys.asc")
+
+lines = [
+    line.strip()
+    for line in text.splitlines()
+    if line.strip()
+    and not line.startswith("-----")
+    and ":" not in line
+    and not line.startswith("=")
+]
+try:
+    raw = base64.b64decode("".join(lines), validate=True)
+except (binascii.Error, ValueError):
+    sys.exit("error: docs/security/release-signing-keys.asc is not valid ASCII-armored OpenPGP data")
+
+
+def read_subpackets(buf: bytes) -> int:
+    j = 0
+    flags = 0
+    while j < len(buf):
+        b0 = buf[j]
+        j += 1
+        if b0 < 192:
+            slen = b0
+        elif b0 < 255:
+            if j >= len(buf):
+                sys.exit("error: truncated OpenPGP signature subpacket")
+            slen = ((b0 - 192) << 8) + buf[j] + 192
+            j += 1
+        else:
+            if j + 4 > len(buf):
+                sys.exit("error: truncated OpenPGP signature subpacket")
+            slen = int.from_bytes(buf[j : j + 4], "big")
+            j += 4
+        if slen < 1 or j + slen > len(buf):
+            sys.exit("error: malformed OpenPGP signature subpacket")
+        stype = buf[j] & 0x7F
+        sdata = buf[j + 1 : j + slen]
+        j += slen
+        if stype == 27 and sdata:
+            flags |= sdata[0]
+    return flags
+
+
+i = 0
+primaries = []
+uids = []
+signing_subkeys = []
+current_subkey = None
+current_subkey_signing = False
+
+while i < len(raw):
+    ctb = raw[i]
+    i += 1
+    if not (ctb & 0x80):
+        sys.exit("error: invalid OpenPGP packet header in docs/security/release-signing-keys.asc")
+    if ctb & 0x40:
+        tag = ctb & 0x3F
+        if i >= len(raw):
+            sys.exit("error: truncated OpenPGP packet header")
+        l0 = raw[i]
+        i += 1
+        if l0 < 192:
+            body_len = l0
+        elif l0 < 224:
+            if i >= len(raw):
+                sys.exit("error: truncated OpenPGP packet length")
+            body_len = ((l0 - 192) << 8) + raw[i] + 192
+            i += 1
+        elif l0 == 255:
+            if i + 4 > len(raw):
+                sys.exit("error: truncated OpenPGP packet length")
+            body_len = int.from_bytes(raw[i : i + 4], "big")
+            i += 4
+        else:
+            sys.exit("error: unsupported partial-length OpenPGP packet")
+    else:
+        tag = (ctb >> 2) & 0x0F
+        ltype = ctb & 0x03
+        if ltype == 0:
+            body_len = raw[i]
+            i += 1
+        elif ltype == 1:
+            body_len = int.from_bytes(raw[i : i + 2], "big")
+            i += 2
+        elif ltype == 2:
+            body_len = int.from_bytes(raw[i : i + 4], "big")
+            i += 4
+        else:
+            sys.exit("error: unsupported indeterminate-length OpenPGP packet")
+    if i + body_len > len(raw):
+        sys.exit("error: truncated OpenPGP packet body")
+    body = raw[i : i + body_len]
+    i += body_len
+    if tag in (5, 7):
+        sys.exit("error: private material in docs/security/release-signing-keys.asc")
+    if tag in (6, 14):
+        if current_subkey is not None and current_subkey_signing:
+            signing_subkeys.append(current_subkey)
+        current_subkey = None
+        current_subkey_signing = False
+        if not body or body[0] != 4:
+            sys.exit("error: unsupported OpenPGP key version in docs/security/release-signing-keys.asc")
+        fpr = hashlib.sha1(b"\x99" + len(body).to_bytes(2, "big") + body).hexdigest().upper()
+        if tag == 6:
+            primaries.append(fpr)
+        else:
+            current_subkey = fpr
+    elif tag == 13:
+        uids.append(body.decode("utf-8", errors="replace"))
+    elif tag == 2 and current_subkey is not None and len(body) >= 6 and body[0] == 4 and body[1] == 0x18:
+        hashed_len = int.from_bytes(body[4:6], "big")
+        if 6 + hashed_len > len(body):
+            sys.exit("error: malformed subkey binding signature")
+        if read_subpackets(body[6 : 6 + hashed_len]) & 0x02:
+            current_subkey_signing = True
+
+if current_subkey is not None and current_subkey_signing:
+    signing_subkeys.append(current_subkey)
+
+if len(primaries) != 1 or len(signing_subkeys) != 1:
+    sys.exit("error: docs/security/release-signing-keys.asc must hold exactly one primary key and one signing subkey")
+uid_emails = [
+    u.split("<", 1)[1].split(">", 1)[0]
+    for u in uids
+    if "<" in u and ">" in u.split("<", 1)[1]
+]
+if expected_email not in uid_emails:
+    sys.exit(
+        f"error: tagger email '{expected_email}' matches no UID on docs/security/release-signing-keys.asc"
+    )
+print(signing_subkeys[0])
+PY
+    )"; then
+        return 1
+    fi
+    expected_subkey="$pin_info"
+    if [[ "${key_id%!}" != "$expected_subkey" ]]; then
+        echo "error: THREELEAPS_CRUCIBLE_PGP_KEY_ID (${key_id%!}) does not match the signing subkey in docs/security/release-signing-keys.asc ($expected_subkey)" >&2
+        return 1
+    fi
+
+    # shellcheck disable=SC2034 # Consumed by scripts that source this file.
+    RELEASE_TAGGER_NAME="$tagger_name"
+    # shellcheck disable=SC2034 # Consumed by scripts that source this file.
+    RELEASE_TAGGER_EMAIL="$tagger_email"
+    # shellcheck disable=SC2034 # Consumed by scripts that source this file.
+    RELEASE_PGP_KEY_ID="$key_id"
 }
 
 # Release transport (repo decision, RELEASE_CHECKLIST.md "Push"): one explicit

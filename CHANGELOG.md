@@ -24,6 +24,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wire admission profile (`profiles/report-admission/`) with shared wire
   vectors and batched logical/wire control scripts.
 
+### Changed
+
+- **SPDX license/notice split (`LICENSE`, `LICENSE-CC0`, `NOTICE`, `package.json`, `README.md`).**
+  Replace the combined Markdown explainer in `LICENSE` with verbatim SPDX `MIT`
+  text (`LICENSE`) and verbatim SPDX `CC0-1.0` Universal legal code
+  (`LICENSE-CC0`), move the dual-license scope boundary (`CC0-1.0` for
+  documentation, schemas, role prompts, and conformance vectors/examples; `MIT`
+  for executable scripts, CI workflows, `Makefile`, and test harnesses), scope
+  limitation, and trademark notice to `NOTICE`, and set `package.json`
+  `"license"` to `"(MIT AND CC0-1.0)"`.
+- **Pre-sign tagger identity and signing-subkey enforcement (`scripts/release-env.sh`, `scripts/release-tag.sh`, `scripts/test-release-env.sh`, `RELEASE_CHECKLIST.md`).**
+  Add `require_signing_identity` in `scripts/release-env.sh` and invoke it in
+  `scripts/release-tag.sh` before any `gpg` call so
+  `THREELEAPS_CRUCIBLE_TAGGER_NAME`, `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`, and
+  `THREELEAPS_CRUCIBLE_PGP_KEY_ID` (`^[0-9A-F]{40}!$`) are required rather than
+  warned-and-defaulted, verify `${THREELEAPS_CRUCIBLE_TAGGER_NAME} <${THREELEAPS_CRUCIBLE_TAGGER_EMAIL}>`
+  matches `config/release/tagger-identity.txt` and that the email and signing
+  subkey match a User ID email and the signing subkey on
+  `docs/security/release-signing-keys.asc` before signing, run
+  `scripts/verify-pinned-tag.sh` immediately after tag creation, and include
+  `.immutable` verification in `RELEASE_CHECKLIST.md`.
+
 ### Fixed
 
 - **Durable record (`durable-record/v0` and `durable-record/v1`) wire-preflight oracle (`scripts/validate-durable-record-fixtures.py`).**

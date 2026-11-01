@@ -311,6 +311,115 @@ else
     pass "release-tag.sh signs and verifies only through release_signing_git"
 fi
 
+# --- signing identity: tagger and signing subkey are required before gpg ------
+valid_name="3 Leaps Infosec Team"
+valid_email="infosec@3leaps.net"
+valid_subkey="DAB70DD758911B26BB45A08C3B75AC591449DEBE!"
+primary_key="0CACA49B3119B6BC12B2CA11B9B485F294B9FE07!"
+
+expect_refused "signing identity: tagger name unset" "THREELEAPS_CRUCIBLE_TAGGER_NAME is required" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+expect_refused "signing identity: tagger name empty" "THREELEAPS_CRUCIBLE_TAGGER_NAME is required" \
+    require_signing_identity \
+    THREELEAPS_CRUCIBLE_TAGGER_NAME= "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+expect_refused "signing identity: tagger email unset" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL is required" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+expect_refused "signing identity: tagger email empty" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL is required" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" THREELEAPS_CRUCIBLE_TAGGER_EMAIL= \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+for bad_name in "3leaps <Infosec" "3leaps >Infosec" $'3leaps\nInfosec' $'3leaps\rInfosec'; do
+    expect_refused "signing identity: invalid tagger name character" "invalid tagger identity" \
+        require_signing_identity \
+        "THREELEAPS_CRUCIBLE_TAGGER_NAME=$bad_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+        "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+done
+for bad_email in "infosec<@3leaps.net" "infosec>@3leaps.net" $'infosec\n@3leaps.net'; do
+    expect_refused "signing identity: invalid tagger email character" "invalid tagger identity" \
+        require_signing_identity \
+        "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$bad_email" \
+        "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+done
+expect_refused "signing identity: key id unset" "THREELEAPS_CRUCIBLE_PGP_KEY_ID is required" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email"
+expect_refused "signing identity: key id empty" "THREELEAPS_CRUCIBLE_PGP_KEY_ID is required" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    THREELEAPS_CRUCIBLE_PGP_KEY_ID=
+for bad_key in "${valid_subkey%!}" "dab70dd758911b26bb45a08c3b75ac591449debe!" "3B75AC591449DEBE!" \
+    "infosec@3leaps.net" "DAB70DD758911B26BB45A08C3B75AC591449DEBE"; do
+    expect_refused "signing identity: malformed key id '$bad_key'" \
+        "exact uppercase 40-hex signing subkey fingerprint followed by !" \
+        require_signing_identity \
+        "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+        "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$bad_key"
+done
+expect_refused "signing identity: wrong tagger name" "does not match config/release/tagger-identity.txt" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=Other Tagger" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+expect_refused "signing identity: wrong tagger email" "does not match config/release/tagger-identity.txt" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=other@3leaps.net" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+expect_refused "signing identity: primary key instead of signing subkey" \
+    "does not match the signing subkey in docs/security/release-signing-keys.asc" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$primary_key"
+expect_refused "signing identity: unknown 40-hex subkey" \
+    "does not match the signing subkey in docs/security/release-signing-keys.asc" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=0000000000000000000000000000000000000000!"
+
+# Fixture controls for tampered committed files
+id_fixture="$work/id-fixture"
+mkdir -p "$id_fixture/config/release" "$id_fixture/docs/security"
+cp "$root/config/release/tagger-identity.txt" "$id_fixture/config/release/tagger-identity.txt"
+cp "$root/docs/security/release-signing-keys.asc" "$id_fixture/docs/security/release-signing-keys.asc"
+printf 'Someone Else <other@3leaps.net>\n' >"$id_fixture/config/release/tagger-identity.txt"
+expect_refused "signing identity: tagger-identity.txt not on key UID" \
+    "matches no UID on docs/security/release-signing-keys.asc" \
+    require_signing_identity "RELEASE_REPO_ROOT=$id_fixture" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=Someone Else" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=other@3leaps.net" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+rm -f "$id_fixture/config/release/tagger-identity.txt"
+expect_refused "signing identity: missing tagger-identity.txt" \
+    "config/release/tagger-identity.txt must be a non-empty regular file" \
+    require_signing_identity "RELEASE_REPO_ROOT=$id_fixture" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+ln -s "$root/config/release/tagger-identity.txt" "$id_fixture/config/release/tagger-identity.txt"
+expect_refused "signing identity: symlinked tagger-identity.txt" \
+    "config/release/tagger-identity.txt must be a non-empty regular file" \
+    require_signing_identity "RELEASE_REPO_ROOT=$id_fixture" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+rm -f "$id_fixture/config/release/tagger-identity.txt"
+cp "$root/config/release/tagger-identity.txt" "$id_fixture/config/release/tagger-identity.txt"
+printf -- '-----BEGIN PGP PRIVATE KEY BLOCK-----\n' >>"$id_fixture/docs/security/release-signing-keys.asc"
+expect_refused "signing identity: private material in pin" \
+    "private material in docs/security/release-signing-keys.asc" \
+    require_signing_identity "RELEASE_REPO_ROOT=$id_fixture" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+rm -f "$id_fixture/docs/security/release-signing-keys.asc"
+expect_refused "signing identity: missing release-signing-keys.asc" \
+    "docs/security/release-signing-keys.asc must be a non-empty regular file" \
+    require_signing_identity "RELEASE_REPO_ROOT=$id_fixture" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+
+expect_accepted "signing identity: matching committed tagger and signing subkey" \
+    require_signing_identity \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$valid_subkey"
+
 # --- release transport: one URL, the org token, nothing else -----------------
 # Fixture: an org directory with a repository below it. A stand-in direnv
 # exports FAKE_ENVRC as DIRENV_FILE and FAKE_ENVRC_TOKEN as GH_TOKEN, or
@@ -640,6 +749,35 @@ if grep -q "note: git config gpg.format is 'ssh'; release signing uses openpgp" 
 else
     fail "release-tag.sh with gpg.format=ssh: no note: rc=$rc err='$(cat "$work/err")'"
 fi
+
+rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
+    FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "release-tag.sh without THREELEAPS_CRUCIBLE_TAGGER_NAME" "THREELEAPS_CRUCIBLE_TAGGER_NAME is required"
+
+rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
+    FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "release-tag.sh without THREELEAPS_CRUCIBLE_TAGGER_EMAIL" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL is required"
+
+rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
+    FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "release-tag.sh without THREELEAPS_CRUCIBLE_PGP_KEY_ID" "THREELEAPS_CRUCIBLE_PGP_KEY_ID is required"
+
+rc=0 && env -i PATH="$fakepath" HOME="$work/home" FAKE_GPGCONF_HOME="$work/home/.gnupg" \
+    FAKE_ACCOUNT_HOME="$work/account" THREELEAPS_CRUCIBLE_RELEASE_TAG="v$version" \
+    THREELEAPS_CRUCIBLE_DECERNOR_BIN="$work/bin/entry-decernor" THREELEAPS_CRUCIBLE_GPG_HOMEDIR="$work/signing" \
+    "THREELEAPS_CRUCIBLE_TAGGER_NAME=$valid_name" "THREELEAPS_CRUCIBLE_TAGGER_EMAIL=$valid_email" \
+    "THREELEAPS_CRUCIBLE_PGP_KEY_ID=$primary_key" \
+    "$root/scripts/release-tag.sh" >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "release-tag.sh with primary key instead of signing subkey" \
+    "does not match the signing subkey in docs/security/release-signing-keys.asc"
 
 if ((failures)); then
     echo "[!!] release input controls: $failures failure(s)" >&2
