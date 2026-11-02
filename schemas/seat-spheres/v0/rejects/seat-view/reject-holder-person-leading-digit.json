@@ -1,0 +1,7 @@
+{
+  "capabilities": ["contract: seat-spheres/v0"],
+  "seat": { "kind": "person", "id": "1maintainer" },
+  "function": "steward",
+  "spheres": [{ "subject": { "kind": "repo", "id": "example-repo" }, "relation": "lead" }],
+  "updated": "2026-11-02T12:00:00Z"
+}

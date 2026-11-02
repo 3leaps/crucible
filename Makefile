@@ -409,6 +409,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 		sh scripts/test-review-journal-controls.sh || exit 1; \
 		echo "    Project-work controls..."; \
 		sh scripts/test-project-work-controls.sh || exit 1; \
+		echo "    Seat-spheres controls..."; \
+		sh scripts/test-seat-spheres-controls.sh || exit 1; \
 		echo "    Forge-infra controls..."; \
 		sh scripts/test-forge-infra-controls.sh || exit 1; \
 		echo "    Application-control controls..."; \
@@ -440,6 +442,7 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 			schemas/agent-wait/v0/contract.json \
 			schemas/service-job/v0/contract.json \
 			schemas/project-work/v0/contract.json \
+			schemas/seat-spheres/v0/contract.json \
 			schemas/inference-path-taxonomy/v0/contract.json \
 			schemas/forge-infra/v0/contract.json || exit 1; \
 	else \

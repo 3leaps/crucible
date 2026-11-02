@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Draft seat-spheres contract (`seat-spheres/v0`).**
+  Adds `docs/standards/seat-spheres-model.md` and `schemas/seat-spheres/v0/`
+  with a contract manifest, a `seat-view` schema, worked examples, and
+  structural rejects. A seat view pairs a closed seat `function` (`builder`,
+  `operator`, `steward`, `consultant`, `analyst`) with per-subject `spheres`: a
+  typed subject (`kind` slug plus lowercase `id`), a closed `relation` (`lead`,
+  `support`, `advise`, `assure`, `interested`), optional allow/deny `exceptions`
+  (an `allow` requires a `reason`), and optional `since`, `note`, `cover`,
+  `review_by`, `no_apply`, and `measures`. A seat may carry an optional
+  `reports_to`. Every measure carries a required `expires` date, so no measure
+  is permanent. Holders are agents or people, never runs; capabilities are
+  referenced by an optional almanac locator only. Controls are wired into
+  `make check`.
+
 - **Project-work contract (`project-work/v0`): `requested_by`, `check_by`, `agent` and `run` party kinds, and `semantic-validation.md`.**
   Extend `ready-packet.schema.json` with optional `requested_by` (`person`,
   `role`, or `agent` counterparty; never `unassigned` or `run`) and `check_by`

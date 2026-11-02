@@ -126,6 +126,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── process-run/v0/        # Local process telemetry/control (proposed)
 │   ├── recurrence/v0/         # RFC 5545 recurrence rule subset and corpus (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
+│   ├── seat-spheres/v0/       # Seat function and per-subject spheres rolled into one seat view (draft)
 │   ├── segmented-snapshot/v0/ # Immutable snapshot publication and verification (proposed)
 │   └── service-job/v0/        # Portable service job contract
 ├── keys/                      # Fingerprints of the release public keys

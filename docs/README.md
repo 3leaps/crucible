@@ -76,6 +76,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [recurrence-rule-contract.md](standards/recurrence-rule-contract.md) - Proposed RFC 5545 recurrence rule subset, expansion semantics, and pinned conformance corpus
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [project-work-contract.md](standards/project-work-contract.md) - Portable ready-packet, project-state, control-record, and progress-ledger contract
+- [seat-spheres-model.md](standards/seat-spheres-model.md) - Seat function and per-subject spheres: relations, default decision rights, rollup rules, RACI mapping, and relation to project-work (draft)
 - [data-artifact-contract-examples.md](standards/data-artifact-contract-examples.md) - Source-neutral stress cases and producer adoption preview template
 - [data-sensitivity-classification.md](standards/data-sensitivity-classification.md) - Sensitivity levels (UNKNOWN, 0-6)
 - [volatility-classification.md](standards/volatility-classification.md) - Update cadence (static → streaming)

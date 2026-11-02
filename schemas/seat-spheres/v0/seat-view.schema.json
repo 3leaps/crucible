@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:seat-spheres/v0/seat-view.schema.json",
+  "title": "Seat View",
+  "description": "Structural schema companion for contract: seat-spheres/v0. A seat view rolls thin per-subject sphere records up into one view of a seat's responsibility: a stable function plus the delegated subjects the seat holds. Only delegated subjects are listed; an unlisted subject is open, not owned. Default decision rights by relation are documented, not encoded. Capabilities are not modeled here; reference them by almanac locator only. Date ordering (expires on or after as_of) is consumer-enforced.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capabilities", "seat", "function", "spheres", "updated"],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "description": "Host-less capability tokens. Must include the exact opaque seat-spheres contract token.",
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "contract: seat-spheres/v0"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "seat": {
+      "$ref": "#/$defs/holder",
+      "description": "The seat's holder: an agent or a person, never a run."
+    },
+    "reports_to": {
+      "$ref": "#/$defs/actor-id",
+      "description": "Optional agent or person id this seat reports to. Never a run."
+    },
+    "function": {
+      "$ref": "#/$defs/function",
+      "description": "The seat's function. Stable for the life of the seat."
+    },
+    "spheres": {
+      "type": "array",
+      "description": "Delegated subjects only. Unlisted means open, not owned, except for subject kinds a consumer treats as closed by default (see the README). Each subject appears at most once; consumers MUST enforce uniqueness of (subject.kind, subject.id).",
+      "items": {
+        "$ref": "#/$defs/sphere"
+      }
+    },
+    "almanac_locator": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Optional opaque locator for the seat's capabilities in an almanac. Capabilities are not part of this schema."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "subject-id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+([._/-][a-z0-9]+)*$",
+      "maxLength": 128,
+      "description": "Lowercase subject id. Segments of a-z and 0-9 joined by single '.', '_', '/', or '-'."
+    },
+    "display-slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 63
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "format": "date"
+    },
+    "agent-id": {
+      "type": "string",
+      "pattern": "^agent-[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "person-id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+      "not": {
+        "pattern": "^(agent|run)-"
+      },
+      "description": "Person id. Must not carry the agent- or run- prefix."
+    },
+    "actor-id": {
+      "description": "An agent or person id; never a run id.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/agent-id"
+        },
+        {
+          "$ref": "#/$defs/person-id"
+        }
+      ]
+    },
+    "function": {
+      "enum": ["builder", "operator", "steward", "consultant", "analyst"]
+    },
+    "relation": {
+      "enum": ["lead", "support", "advise", "assure", "interested"],
+      "description": "Closed relation of the seat to the subject. Default decision rights per relation are documented in the README, not encoded."
+    },
+    "holder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": ["agent", "person"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "agent"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/agent-id"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "person"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/person-id"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/display-slug",
+          "description": "Subject kind slug, for example product, repo, surface, or process."
+        },
+        "id": {
+          "$ref": "#/$defs/subject-id"
+        }
+      }
+    },
+    "exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect", "right"],
+      "description": "An allow widens the defaults and requires a reason. A deny narrows them and may omit it.",
+      "if": {
+        "properties": {
+          "effect": {
+            "const": "allow"
+          }
+        },
+        "required": ["effect"]
+      },
+      "then": {
+        "required": ["reason"]
+      },
+      "properties": {
+        "effect": {
+          "enum": ["allow", "deny"]
+        },
+        "right": {
+          "$ref": "#/$defs/display-slug",
+          "description": "Decision right being overridden, as a slug."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "target", "set_by", "as_of", "expires"],
+      "description": "A measure attached to one sphere entry. expires is required, so there are no permanent measures.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "set_by": {
+          "$ref": "#/$defs/actor-id"
+        },
+        "as_of": {
+          "$ref": "#/$defs/date"
+        },
+        "expires": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "sphere": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "relation"],
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/subject"
+        },
+        "relation": {
+          "$ref": "#/$defs/relation"
+        },
+        "exceptions": {
+          "type": "array",
+          "description": "Short list of allow/deny overrides to the documented defaults for the relation.",
+          "items": {
+            "$ref": "#/$defs/exception"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "since": {
+          "$ref": "#/$defs/date"
+        },
+        "cover": {
+          "$ref": "#/$defs/actor-id",
+          "description": "Optional single agent or person id that acts for the holder when the holder is unavailable; never a second lead. Never a run."
+        },
+        "review_by": {
+          "$ref": "#/$defs/date",
+          "description": "Optional date by which this sphere entry is reviewed."
+        },
+        "no_apply": {
+          "type": "boolean",
+          "description": "When true, the seat authors changes for the subject but does not apply them."
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "measures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measure"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        }
+      }
+    }
+  }
+}
