@@ -185,6 +185,7 @@ Baseline role prompts for AI-assisted development sessions. Each role shapes how
 | `uxdev`        | supplemental | agentic    | Interactive experience implementation              |
 | `analyst`      | supplemental | analytics  | Evidence and decision-ready findings               |
 | `strategist`   | supplemental | consulting | Strategic choices and advice                       |
+| `advisor`      | supplemental | consulting | Client engagement guidance and decision facilitation |
 | `watcher`      | supplemental | automation | Bounded monitoring and escalation                  |
 | `delegate`     | supplemental | governance | Privileged, compartmented assistance               |
 | `secops`       | supplemental | automation | Privileged infrastructure operations               |

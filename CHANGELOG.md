@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   person ids via an explicit collision-checked identity-source mapping rather
   than blind in-place lowercasing or punctuation stripping.
 
+- **Strategic advisor role (`advisor`, draft).** Add supplemental `config/agentic/roles/advisor.yaml`
+  (`1.0.0`, `status: draft`, category `consulting`) and `docs/catalog/roles/advisor.md` for
+  client and stakeholder engagement guidance, and index it in the role catalog, active-role
+  portfolio, selection guide, and adoption guide.
 - **Proposed identity evidence contract (`identity-evidence/v0`) and identity-assurance classifiers.**
   Adds `docs/standards/identity-evidence-contract.md`,
   `docs/standards/identity-assurance-classification.md`, four categorical

@@ -27,6 +27,7 @@ set.
 - [`prodmktg`](../../../config/agentic/roles/prodmktg.yaml) — positioning and messaging
 - [`analyst`](../../../config/agentic/roles/analyst.yaml) — evidence and findings
 - [`strategist`](../../../config/agentic/roles/strategist.yaml) — strategic choices
+- [`advisor`](../../../config/agentic/roles/advisor.yaml) — client engagement guidance and decision facilitation
 - [`watcher`](../../../config/agentic/roles/watcher.yaml) — bounded monitoring
 - [`delegate`](../../../config/agentic/roles/delegate.yaml) — privileged, compartmented assistance
 - [`secops`](../../../config/agentic/roles/secops.yaml) — privileged infrastructure and asset operations
