@@ -5,6 +5,7 @@
   "scope": "3leaps/crucible",
   "outcome": "Canonical role schema accepts bounded-authority metadata.",
   "owner": { "kind": "role", "id": "devlead" },
+  "requested_by": { "kind": "role", "id": "entarch" },
   "lifecycle_class": "ready",
   "priority": "p1",
   "acceptance": [
@@ -13,6 +14,7 @@
     "Malformed authority fails"
   ],
   "escalation": { "default": "entarch" },
+  "check_by": "2026-08-22T15:30:00Z",
   "depends_on": [{ "id": "schema-brief-accepted", "kind": "decision" }],
   "updated": "2026-08-21T15:30:00Z"
 }

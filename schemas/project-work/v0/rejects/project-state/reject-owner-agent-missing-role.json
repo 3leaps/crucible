@@ -1,0 +1,8 @@
+{
+  "id": "pw-bad-project-agent-no-role",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "An agent project owner requires role.",
+  "owner": { "kind": "agent", "id": "agent-seat-planner" },
+  "lifecycle_class": "active",
+  "updated": "2026-11-01T15:30:00Z"
+}

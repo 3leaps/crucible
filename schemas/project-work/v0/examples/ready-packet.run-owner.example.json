@@ -1,0 +1,17 @@
+{
+  "id": "pw-run-owner",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A packet owned by a bounded run acting for an agent seat until it expires.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z",
+    "role": "devlead"
+  },
+  "requested_by": { "kind": "agent", "id": "agent-seat-planner", "role": "cos" },
+  "lifecycle_class": "ready",
+  "check_by": "2026-11-01T22:00:00Z",
+  "acceptance": ["Example"],
+  "updated": "2026-11-01T15:30:00Z"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "pw-requested-by-only",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A packet with requested_by and no check_by is valid.",
+  "owner": {
+    "kind": "role",
+    "id": "devlead"
+  },
+  "requested_by": {
+    "kind": "person",
+    "id": "requester-1",
+    "display": "Requester"
+  },
+  "lifecycle_class": "ready",
+  "acceptance": ["Example"],
+  "updated": "2026-08-21T15:30:00Z"
+}

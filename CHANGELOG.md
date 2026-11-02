@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Project-work contract (`project-work/v0`): `requested_by`, `check_by`, `agent` and `run` party kinds, and `semantic-validation.md`.**
+  Extend `ready-packet.schema.json` with optional `requested_by` (`person`,
+  `role`, or `agent` counterparty; never `unassigned` or `run`) and `check_by`
+  (strict RFC 3339 `instant` requiring a `T` time part and `Z` or UTC offset;
+  required on non-terminal `run`-owned packets). Extend party records across
+  `ready-packet.schema.json`, `project-state.schema.json`,
+  `progress-event.schema.json`, and `control-record.schema.json` with `agent`
+  (`{kind, id, role, display?}`; `id` matches `^agent-[a-z0-9]+(-[a-z0-9]+)*$`,
+  `role` required as the hat worn for the work) and `run`
+  (`{kind, id, parent, expires, role?, display?}`; canonical uppercase ULID
+  `id` with leading `0`–`7`, `parent` constrained via `anyOf` to `agent-id` or
+  `person-id` so runs cannot chain, and strict `instant` `expires`; allowed on
+  packet `owner` and ledger `actor`, forbidden on `requested_by`,
+  `project-state.owner`, and `control-record.decider`). Define a single
+  `person-id` rule (`^[a-z][a-z0-9._-]{0,63}$`, excluding reserved `agent-` and
+  `run-` prefixes and leading `@` handle punctuation) across all party and
+  parent positions, add `schemas/project-work/v0/semantic-validation.md`
+  (`SEM-P01` through `SEM-P07` and `SEM-CASE-01` through `SEM-CASE-05` for seat
+  resolution, authoritative `(parent, expires, role)` run-binding immutability,
+  deterministic run expiry reassignment order when an inherited work role is
+  absent, and `check_by`/`ts` vs. `expires` ordering), and add worked examples
+  and negative fixtures in `schemas/project-work/v0/`. **Compatibility note
+  (unstable `v0/`):** `requested_by`, `check_by`, and the `agent`/`run` party
+  kinds are additive, whereas tightening `person-id` from an arbitrary `1..128`
+  string to `^[a-z][a-z0-9._-]{0,63}$` (excluding `agent-` and `run-`) rejects
+  previously accepted values such as `@maintainer-1`, `human@example.test`,
+  `Human1`, `agent-human`, or 65-character ids; adopters should keep historical
+  ledger segments pinned to their write-time schema revision and remap legacy
+  person ids via an explicit collision-checked identity-source mapping rather
+  than blind in-place lowercasing or punctuation stripping.
+
 - **Proposed identity evidence contract (`identity-evidence/v0`) and identity-assurance classifiers.**
   Adds `docs/standards/identity-evidence-contract.md`,
   `docs/standards/identity-assurance-classification.md`, four categorical

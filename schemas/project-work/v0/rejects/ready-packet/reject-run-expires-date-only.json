@@ -1,0 +1,15 @@
+{
+  "id": "pw-bad-run-expires-date-only",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A run expires is a strict instant; a date alone is ambiguous.",
+  "owner": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01"
+  },
+  "check_by": "2026-11-01T22:00:00Z",
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

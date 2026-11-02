@@ -1,0 +1,10 @@
+{
+  "id": "pw-bad-requested-by",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "requested_by must name a person or role; unassigned is not a requester.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "requested_by": { "kind": "unassigned" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-08-21T15:30:00Z"
+}

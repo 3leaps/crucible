@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-person-at-handle",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A person id is a handle stored without the leading at-sign.",
+  "owner": { "kind": "person", "id": "@maintainer-1" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

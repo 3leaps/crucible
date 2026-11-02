@@ -1,0 +1,17 @@
+{
+  "id": "pw-bad-requested-by-extra",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "requested_by is closed; unknown properties fail.",
+  "owner": {
+    "kind": "role",
+    "id": "devlead"
+  },
+  "requested_by": {
+    "kind": "role",
+    "id": "entarch",
+    "team": "core"
+  },
+  "lifecycle_class": "ready",
+  "acceptance": ["Example"],
+  "updated": "2026-08-21T15:30:00Z"
+}

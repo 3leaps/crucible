@@ -1,0 +1,15 @@
+{
+  "id": "pw-bad-decider-run",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "decision",
+  "summary": "A decider is never a run; a decision outlives the run.",
+  "affects": ["pw-ready-packet-001"],
+  "decider": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "actor": { "kind": "role", "id": "projectmgr" },
+  "ts": "2026-11-01T15:30:00Z"
+}

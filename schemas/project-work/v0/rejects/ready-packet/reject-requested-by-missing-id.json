@@ -1,0 +1,15 @@
+{
+  "id": "pw-bad-requested-by-no-id",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "requested_by requires an id.",
+  "owner": {
+    "kind": "role",
+    "id": "devlead"
+  },
+  "requested_by": {
+    "kind": "role"
+  },
+  "lifecycle_class": "ready",
+  "acceptance": ["Example"],
+  "updated": "2026-08-21T15:30:00Z"
+}

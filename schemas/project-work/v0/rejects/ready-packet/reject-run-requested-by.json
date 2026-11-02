@@ -1,0 +1,15 @@
+{
+  "id": "pw-bad-run-requested-by",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "A run is never a requester; requested_by is person, role, or agent.",
+  "owner": { "kind": "role", "id": "devlead" },
+  "requested_by": {
+    "kind": "run",
+    "id": "run-01JC8Z3K5M7Q4W9XBTN2VYE6RD",
+    "parent": "agent-seat-builder",
+    "expires": "2026-11-01T23:00:00Z"
+  },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

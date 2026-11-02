@@ -1,0 +1,9 @@
+{
+  "id": "pw-bad-agent-id",
+  "capabilities": ["contract: project-work/v0"],
+  "outcome": "An agent id must match the seat id pattern agent-<slug>.",
+  "owner": { "kind": "agent", "id": "dispatch", "role": "dispatch" },
+  "lifecycle_class": "ready",
+  "acceptance": ["Reject fixture"],
+  "updated": "2026-11-01T15:30:00Z"
+}

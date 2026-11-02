@@ -1,0 +1,8 @@
+{
+  "id": "pw-bad-actor-agent-no-role",
+  "packet_id": "pw-ready-packet-001",
+  "kind": "status",
+  "summary": "An agent actor requires role.",
+  "actor": { "kind": "agent", "id": "agent-seat-router" },
+  "ts": "2026-11-01T15:30:00Z"
+}

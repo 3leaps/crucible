@@ -10,14 +10,38 @@ event_schema="schemas/project-work/v0/progress-event.schema.json"
 goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.example.json >/dev/null
 echo "    [ok] project-work ready-packet example passes"
 
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.check-by-only.example.json >/dev/null
+echo "    [ok] project-work ready-packet check_by-only example passes"
+
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.requested-by-only.example.json >/dev/null
+echo "    [ok] project-work ready-packet requested_by-only example passes"
+
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.agent-owner.example.json >/dev/null
+echo "    [ok] project-work ready-packet agent owner example passes"
+
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.agent-requested-by.example.json >/dev/null
+echo "    [ok] project-work ready-packet agent requested_by example passes"
+
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.run-owner.example.json >/dev/null
+echo "    [ok] project-work ready-packet run owner example passes"
+
+goneat validate data --schema-file "$packet_schema" --data schemas/project-work/v0/examples/ready-packet.run-owner-done.example.json >/dev/null
+echo "    [ok] project-work ready-packet run owner done example passes"
+
 goneat validate data --schema-file "$project_schema" --data schemas/project-work/v0/examples/project-state.example.json >/dev/null
 echo "    [ok] project-work project-state example passes"
+
+goneat validate data --schema-file "$project_schema" --data schemas/project-work/v0/examples/project-state.agent-owner.example.json >/dev/null
+echo "    [ok] project-work project-state agent owner example passes"
 
 goneat validate data --schema-file "$control_schema" --data schemas/project-work/v0/examples/control-record.blocker.example.json >/dev/null
 echo "    [ok] project-work control-record example passes"
 
 goneat validate data --schema-file "$control_schema" --data schemas/project-work/v0/examples/control-record.decision.example.json >/dev/null
 echo "    [ok] project-work control-record decision example passes"
+
+goneat validate data --schema-file "$control_schema" --data schemas/project-work/v0/examples/control-record.agent-decision.example.json >/dev/null
+echo "    [ok] project-work control-record agent decision example passes"
 
 tmpd=$(mktemp -d)
 tmp="$tmpd/event.json"

@@ -75,6 +75,19 @@
     "lifecycle-class": {
       "enum": ["draft", "ready", "active", "blocked", "review", "done", "cancelled"]
     },
+    "agent-id": {
+      "type": "string",
+      "pattern": "^agent-[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64,
+      "description": "Seat id of a hosted agent. The seat registry, not this schema, says what the seat is; resolution is a consumer check."
+    },
+    "person-id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+      "not": { "pattern": "^(agent|run)-" },
+      "description": "Person id: lowercase letter first, then lowercase letters, digits, dot, underscore, or hyphen, 1-64 characters. The agent- and run- prefixes are reserved for agent seats and runs, so a person id can never be mistaken for either."
+    },
     "role-slug": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9]*$",
@@ -87,9 +100,10 @@
       "additionalProperties": false,
       "required": ["kind"],
       "properties": {
-        "kind": { "enum": ["person", "role", "unassigned"] },
+        "kind": { "enum": ["person", "role", "unassigned", "agent"] },
         "id": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "display": { "type": "string", "minLength": 1, "maxLength": 256 }
+        "display": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "role": { "$ref": "#/$defs/role-slug" }
       },
       "allOf": [
         {
@@ -101,11 +115,37 @@
         },
         {
           "if": {
+            "properties": { "kind": { "const": "person" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "id": { "$ref": "#/$defs/person-id" } }
+          }
+        },
+        {
+          "if": {
             "properties": { "kind": { "const": "role" } },
             "required": ["kind"]
           },
           "then": {
             "properties": { "id": { "$ref": "#/$defs/role-slug" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["person", "role", "unassigned"] } },
+            "required": ["kind"]
+          },
+          "then": { "not": { "required": ["role"] } }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "agent" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["id", "role"],
+            "properties": { "id": { "$ref": "#/$defs/agent-id" } }
           }
         },
         {
