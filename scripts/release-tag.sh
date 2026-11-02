@@ -23,14 +23,17 @@
 #     (required; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_GPG_HOMEDIR: dedicated signing keyring directory
 #     (required; the default GPG keyring is never used, see scripts/release-env.sh)
-# - THREELEAPS_CRUCIBLE_PGP_KEY_ID: specific key id/email/fingerprint
+# - THREELEAPS_CRUCIBLE_PGP_KEY_ID: exact uppercase 40-hex signing subkey
+#     fingerprint with trailing ! (required; must match the signing subkey in
+#     docs/security/release-signing-keys.asc; see scripts/release-env.sh)
 # - THREELEAPS_CRUCIBLE_TAGGER_EMAIL: tagger email stamped on the tag object
-#     For GitHub to show the tag as "Verified" this MUST match a user ID (UID)
-#     on the signing key AND be a verified email on the account that holds the
-#     key. If unset, the tag inherits your git user.email, which will NOT match
-#     a shared/org signing key and will leave the tag unverified on GitHub.
+#     (required; never derived from git config; together with
+#     THREELEAPS_CRUCIBLE_TAGGER_NAME must match config/release/tagger-identity.txt,
+#     and the email must match a User ID email on
+#     docs/security/release-signing-keys.asc)
 # - THREELEAPS_CRUCIBLE_TAGGER_NAME: tagger name stamped on the tag object
-#     (cosmetic for verification; set it to the signing key's identity name)
+#     (required; never derived from git config; together with
+#     THREELEAPS_CRUCIBLE_TAGGER_EMAIL must match config/release/tagger-identity.txt)
 # - THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN: set to 1 to allow tagging from non-main branch
 #
 # Retired names (refused, see scripts/release-env.sh): RELEASE_TAG and the
@@ -78,25 +81,12 @@ ensure_gpg_signing_ready() {
         exit 1
     fi
 
-    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-}"
+    local key_id="${RELEASE_PGP_KEY_ID}"
     local listing
 
-    if [ -n "${key_id}" ]; then
-        listing="$(gpg --list-secret-keys --with-colons --keyid-format=long "${key_id}" 2>/dev/null || true)"
-        if ! grep -q '^sec' <<<"${listing}"; then
-            echo "error: no usable GPG secret key found for key id: ${key_id}" >&2
-            echo "hint: ensure your release env vars are loaded" >&2
-            echo "hint: signing keyring: ${GNUPGHOME}" >&2
-            echo "hint: run: gpg --list-secret-keys --keyid-format=long" >&2
-            echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
-            exit 1
-        fi
-        return 0
-    fi
-
-    listing="$(gpg --list-secret-keys --with-colons --keyid-format=long 2>/dev/null || true)"
+    listing="$(gpg --list-secret-keys --with-colons --keyid-format=long "${key_id}" 2>/dev/null || true)"
     if ! grep -q '^sec' <<<"${listing}"; then
-        echo "error: no usable GPG secret key found for signed tag creation" >&2
+        echo "error: no usable GPG secret key found for key id: ${key_id}" >&2
         echo "hint: ensure your release env vars are loaded" >&2
         echo "hint: signing keyring: ${GNUPGHOME}" >&2
         echo "hint: run: gpg --list-secret-keys --keyid-format=long" >&2
@@ -119,6 +109,7 @@ main() {
     resolve_release_decernor
     require_signing_keyring
     require_signing_program
+    require_signing_identity
 
     local version
     version="$(read_version)"
@@ -176,68 +167,27 @@ main() {
 
     echo "Creating signed tag: $tag"
 
-    local key_id="${THREELEAPS_CRUCIBLE_PGP_KEY_ID:-}"
-
-    # Stamp the tagger identity so it matches the signing key. Without this the
-    # tag object inherits git's user.email, which will not match a shared/org
-    # signing key and leaves the tag "Unverified" on GitHub. See header notes.
-    local tagger_name="${THREELEAPS_CRUCIBLE_TAGGER_NAME:-}"
-    local tagger_email="${THREELEAPS_CRUCIBLE_TAGGER_EMAIL:-}"
-    if [ -n "${tagger_email}" ]; then
-        export GIT_COMMITTER_EMAIL="${tagger_email}"
-        [ -n "${tagger_name}" ] && export GIT_COMMITTER_NAME="${tagger_name}"
-    elif [ -n "${key_id}" ]; then
-        echo "warning: signing with a key id but THREELEAPS_CRUCIBLE_TAGGER_EMAIL is unset;" >&2
-        echo "         the tag will use your git user.email and may show Unverified on GitHub" >&2
-    fi
+    export GIT_COMMITTER_NAME="${RELEASE_TAGGER_NAME}"
+    export GIT_COMMITTER_EMAIL="${RELEASE_TAGGER_EMAIL}"
 
     local tag_err
     tag_err="$(mktemp)"
 
-    if [ -n "${key_id}" ]; then
-        if ! release_signing_git tag -s -a "$tag" -u "${key_id}" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
-            cat "${tag_err}" >&2
-            if grep -qi "no secret key" "${tag_err}"; then
-                echo "hint: no secret key available for signing" >&2
-                echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
-            fi
-            rm -f "${tag_err}"
-            exit 1
+    if ! release_signing_git tag -s -a "$tag" -u "${RELEASE_PGP_KEY_ID}" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
+        cat "${tag_err}" >&2
+        if grep -qi "no secret key" "${tag_err}"; then
+            echo "hint: no secret key available for signing" >&2
+            echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
         fi
-    else
-        if ! release_signing_git tag -s -a "$tag" -m "Release $tag" -m "${policy_attestation}" 2>"${tag_err}"; then
-            cat "${tag_err}" >&2
-            if grep -qi "no secret key" "${tag_err}"; then
-                echo "hint: no secret key available for signing" >&2
-                echo "hint: see RELEASE_CHECKLIST.md (Tagging section)" >&2
-            fi
-            rm -f "${tag_err}"
-            exit 1
-        fi
+        rm -f "${tag_err}"
+        exit 1
     fi
 
     rm -f "${tag_err}"
 
     echo "Verifying tag signature: $tag"
     release_signing_git verify-tag "$tag" >/dev/null
-
-    # Safety check: the tagger email must match a UID on the signing key, or
-    # GitHub will not mark the tag "Verified" even though the signature is good.
-    # Warn (do not fail) so the mismatch is caught before the tag is pushed.
-    if [ -n "${key_id}" ]; then
-        local tagger_actual key_uid_emails
-        tagger_actual="$(git cat-file -p "refs/tags/$tag" |
-            sed -n 's/^tagger .*<\(.*\)>.*/\1/p' | head -1)"
-        key_uid_emails="$(gpg --list-keys --with-colons "${key_id}" 2>/dev/null |
-            awk -F: '$1=="uid"{print $10}' |
-            sed -n 's/.*<\(.*\)>.*/\1/p')"
-        if [ -n "${tagger_actual}" ] &&
-            ! grep -qxF "${tagger_actual}" <<<"${key_uid_emails}"; then
-            echo "warning: tagger email '${tagger_actual}' matches no UID on signing key '${key_id}'" >&2
-            echo "         GitHub will likely show this tag as Unverified." >&2
-            echo "         set THREELEAPS_CRUCIBLE_TAGGER_EMAIL to a UID email on that key" >&2
-        fi
-    fi
+    ./scripts/verify-pinned-tag.sh "$tag"
 
     echo ""
     echo "[ok] Created and verified signed tag: $tag"

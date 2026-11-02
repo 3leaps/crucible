@@ -26,12 +26,21 @@ Required:
   macOS, `getent` elsewhere), not from `HOME`. If either cannot be resolved,
   the step stops. Use a throwaway keyring holding only the signing key, and
   remove it afterwards.
+- `THREELEAPS_CRUCIBLE_PGP_KEY_ID`: the exact uppercase 40-hex signing subkey
+  fingerprint with trailing `!` (`^[0-9A-F]{40}!$`), for `release-tag`. Must
+  match the signing subkey in `docs/security/release-signing-keys.asc`; the
+  default GPG key is never used.
+- `THREELEAPS_CRUCIBLE_TAGGER_NAME`: tagger name stamped on signed tag objects,
+  for `release-tag`. Never derived from `git config`; together with
+  `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`, `${THREELEAPS_CRUCIBLE_TAGGER_NAME} <${THREELEAPS_CRUCIBLE_TAGGER_EMAIL}>`
+  must match `config/release/tagger-identity.txt` before signing.
+- `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`: tagger email stamped on signed tag objects,
+  for `release-tag`. Never derived from `git config`; must match the email in
+  `config/release/tagger-identity.txt` and a User ID email on
+  `docs/security/release-signing-keys.asc` before signing.
 
 Optional:
 
-- `THREELEAPS_CRUCIBLE_PGP_KEY_ID`: key id/email/fingerprint for signing
-- `THREELEAPS_CRUCIBLE_TAGGER_NAME`: tagger name stamped on signed tag objects
-- `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`: tagger email stamped on signed tag objects
 - `THREELEAPS_CRUCIBLE_ALLOW_NON_MAIN`: set to `1` to allow tagging from non-main branch
 
 Refused (unset every one of these; if any is set, even empty, every tag step
@@ -144,9 +153,11 @@ contents are right.
 export GPG_TTY="$(tty)"
 gpg-connect-agent updatestartuptty /bye
 
-# Point to the dedicated signing keyring (required; never the default keyring)
+# Point to the dedicated signing keyring and explicit signing identity (required; never derived)
 export THREELEAPS_CRUCIBLE_GPG_HOMEDIR="/absolute/path/to/throwaway-signing-keyring"
-export THREELEAPS_CRUCIBLE_PGP_KEY_ID="your-key-id"
+export THREELEAPS_CRUCIBLE_PGP_KEY_ID="DAB70DD758911B26BB45A08C3B75AC591449DEBE!"
+export THREELEAPS_CRUCIBLE_TAGGER_NAME="3 Leaps Infosec Team"
+export THREELEAPS_CRUCIBLE_TAGGER_EMAIL="infosec@3leaps.net"
 
 # Verify key is available
 GNUPGHOME="${THREELEAPS_CRUCIBLE_GPG_HOMEDIR}" gpg --list-secret-keys --keyid-format=long
@@ -260,14 +271,16 @@ invisible to every consumer while the repository looks healthy.
       attestation both passed. The read-only check reports bypass actors as
       not visible and not checked; the Pre-Release full check is the record
       for them.
-- [ ] Verify the release is **published, not draft**, and — for a stable release
-      — carries the **Latest** flag:
+- [ ] Verify the release is **published, not draft**, **immutable**, and — for a
+      stable release — carries the **Latest** flag:
   ```bash
   gh release view "${THREELEAPS_CRUCIBLE_RELEASE_TAG}" --json isDraft,isPrerelease,url
+  gh api "repos/3leaps/crucible/releases/tags/${THREELEAPS_CRUCIBLE_RELEASE_TAG}" \
+    --jq '{tag_name: .tag_name, draft: .draft, prerelease: .prerelease, immutable: .immutable}'
   gh api repos/3leaps/crucible/releases/latest --jq .tag_name
   ```
-  Expected for a stable release: `isDraft: false`, and `releases/latest` names this tag.
-  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, and `releases/latest`
+  Expected for a stable release: `isDraft: false`, `immutable: true`, and `releases/latest` names this tag.
+  Expected for a prerelease: `isDraft: false`, `isPrerelease: true`, `immutable: true`, and `releases/latest`
   still names the previous stable tag.
 - [ ] Verify the published release is reachable and its notes render correctly:
       https://github.com/3leaps/crucible/releases/latest
@@ -312,14 +325,14 @@ CI publishes only tags that `scripts/verify-pinned-tag.sh` accepts (PDR-0004 §2
 PDR-0008). It reads these files from the tagged commit, not the working tree, and
 verifies the anchors with the digest-pinned designated checker:
 
-| File | Holds |
-| --- | --- |
-| `docs/security/release-signing-keys.asc` | Public primary plus exactly one signing subkey |
-| `docs/security/crucible-minisign.pub` | Minisign public pin (shared 3leaps key; signs no crucible asset today) |
-| `keys/expected-fingerprints.txt` | `gpg <primary fingerprint>` then `minisign <sha256 of key blob>` |
-| `keys/expected-fingerprints.ndjson` | The checker's fingerprint records for the same two keys |
-| `config/release/tagger-identity.txt` | Required tagger name and email |
-| `config/release/decernor-ci-sha256.txt` | Digest of each checker archive CI or the ceremony downloads |
+| File                                     | Holds                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `docs/security/release-signing-keys.asc` | Public primary plus exactly one signing subkey                         |
+| `docs/security/crucible-minisign.pub`    | Minisign public pin (shared 3leaps key; signs no crucible asset today) |
+| `keys/expected-fingerprints.txt`         | `gpg <primary fingerprint>` then `minisign <sha256 of key blob>`       |
+| `keys/expected-fingerprints.ndjson`      | The checker's fingerprint records for the same two keys                |
+| `config/release/tagger-identity.txt`     | Required tagger name and email                                         |
+| `config/release/decernor-ci-sha256.txt`  | Digest of each checker archive CI or the ceremony downloads            |
 
 The tag must carry one good, unexpired signature by the pinned signing subkey.
 `make release-verify-tag` runs the same check locally. The key exports are the
@@ -428,6 +441,10 @@ All scripts are in `scripts/` and can be run directly if needed.
 - Requires a dedicated signing keyring, refusing the default keyring by
   either resolution
 - Refuses a non-OpenPGP or non-`gpg` signing configuration
+- Requires explicit `THREELEAPS_CRUCIBLE_TAGGER_NAME`,
+  `THREELEAPS_CRUCIBLE_TAGGER_EMAIL`, and `THREELEAPS_CRUCIBLE_PGP_KEY_ID`
+  (`^[0-9A-F]{40}!$`) matching `config/release/tagger-identity.txt` and the
+  signing subkey in `docs/security/release-signing-keys.asc` before `gpg` runs
 - Runs each push-step remote call against the explicit URL with only the org
   token (see Push)
 

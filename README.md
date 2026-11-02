@@ -387,7 +387,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-Dual-licensed: CC0 for documentation, MIT for code. See [LICENSE](LICENSE).
+Dual-licensed (`(MIT AND CC0-1.0)`): [CC0-1.0](LICENSE-CC0) for documentation, schemas, role prompts, and standards; [MIT](LICENSE) for code and automation. See [NOTICE](NOTICE) for the scope boundary and trademark notice.
 
 ---
 
