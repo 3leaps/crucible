@@ -1,0 +1,35 @@
+{
+  "capabilities": ["contract: seat-spheres/v0"],
+  "seat": { "kind": "agent", "id": "agent-lead-one" },
+  "function": "steward",
+  "spheres": [
+    {
+      "subject": { "kind": "product", "id": "example-product" },
+      "relation": "lead",
+      "since": "2026-09-01",
+      "note": "Delegated lead for the product.",
+      "exceptions": [
+        { "effect": "deny", "right": "release", "reason": "Releases go through the maintainer." }
+      ],
+      "measures": [
+        {
+          "name": "Open review queue",
+          "target": "No review waits longer than two working days.",
+          "set_by": "maintainer",
+          "as_of": "2026-10-01",
+          "expires": "2026-12-31"
+        }
+      ]
+    },
+    {
+      "subject": { "kind": "repo", "id": "example-repo" },
+      "relation": "support"
+    },
+    {
+      "subject": { "kind": "process", "id": "example-intake" },
+      "relation": "interested"
+    }
+  ],
+  "almanac_locator": "almanac:seats/steward",
+  "updated": "2026-11-02T12:00:00Z"
+}
