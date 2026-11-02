@@ -50,6 +50,7 @@ For creative works and deterministic media systems:
 | [Product Marketing](prodmktg.yaml)                    | `prodmktg`   | marketing  | Positioning, messaging, and audience narrative                                                                   |
 | [Analyst](analyst.yaml)                               | `analyst`    | analytics  | Evidence, methods, uncertainty, and decision-ready findings                                                      |
 | [Strategist](strategist.yaml)                         | `strategist` | consulting | Strategic diagnosis, foresight, choices, and advice                                                              |
+| [Strategic Advisor](advisor.yaml)                     | `advisor`    | consulting | Strategic guidance, problem framing, and decision facilitation for client and stakeholder engagements            |
 | [Watcher](watcher.yaml)                               | `watcher`    | automation | Bounded monitoring, routine triage, and escalation                                                               |
 | [Delegated Assistant](delegate.yaml)                  | `delegate`   | governance | Compartmented assistance under explicit principal grants                                                         |
 | [Security and Infrastructure Operations](secops.yaml) | `secops`     | automation | Privileged asset curation and security operations                                                                |
@@ -90,6 +91,7 @@ the canonical migration path.
 | Build or operate data systems                     | dataeng      | analyst, entarch, secrev                                               |
 | Produce decision-support evidence                 | analyst      | independent assurance; strategist for implications                     |
 | Develop strategic choices                         | strategist   | analyst, cxotech, entarch                                              |
+| Guide a client or stakeholder engagement          | advisor      | analyst, strategist, entarch, human maintainers                        |
 | Monitor a bounded surface                         | watcher      | dispatch, analyst, secrev                                              |
 | Assist with privileged communications             | delegate     | principals, secrev, projectmgr                                         |
 | Build security tooling or CI security gates       | devsecops    | secrev; secops for live-asset work; releng for complex release systems |

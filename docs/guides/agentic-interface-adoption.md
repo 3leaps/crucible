@@ -124,6 +124,7 @@ cp ../crucible/config/agentic/roles/devrev.yaml \
 | Creative    | `creative`   | Musical, visual, motion, and editorial asset craft   |
 | Analyst     | `analyst`    | Evidence, methods, and findings                      |
 | Strategist  | `strategist` | Strategic options and recommendations                |
+| Advisor     | `advisor`    | Client engagement guidance and decision facilitation |
 | Data Eng    | `dataeng`    | Data systems, quality, and lineage                   |
 | Watcher     | `watcher`    | Bounded monitoring and escalation                    |
 | Delegate    | `delegate`   | Privileged assistance under explicit grants          |
