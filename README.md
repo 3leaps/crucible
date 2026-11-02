@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.2.6](https://img.shields.io/badge/version-0.2.6-blue)
+![Version: 0.2.7](https://img.shields.io/badge/version-0.2.7-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -176,32 +176,32 @@ Key targets:
 
 Baseline role prompts for AI-assisted development sessions. Each role shapes how an agent approaches work through context engineering. Roles carry a **tier** — default guidance that adopting repos may re-tier: **core** (always-on spine), **supplemental** (adopt by need), **deprecated** (retired). See [PDR-0003](docs/decisions/PDR-0003-role-portfolio-tiering.md).
 
-| Role           | Tier         | Category   | Purpose                                            |
-| -------------- | ------------ | ---------- | -------------------------------------------------- |
-| `devlead`      | core         | agentic    | Implementation, architecture                       |
-| `devrev`       | core         | review     | Code review, four-eyes audit                       |
-| `secrev`       | core         | review     | Security analysis                                  |
-| `cxotech`      | core         | governance | Strategic fulcrum, brief/ADR approval              |
-| `entarch`      | supplemental | governance | Technology-side architecture coherence             |
-| `uxdev`        | supplemental | agentic    | Interactive experience implementation              |
-| `analyst`      | supplemental | analytics  | Evidence and decision-ready findings               |
-| `strategist`   | supplemental | consulting | Strategic choices and advice                       |
+| Role           | Tier         | Category   | Purpose                                              |
+| -------------- | ------------ | ---------- | ---------------------------------------------------- |
+| `devlead`      | core         | agentic    | Implementation, architecture                         |
+| `devrev`       | core         | review     | Code review, four-eyes audit                         |
+| `secrev`       | core         | review     | Security analysis                                    |
+| `cxotech`      | core         | governance | Strategic fulcrum, brief/ADR approval                |
+| `entarch`      | supplemental | governance | Technology-side architecture coherence               |
+| `uxdev`        | supplemental | agentic    | Interactive experience implementation                |
+| `analyst`      | supplemental | analytics  | Evidence and decision-ready findings                 |
+| `strategist`   | supplemental | consulting | Strategic choices and advice                         |
 | `advisor`      | supplemental | consulting | Client engagement guidance and decision facilitation |
-| `watcher`      | supplemental | automation | Bounded monitoring and escalation                  |
-| `delegate`     | supplemental | governance | Privileged, compartmented assistance               |
-| `secops`       | supplemental | automation | Privileged infrastructure operations               |
-| `projectmgr`   | supplemental | governance | Land a stated unit of work with exact state and GO |
-| `infoarch`     | supplemental | agentic    | Documentation, schemas                             |
-| `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage              |
-| `mediaeng`     | supplemental | agentic    | Audio, video, graphics, DSP, and render pipelines  |
-| `creative`     | supplemental | agentic    | Musical, visual, motion, and editorial craft       |
-| `prodmktg`     | supplemental | marketing  | Product positioning and messaging                  |
-| `releng`       | supplemental | automation | Complex release systems                            |
-| `devsecops`    | supplemental | automation | Security tooling and CI security gates             |
-| `dispatch`     | supplemental | governance | Estate routing and coordination                    |
-| `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance           |
-| `deliverylead` | deprecated   | governance | Retired — use `projectmgr`                         |
-| `cicd`         | deprecated   | automation | Retired — use `releng` + `devlead`                 |
+| `watcher`      | supplemental | automation | Bounded monitoring and escalation                    |
+| `delegate`     | supplemental | governance | Privileged, compartmented assistance                 |
+| `secops`       | supplemental | automation | Privileged infrastructure operations                 |
+| `projectmgr`   | supplemental | governance | Land a stated unit of work with exact state and GO   |
+| `infoarch`     | supplemental | agentic    | Documentation, schemas                               |
+| `dataeng`      | supplemental | analytics  | Data architecture, pipelines, lineage                |
+| `mediaeng`     | supplemental | agentic    | Audio, video, graphics, DSP, and render pipelines    |
+| `creative`     | supplemental | agentic    | Musical, visual, motion, and editorial craft         |
+| `prodmktg`     | supplemental | marketing  | Product positioning and messaging                    |
+| `releng`       | supplemental | automation | Complex release systems                              |
+| `devsecops`    | supplemental | automation | Security tooling and CI security gates               |
+| `dispatch`     | supplemental | governance | Estate routing and coordination                      |
+| `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance             |
+| `deliverylead` | deprecated   | governance | Retired — use `projectmgr`                           |
+| `cicd`         | deprecated   | automation | Retired — use `releng` + `devlead`                   |
 
 See [config/agentic/roles/README.md](config/agentic/roles/README.md) for full catalog and usage.
 

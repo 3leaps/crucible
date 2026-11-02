@@ -10,6 +10,40 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.7 (2026-11-02)
+
+**Adds proposed `identity-evidence/v0` and draft `seat-spheres/v0` contracts, extends `project-work/v0` with commitment and `agent`/`run` provenance fields, adds the draft `advisor` role, splits SPDX `MIT`/`CC0-1.0` license files, and enforces pre-sign tagger identity.**
+
+- **Identity evidence (`identity-evidence/v0`, proposed) and identity-assurance classifiers**:
+  adds `docs/standards/identity-evidence-contract.md`,
+  `docs/standards/identity-assurance-classification.md`, four categorical
+  classifier dimensions (`identity-binding`, `key-custody`,
+  `execution-isolation`, `platform-evidence`), and the
+  `schemas/identity-evidence/v0/` schema, profile (`local-process-session` and
+  `report-admission`), example and vector bundle with batched logical and wire
+  controls.
+- **Seat spheres (`seat-spheres/v0`, draft) and `project-work/v0` commitment/provenance**:
+  adds `docs/standards/seat-spheres-model.md` and `schemas/seat-spheres/v0/` for
+  seat `function`, `reports_to`, per-subject `spheres[]` (`lead`, `support`,
+  `advise`, `assure`, `interested`), read-time rollup rules and packet-to-subject
+  linking; extends `project-work/v0` with `requested_by`, `check_by`, `agent`
+  (requiring `role`) and `run` (requiring `parent`, `expires` and packet
+  `check_by`) party kinds, standardized `person-id` (`^[a-z][a-z0-9._-]{0,63}$`,
+  excluding `agent-` and `run-`), and `schemas/project-work/v0/semantic-validation.md`.
+- **Role catalog, licensing and release provenance**: adds supplemental draft
+  `config/agentic/roles/advisor.yaml` (`1.0.0`, category `consulting`); splits
+  root licensing into verbatim SPDX `LICENSE` (`MIT`), `LICENSE-CC0` (`CC0-1.0`)
+  and `NOTICE` (`package.json` `"(MIT AND CC0-1.0)"`); requires verified
+  `THREELEAPS_CRUCIBLE_TAGGER_NAME`, `THREELEAPS_CRUCIBLE_TAGGER_EMAIL` and
+  `THREELEAPS_CRUCIBLE_PGP_KEY_ID` (`^[0-9A-F]{40}!$`) before `gpg` signing in
+  `scripts/release-tag.sh`; and fixes `durable-record` (`v0` and `v1`) wire
+  preflight to catch `OverflowError` on large non-protocol integers and order
+  document-wide `ingest` checks ahead of `numeric_domain`.
+
+See [docs/releases/v0.2.7.md](docs/releases/v0.2.7.md).
+
+---
+
 ## v0.2.6 (2026-10-30)
 
 **Durable-record bounds protocol integers at 2^53 - 1 and batches schema validation; role catalog adds draft devsecops, mediaeng and creative prompts and refines secops.**
@@ -51,26 +85,3 @@ See [docs/releases/v0.2.6.md](docs/releases/v0.2.6.md).
   above the floating-point range without `OverflowError`.
 
 See [docs/releases/v0.2.5.md](docs/releases/v0.2.5.md).
-
----
-
-## v0.2.4 (2026-10-28)
-
-**Durable-record/v1 records body lifecycle; release tag tooling closes four silent defaults.**
-
-- **Body lifecycle (durable-record/v1, additive)**: a store that supports
-  removing external bodies names a `body_removal_stream` and records
-  `body_published`, `body_removal_started` and `body_removed` there, per body
-  and incarnation. A removal is evidenced only by `body_removed`; a later
-  publication abandons an open removal. Reader states are defined at a
-  consistent cut. Lifecycle grants no removal eligibility, and physical
-  removal stays fail-closed. Existing v1 records and journals are unchanged.
-  The logical controls qualify no store.
-- **Release tag tooling**: `make release-tag` refuses the default keyring and
-  signs with a pinned OpenPGP `gpg` signer, reporting any configured signer it
-  overrides; `make release-push-tag` uses the
-  explicit HTTPS URL with only the org token, isolated from home credentials,
-  proxy and TLS overrides. The read-only ruleset check no longer reports a
-  hidden bypass list as a match.
-
-See [docs/releases/v0.2.4.md](docs/releases/v0.2.4.md).
