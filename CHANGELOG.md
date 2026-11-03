@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Agentic role catalog: `opslead` (draft).**
+  Adds supplemental `config/agentic/roles/opslead.yaml` (`1.0.0`,
+  `status: draft`, category `governance`, domains `governance`, `coordination`,
+  and `automation`) for accountable stewardship of estate operating procedures,
+  seat and identity lifecycle records, and operating-convention baselines,
+  acting through explicit grants for any privileged step while handing
+  coordination-tool operation to `dispatch` and credential, asset, and
+  security-hardening operations to `secops` or a human custodian. Indexed in
+  `config/agentic/roles/README.md`, `README.md`,
+  `docs/catalog/roles/README.md`, `docs/catalog/roles/active-roles.md`,
+  `docs/catalog/roles/opslead.md`, and
+  `docs/guides/agentic-interface-adoption.md`.
+
 ## [0.2.7] - 2026-11-02
 
 ### Added

@@ -133,6 +133,7 @@ cp ../crucible/config/agentic/roles/devrev.yaml \
 | Rel Eng     | `releng`     | Complex release and publication systems              |
 | Dev Sec Ops | `devsecops`  | Security tooling, CI gates, and supply-chain pinning |
 | Dispatch    | `dispatch`   | Estate routing and coordination                      |
+| Ops Lead    | `opslead`    | Operating procedures and seat/surface lifecycles     |
 
 ### Recommended by Repository Type
 

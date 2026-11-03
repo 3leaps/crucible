@@ -33,6 +33,7 @@ set.
 - [`secops`](../../../config/agentic/roles/secops.yaml) — privileged infrastructure and asset operations
 - [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) — land a stated unit of work with exact state and GO
 - [`dispatch`](../../../config/agentic/roles/dispatch.yaml) — estate routing
+- [`opslead`](../../../config/agentic/roles/opslead.yaml) — operating procedures, seat and identity lifecycle records, and operating-convention baselines
 - [`infoarch`](../../../config/agentic/roles/infoarch.yaml) — information structure
 - [`releng`](../../../config/agentic/roles/releng.yaml) — complex release systems
 - [`devsecops`](../../../config/agentic/roles/devsecops.yaml) — security tooling, CI security gates, and supply-chain pinning
@@ -67,6 +68,13 @@ for information access, actions, and disclosure.
 `secops` is the asset-facing privileged operator. It receives operational
 authority only through an explicit custodianship grant and remains separate
 from independent security review by `secrev`.
+
+`opslead` stewards operating procedures, seat and identity lifecycle records,
+and operating-convention baselines (merge policy, labels, publication
+conventions, naming): it owns the process and the record without holding
+secrets, while `dispatch` operates coordination channels, registries, and
+routing tools and `secops` owns asset custodianship and security-hardening
+baselines.
 
 `devsecops` engineers security tooling, CI security gates, signing and
 verification tooling, credential-lifecycle tooling, and supply-chain pinning in

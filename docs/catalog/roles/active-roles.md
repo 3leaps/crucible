@@ -43,6 +43,7 @@ it does not duplicate the full prompts.
 | [`mediaeng`](../../../config/agentic/roles/mediaeng.yaml)     | Engineering deterministic audio, video, graphics, vector, DSP, codec, and rendering pipelines                                                                                    | Verify explicit signal/timebase/color invariants, shell-free external-tool wrapping, and the `creative`, `uxdev`, and `dataeng` seams                                              |
 | [`creative`](../../../config/agentic/roles/creative.yaml)     | Authoring, arranging, editing, and illustrating structured audio, video, vector, and procedural media works within a brief                                                       | Confirm human-principal artistic authority, provenance and license hygiene, and separation from `mediaeng` pipeline contracts, `infoarch` technical structure, and `uxdev` UI work |
 | [`projectmgr`](../../../config/agentic/roles/projectmgr.yaml) | Landing a stated release arc or other quantifiable unit of work: critical path, risk, reshape, owners, readiness                                                                 | Verify exact-state, folded HOLDs, successor checks, and GO teeth without absorbing dispatch or cxotech                                                                             |
+| [`opslead`](../../../config/agentic/roles/opslead.yaml)       | Stewarding estate operating procedures, seat and identity lifecycle records, and operating-convention baselines under explicit grants for any privileged step                    | Confirm the process-and-record boundary (no secrets held) and the seams with `dispatch` (routing), `secops` (asset custodianship), and `devsecops` (security tooling)              |
 
 ## Common operating chains
 
@@ -65,6 +66,10 @@ Privileged principal assistance:
 Privileged infrastructure:
 
 `custodianship grant → secops operates → secrev independently reviews → human accepts risk`
+
+Operating procedures and lifecycles:
+
+`opslead authors procedure / prepares lifecycle packet → secrev / peer reviews → secops or custodian executes privileged steps under grant`
 
 Security controls:
 

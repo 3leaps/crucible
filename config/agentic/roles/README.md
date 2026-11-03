@@ -56,6 +56,7 @@ For creative works and deterministic media systems:
 | [Security and Infrastructure Operations](secops.yaml) | `secops`     | automation | Privileged asset curation and security operations                                                                |
 | [Project Manager](projectmgr.yaml)                    | `projectmgr` | governance | Land a stated unit of work: exact state, gates, owners, GO                                                       |
 | [Dispatch Coordinator](dispatch.yaml)                 | `dispatch`   | governance | Estate routing, handoffs, coordination health, and operator tooling                                              |
+| [Operations Lead](opslead.yaml)                       | `opslead`    | governance | Operating procedures, seat/identity lifecycle records, and operating-convention baselines                        |
 | [Information Architect](infoarch.yaml)                | `infoarch`   | agentic    | Documentation, schemas, and information structure                                                                |
 | [Release Engineering](releng.yaml)                    | `releng`     | automation | Complex release, publication, signing, provenance, and CI systems                                                |
 | [Security Tooling Engineer](devsecops.yaml)           | `devsecops`  | automation | Security tooling, CI security gates, signing/verification and credential-lifecycle tooling, supply-chain pinning |
@@ -98,6 +99,7 @@ the canonical migration path.
 | Operate privileged infrastructure                 | secops       | secrev, entarch, maintainers                                           |
 | Land a release arc or other unit of work          | projectmgr   | dispatch for routing; cxotech for path                                 |
 | Route sessions and maintain coordination          | dispatch     | projectmgr or accountable owner                                        |
+| Steward operating procedures and seat lifecycles  | opslead      | dispatch for coordination tools; secops for asset/hardening steps      |
 | Engineer a complex release system                 | releng       | devlead, secrev, maintainers                                           |
 
 ## Usage
