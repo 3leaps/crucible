@@ -74,7 +74,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 3leaps/crucible/
 ├── config/                    # Configuration data (YAML/JSON, schema-validated)
 │   ├── agentic/
-│   │   └── roles/             # AI agent role prompts (23 definitions)
+│   │   └── roles/             # AI agent role prompts (25 definitions)
 │   ├── classifiers/
 │   │   └── dimensions/        # Classifier dimension definitions (15 dimensions)
 │   └── release/               # Tagger identity and decernor archive digest
@@ -199,6 +199,7 @@ Baseline role prompts for AI-assisted development sessions. Each role shapes how
 | `releng`       | supplemental | automation | Complex release systems                              |
 | `devsecops`    | supplemental | automation | Security tooling and CI security gates               |
 | `dispatch`     | supplemental | governance | Estate routing and coordination                      |
+| `opslead`      | supplemental | governance | Operating procedures and seat/surface lifecycles     |
 | `qa`           | deprecated   | review     | Retired — use `devrev` + task acceptance             |
 | `deliverylead` | deprecated   | governance | Retired — use `projectmgr`                           |
 | `cicd`         | deprecated   | automation | Retired — use `releng` + `devlead`                   |
