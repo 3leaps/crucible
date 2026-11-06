@@ -491,6 +491,8 @@ PY
 check_release_key_expiry() {
     local pin_file="${1:-docs/security/release-signing-keys.asc}"
     python3 -I - "$pin_file" <<'PY'
+from __future__ import annotations
+
 import base64
 import binascii
 import datetime
@@ -671,73 +673,74 @@ for key in (primaries[0], signing_subkeys[0]):
         )
 
 gpg_bin = shutil.which("gpg")
-if gpg_bin:
-    gpgconf_bin = shutil.which("gpgconf")
-    tmp_home = tempfile.mkdtemp(prefix="crucible-keycheck.")
-    os.chmod(tmp_home, 0o700)
-    try:
-        env = dict(os.environ, GNUPGHOME=tmp_home)
-        imp = subprocess.run(
-            [gpg_bin, "--batch", "--quiet", "--import", str(pin_path)],
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if imp.returncode != 0:
-            sys.exit(f"error: gpg failed to import {pin_path}")
-        chk = subprocess.run(
-            [gpg_bin, "--batch", "--with-colons", "--check-sigs"],
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if chk.returncode != 0:
-            sys.exit(f"error: gpg signature check failed on {pin_path}")
-        good_sigs = 0
-        for line in chk.stdout.splitlines():
-            parts = line.split(":")
-            if parts[0] in ("sig", "rev"):
-                if parts[1] != "!":
-                    sys.exit(
-                        f"error: unverified or bad binding signature ({parts[0]}:{parts[1]}) in {pin_path}"
-                    )
-                good_sigs += 1
-        if good_sigs < 2:
-            sys.exit(f"error: expected verified primary and subkey binding signatures in {pin_path}")
-        lst = subprocess.run(
-            [gpg_bin, "--batch", "--with-colons", "--with-subkey-fingerprint", "--list-keys"],
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if lst.returncode != 0:
-            sys.exit(f"error: gpg list-keys failed on {pin_path}")
-        gpg_exp: dict[str, int] = {}
-        pending_exp: int | None = None
-        for line in lst.stdout.splitlines():
-            parts = line.split(":")
-            if parts[0] in ("pub", "sub"):
-                exp_field = parts[6] if len(parts) > 6 else ""
-                if not exp_field.isdigit() or int(exp_field) <= 0:
-                    sys.exit(f"error: gpg reported missing expiration timestamp in {pin_path}")
-                pending_exp = int(exp_field)
-            elif parts[0] == "fpr" and pending_exp is not None:
-                fpr_val = parts[9] if len(parts) > 9 else ""
-                gpg_exp[fpr_val] = pending_exp
-                pending_exp = None
-        for key in (primaries[0], signing_subkeys[0]):
-            fpr_str = str(key["fpr"])
-            if gpg_exp.get(fpr_str) != int(key["expires"]):
+if not gpg_bin:
+    sys.exit("error: gpg not found in PATH; required to verify release key binding signatures")
+gpgconf_bin = shutil.which("gpgconf")
+tmp_home = tempfile.mkdtemp(prefix="crucible-keycheck.")
+os.chmod(tmp_home, 0o700)
+try:
+    env = dict(os.environ, GNUPGHOME=tmp_home)
+    imp = subprocess.run(
+        [gpg_bin, "--batch", "--quiet", "--import", str(pin_path)],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if imp.returncode != 0:
+        sys.exit(f"error: gpg failed to import {pin_path}")
+    chk = subprocess.run(
+        [gpg_bin, "--batch", "--with-colons", "--check-sigs"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if chk.returncode != 0:
+        sys.exit(f"error: gpg signature check failed on {pin_path}")
+    good_sigs = 0
+    for line in chk.stdout.splitlines():
+        parts = line.split(":")
+        if parts[0] in ("sig", "rev"):
+            if parts[1] != "!":
                 sys.exit(
-                    f"error: packet expiry for {key['role']} {fpr_str} disagrees with verified gpg expiry"
+                    f"error: unverified or bad binding signature ({parts[0]}:{parts[1]}) in {pin_path}"
                 )
-    finally:
-        if gpgconf_bin:
-            subprocess.run(
-                [gpgconf_bin, "--homedir", tmp_home, "--kill", "all"],
-                capture_output=True,
+            good_sigs += 1
+    if good_sigs < 2:
+        sys.exit(f"error: expected verified primary and subkey binding signatures in {pin_path}")
+    lst = subprocess.run(
+        [gpg_bin, "--batch", "--with-colons", "--with-subkey-fingerprint", "--list-keys"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if lst.returncode != 0:
+        sys.exit(f"error: gpg list-keys failed on {pin_path}")
+    gpg_exp: dict[str, int] = {}
+    pending_exp: int | None = None
+    for line in lst.stdout.splitlines():
+        parts = line.split(":")
+        if parts[0] in ("pub", "sub"):
+            exp_field = parts[6] if len(parts) > 6 else ""
+            if not exp_field.isdigit() or int(exp_field) <= 0:
+                sys.exit(f"error: gpg reported missing expiration timestamp in {pin_path}")
+            pending_exp = int(exp_field)
+        elif parts[0] == "fpr" and pending_exp is not None:
+            fpr_val = parts[9] if len(parts) > 9 else ""
+            gpg_exp[fpr_val] = pending_exp
+            pending_exp = None
+    for key in (primaries[0], signing_subkeys[0]):
+        fpr_str = str(key["fpr"])
+        if gpg_exp.get(fpr_str) != int(key["expires"]):
+            sys.exit(
+                f"error: packet expiry for {key['role']} {fpr_str} disagrees with verified gpg expiry"
             )
-        shutil.rmtree(tmp_home, ignore_errors=True)
+finally:
+    if gpgconf_bin:
+        subprocess.run(
+            [gpgconf_bin, "--homedir", tmp_home, "--kill", "all"],
+            capture_output=True,
+        )
+    shutil.rmtree(tmp_home, ignore_errors=True)
 
 now = int(time.time())
 for key in (primaries[0], signing_subkeys[0]):

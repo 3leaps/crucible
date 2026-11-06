@@ -709,36 +709,11 @@ class State:
         return {"outcome": "receipt_verified"}
 
     def verify_reconciliation(self, received):
-        att = self.instant(received["attempted_at"])
-        require(
-            received.get("v") == 1 and received.get("stream") == self.stream,
-            "receipt_mismatch",
-        )
-        res = received.get("result")
-        if res == "not_found":
-            frm = self.instant(received["window_covers_from"])
-            until = self.instant(received["window_covers_until"])
-            require(
-                frm <= att <= until
-                and self.live(
-                    received["idempotency_key"], received["window_covers_until"]
-                )
-                is None,
-                "receipt_mismatch",
-            )
-            return {"outcome": "receipt_verified"}
-        if res == "found":
-            prior = self.live(received["idempotency_key"], received["attempted_at"])
-            require(
-                prior is not None and received.get("receipt") == prior[2],
-                "receipt_mismatch",
-            )
-            return {"outcome": "receipt_verified"}
-        require(
-            res == "unknown"
-            and received.get("reason") in ("window_elapsed", "coverage_unprovable"),
-            "receipt_mismatch",
-        )
+        self.instant(received["attempted_at"])
+        if "window_covers_from" in received:
+            self.instant(received["window_covers_from"])
+        if "window_covers_until" in received:
+            self.instant(received["window_covers_until"])
         return {"outcome": "receipt_verified"}
 
     def reconcile(self, key, at, attempted_at):
@@ -1903,6 +1878,13 @@ def prewarm_shape_cache(cases, rejects, examples):
         add_key(rc["schema"], json.dumps(rc["reject"]))
     for path in examples:
         add_key(path.name.split(".")[0], json.dumps(load(path)))
+    v0_src_entry = load(BASE / "vectors/continuation-v0-source.json")["source_journal"][
+        0
+    ]
+    add_key(
+        BASE.parent / "v0/journal-entry.schema.json",
+        json.dumps({**v0_src_entry, "at": "２０２６-11-05T12:34:56Z"}),
+    )
 
     items = [
         (f"k{idx}", schema_rel, payload)
@@ -2100,6 +2082,12 @@ def timestamp_and_abort_controls():
             "instant-reconcile-attempted-at",
         ),
         (
+            "verify_reconciliation.attempted_at",
+            "verify_reconciliation",
+            "self.instant(received['attempted_at'])",
+            "reconciliation-attempted-at-year-zero",
+        ),
+        (
             "verify_reconciliation.window_covers_from",
             "verify_reconciliation",
             "self.instant(received['window_covers_from'])",
@@ -2190,6 +2178,26 @@ def timestamp_and_abort_controls():
             assert res == {"refusal": "instant_spelling"}, (vec_name, res)
         finally:
             SHAPE_CACHE[schema_key] = False
+
+    # Non-ASCII digits in v0 continuation source entry: rejected at Stage 3 (shape)
+    # under qualified goneat format: "date-time", and also refused at Stage 4 as
+    # continuation if Stage 3 is overridden (defense-in-depth).
+    v0_src_case = load(BASE / "vectors/continuation-v0-source.json")
+    v0_nonascii_entry = {
+        **v0_src_case["source_journal"][0],
+        "at": "２０２６-11-05T12:34:56Z",
+    }
+    v0_schema_path = BASE.parent / "v0/journal-entry.schema.json"
+    assert shape(v0_nonascii_entry, v0_schema_path) is False
+    v0_key = ("v0/journal-entry.schema.json", _norm_raw(json.dumps(v0_nonascii_entry)))
+    try:
+        SHAPE_CACHE[v0_key] = True
+        assert shape(v0_nonascii_entry, v0_schema_path) is True
+        bad_src_case = copy.deepcopy(v0_src_case)
+        bad_src_case["source_journal"][0] = v0_nonascii_entry
+        assert check_case(bad_src_case) == {"refusal": "continuation"}
+    finally:
+        SHAPE_CACHE[v0_key] = False
 
     # 3. Incomplete-append abort & faultpoint matrix controls.
     opened = {

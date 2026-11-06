@@ -381,7 +381,18 @@ PY
 rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
     >"$work/out" 2>"$work/err" || rc=$?
 expect_reason "duplicate subkey binding signature refused" "carries multiple binding signatures"
+git_fixture checkout -- docs/security/release-signing-keys.asc
 git_fixture checkout --quiet main
+
+# 5. Missing gpg on PATH must fail closed in check_release_key_expiry.
+mkdir -p "$work/no-gpg-bin"
+ln -sf "$(command -v python3)" "$work/no-gpg-bin/python3"
+rc=0 && (
+    # shellcheck source=scripts/release-env.sh
+    source "$repo/scripts/release-env.sh"
+    PATH="$work/no-gpg-bin" check_release_key_expiry "$repo/docs/security/release-signing-keys.asc"
+) >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "check_release_key_expiry without gpg on PATH refused" "gpg not found in PATH"
 
 if ((failures)); then
     echo "[!!] release identity controls: $failures failure(s)" >&2

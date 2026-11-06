@@ -1850,6 +1850,63 @@ def self_test() -> None:
                 f"[!!] self-test {bad_schema_label}: check_schema_subset_admission did not fail"
             )
 
+    # 13. v0 stage-trace qualification against the active goneat validator:
+    #     - Stage 3 (shape=False) + Stage 4 defense-in-depth (timestamp):
+    #       non_string, impossible_date, leap_second, non_ascii_digits
+    #     - Stage 3 (shape=True) + Stage 4 refusal (timestamp):
+    #       bare_date, comma_fraction, one_digit_hour, bad_offset_24, year_zero,
+    #       utc_underflow, utc_overflow, seven_frac_digits
+    base_v0_entry = {
+        "v": 0,
+        "seq": 1,
+        "group": 1,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "stream_opened",
+        "at": "2026-10-12T00:00:00Z",
+        "mode": "revisioned",
+        "failure_model": "survives_power_loss",
+    }
+    stage_trace_cases = [
+        ("non_string", 123, False),
+        ("impossible_date", "2026-02-30T00:00:00Z", False),
+        ("leap_second", "2016-12-31T23:59:60Z", False),
+        ("non_ascii_digits", "２０２６-11-05T12:34:56Z", False),
+        ("bare_date", "2026-10-12", True),
+        ("comma_fraction", "2026-10-12T00:00:00,123456Z", True),
+        ("one_digit_hour", "2026-10-12T0:00:00Z", True),
+        ("bad_offset_24", "2026-10-12T00:00:00+24:00", True),
+        ("year_zero", "0000-01-01T00:00:00Z", True),
+        ("utc_underflow", "0001-01-01T00:00:00+01:00", True),
+        ("utc_overflow", "9999-12-31T23:59:59-01:00", True),
+        ("seven_frac_digits", "2026-10-12T00:00:00.0000001Z", True),
+    ]
+    trace_items = [
+        (
+            label,
+            "v0/journal-entry.schema.json",
+            json.dumps({**base_v0_entry, "at": bad_at}) + "\n",
+        )
+        for label, bad_at, _ in stage_trace_cases
+    ]
+    trace_verdicts = shape_suite(trace_items, default_ver="v0")
+    for label, bad_at, expected_shape in stage_trace_cases:
+        if trace_verdicts.get(label) is not expected_shape:
+            raise SystemExit(
+                f"[!!] self-test v0 stage-trace {label}: expected shape={expected_shape}, got {trace_verdicts.get(label)}"
+            )
+        try:
+            check_entry({**base_v0_entry, "at": bad_at}, f"stage4-{label}")
+        except Reject as r:
+            if r.reason != "timestamp":
+                raise SystemExit(
+                    f"[!!] self-test v0 stage-trace {label}: expected timestamp, got {r.reason}"
+                )
+        else:
+            raise SystemExit(
+                f"[!!] self-test v0 stage-trace {label}: check_entry did not refuse"
+            )
+
     print("ok: checker self-test")
 
 

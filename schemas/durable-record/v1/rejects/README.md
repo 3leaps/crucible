@@ -237,6 +237,7 @@ step form: a malformed observation is refused as `body_observation`, and
 - [reconcile-absent.json](../vectors/reconcile-absent.json)
 - [reconcile-expired.json](../vectors/reconcile-expired.json)
 - [reconcile-restored-hold.json](../vectors/reconcile-restored-hold.json)
+- [reconciliation-attempted-at-year-zero.json](../vectors/reconciliation-attempted-at-year-zero.json)
 - [reconciliation-window-covers-from-impossible-date.json](../vectors/reconciliation-window-covers-from-impossible-date.json)
 - [reconciliation-window-covers-until-year-zero.json](../vectors/reconciliation-window-covers-until-year-zero.json)
 - [record-envelope-v0.json](../vectors/record-envelope-v0.json)

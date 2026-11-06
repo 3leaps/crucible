@@ -200,9 +200,9 @@ is validated against the `v0` RFC 3339 profile:
   beyond the 6th fractional place (sub-microsecond precision) fail closed as
   `timestamp` rather than truncating.
 
-| `v0` position | Non-string / bad type | Impossible calendar date (`2026-02-30...`) or leap second (`:60`) | Bare date (`2026-10-12`), comma fraction, 1-digit hour, bad offset (`+24:00`), non-ASCII digits, year `0000`, UTC year underflow/overflow, or `>6` nonzero fractional digits |
-| --- | --- | --- | --- |
-| `journal-entry.at`, `reconciliation.attempted_at`, `reconciliation.window_covers_from`, `reconciliation.window_covers_until` (end-to-end staged gate under pinned `goneat`) | Stage 3 `shape` (and Stage 4 `timestamp` if invoked directly) | Stage 3 `shape` (and Stage 4 `timestamp` if invoked directly) | Passes pinned `goneat` `format: "date-time"`; refused at Stage 4 as `timestamp` (or `continuation` when observed as a `v1` continuation source/ancestor) |
+| `v0` position | Non-string / bad type, impossible calendar date (`2026-02-30...`), leap second (`:60`), or non-ASCII digits (`２０２６-...`) | Bare date (`2026-10-12`), comma fraction, 1-digit hour, bad offset (`+24:00`), year `0000`, UTC year underflow/overflow, or `>6` nonzero fractional digits |
+| --- | --- | --- |
+| `journal-entry.at`, `reconciliation.attempted_at`, `reconciliation.window_covers_from`, `reconciliation.window_covers_until` (end-to-end staged gate under qualified `goneat` `v0.6.5`–`v0.6.7`, Draft 2020-12 with `format: "date-time"` assertion enabled, verified by `scripts/validate-durable-record-fixtures.py`) | Stage 3 `shape` (and Stage 4 `timestamp` if invoked directly or under a Stage 3 engine without `format: "date-time"`) | Passes `goneat` `format: "date-time"`; refused at Stage 4 as `timestamp` (or `continuation` when observed as a `v1` continuation source/ancestor) |
 
 ## Governed objects
 

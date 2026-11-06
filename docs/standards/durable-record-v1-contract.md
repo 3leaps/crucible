@@ -168,25 +168,28 @@ microseconds is refused, never rounded. In protection request evaluation,
 `observed_at` is checked at Stage 4 before operation-level target, hold, or
 sequence checks.
 
-Under the repository's pinned compatibility profile (`goneat` Draft 2020-12
-validator with `$defs/instant` carrying both
+Under the repository's qualified validator profile (`goneat` `v0.6.5`–`v0.6.7`,
+Draft 2020-12 with `$defs/instant` carrying both
 `pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"`
-and `format: "date-time"`, followed by the Stage 4 semantic evaluator), each
-timestamp position has a deterministic refusal stage:
+and `format: "date-time"`, verified on every run by
+`scripts/validate-durable-record-fixtures.py` and
+`scripts/test-durable-record-v1-controls.py`, followed by the Stage 4 semantic
+evaluator), each timestamp position has a deterministic refusal stage:
 
-| Timestamp position | Non-string, wrong length/fraction width, lowercase `t`/`z`, numeric offset (`+00:00`/`-00:00`), or non-ASCII digits | Impossible calendar date (`2026-02-30T12:00:00.000000Z`) or leap second (`2016-12-31T23:59:60.000000Z`) | Year zero (`0000-01-01T00:00:00.000000Z`) |
+| Timestamp position | Non-string, wrong length/fraction width, lowercase `t`/`z`, numeric offset (`+00:00`/`-00:00`), or non-ASCII digits (`２０２６-...`) | Impossible calendar date (`2026-02-30T12:00:00.000000Z`) or leap second (`2016-12-31T23:59:60.000000Z`) | Year zero (`0000-01-01T00:00:00.000000Z`) |
 | --- | --- | --- | --- |
-| Destination `v1` schema-gated input (`journal-entry.at`, `record.produced_at.instant`, `protection-request.observed_at`, `reconciliation.attempted_at`, `reconciliation.window_covers_from`, `reconciliation.window_covers_until`) | Stage 3 `shape` (pattern mismatch) | Stage 3 `shape` under pinned `goneat` `format: "date-time"`; Stage 4 `instant_spelling` in direct semantic/logical vectors and pattern-only fallback controls | Passes pinned `goneat` Stage 3 `shape`; refused at Stage 4 as `instant_spelling` |
-| Observed `v1` continuation source or ancestor journal (`at`, `record.produced_at.instant`, `request.observed_at`) | Refuses relying continuation as `continuation` (Stage 3 `shape`) | Refuses relying continuation as `continuation` (Stage 3 `shape` / Stage 4 `instant_spelling`) | Refuses relying continuation as `continuation` (Stage 4 `instant_spelling`) |
-| Observed `v0` continuation source or ancestor journal (`at` across `1..end`, including entries beyond `cut_seq`) | Refuses relying continuation as `continuation` (Stage 3 `shape` for non-string; Stage 4 `timestamp` for bare date, comma fraction, 1-digit hour, bad offset, non-ASCII digits, `>6` fractional digits, or UTC year underflow/overflow) | Refuses relying continuation as `continuation` (Stage 3 `shape` / Stage 4 `timestamp`) | Refuses relying continuation as `continuation` (Stage 4 `timestamp`) |
+| Destination `v1` schema-gated input (`journal-entry.at`, `record.produced_at.instant`, `protection-request.observed_at`, `reconciliation.attempted_at`, `reconciliation.window_covers_from`, `reconciliation.window_covers_until`) | Stage 3 `shape` (`pattern` and `format: "date-time"`; Stage 4 `instant_spelling` as defense-in-depth) | Stage 3 `shape` under qualified `goneat` `format: "date-time"`; Stage 4 `instant_spelling` in direct semantic/logical vectors and pattern-only fallback controls | Passes qualified `goneat` Stage 3 `shape`; refused at Stage 4 as `instant_spelling` |
+| Observed `v1` continuation source or ancestor journal (`at`, `record.produced_at.instant`, `request.observed_at`) | Refuses relying continuation as `continuation` (Stage 3 `shape`; Stage 4 `instant_spelling` as defense-in-depth) | Refuses relying continuation as `continuation` (Stage 3 `shape` / Stage 4 `instant_spelling`) | Refuses relying continuation as `continuation` (Stage 4 `instant_spelling`) |
+| Observed `v0` continuation source or ancestor journal (`at` across `1..end`, including entries beyond `cut_seq`) | Refuses relying continuation as `continuation` (Stage 3 `shape` for non-string or non-ASCII digits under qualified `goneat` `format: "date-time"`; Stage 4 `timestamp` for bare date, comma fraction, 1-digit hour, bad offset, `>6` fractional digits, or UTC year underflow/overflow, plus non-ASCII digits as defense-in-depth) | Refuses relying continuation as `continuation` (Stage 3 `shape` / Stage 4 `timestamp`) | Refuses relying continuation as `continuation` (Stage 4 `timestamp`) |
 
-Stage 4 independently enforces the complete `instant_spelling` grammar,
-proleptic Gregorian calendar, year `0001`..`9999`, and `:60` refusal on every
-`v1` position (including received reconciliation `attempted_at`,
+Stage 4 independently enforces the complete ASCII-only `instant_spelling`
+grammar, proleptic Gregorian calendar, year `0001`..`9999`, and `:60` refusal on
+every `v1` position (including received reconciliation `attempted_at`,
 `window_covers_from`, and `window_covers_until`) as defense-in-depth, and the
-control suite includes an explicit pattern-only Stage 3 fallback control proving
-that `:60` and impossible calendar dates never pass through to acceptance if a
-schema engine only evaluates `pattern`.
+control suites include explicit Stage 3 + Stage 4 fallback controls proving
+that `:60`, impossible calendar dates, and non-ASCII digits are rejected at
+Stage 3 by qualified `goneat` (`v0.6.5`–`v0.6.7`) and never pass through to
+acceptance if a schema engine omits `format: "date-time"` or uses Unicode `\d`.
 
 `seq` orders one stream's journal. It is a store artifact and is not portable:
 it changes when content is re-recorded into another stream. Portable ordering
@@ -685,8 +688,8 @@ refuse as `numeric_domain` without wraparound.
 | Short write (`0 < k < L - 1`) or zero-byte write (`k == 0`, `ENOSPC`/`EDQUOT`) on `body_published(n)` under continuous exclusion | `1..cut_seq` (e.g. `stream_opened` at `cut_seq = 1`) | present | Completion gate truncates `k` bytes, syncs, `fstat`-verifies size, and re-validates `1..cut_seq`; reader observes `publishing` | Next accepted append has `seq = cut_seq + 1` (`2`); retried `body_published(n')` satisfies mode bound (`n' > max(committed_max, effect_relied_on_max)` in `effect_dependent`, `n' > burned_ledger_max` in `prewrite_durable_ledger`; gaps permitted) |
 | Unterminated final line (`k = L - 1`, missing only trailing `\n`): (a) in-process `ENOSPC` under continuous exclusion; (b) process kill before truncate | `1..cut_seq` | present | (a) Clean rollback to `1..cut_seq` (`publishing`); (b) on reopen, unterminated final line refuses at Stage 1 as `ingest` (never accepted as `cut_seq + 1`) | (a) Retry commits at `seq = cut_seq + 1`; (b) stream remains fail-closed on reopen (in-memory prior offset is never used as reopen repair authority) |
 | Short write (`0 <= k < L`) on `body_removal_started(n)` (no unlink performed) or on `body_removed(n)` (after committed `body_removal_started(n)` and completed unlink) | `body_published(n)` (`cut_seq = 2`) or `body_removal_started(n)` (`cut_seq = 3`) | present (`body_removal_started` abort) or absent (`body_removed` abort) | Clean rollback to `1..cut_seq`; reader observes `available` (`cut_seq = 2`) or `removal_pending` (`cut_seq = 3`) | Retry commits at `seq = cut_seq + 1` (`3` or `4`) referencing the **same** published incarnation `n` |
-| Physical body placement or handle/fence relying on `n` -> aborted `body_published(n)` -> clean restart -> republish | `1..cut_seq` (`committed_max < n`) | present | Clean rollback to `1..cut_seq` before restart; `effect_relied_on_max >= n` persists across restart | Republish requires `n' > max(committed_max, effect_relied_on_max) >= n + 1` in **both** modes (`n` is never reused); exhaustion at `2^53 - 1` refuses as `numeric_domain` |
-| Attempted `body_published(n)` with zero physical effect (`k == 0`) -> aborted -> clean restart -> republish | `1..cut_seq` (`committed_max < n`) | present | Clean rollback to `1..cut_seq` before restart | In `prewrite_durable_ledger` mode, durable pre-write ledger forces `n' > burned_ledger_max >= n + 1` (reusing `n` is refused); in `effect_dependent` mode with proven zero effect/handle reliance under continuous exclusion, reuse is permitted and gaps `n' > n` are also valid |
+| Physical body placement or handle/fence relying on `n` -> aborted `body_published(n)` -> clean restart -> republish | `1..cut_seq` (`committed_max < n`) | present | Clean rollback to `1..cut_seq` before restart; `effect_relied_on_max >= n` persists across restart | Republish requires `n' > max(committed_max, effect_relied_on_max)` with `max(committed_max, effect_relied_on_max) >= n` (therefore `n' >= n + 1`) in **both** modes (`n` is never reused); exhaustion at `2^53 - 1` refuses as `numeric_domain` |
+| Attempted `body_published(n)` with zero physical effect (`k == 0`) -> aborted -> clean restart -> republish | `1..cut_seq` (`committed_max < n`) | present | Clean rollback to `1..cut_seq` before restart | In `prewrite_durable_ledger` mode, durable pre-write ledger forces `n' > max(committed_max, burned_ledger_max)` with `max(committed_max, burned_ledger_max) >= n` (therefore `n' >= n + 1`; reusing `n` is refused); in `effect_dependent` mode with proven zero effect/handle reliance under continuous exclusion, reuse is permitted and gaps `n' > n` are also valid |
 | Zero-byte or short write with `EIO`, uncertain byte count, or lost exclusion | `1..cut_seq` | any | Indeterminate state: MUST NOT truncate; latches in-process poison | All subsequent appends and dependent body operations (`body_state`, `use`, unlink) are refused |
 | Full write (`k == L`) followed by failed `fsync` | `1..cut_seq` | any | Indeterminate commit: MUST NOT truncate; latches in-process poison | All subsequent appends and dependent body operations are refused |
 | Abort completion-gate failure (`SameFile` mismatch on truncate handle, `truncate` error, post-truncate `fstat` size mismatch, `fsync` error, or failed prior-cut `1..cut_seq` re-validation) | `1..cut_seq` | any | Latches in-process poison (never attempts a second truncate) | All subsequent appends and dependent body operations are refused |
