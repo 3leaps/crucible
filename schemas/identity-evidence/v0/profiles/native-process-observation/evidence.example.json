@@ -1,13 +1,17 @@
 {
   "profile": {
     "id": "urn:3leaps:identity-evidence:native-process-observation:v0",
-    "revision": "sha256:b85c80e53d2a1ca555df982fdab3146007864566f159faeab13ded71f8fd0ac9"
+    "revision": "sha256:cdbc071aa7117651b0d0f91b433a32253e3dca61ad6b5b03e213266259ae25cb"
   },
   "observed_at": "2026-10-29T12:00:00Z",
   "observer": {
     "platform_family": "macos",
     "architecture": "aarch64",
-    "bracketed": true
+    "bracketed": true,
+    "time_namespace": {
+      "status": "unsupported",
+      "reason": "Darwin kernel has a single boot clock domain without time namespaces."
+    }
   },
   "process": {
     "subject_ref": "process-a",
@@ -43,16 +47,20 @@
       "status": "observed",
       "profile": {
         "id": "urn:3leaps:identity-evidence:start-identity:macos-kinfo-starttime:v0",
-        "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0"
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
       },
       "value": "1761739170.123456"
     },
     "execution_context": {
       "security_principal": {
         "status": "observed",
+        "derivation": {
+          "id": "urn:3leaps:identity-evidence:principal-derivation:macos-kinfo-ucred:v0",
+          "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+        },
         "principal": {
-          "namespace": "example.test/posix-uid-gid",
-          "value": "uid:501;gid:20"
+          "namespace": "urn:3leaps:posix-credentials:macos-kinfo:v0",
+          "value": "ruid=501;euid=501;rgid=20;egid=20"
         }
       },
       "namespace_context_digest": {

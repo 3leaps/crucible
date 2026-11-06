@@ -112,12 +112,16 @@
         },
         "bracketed": {
           "type": "boolean"
+        },
+        "time_namespace": {
+          "$ref": "#/$defs/namespace-fact"
         }
       },
       "required": [
         "platform_family",
         "architecture",
-        "bracketed"
+        "bracketed",
+        "time_namespace"
       ],
       "additionalProperties": false
     },
@@ -357,6 +361,9 @@
         "status": {
           "$ref": "#/$defs/fact-status"
         },
+        "derivation": {
+          "$ref": "#/$defs/profile-ref"
+        },
         "principal": {
           "$ref": "#/$defs/principal"
         },
@@ -379,6 +386,7 @@
       },
       "then": {
         "required": [
+          "derivation",
           "principal"
         ]
       },
@@ -387,8 +395,17 @@
           "reason"
         ],
         "not": {
-          "required": [
-            "principal"
+          "anyOf": [
+            {
+              "required": [
+                "derivation"
+              ]
+            },
+            {
+              "required": [
+                "principal"
+              ]
+            }
           ]
         }
       }
@@ -398,6 +415,9 @@
       "properties": {
         "status": {
           "$ref": "#/$defs/fact-status"
+        },
+        "derivation": {
+          "$ref": "#/$defs/profile-ref"
         },
         "digest": {
           "$ref": "#/$defs/sha256-digest"
@@ -421,6 +441,7 @@
       },
       "then": {
         "required": [
+          "derivation",
           "digest"
         ]
       },
@@ -429,8 +450,17 @@
           "reason"
         ],
         "not": {
-          "required": [
-            "digest"
+          "anyOf": [
+            {
+              "required": [
+                "derivation"
+              ]
+            },
+            {
+              "required": [
+                "digest"
+              ]
+            }
           ]
         }
       }

@@ -3,13 +3,14 @@
   "status": "draft",
   "specification": {
     "path": "README.md",
-    "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0"
+    "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
   },
   "evidence_schema": {
     "id": "https://schemas.3leaps.dev/identity-evidence/v0/profiles/native-process-observation/evidence.schema.json",
-    "revision": "sha256:7e0758616381966b934a17e753f072b7a2082c4277cd2c28b71d849bde98d22d"
+    "revision": "sha256:02902db57cbc9097bb6fd3d5685f50abbbfbb147757a11d89e57be50d1e8ff45"
   },
   "max_observation_age_seconds": 5,
+  "max_future_skew_seconds": 0,
   "pid_range": {
     "min": "1",
     "max": "2147483647"
@@ -29,6 +30,25 @@
     "enrollment",
     "device"
   ],
+  "host_scope_projection": {
+    "urn_prefix": "urn:3leaps:identity-evidence:host-scope:v0:sha256:",
+    "domain": "3leaps.native-process-observation.host-scope.v0",
+    "fields": [
+      "namespace",
+      "value",
+      "derivation.id",
+      "derivation.revision",
+      "stability",
+      "clone_behavior"
+    ]
+  },
+  "canonical_context_fact_order": [
+    "security_principal",
+    "namespace_context_digest",
+    "executable_digest",
+    "arguments_digest",
+    "security_context_digest"
+  ],
   "default_not_probed_context_facts": [
     "namespace_context_digest",
     "executable_digest",
@@ -41,17 +61,105 @@
     "namespace_context_digest": "3leaps.native-process-observation.namespaces.v0",
     "security_context_digest": "3leaps.native-process-observation.security-context.v0"
   },
+  "context_derivations": {
+    "security_principal": {
+      "urn:3leaps:identity-evidence:principal-derivation:macos-kinfo-ucred:v0": {
+        "status": "draft",
+        "platforms": [
+          "macos"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "principal_namespace": "urn:3leaps:posix-credentials:macos-kinfo:v0",
+        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9})$"
+      },
+      "urn:3leaps:identity-evidence:principal-derivation:linux-procfs-status-uidgid:v0": {
+        "status": "draft",
+        "platforms": [
+          "linux"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "principal_namespace": "urn:3leaps:posix-credentials:linux-procfs-status:v0",
+        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});suid=(?:0|[1-9][0-9]{0,9});fsuid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9});sgid=(?:0|[1-9][0-9]{0,9});fsgid=(?:0|[1-9][0-9]{0,9})$"
+      }
+    },
+    "arguments_digest": {
+      "urn:3leaps:identity-evidence:context-derivation:argv-bytes:v0": {
+        "status": "draft",
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "max_raw_bytes": 262144
+      }
+    },
+    "executable_digest": {
+      "urn:3leaps:identity-evidence:context-derivation:executable-file-bytes:v0": {
+        "status": "draft",
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "max_file_bytes": 67108864,
+        "residuals": [
+          "no-running-memory-attestation"
+        ]
+      }
+    },
+    "namespace_context_digest": {
+      "urn:3leaps:identity-evidence:context-derivation:linux-ns-inum-set:v0": {
+        "status": "draft",
+        "platforms": [
+          "linux"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "namespace_kinds": [
+          "cgroup",
+          "ipc",
+          "mnt",
+          "net",
+          "pid",
+          "time",
+          "time_for_children",
+          "user",
+          "uts"
+        ],
+        "entry_pattern": "^ns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$"
+      }
+    },
+    "security_context_digest": {
+      "urn:3leaps:identity-evidence:context-derivation:linux-procfs-status-secctx:v0": {
+        "status": "draft",
+        "platforms": [
+          "linux"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+      },
+      "urn:3leaps:identity-evidence:context-derivation:macos-secctx-deferred:v0": {
+        "status": "deferred",
+        "platforms": [
+          "macos"
+        ],
+        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+      }
+    }
+  },
   "start_identity_profiles": {
     "urn:3leaps:identity-evidence:start-identity:linux-procfs-stat:v0": {
       "status": "draft",
       "platform_family": "linux",
-      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
       "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "pid_namespace_policy": "required-observed",
-      "pid_namespace_pattern": "^pidns:(?:0|[1-9][0-9]{0,19}):(?:0|[1-9][0-9]{0,19})$",
+      "pid_namespace_pattern": "^pidns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
+      "observer_time_namespace_policy": "observed-or-not-present",
+      "observer_time_namespace_pattern": "^timens:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
+      "dev_major_max_u32": "4294967295",
+      "dev_minor_max_u32": "4294967295",
       "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
       "value_max_u64": "18446744073709551615",
-      "clock_origin": "monotonic-boot-ticks",
+      "clock_origin": "monotonic-boot-ticks-observer-timens",
       "residuals": [
         "sub-tick-pid-reuse-window",
         "post-observation-toctou-window"
@@ -60,9 +168,10 @@
     "urn:3leaps:identity-evidence:start-identity:macos-kinfo-starttime:v0": {
       "status": "draft",
       "platform_family": "macos",
-      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
       "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "pid_namespace_policy": "unsupported-not-applicable",
+      "observer_time_namespace_policy": "unsupported-not-applicable",
       "value_pattern": "^(?:0|[1-9][0-9]{0,18})\\.[0-9]{6}$",
       "seconds_max_i64": "9223372036854775807",
       "clock_origin": "wall-clock-microtime-at-fork",
@@ -74,8 +183,9 @@
     "urn:3leaps:identity-evidence:start-identity:windows-filetime:v0": {
       "status": "reserved",
       "platform_family": "windows",
-      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
       "pid_namespace_policy": "unsupported-not-applicable",
+      "observer_time_namespace_policy": "unsupported-not-applicable",
       "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
       "value_max_u64": "18446744073709551615",
       "clock_origin": "wall-clock-filetime-100ns",
