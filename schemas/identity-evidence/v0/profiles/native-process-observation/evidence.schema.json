@@ -115,13 +115,17 @@
         },
         "time_namespace": {
           "$ref": "#/$defs/namespace-fact"
+        },
+        "user_namespace": {
+          "$ref": "#/$defs/namespace-fact"
         }
       },
       "required": [
         "platform_family",
         "architecture",
         "bracketed",
-        "time_namespace"
+        "time_namespace",
+        "user_namespace"
       ],
       "additionalProperties": false
     },

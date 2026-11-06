@@ -3,11 +3,11 @@
   "status": "draft",
   "specification": {
     "path": "README.md",
-    "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+    "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb"
   },
   "evidence_schema": {
     "id": "https://schemas.3leaps.dev/identity-evidence/v0/profiles/native-process-observation/evidence.schema.json",
-    "revision": "sha256:02902db57cbc9097bb6fd3d5685f50abbbfbb147757a11d89e57be50d1e8ff45"
+    "revision": "sha256:670e254ca9cdeab8071757f91cff2226089c1d96630ce0e8c70185ddbaec8e45"
   },
   "max_observation_age_seconds": 5,
   "max_future_skew_seconds": 0,
@@ -42,6 +42,13 @@
       "clone_behavior"
     ]
   },
+  "session_projection": {
+    "linux_start_identity_profile": {
+      "id": "urn:3leaps:identity-evidence:start-identity:linux-procfs-stat-timens-scoped:v0",
+      "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
+      "not_present_clock_domain": "host-boottime"
+    }
+  },
   "canonical_context_fact_order": [
     "security_principal",
     "namespace_context_digest",
@@ -68,18 +75,21 @@
         "platforms": [
           "macos"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
         "principal_namespace": "urn:3leaps:posix-credentials:macos-kinfo:v0",
-        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9})$"
+        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9})$",
+        "component_max_u32": "4294967295"
       },
       "urn:3leaps:identity-evidence:principal-derivation:linux-procfs-status-uidgid:v0": {
         "status": "draft",
         "platforms": [
           "linux"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
-        "principal_namespace": "urn:3leaps:posix-credentials:linux-procfs-status:v0",
-        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});suid=(?:0|[1-9][0-9]{0,9});fsuid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9});sgid=(?:0|[1-9][0-9]{0,9});fsgid=(?:0|[1-9][0-9]{0,9})$"
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
+        "principal_namespace_prefix": "urn:3leaps:posix-credentials:linux-procfs-status:v0:",
+        "not_present_user_namespace_scope": "userns:initial",
+        "value_pattern": "^ruid=(?:0|[1-9][0-9]{0,9});euid=(?:0|[1-9][0-9]{0,9});suid=(?:0|[1-9][0-9]{0,9});fsuid=(?:0|[1-9][0-9]{0,9});rgid=(?:0|[1-9][0-9]{0,9});egid=(?:0|[1-9][0-9]{0,9});sgid=(?:0|[1-9][0-9]{0,9});fsgid=(?:0|[1-9][0-9]{0,9})$",
+        "component_max_u32": "4294967295"
       }
     },
     "arguments_digest": {
@@ -89,7 +99,7 @@
           "linux",
           "macos"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
         "max_raw_bytes": 262144
       }
     },
@@ -100,10 +110,11 @@
           "linux",
           "macos"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
         "max_file_bytes": 67108864,
         "residuals": [
-          "no-running-memory-attestation"
+          "no-running-memory-attestation",
+          "macos-path-swap-window"
         ]
       }
     },
@@ -113,7 +124,7 @@
         "platforms": [
           "linux"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
         "namespace_kinds": [
           "cgroup",
           "ipc",
@@ -125,7 +136,10 @@
           "user",
           "uts"
         ],
-        "entry_pattern": "^ns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$"
+        "entry_pattern": "^ns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
+        "dev_major_max_u32": "4294967295",
+        "dev_minor_max_u32": "4294967295",
+        "ino_max_u64": "18446744073709551615"
       }
     },
     "security_context_digest": {
@@ -134,14 +148,16 @@
         "platforms": [
           "linux"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
+        "gid_max_u32": "4294967295",
+        "seccomp_max_u32": "4294967295"
       },
       "urn:3leaps:identity-evidence:context-derivation:macos-secctx-deferred:v0": {
         "status": "deferred",
         "platforms": [
           "macos"
         ],
-        "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4"
+        "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb"
       }
     }
   },
@@ -149,12 +165,14 @@
     "urn:3leaps:identity-evidence:start-identity:linux-procfs-stat:v0": {
       "status": "draft",
       "platform_family": "linux",
-      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+      "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
       "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "pid_namespace_policy": "required-observed",
       "pid_namespace_pattern": "^pidns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
       "observer_time_namespace_policy": "observed-or-not-present",
       "observer_time_namespace_pattern": "^timens:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
+      "observer_user_namespace_policy": "observed-or-not-present",
+      "observer_user_namespace_pattern": "^userns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19})$",
       "dev_major_max_u32": "4294967295",
       "dev_minor_max_u32": "4294967295",
       "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
@@ -162,16 +180,18 @@
       "clock_origin": "monotonic-boot-ticks-observer-timens",
       "residuals": [
         "sub-tick-pid-reuse-window",
+        "magic-link-leaf-not-mount-confined",
         "post-observation-toctou-window"
       ]
     },
     "urn:3leaps:identity-evidence:start-identity:macos-kinfo-starttime:v0": {
       "status": "draft",
       "platform_family": "macos",
-      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+      "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
       "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "pid_namespace_policy": "unsupported-not-applicable",
       "observer_time_namespace_policy": "unsupported-not-applicable",
+      "observer_user_namespace_policy": "unsupported-not-applicable",
       "value_pattern": "^(?:0|[1-9][0-9]{0,18})\\.[0-9]{6}$",
       "seconds_max_i64": "9223372036854775807",
       "clock_origin": "wall-clock-microtime-at-fork",
@@ -183,9 +203,10 @@
     "urn:3leaps:identity-evidence:start-identity:windows-filetime:v0": {
       "status": "reserved",
       "platform_family": "windows",
-      "revision": "sha256:5fa1cff6b7575e32d9b9e99ebb69d53f4dc6a0d024658b25c8d518a0307ba1b4",
+      "revision": "sha256:8a4347fcec0ad51874f28c6c1dfc6ca0888e9ccf2e25f239ba46b9be9d3749cb",
       "pid_namespace_policy": "unsupported-not-applicable",
       "observer_time_namespace_policy": "unsupported-not-applicable",
+      "observer_user_namespace_policy": "unsupported-not-applicable",
       "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
       "value_max_u64": "18446744073709551615",
       "clock_origin": "wall-clock-filetime-100ns",

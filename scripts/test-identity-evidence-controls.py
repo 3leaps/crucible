@@ -600,16 +600,63 @@ def derive_linux_namespace_context_digest(ns_map, obs_profile):
     ]
     kinds = drv["namespace_kinds"]
     require(set(ns_map.keys()) == set(kinds), "incomplete-linux-namespace-set")
+    maj_max = int(drv["dev_major_max_u32"])
+    min_max = int(drv["dev_minor_max_u32"])
+    ino_max = int(drv["ino_max_u64"])
     pre = b"3leaps.native-process-observation.namespaces.v0\x00" + _u32_be(len(kinds))
     for kind in kinds:
         val = ns_map[kind]
         require(re.fullmatch(drv["entry_pattern"], val), "invalid-linux-ns-entry")
+        _, maj_s, min_s, ino_s = val.split(":")
+        require(
+            int(maj_s) <= maj_max and int(min_s) <= min_max and int(ino_s) <= ino_max,
+            "invalid-linux-ns-entry",
+        )
         kb, vb = kind.encode("ascii"), val.encode("ascii")
         pre += _u32_be(len(kb)) + kb + _u32_be(len(vb)) + vb
     return "sha256:" + hashlib.sha256(pre).hexdigest()
 
 
-def derive_linux_security_context_digest(canonical_context_bytes):
+_LINUX_SECCTX_RE = re.compile(
+    r"^observer_user_ns=(userns:initial|userns:(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,9}):(?:0|[1-9][0-9]{0,19}))"
+    r";groups=((?:(?:0|[1-9][0-9]{0,9})(?:,(?:0|[1-9][0-9]{0,9}))*)?)"
+    r";no_new_privs=([01])"
+    r";seccomp=(0|[1-9][0-9]{0,9})"
+    r";cap_inh=([0-9a-f]{16});cap_prm=([0-9a-f]{16});cap_eff=([0-9a-f]{16});cap_bnd=([0-9a-f]{16});cap_amb=([0-9a-f]{16})$"
+)
+
+
+def derive_linux_security_context_digest(canonical_context_bytes, obs_profile=None):
+    try:
+        text = canonical_context_bytes.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError("invalid-linux-security-context") from exc
+    m = _LINUX_SECCTX_RE.fullmatch(text)
+    require(m is not None, "invalid-linux-security-context")
+    user_ns_s, groups_s, _, seccomp_s = m.group(1), m.group(2), m.group(3), m.group(4)
+    u32_max = 4294967295
+    u64_max = 18446744073709551615
+    if obs_profile is not None:
+        drv = obs_profile["context_derivations"]["security_context_digest"][
+            "urn:3leaps:identity-evidence:context-derivation:linux-procfs-status-secctx:v0"
+        ]
+        u32_max = int(drv["gid_max_u32"])
+    if user_ns_s != "userns:initial":
+        _, maj_s, min_s, ino_s = user_ns_s.split(":")
+        require(
+            int(maj_s) <= 4294967295
+            and int(min_s) <= 4294967295
+            and int(ino_s) <= u64_max,
+            "invalid-linux-security-context",
+        )
+    if groups_s:
+        gids = [int(g) for g in groups_s.split(",")]
+        require(
+            all(0 <= g <= u32_max for g in gids)
+            and all(gids[i] < gids[i + 1] for i in range(len(gids) - 1)),
+            "invalid-linux-security-context",
+        )
+    require(int(seccomp_s) <= u32_max, "invalid-linux-security-context")
     scheme = (
         b"urn:3leaps:identity-evidence:context-derivation:linux-procfs-status-secctx:v0"
     )
@@ -622,6 +669,19 @@ def derive_linux_security_context_digest(canonical_context_bytes):
         + canonical_context_bytes
     )
     return "sha256:" + hashlib.sha256(pre).hexdigest()
+
+
+def linux_id_is_unambiguously_mapped(rendered_id, id_map_extents, overflow_id):
+    """Fail-closed check against Linux seq_user_ns from_kuid_munged / from_kgid_munged."""
+    if not isinstance(rendered_id, int) or not (0 <= rendered_id < 4294967295):
+        return False
+    full_range = len(id_map_extents) == 1 and id_map_extents[0] == (0, 4294967295)
+    if full_range:
+        return True
+    in_extent = any(
+        first <= rendered_id < first + count for first, count in id_map_extents
+    )
+    return in_extent and rendered_id != overflow_id
 
 
 def project_host_scope_urn(host_scope, obs_profile):
@@ -688,7 +748,7 @@ def admit_live_observation(
     )
 
 
-def _validate_start_subprofile(obs, obs_profile):
+def _lookup_start_subprofile(obs, obs_profile):
     start = obs["process"]["start_identity"]
     sub_id = start["profile"]["id"]
     sub = obs_profile["start_identity_profiles"].get(sub_id)
@@ -697,6 +757,13 @@ def _validate_start_subprofile(obs, obs_profile):
         or sub["status"] == "reserved"
         or start["profile"]["revision"] != sub["revision"]
     ):
+        return None
+    return sub
+
+
+def _validate_start_subprofile(obs, obs_profile):
+    sub = _lookup_start_subprofile(obs, obs_profile)
+    if sub is None:
         return None, "insufficient:unsupported-start-identity-profile"
     if obs["observer"]["platform_family"] != sub["platform_family"]:
         return None, "insufficient:inconsistent-observation"
@@ -723,7 +790,17 @@ def _validate_start_value(value, sub):
     return int(sec_s) <= int(sub["seconds_max_i64"])
 
 
-def _validate_context_derivation(fact_name, fact_obj, platform_family, obs_profile):
+def _observer_userns_scope(obs, drv):
+    uns = obs["observer"]["user_namespace"]
+    if uns["status"] == "observed":
+        return uns.get("value", "")
+    if uns["status"] == "not-present":
+        return drv["not_present_user_namespace_scope"]
+    return None
+
+
+def _validate_context_derivation(fact_name, fact_obj, obs, obs_profile):
+    platform_family = obs["observer"]["platform_family"]
     drv_ref = fact_obj.get("derivation")
     if not isinstance(drv_ref, dict):
         return False
@@ -739,10 +816,24 @@ def _validate_context_derivation(fact_name, fact_obj, platform_family, obs_profi
         return False
     if fact_name == "security_principal":
         p = fact_obj.get("principal", {})
-        if p.get("namespace") != drv["principal_namespace"] or not re.fullmatch(
-            drv["value_pattern"], p.get("value", "")
-        ):
+        val = p.get("value", "")
+        if "principal_namespace" in drv:
+            if p.get("namespace") != drv["principal_namespace"]:
+                return False
+        else:
+            scope = _observer_userns_scope(obs, drv)
+            if (
+                scope is None
+                or p.get("namespace") != drv["principal_namespace_prefix"] + scope
+            ):
+                return False
+        if not re.fullmatch(drv["value_pattern"], val):
             return False
+        comp_max = int(drv["component_max_u32"])
+        for token in val.split(";"):
+            _, num_s = token.split("=", 1)
+            if int(num_s) > comp_max:
+                return False
     return True
 
 
@@ -812,12 +903,15 @@ def compare_native_observations(
         and candidate["observer"]["bracketed"] is True
     ):
         return "insufficient:unbracketed-observation"
-    base_sub, err = _validate_start_subprofile(baseline, obs_profile)
-    if err is not None:
-        return err
-    cand_sub, err = _validate_start_subprofile(candidate, obs_profile)
-    if err is not None:
-        return err
+    base_sub = _lookup_start_subprofile(baseline, obs_profile)
+    cand_sub = _lookup_start_subprofile(candidate, obs_profile)
+    if base_sub is None or cand_sub is None:
+        return "insufficient:unsupported-start-identity-profile"
+    if (
+        baseline["observer"]["platform_family"] != base_sub["platform_family"]
+        or candidate["observer"]["platform_family"] != cand_sub["platform_family"]
+    ):
+        return "insufficient:inconsistent-observation"
 
     b_proc, c_proc = baseline["process"], candidate["process"]
     established = set(obs_profile["established_host_scope_stabilities"])
@@ -880,17 +974,40 @@ def compare_native_observations(
             return "insufficient:pid-numbering-namespace-mismatch"
         b_tns = baseline["observer"]["time_namespace"]
         c_tns = candidate["observer"]["time_namespace"]
-        for tns in (b_tns, c_tns):
-            if tns["status"] not in {"observed", "not-present"}:
-                return "insufficient:missing-observer-time-namespace"
-            if tns["status"] == "observed" and not _validate_linux_ns_id(
+        if any(
+            tns["status"] not in {"observed", "not-present"} for tns in (b_tns, c_tns)
+        ):
+            return "insufficient:missing-observer-time-namespace"
+        if any(
+            tns["status"] == "observed"
+            and not _validate_linux_ns_id(
                 tns["value"], base_sub["observer_time_namespace_pattern"], base_sub
-            ):
-                return "insufficient:invalid-observer-time-namespace"
+            )
+            for tns in (b_tns, c_tns)
+        ):
+            return "insufficient:invalid-observer-time-namespace"
         if b_tns["status"] != c_tns["status"] or (
             b_tns["status"] == "observed" and b_tns["value"] != c_tns["value"]
         ):
             return "insufficient:observer-time-namespace-mismatch"
+        b_uns = baseline["observer"]["user_namespace"]
+        c_uns = candidate["observer"]["user_namespace"]
+        if any(
+            uns["status"] not in {"observed", "not-present"} for uns in (b_uns, c_uns)
+        ):
+            return "insufficient:missing-observer-user-namespace"
+        if any(
+            uns["status"] == "observed"
+            and not _validate_linux_ns_id(
+                uns["value"], base_sub["observer_user_namespace_pattern"], base_sub
+            )
+            for uns in (b_uns, c_uns)
+        ):
+            return "insufficient:invalid-observer-user-namespace"
+        if b_uns["status"] != c_uns["status"] or (
+            b_uns["status"] == "observed" and b_uns["value"] != c_uns["value"]
+        ):
+            return "insufficient:observer-user-namespace-mismatch"
     elif ns_policy == "unsupported-not-applicable":
         for item in (baseline, candidate):
             proc = item["process"]
@@ -898,6 +1015,7 @@ def compare_native_observations(
                 proc["pid_numbering_namespace"]["status"] != "unsupported"
                 or proc["target_pid_namespace"]["status"] != "unsupported"
                 or item["observer"]["time_namespace"]["status"] != "unsupported"
+                or item["observer"]["user_namespace"]["status"] != "unsupported"
             ):
                 return "insufficient:inconsistent-observation"
     else:
@@ -966,15 +1084,14 @@ def compare_native_observations(
         return "mismatch:process-not-live"
 
     b_ctx, c_ctx = b_proc["execution_context"], c_proc["execution_context"]
-    plat = baseline["observer"]["platform_family"]
     canonical_order = tuple(obs_profile["canonical_context_fact_order"])
-    # Step 8a: verify accepted derivations on all observed context facts.
+    # Step 8a: verify accepted derivations and principal grammar/u32 bounds on all observed context facts.
     for fact in canonical_order:
-        for side_ctx in (b_ctx, c_ctx):
+        for side_obs, side_ctx in ((baseline, b_ctx), (candidate, c_ctx)):
             if side_ctx[fact][
                 "status"
             ] == "observed" and not _validate_context_derivation(
-                fact, side_ctx[fact], plat, obs_profile
+                fact, side_ctx[fact], side_obs, obs_profile
             ):
                 return f"insufficient:unsupported-context-derivation-{fact}"
     # Step 8b (Pass 1): missing required facts in canonical schema order.
@@ -1086,19 +1203,37 @@ def project_to_local_process_session_process(
         ),
         "invalid-observer-time-namespace-for-session-bundle",
     )
+    uns = obs["observer"]["user_namespace"]
+    require(
+        uns["status"] in {"observed", "not-present"}
+        and (
+            uns["status"] == "not-present"
+            or _validate_linux_ns_id(
+                uns["value"], sub["observer_user_namespace_pattern"], sub
+            )
+        ),
+        "invalid-observer-user-namespace-for-session-bundle",
+    )
     ctx = proc["execution_context"]
-    plat = obs["observer"]["platform_family"]
     for fact in NATIVE_CONTEXT_FACTS:
         require(
             ctx[fact]["status"] == "observed",
             f"missing-context-for-session-bundle:{fact}",
         )
         require(
-            _validate_context_derivation(fact, ctx[fact], plat, obs_profile),
+            _validate_context_derivation(fact, ctx[fact], obs, obs_profile),
             f"unsupported-context-derivation:{fact}",
         )
     projected_host_scope = project_host_scope_urn(proc["host_scope"], obs_profile)
     require(len(projected_host_scope) <= 512, "projected-host-scope-too-long")
+    proj_start_spec = obs_profile["session_projection"]["linux_start_identity_profile"]
+    clock_domain = (
+        tns["value"]
+        if tns["status"] == "observed"
+        else proj_start_spec["not_present_clock_domain"]
+    )
+    projected_start_value = f"{clock_domain};ticks={proc['start_identity']['value']}"
+    require(len(projected_start_value) <= 512, "projected-start-identity-too-long")
     return {
         "subject_ref": proc["subject_ref"],
         "host_scope": projected_host_scope,
@@ -1106,8 +1241,11 @@ def project_to_local_process_session_process(
         "pid_namespace": proc["target_pid_namespace"]["value"],
         "pid": proc["pid"],
         "start_identity": {
-            "profile": copy.deepcopy(proc["start_identity"]["profile"]),
-            "value": proc["start_identity"]["value"],
+            "profile": {
+                "id": proj_start_spec["id"],
+                "revision": proj_start_spec["revision"],
+            },
+            "value": projected_start_value,
         },
         "execution_context": {
             "security_principal": copy.deepcopy(ctx["security_principal"]["principal"]),
@@ -2053,6 +2191,11 @@ def main():
                 drv["revision"] == obs_readme_digest,
                 "native-obs-context-derivation-pin-drift",
             )
+    require(
+        obs_profile["session_projection"]["linux_start_identity_profile"]["revision"]
+        == obs_readme_digest,
+        "native-obs-projected-start-profile-pin-drift",
+    )
     fact_statuses = obs_schema["$defs"]["fact-status"]["enum"]
     cap_statuses = schema["$defs"]["capability"]["properties"]["status"]["enum"]
     mapping = obs_profile["status_mapping"]
@@ -2092,7 +2235,8 @@ def main():
     }
     golden_ns_digest = derive_linux_namespace_context_digest(golden_ns_map, obs_profile)
     golden_sec_digest = derive_linux_security_context_digest(
-        b"groups=27,1000;no_new_privs=1;seccomp=2;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000"
+        b"observer_user_ns=userns:0:4:4026531837;groups=27,1000;no_new_privs=1;seccomp=2;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+        obs_profile,
     )
     require(
         linux_obs["process"]["execution_context"]["arguments_digest"]["digest"]
@@ -2108,6 +2252,54 @@ def main():
         ]
         == golden_sec_digest,
         "golden-context-preimage-drift",
+    )
+    # Exact u32/u64 max and max+1 boundary controls on preimage helpers + unmapped UID/GID helper (entarch E7/E8).
+    max_ns_map = dict(golden_ns_map)
+    max_ns_map["user"] = "ns:4294967295:4294967295:18446744073709551615"
+    derive_linux_namespace_context_digest(max_ns_map, obs_profile)
+    for bad_ns_entry in (
+        "ns:4294967296:0:1",
+        "ns:0:4294967296:1",
+        "ns:0:4:18446744073709551616",
+    ):
+        bad_map = dict(golden_ns_map)
+        bad_map["user"] = bad_ns_entry
+        try:
+            derive_linux_namespace_context_digest(bad_map, obs_profile)
+        except ValueError as exc:
+            require(
+                str(exc) == "invalid-linux-ns-entry",
+                f"wrong ns range refusal: {exc}",
+            )
+        else:
+            raise ValueError(f"accepted out-of-range ns entry: {bad_ns_entry}")
+    derive_linux_security_context_digest(
+        b"observer_user_ns=userns:4294967295:4294967295:18446744073709551615;groups=0,4294967295;no_new_privs=1;seccomp=4294967295;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+        obs_profile,
+    )
+    for bad_sec_ctx in (
+        b"observer_user_ns=userns:0:4:4026531837;groups=4294967296;no_new_privs=1;seccomp=2;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+        b"observer_user_ns=userns:0:4:4026531837;groups=27;no_new_privs=1;seccomp=4294967296;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+        b"observer_user_ns=userns:4294967296:4:1;groups=27;no_new_privs=1;seccomp=2;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+    ):
+        try:
+            derive_linux_security_context_digest(bad_sec_ctx, obs_profile)
+        except ValueError as exc:
+            require(
+                str(exc) == "invalid-linux-security-context",
+                f"wrong secctx range refusal: {exc}",
+            )
+        else:
+            raise ValueError(f"accepted out-of-range secctx preimage: {bad_sec_ctx!r}")
+    require(
+        linux_id_is_unambiguously_mapped(1000, [(0, 4294967295)], 65534) is True
+        and linux_id_is_unambiguously_mapped(65534, [(0, 4294967295)], 65534) is True
+        and linux_id_is_unambiguously_mapped(4294967295, [(0, 4294967295)], 65534)
+        is False
+        and linux_id_is_unambiguously_mapped(1000, [(0, 65536)], 65534) is True
+        and linux_id_is_unambiguously_mapped(65534, [(0, 65536)], 65534) is False
+        and linux_id_is_unambiguously_mapped(70000, [(0, 65536)], 65534) is False,
+        "linux-unmapped-overflow-id-control-drift",
     )
     # Reversed dict insertion order produces identical namespace digest; missing kind refuses.
     require(
@@ -2259,6 +2451,20 @@ def main():
             )
         else:
             raise ValueError(f"accepted invalid freshness case: {expected_err}")
+    bad_observed_at = copy.deepcopy(macos_obs)
+    bad_observed_at["observed_at"] = "not-a-valid-utc-instant"
+    shape(bad_observed_at, obs_schema_path, accepted=False)
+    try:
+        admit_live_observation(
+            bad_observed_at, "2026-10-29T12:00:00Z", obs_profile, obs_profile_ref
+        )
+    except ValueError as exc:
+        require(
+            str(exc) == "invalid-observed-at",
+            f"wrong malformed observed_at refusal: {exc}",
+        )
+    else:
+        raise ValueError("accepted malformed observed_at in admit_live_observation")
 
     # All 7 fact states are representable on context facts when conditional rules hold.
     argv_drv_ref = copy.deepcopy(
@@ -2321,6 +2527,9 @@ def main():
     obs_shape_rejects.append(m)
     m = copy.deepcopy(macos_obs)
     del m["observer"]["time_namespace"]
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    del m["observer"]["user_namespace"]
     obs_shape_rejects.append(m)
     # Invalid status label, PID sentinel/range violations, and forbidden serialized handle descriptor.
     m = copy.deepcopy(macos_obs)
@@ -2760,6 +2969,143 @@ def main():
             "insufficient:missing-context-arguments_digest",
         )
     )
+    # Multi-fault row-by-row precedence controls (devrev N2) and reason-ignoring not-present equality (devrev N3).
+    b_n2_1 = copy.deepcopy(linux_obs)
+    b_n2_1["observer"]["platform_family"] = "macos"
+    c_n2_1 = copy.deepcopy(linux_obs)
+    c_n2_1["process"]["start_identity"]["profile"]["id"] = (
+        "urn:example:identity:unknown-start-profile:v0"
+    )
+    obs_comparison_cases.append(
+        (
+            "multifault-row-1d-before-1e",
+            b_n2_1,
+            c_n2_1,
+            default_policy,
+            "insufficient:unsupported-start-identity-profile",
+        )
+    )
+    b_n2_2 = copy.deepcopy(linux_obs)
+    b_n2_2["observer"]["time_namespace"] = {
+        "status": "observed",
+        "value": "timens:4:4026531834",
+    }
+    c_n2_2 = copy.deepcopy(linux_obs)
+    c_n2_2["observer"]["time_namespace"] = {
+        "status": "error",
+        "reason": "timens stat failed",
+    }
+    obs_comparison_cases.append(
+        (
+            "multifault-row-4e-before-4f",
+            b_n2_2,
+            c_n2_2,
+            default_policy,
+            "insufficient:missing-observer-time-namespace",
+        )
+    )
+    b_notpres_tns = copy.deepcopy(linux_obs)
+    b_notpres_tns["observer"]["time_namespace"] = {
+        "status": "not-present",
+        "reason": "kernel-without-timens",
+    }
+    c_notpres_tns = copy.deepcopy(linux_obs)
+    c_notpres_tns["observer"]["time_namespace"] = {
+        "status": "not-present",
+        "reason": "pre-5.6-no-timens-entry",
+    }
+    obs_comparison_cases.append(
+        (
+            "linux-timens-not-present-different-reasons-match",
+            b_notpres_tns,
+            c_notpres_tns,
+            default_policy,
+            "match",
+        )
+    )
+    # Observer user-namespace rendering scope, unmapped/overflow fail-closed, and u32 credential bounds (entarch E7/E8 + devrev N5).
+    c_diff_userns = copy.deepcopy(linux_obs)
+    c_diff_userns["observer"]["user_namespace"] = {
+        "status": "observed",
+        "value": "userns:0:4:4026532500",
+    }
+    c_diff_userns["process"]["execution_context"]["security_principal"]["principal"][
+        "namespace"
+    ] = "urn:3leaps:posix-credentials:linux-procfs-status:v0:userns:0:4:4026532500"
+    c_diff_userns["process"]["execution_context"]["security_context_digest"][
+        "digest"
+    ] = derive_linux_security_context_digest(
+        b"observer_user_ns=userns:0:4:4026532500;groups=27,1000;no_new_privs=1;seccomp=2;cap_inh=0000000000000000;cap_prm=0000000000000000;cap_eff=0000000000000000;cap_bnd=000001ffffffffff;cap_amb=0000000000000000",
+        obs_profile,
+    )
+    obs_comparison_cases.append(
+        (
+            "linux-observer-userns-mismatch",
+            linux_obs,
+            c_diff_userns,
+            default_policy,
+            "insufficient:observer-user-namespace-mismatch",
+        )
+    )
+    c_bad_principal_ns = copy.deepcopy(linux_obs)
+    c_bad_principal_ns["process"]["execution_context"]["security_principal"][
+        "principal"
+    ][
+        "namespace"
+    ] = "urn:3leaps:posix-credentials:linux-procfs-status:v0:userns:0:4:4026532500"
+    obs_comparison_cases.append(
+        (
+            "linux-principal-namespace-userns-mismatch",
+            linux_obs,
+            c_bad_principal_ns,
+            default_policy,
+            "insufficient:unsupported-context-derivation-security_principal",
+        )
+    )
+    c_unmapped_id = copy.deepcopy(linux_obs)
+    c_unmapped_id["process"]["execution_context"]["security_principal"] = {
+        "status": "unknown",
+        "reason": "unmapped-or-overflow-id",
+    }
+    obs_comparison_cases.append(
+        (
+            "linux-unmapped-overflow-uid-fail-closed",
+            c_unmapped_id,
+            copy.deepcopy(c_unmapped_id),
+            default_policy,
+            "insufficient:missing-context-security_principal",
+        )
+    )
+    u32_max_obs = copy.deepcopy(linux_obs)
+    u32_max_obs["process"]["execution_context"]["security_principal"]["principal"][
+        "value"
+    ] = "ruid=4294967295;euid=4294967295;suid=4294967295;fsuid=4294967295;rgid=4294967295;egid=4294967295;sgid=4294967295;fsgid=4294967295"
+    obs_comparison_cases.append(
+        (
+            "linux-principal-u32-max-accepted",
+            u32_max_obs,
+            copy.deepcopy(u32_max_obs),
+            default_policy,
+            "match",
+        )
+    )
+    for bad_uid_label, bad_uid_val in (
+        ("u32-max-plus-1", "4294967296"),
+        ("ten-nines", "9999999999"),
+    ):
+        u32_over = copy.deepcopy(linux_obs)
+        u32_over["process"]["execution_context"]["security_principal"]["principal"][
+            "value"
+        ] = f"ruid={bad_uid_val};euid=1000;suid=1000;fsuid=1000;rgid=1000;egid=1000;sgid=1000;fsgid=1000"
+        obs_comparison_cases.append(
+            (
+                f"linux-principal-{bad_uid_label}-rejected",
+                u32_over,
+                copy.deepcopy(u32_over),
+                default_policy,
+                "insufficient:unsupported-context-derivation-security_principal",
+            )
+        )
     for case_id, b_obs, c_obs, pol, expected in obs_comparison_cases:
         shape(b_obs, obs_schema_path)
         shape(c_obs, obs_schema_path)
@@ -2837,6 +3183,55 @@ def main():
     max_len_bundle["process"] = proj_max_len
     shape(max_len_bundle, process_root / "evidence.schema.json")
 
+    # Clock-domain (observer.time_namespace) and observer.user_namespace survival in session projection (entarch E5/E7/E8).
+    timens_other_obs = copy.deepcopy(linux_obs)
+    timens_other_obs["observer"]["time_namespace"] = {
+        "status": "observed",
+        "value": "timens:0:4:4026532999",
+    }
+    timens_notpres_obs = copy.deepcopy(linux_obs)
+    timens_notpres_obs["observer"]["time_namespace"] = {
+        "status": "not-present",
+        "reason": "kernel-without-timens",
+    }
+    shape(timens_other_obs, obs_schema_path)
+    shape(timens_notpres_obs, obs_schema_path)
+    proj_timens_other = project_to_local_process_session_process(
+        timens_other_obs, True, live_now, obs_profile, obs_profile_ref
+    )
+    proj_timens_notpres = project_to_local_process_session_process(
+        timens_notpres_obs, True, live_now, obs_profile, obs_profile_ref
+    )
+    proj_other_userns = project_to_local_process_session_process(
+        c_diff_userns, True, live_now, obs_profile, obs_profile_ref
+    )
+    proj_u32_max = project_to_local_process_session_process(
+        u32_max_obs, True, live_now, obs_profile, obs_profile_ref
+    )
+    require(
+        projected_proc["start_identity"]["value"]
+        == "timens:0:4:4026531834;ticks=987654321"
+        and proj_timens_other["start_identity"]["value"]
+        == "timens:0:4:4026532999;ticks=987654321"
+        and proj_timens_notpres["start_identity"]["value"]
+        == "host-boottime;ticks=987654321"
+        and len(
+            {
+                fixture_digest(projected_proc),
+                fixture_digest(proj_timens_other),
+                fixture_digest(proj_timens_notpres),
+                fixture_digest(proj_other_userns),
+            }
+        )
+        == 4
+        and proj_other_userns["execution_context"]["security_principal"]["namespace"]
+        != projected_proc["execution_context"]["security_principal"]["namespace"]
+        and proj_u32_max["execution_context"]["security_principal"]["value"].startswith(
+            "ruid=4294967295;"
+        ),
+        "observer-clock-or-userns-erased-by-projection",
+    )
+
     composed_bundle = copy.deepcopy(bundle)
     composed_bundle["process"] = projected_proc
     composed_bundle["launch"]["process_digest"] = fixture_digest(projected_proc)
@@ -2887,6 +3282,20 @@ def main():
     process_session_fit(
         composed_report, composed_bundle, composed_ctx, profile, profile_ref
     )
+    # Swapping observer.time_namespace in current_process fails process_session_fit (entarch E5).
+    timens_swapped_ctx = copy.deepcopy(composed_ctx)
+    timens_swapped_ctx["current_process"] = copy.deepcopy(proj_timens_other)
+    try:
+        process_session_fit(
+            composed_report, composed_bundle, timens_swapped_ctx, profile, profile_ref
+        )
+    except ValueError as exc:
+        require(
+            str(exc) == "process-incarnation-or-context-changed",
+            f"wrong timens swap fit refusal: {exc}",
+        )
+    else:
+        raise ValueError("accepted changed observer.time_namespace in session fit")
 
     # Fail-closed projection negative controls (no invented digests, no truthy non-bool, no stale bypass).
     projection_refusals = [
@@ -2922,6 +3331,26 @@ def main():
             True,
             live_now,
             "ambiguous-pid-namespace-for-session-bundle",
+        )
+    )
+    projection_refusals.append(
+        (
+            c_unmapped_id,
+            True,
+            live_now,
+            "missing-context-for-session-bundle:security_principal",
+        )
+    )
+    bad_proj_uid = copy.deepcopy(linux_obs)
+    bad_proj_uid["process"]["execution_context"]["security_principal"]["principal"][
+        "value"
+    ] = "ruid=4294967296;euid=1000;suid=1000;fsuid=1000;rgid=1000;egid=1000;sgid=1000;fsgid=1000"
+    projection_refusals.append(
+        (
+            bad_proj_uid,
+            True,
+            live_now,
+            "unsupported-context-derivation:security_principal",
         )
     )
     for bad_proj_obs, trusted_flag, p_now, expected_err in projection_refusals:
