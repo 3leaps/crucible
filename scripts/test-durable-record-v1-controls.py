@@ -273,7 +273,7 @@ class State:
             self.instant(e["request"]["observed_at"])
         # Validate complete groups; partial groups cannot be observed by requests.
         if e["seq"] == e["group"] + e["group_size"] - 1:
-            legacy.check_journal(self.journal + [e], "v1")
+            legacy.check_journal(self.journal + [e], "v1", check_entry_at=False)
         if self.journal:
             require(
                 self.instant(e["at"]) >= self.instant(self.journal[-1]["at"]),
@@ -438,7 +438,7 @@ class State:
             and integral(step["body"]["length"]),
             "body_observation",
         )
-        legacy.check_journal(self.journal, "v1")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
         require(self.removal_stream == self.stream, "body_removal_stream")
         body = step["body"]
         _, phase = self.bodies.get((body["digest"], body["length"]), (0, None))
@@ -565,7 +565,7 @@ class State:
     def retire(self, r, at):
         # Keyed retirement request: replay, conflict and acceptance mirror the
         # protection-receipt rules. Key lookup precedes current-state checks.
-        legacy.check_journal(self.journal, "v1")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
         require(
             self.instant(at) >= self.instant(self.journal[-1]["at"]), "journal_time"
         )
@@ -618,7 +618,7 @@ class State:
 
     def request(self, r, at):
         legacy.check_typed_domain(r, "protection_request", "request")
-        legacy.check_journal(self.journal, "v1")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
         require(
             self.instant(at) >= self.instant(self.journal[-1]["at"]), "journal_time"
         )
@@ -678,10 +678,12 @@ class State:
         legacy.check_typed_domain(
             received,
             "write_receipt"
-            if received.get("kind") == "receipt"
+            if received.get("kind") in ("receipt", "reconciliation")
             else "protection_receipt",
             "receipt",
         )
+        if received.get("kind") == "reconciliation":
+            return self.verify_reconciliation(received)
         require(
             received["outcome"] in ("tombstoned", "untombstoned", "retired"),
             "receipt_mismatch",
@@ -706,8 +708,41 @@ class State:
         require(received == expected, "receipt_mismatch")
         return {"outcome": "receipt_verified"}
 
+    def verify_reconciliation(self, received):
+        att = self.instant(received["attempted_at"])
+        require(
+            received.get("v") == 1 and received.get("stream") == self.stream,
+            "receipt_mismatch",
+        )
+        res = received.get("result")
+        if res == "not_found":
+            frm = self.instant(received["window_covers_from"])
+            until = self.instant(received["window_covers_until"])
+            require(
+                frm <= att <= until
+                and self.live(
+                    received["idempotency_key"], received["window_covers_until"]
+                )
+                is None,
+                "receipt_mismatch",
+            )
+            return {"outcome": "receipt_verified"}
+        if res == "found":
+            prior = self.live(received["idempotency_key"], received["attempted_at"])
+            require(
+                prior is not None and received.get("receipt") == prior[2],
+                "receipt_mismatch",
+            )
+            return {"outcome": "receipt_verified"}
+        require(
+            res == "unknown"
+            and received.get("reason") in ("window_elapsed", "coverage_unprovable"),
+            "receipt_mismatch",
+        )
+        return {"outcome": "receipt_verified"}
+
     def reconcile(self, key, at, attempted_at):
-        legacy.check_journal(self.journal, "v1")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
         self.instant(attempted_at)
         require(
             self.instant(at) >= self.instant(self.journal[-1]["at"]), "journal_time"
@@ -731,7 +766,7 @@ class State:
 
     def use(self, r):
         legacy.check_typed_domain(r, "export_request", "use")
-        legacy.check_journal(self.journal, "v1")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
 
         def refused(reason):
             return dict(outcome="refused", reason=reason)
@@ -889,7 +924,8 @@ def _parse_raw_receipt_step(raw_text, where):
     ast_node = legacy.parse_raw_json(raw_text, where)
     kind = (
         "write_receipt"
-        if isinstance(ast_node, dict) and ast_node.get("kind") == "receipt"
+        if isinstance(ast_node, dict)
+        and ast_node.get("kind") in ("receipt", "reconciliation")
         else "protection_receipt"
     )
     return legacy._preflight_node(ast_node, kind, where)
@@ -945,7 +981,7 @@ def evaluate(case):
         s.removal_stream = case["profile"]["runtime"].get("body_removal_stream")
     if "source_journal" in case or "raw_source_journal" in case:
         s.source, s.upstream = chain(case)
-    legacy.check_journal(case["journal"], "v1")
+    legacy.check_journal(case["journal"], "v1", check_entry_at=False)
     for e in case["journal"]:
         s.ingest(e)
     results = []
@@ -989,7 +1025,7 @@ def evaluate(case):
             results.append({"outcome": "journaled"})
         else:
             results.append(s.use(step["use"]))
-    legacy.check_journal(s.journal, "v1")
+    legacy.check_journal(s.journal, "v1", check_entry_at=False)
     return {
         "results": results,
         "active_holds": sorted(s.active),
@@ -1743,14 +1779,14 @@ def _collect_case_shape_items(c, add_key):
                 return
             schema = (
                 "write-receipt"
-                if parsed_rcpt.get("kind") == "receipt"
+                if parsed_rcpt.get("kind") in ("receipt", "reconciliation")
                 else "protection-receipt"
             )
             add_key(schema, step["raw_receipt"])
         elif "receipt" in step:
             schema = (
                 "write-receipt"
-                if step["receipt"].get("kind") == "receipt"
+                if step["receipt"].get("kind") in ("receipt", "reconciliation")
                 else "protection-receipt"
             )
             add_key(schema, json.dumps(step["receipt"]))
@@ -1896,13 +1932,154 @@ def suite_error_controls():
             raise AssertionError(f"suite_error_controls did not fail on {label}")
 
 
+class AbortWriter:
+    """Logical model of the single-writer incomplete-append abort boundary and incarnation allocation."""
+
+    def __init__(self, window_ms=60000, profile=None):
+        self.window_ms = window_ms
+        self.profile = copy.deepcopy(profile) if profile is not None else None
+        runtime = (self.profile or {}).get("runtime", {})
+        self.incarnation_allocation = runtime.get(
+            "incarnation_allocation", "effect_dependent"
+        )
+        self.disk_bytes = ""
+        self.committed_cut_offset = 0
+        self.committed_cut_seq = 0
+        self.state = State(window_ms)
+        if self.profile is not None:
+            legacy.check_profile(self.profile, "profile")
+            self.state.removal_stream = runtime.get("body_removal_stream")
+        self.poisoned = False
+        self.durable_effect_relied_on: dict[tuple[str, int], int] = {}
+        self.durable_burned_ledger: dict[tuple[str, int], int] = {}
+
+    def allocate_incarnation(self, body, requested_n=None):
+        require(not self.poisoned, "inconsistent_cut")
+        key = (body["digest"], body["length"])
+        committed_max = self.state.bodies.get(key, (0, None))[0]
+        if self.incarnation_allocation == "prewrite_durable_ledger":
+            burned_max = self.durable_burned_ledger.get(key, 0)
+            floor = max(committed_max, burned_max)
+            n = (floor + 1) if requested_n is None else requested_n
+            require(n > floor, "body_lifecycle")
+            require(n <= MAX_SAFE_INTEGER, "numeric_domain")
+            self.durable_burned_ledger[key] = max(burned_max, n)
+            return n
+        effect_max = self.durable_effect_relied_on.get(key, 0)
+        floor = max(committed_max, effect_max)
+        n = (floor + 1) if requested_n is None else requested_n
+        require(n > floor, "body_lifecycle")
+        require(n <= MAX_SAFE_INTEGER, "numeric_domain")
+        return n
+
+    def record_body_effect(self, body, n):
+        key = (body["digest"], body["length"])
+        self.durable_effect_relied_on[key] = max(
+            self.durable_effect_relied_on.get(key, 0), n
+        )
+
+    def append_group(
+        self,
+        entries,
+        *,
+        k_written=None,
+        errno=None,
+        fsync_ok=True,
+        lost_exclusion=False,
+        gate=None,
+    ):
+        require(not self.poisoned, "inconsistent_cut")
+        payload = "".join(json.dumps(e, separators=(",", ":")) + "\n" for e in entries)
+        total_len = len(payload.encode("utf-8"))
+        if k_written is None and errno is None and fsync_ok and not lost_exclusion:
+            for e in entries:
+                self.state.ingest(e)
+            self.disk_bytes += payload
+            self.committed_cut_offset = len(self.disk_bytes)
+            self.committed_cut_seq = len(self.state.journal)
+            return "committed"
+
+        written = total_len if k_written is None else k_written
+        if written > 0:
+            self.disk_bytes += payload[:written]
+
+        can_abort = (
+            not lost_exclusion
+            and k_written is not None
+            and 0 <= k_written < total_len
+            and errno in ("ENOSPC", "EDQUOT")
+        )
+        if not can_abort:
+            self.poisoned = True
+            return "poisoned"
+
+        gate_cfg = gate or {}
+        same_file = gate_cfg.get("same_file", True)
+        truncate_ok = gate_cfg.get("truncate_ok", True)
+        abort_fsync_ok = gate_cfg.get("abort_fsync_ok", True)
+        fstat_matches = gate_cfg.get("fstat_matches", True)
+        prior_cut_valid = gate_cfg.get("prior_cut_valid", True)
+
+        if truncate_ok:
+            self.disk_bytes = self.disk_bytes[: self.committed_cut_offset]
+
+        revalidated_ok = False
+        if (
+            prior_cut_valid
+            and fstat_matches
+            and len(self.disk_bytes) == self.committed_cut_offset
+        ):
+            try:
+                parsed = (
+                    legacy.parse_wire_lines(self.disk_bytes, "abort_revalidate")
+                    if self.disk_bytes
+                    else []
+                )
+                if parsed:
+                    legacy.check_journal(parsed, "v1", check_entry_at=False)
+                revalidated_ok = len(parsed) == self.committed_cut_seq
+            except legacy.Reject:
+                revalidated_ok = False
+
+        if not (same_file and truncate_ok and abort_fsync_ok and revalidated_ok):
+            self.poisoned = True
+            return "poisoned"
+        return "aborted"
+
+    def body_state(self, step):
+        require(not self.poisoned, "inconsistent_cut")
+        return self.state.body_state(step)
+
+    def reopen_from_disk(self):
+        # Fresh reopen after kill/power loss ignores in-memory state and
+        # committed_cut_offset, scanning physical disk_bytes from byte 0 while
+        # preserving durable effect/ledger records.
+        reopened = AbortWriter(self.window_ms, self.profile)
+        reopened.disk_bytes = self.disk_bytes
+        reopened.durable_effect_relied_on = dict(self.durable_effect_relied_on)
+        reopened.durable_burned_ledger = dict(self.durable_burned_ledger)
+        parsed = (
+            legacy.parse_wire_lines(reopened.disk_bytes, "reopen")
+            if reopened.disk_bytes
+            else []
+        )
+        legacy.check_journal(parsed, "v1", check_entry_at=False)
+        for e in parsed:
+            reopened.state.ingest(e)
+        reopened.committed_cut_offset = len(reopened.disk_bytes)
+        reopened.committed_cut_seq = len(reopened.state.journal)
+        return reopened
+
+
 def timestamp_and_abort_controls():
-    """Verify v1 timestamp position-coverage mutations and incomplete-append abort faultpoints."""
+    """Verify v1 timestamp position-coverage mutations, Stage 3->4 fallback, and abort faultpoints."""
     source = (
-        Path(__file__).read_text(encoding="utf-8").split("def reason_controls(", 1)[0]
+        Path(__file__)
+        .read_text(encoding="utf-8")
+        .split("def timestamp_and_abort_controls(", 1)[0]
     )
-    # Position-deletion controls: removing self.instant(...) at each v1 timestamp position
-    # must cause its corresponding vector to stop refusing as instant_spelling.
+    # 1. Position-deletion controls: removing self.instant(...) at each v1 timestamp position
+    #    must cause its corresponding vector to stop refusing as instant_spelling.
     for pos_label, method_name, target_expr, witness in (
         (
             "record.produced_at.instant",
@@ -1911,10 +2088,28 @@ def timestamp_and_abort_controls():
             "produced-at-instant-spelling",
         ),
         (
+            "request.observed_at",
+            "request",
+            "self.instant(r['observed_at'])",
+            "instant-observed-at-seven-digits",
+        ),
+        (
             "reconcile.attempted_at",
             "reconcile",
             "self.instant(attempted_at)",
             "instant-reconcile-attempted-at",
+        ),
+        (
+            "verify_reconciliation.window_covers_from",
+            "verify_reconciliation",
+            "self.instant(received['window_covers_from'])",
+            "reconciliation-window-covers-from-impossible-date",
+        ),
+        (
+            "verify_reconciliation.window_covers_until",
+            "verify_reconciliation",
+            "self.instant(received['window_covers_until'])",
+            "reconciliation-window-covers-until-year-zero",
         ),
     ):
         tree = ast.parse(source)
@@ -1934,7 +2129,7 @@ def timestamp_and_abort_controls():
                         parent,
                         field,
                         ast.parse(
-                            "self.instant('2026-10-20T00:00:02.000000Z')", mode="eval"
+                            "self.instant('0001-01-01T00:00:02.000000Z')", mode="eval"
                         ).body,
                     )
                     replaced += 1
@@ -1949,7 +2144,54 @@ def timestamp_and_abort_controls():
             outcome,
         )
 
-    # Incomplete-append abort & faultpoint matrix controls (G3).
+    # 2. Pattern-only Stage 3 fallback control (F3 / E4): if a Stage 3 engine enforces
+    #    only pattern (not format: date-time), :60 and impossible calendar dates pass
+    #    Stage 3 and are deterministically refused at Stage 4 as instant_spelling.
+    for vec_name, schema_rel, doc_fn in (
+        (
+            "instant-leap-second.json",
+            "v1/journal-entry.schema.json",
+            lambda c: (c["journal"][0], c["journal"][0]["at"]),
+        ),
+        (
+            "instant-impossible-date.json",
+            "v1/journal-entry.schema.json",
+            lambda c: (c["journal"][0], c["journal"][0]["at"]),
+        ),
+        (
+            "produced-at-impossible-date.json",
+            "v1/journal-entry.schema.json",
+            lambda c: (
+                c["journal"][1],
+                c["journal"][1]["record"]["produced_at"]["instant"],
+            ),
+        ),
+        (
+            "reconciliation-window-covers-from-impossible-date.json",
+            "v1/write-receipt.schema.json",
+            lambda c: (
+                c["steps"][0]["receipt"],
+                c["steps"][0]["receipt"]["window_covers_from"],
+            ),
+        ),
+    ):
+        vec_case = load(BASE / "vectors" / vec_name)
+        bad_doc, bad_ts = doc_fn(vec_case)
+        assert CANONICAL_INSTANT.fullmatch(bad_ts) is not None, (vec_name, bad_ts)
+        schema_key = (schema_rel, _norm_raw(json.dumps(bad_doc)))
+        assert SHAPE_CACHE.get(schema_key) is False, (vec_name, schema_key)
+        try:
+            SHAPE_CACHE[schema_key] = True
+            fallback_case = {
+                k: v for k, v in vec_case.items() if not k.startswith("invalid_")
+            }
+            check_case_stage3_shapes(fallback_case, vec_name)
+            res = check_case(fallback_case)
+            assert res == {"refusal": "instant_spelling"}, (vec_name, res)
+        finally:
+            SHAPE_CACHE[schema_key] = False
+
+    # 3. Incomplete-append abort & faultpoint matrix controls.
     opened = {
         "v": 1,
         "seq": 1,
@@ -1983,60 +2225,128 @@ def timestamp_and_abort_controls():
         "digest": digest(rec1),
         "idempotency_key": "write-first-1",
     }
-    # 1. pre_first_entry_bytes: abort before any bytes after C=1; next write gets seq=2.
-    s_pre = State(60000)
-    s_pre.ingest(opened)
-    s_pre.ingest(entry2)
-    assert len(s_pre.journal) == 2 and s_pre.journal[-1]["seq"] == 2
-    bad_obs_req = load(BASE / "vectors/instant-observed-at-seven-digits.json")["steps"][
-        0
-    ]["request"]
-    bad_obs_req = {
-        **bad_obs_req,
-        "stream": "other.stream",
-        "observed_at": "0000-01-01T00:00:00.000000Z",
+    entry2_len = len((json.dumps(entry2, separators=(",", ":")) + "\n").encode("utf-8"))
+
+    # 3a. pre_first_entry_bytes (k == 0): abort before any bytes after C=1; next write gets seq=2.
+    w_pre = AbortWriter(60000)
+    assert w_pre.append_group([opened]) == "committed"
+    assert w_pre.append_group([entry2], k_written=0, errno="ENOSPC") == "aborted"
+    assert not w_pre.poisoned and w_pre.committed_cut_seq == 1
+    assert w_pre.append_group([entry2]) == "committed"
+    assert w_pre.committed_cut_seq == 2 and w_pre.state.journal[-1]["seq"] == 2
+
+    # 3b. mid_line_without_newline (0 < k < L - 1) & line_bytes_without_trailing_newline (k == L - 1):
+    #     In-process abort truncates back to byte_offset(C) and allows retry with same idempotency_key
+    #     at seq=2. If process dies before truncate completes, reopen_from_disk refuses as ingest.
+    for k_partial in (entry2_len // 2, entry2_len - 1):
+        w_abort = AbortWriter(60000)
+        assert w_abort.append_group([opened]) == "committed"
+        assert (
+            w_abort.append_group([entry2], k_written=k_partial, errno="EDQUOT")
+            == "aborted"
+        )
+        assert (
+            not w_abort.poisoned
+            and len(w_abort.disk_bytes) == w_abort.committed_cut_offset
+        )
+        assert w_abort.append_group([entry2]) == "committed"
+        assert w_abort.committed_cut_seq == 2
+
+        # Untruncated crash before truncate completes: reopen from physical bytes refuses as ingest.
+        w_crash = AbortWriter(60000)
+        assert w_crash.append_group([opened]) == "committed"
+        raw_entry2 = json.dumps(entry2, separators=(",", ":")) + "\n"
+        w_crash.disk_bytes += raw_entry2[:k_partial]
+        try:
+            w_crash.reopen_from_disk()
+        except legacy.Reject as err:
+            assert err.reason == "ingest", (k_partial, err.reason)
+        else:
+            raise AssertionError(
+                f"untruncated k={k_partial} was not refused as ingest on reopen"
+            )
+
+    # 3c. partial_atomic_group_m_of_g: 1 of 2 complete NDJSON lines written before ENOSPC.
+    #     In-process abort truncates to C=1; untruncated reopen refuses as inconsistent_cut.
+    rec2 = {**rec1, "record_id": "second", "payload": {"note": "two"}}
+    group_m1 = {**entry2, "group": 2, "group_size": 2}
+    group_m2 = {
+        **entry2,
+        "seq": 3,
+        "group": 2,
+        "group_size": 2,
+        "record": rec2,
+        "digest": digest(rec2),
+        "idempotency_key": "write-second-1",
     }
-    assert check_case(
-        {
-            "window_ms": 60000,
-            "journal": [opened],
-            "steps": [{"request": bad_obs_req, "at": "2026-10-20T00:00:04.000000Z"}],
-        }
-    ) == {"refusal": "instant_spelling"}
-
-    # 2. mid_line_without_newline: unterminated final NDJSON line refused as ingest if not
-    #    truncated; truncating back to byte_offset(C) restores clean prefix without phantom key.
-    line1_bytes = json.dumps(opened, separators=(",", ":")) + "\n"
-    partial_line2 = json.dumps(entry2, separators=(",", ":"))[
-        :-5
-    ]  # missing closing braces + \n
-    try:
-        legacy.parse_wire_lines(line1_bytes + partial_line2, "mid-line-fault")
-    except legacy.Reject as err:
-        assert err.reason == "ingest", err.reason
-    else:
-        raise AssertionError("mid_line_without_newline was not refused as ingest")
-    clean_prefix = legacy.parse_wire_lines(
-        (line1_bytes + partial_line2)[: len(line1_bytes)], "aborted-to-c"
-    )
-    assert len(clean_prefix) == 1 and clean_prefix[0]["seq"] == 1
-
-    # 3. partial_atomic_group_m_of_g: 1 of 2 entries in atomic group refused as inconsistent_cut
-    #    if not truncated; truncating back to C=1 allows fresh seq=2 write.
-    partial_group_member = {**entry2, "group": 2, "group_size": 2}
-    untruncated_res = check_case(
-        {"window_ms": 60000, "journal": [opened, partial_group_member], "steps": []}
-    )
-    assert untruncated_res == {"refusal": "inconsistent_cut"}, untruncated_res
-    truncated_res = check_case(
-        {"window_ms": 60000, "journal": [opened], "steps": [{"entry": entry2}]}
-    )
+    m1_len = len((json.dumps(group_m1, separators=(",", ":")) + "\n").encode("utf-8"))
+    w_grp = AbortWriter(60000)
+    assert w_grp.append_group([opened]) == "committed"
     assert (
-        truncated_res["results"] == [{"outcome": "journaled"}]
-        and truncated_res["journal_size"] == 2
+        w_grp.append_group([group_m1, group_m2], k_written=m1_len, errno="ENOSPC")
+        == "aborted"
     )
+    assert w_grp.committed_cut_seq == 1
+    assert w_grp.append_group([entry2]) == "committed"
+    assert w_grp.committed_cut_seq == 2
 
-    # 4 & 5. prewrite_body_before_body_published (effect_dependent vs prewrite_durable_ledger).
+    w_grp_crash = AbortWriter(60000)
+    assert w_grp_crash.append_group([opened]) == "committed"
+    w_grp_crash.disk_bytes += json.dumps(group_m1, separators=(",", ":")) + "\n"
+    try:
+        w_grp_crash.reopen_from_disk()
+    except legacy.Reject as err:
+        assert err.reason == "inconsistent_cut", err.reason
+    else:
+        raise AssertionError(
+            "untruncated partial atomic group was not refused as inconsistent_cut"
+        )
+
+    # 3d. Non-abortable faults (E1 / F4):
+    #     - full_write_failed_fsync (k == L, fsync_ok=False): MUST poison WITHOUT truncating disk_bytes.
+    #     - EIO, uncertain write count (k_written=None), lost_exclusion=True: MUST poison.
+    #     - Any completion-gate failure: MUST poison.
+    w_fsync_fail = AbortWriter(60000)
+    assert w_fsync_fail.append_group([opened]) == "committed"
+    cut1_offset = w_fsync_fail.committed_cut_offset
+    assert (
+        w_fsync_fail.append_group(
+            [entry2], k_written=entry2_len, errno="EIO", fsync_ok=False
+        )
+        == "poisoned"
+    )
+    assert w_fsync_fail.poisoned is True
+    assert len(w_fsync_fail.disk_bytes) == cut1_offset + entry2_len
+    assert w_fsync_fail.committed_cut_seq == 1
+    for post_poison_fn in (
+        lambda: w_fsync_fail.append_group([entry2]),
+        lambda: w_fsync_fail.allocate_incarnation(
+            {"digest": "sha256:" + "0" * 64, "length": 1}
+        ),
+    ):
+        try:
+            post_poison_fn()
+        except legacy.Reject as err:
+            assert err.reason == "inconsistent_cut"
+        else:
+            raise AssertionError("poisoned writer did not refuse subsequent operation")
+
+    for bad_kwargs in (
+        {"k_written": 10, "errno": "EIO"},
+        {"k_written": None, "errno": "ENOSPC"},
+        {"k_written": 10, "errno": "ENOSPC", "lost_exclusion": True},
+        {"k_written": 10, "errno": "ENOSPC", "gate": {"same_file": False}},
+        {"k_written": 10, "errno": "ENOSPC", "gate": {"truncate_ok": False}},
+        {"k_written": 10, "errno": "ENOSPC", "gate": {"abort_fsync_ok": False}},
+        {"k_written": 10, "errno": "ENOSPC", "gate": {"fstat_matches": False}},
+        {"k_written": 10, "errno": "ENOSPC", "gate": {"prior_cut_valid": False}},
+    ):
+        w_bad = AbortWriter(60000)
+        assert w_bad.append_group([opened]) == "committed"
+        assert w_bad.append_group([entry2], **bad_kwargs) == "poisoned", bad_kwargs
+        assert w_bad.poisoned is True, bad_kwargs
+
+    # 3e. Body lifecycle abort & incarnation_allocation modes (E2 / E3 / F4).
     body_ref = {
         "digest": "sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de",
         "length": 8,
@@ -2052,11 +2362,27 @@ def timestamp_and_abort_controls():
         "mode": "single_revision",
         "failure_model": "survives_power_loss",
     }
-    for alloc_mode, retry_incarnation in (
-        ("effect_dependent", 1),
-        ("prewrite_durable_ledger", 2),
-    ):
-        prof = {
+
+    def make_body_profile(alloc_mode=None):
+        runtime = {
+            "stratum": "journal-files",
+            "failure_model": "survives_power_loss",
+            "history_policy": "append_only",
+            "enabled_capabilities": ["body_ref", "tombstoning"],
+            "idempotency_window_ms": 60000,
+            "deletion": {
+                "live_head": "supported",
+                "retained_history": "unsupported",
+                "managed_replicas": "not_applicable",
+                "external_bodies": "supported",
+                "decryption": "unsupported",
+                "unmanaged_copies": "outside_claim",
+            },
+            "body_removal_stream": "store.bodies",
+        }
+        if alloc_mode is not None:
+            runtime["incarnation_allocation"] = alloc_mode
+        return {
             "capabilities": ["contract: durable-record/v1"],
             "origin": "declared",
             "conformance": "none",
@@ -2066,52 +2392,249 @@ def timestamp_and_abort_controls():
                 "compiled_strata": ["journal-files"],
                 "compiled_capabilities": ["body_ref", "tombstoning"],
             },
-            "runtime": {
-                "stratum": "journal-files",
-                "failure_model": "survives_power_loss",
-                "history_policy": "append_only",
-                "enabled_capabilities": ["body_ref", "tombstoning"],
-                "idempotency_window_ms": 60000,
-                "deletion": {
-                    "live_head": "supported",
-                    "retained_history": "unsupported",
-                    "managed_replicas": "not_applicable",
-                    "external_bodies": "supported",
-                    "decryption": "unsupported",
-                    "unmanaged_copies": "outside_claim",
-                },
-                "body_removal_stream": "store.bodies",
-                "incarnation_allocation": alloc_mode,
-            },
+            "runtime": runtime,
         }
-        pub_entry = {
+
+    def make_pub(seq, n, at="2026-10-20T00:00:02.000000Z"):
+        return {
             "v": 1,
-            "seq": 2,
-            "group": 2,
+            "seq": seq,
+            "group": seq,
             "group_size": 1,
             "stream": "store.bodies",
             "type": "body_published",
-            "at": "2026-10-20T00:00:02.000000Z",
+            "at": at,
             "body": body_ref,
-            "incarnation": retry_incarnation,
+            "incarnation": n,
         }
-        res = check_case(
-            {
-                "window_ms": 60000,
-                "profile": prof,
-                "journal": [body_stream_opened],
-                "steps": [
-                    {"body_state": {"body": body_ref, "present": True}},
-                    {"entry": pub_entry},
-                    {"body_state": {"body": body_ref, "present": True}},
-                ],
-            }
+
+    # Default omitted incarnation_allocation behaves as effect_dependent:
+    # - zero-effect abort (k=0, no record_body_effect) allows reusing n=1 or choosing a gap (n=3).
+    # - once record_body_effect(body_ref, 1) has occurred, n=1 is refused both in-process and
+    #   after reopen_from_disk(), and retry must use n' > 1 (e.g. 2 or 4).
+    for mode_arg in (None, "effect_dependent"):
+        w_eff = AbortWriter(60000, make_body_profile(mode_arg))
+        assert w_eff.incarnation_allocation == "effect_dependent"
+        assert w_eff.append_group([body_stream_opened]) == "committed"
+        n1 = w_eff.allocate_incarnation(body_ref)
+        assert n1 == 1
+        assert (
+            w_eff.append_group([make_pub(2, n1)], k_written=0, errno="ENOSPC")
+            == "aborted"
         )
-        assert res["results"] == [
-            {"outcome": "body_state", "state": "publishing"},
-            {"outcome": "journaled"},
-            {"outcome": "body_state", "state": "available"},
-        ], (alloc_mode, res)
+        # Zero physical effect relied on n=1 -> n=1 can be reused:
+        assert w_eff.allocate_incarnation(body_ref, requested_n=1) == 1
+        # Now physical placement relies on n=1 before the journal append aborts:
+        w_eff.record_body_effect(body_ref, 1)
+        assert (
+            w_eff.append_group([make_pub(2, 1)], k_written=12, errno="ENOSPC")
+            == "aborted"
+        )
+        assert w_eff.body_state({"body": body_ref, "present": True}) == {
+            "outcome": "body_state",
+            "state": "publishing",
+        }
+        try:
+            w_eff.allocate_incarnation(body_ref, requested_n=1)
+        except legacy.Reject as err:
+            assert err.reason == "body_lifecycle"
+        else:
+            raise AssertionError("effect_dependent allowed reuse of effect-relied n=1")
+        # Across restart, effect_relied_on_max=1 is still enforced and gaps (e.g. n=3) are valid:
+        w_eff_reopened = w_eff.reopen_from_disk()
+        try:
+            w_eff_reopened.allocate_incarnation(body_ref, requested_n=1)
+        except legacy.Reject as err:
+            assert err.reason == "body_lifecycle"
+        else:
+            raise AssertionError(
+                "effect_dependent after restart allowed reuse of effect-relied n=1"
+            )
+        n_gap = w_eff_reopened.allocate_incarnation(body_ref, requested_n=3)
+        assert n_gap == 3
+        assert w_eff_reopened.append_group([make_pub(2, n_gap)]) == "committed"
+        assert w_eff_reopened.body_state({"body": body_ref, "present": True}) == {
+            "outcome": "body_state",
+            "state": "available",
+        }
+
+    # prewrite_durable_ledger mode:
+    # - even on k=0 with zero physical body effects, n=1 is burned in the durable ledger before
+    #   the write and cannot be reused in-process or after restart.
+    w_led = AbortWriter(60000, make_body_profile("prewrite_durable_ledger"))
+    assert w_led.append_group([body_stream_opened]) == "committed"
+    assert w_led.allocate_incarnation(body_ref) == 1
+    assert (
+        w_led.append_group([make_pub(2, 1)], k_written=0, errno="ENOSPC") == "aborted"
+    )
+    for target_w in (w_led, w_led.reopen_from_disk()):
+        try:
+            target_w.allocate_incarnation(body_ref, requested_n=1)
+        except legacy.Reject as err:
+            assert err.reason == "body_lifecycle"
+        else:
+            raise AssertionError("prewrite_durable_ledger allowed reuse of burned n=1")
+    w_led_reopened = w_led.reopen_from_disk()
+    assert w_led_reopened.allocate_incarnation(body_ref) == 2
+    assert w_led_reopened.append_group([make_pub(2, 2)]) == "committed"
+
+    # body_removal_started and body_removed abort at seq = cut_seq + 1:
+    # retry uses the SAME incarnation n (does not burn n).
+    removal_started = {
+        "v": 1,
+        "seq": 3,
+        "group": 3,
+        "group_size": 1,
+        "stream": "store.bodies",
+        "type": "body_removal_started",
+        "at": "2026-10-20T00:00:03.000000Z",
+        "body": body_ref,
+        "incarnation": 2,
+        "reason": "retention_expired",
+        "authorization": {
+            "ref": "policy:retention",
+            "digest": "sha256:" + "a" * 64,
+        },
+        "provenance": {"actor_kind": "system", "actor": "sweeper"},
+    }
+    removal_done = {
+        "v": 1,
+        "seq": 4,
+        "group": 4,
+        "group_size": 1,
+        "stream": "store.bodies",
+        "type": "body_removed",
+        "at": "2026-10-20T00:00:04.000000Z",
+        "body": body_ref,
+        "incarnation": 2,
+        "provenance": {"actor_kind": "system", "actor": "sweeper"},
+    }
+    assert (
+        w_led_reopened.append_group([removal_started], k_written=15, errno="ENOSPC")
+        == "aborted"
+    )
+    assert w_led_reopened.body_state({"body": body_ref, "present": True}) == {
+        "outcome": "body_state",
+        "state": "available",
+    }
+    assert w_led_reopened.append_group([removal_started]) == "committed"
+    assert w_led_reopened.body_state({"body": body_ref, "present": True}) == {
+        "outcome": "body_state",
+        "state": "removal_pending",
+    }
+    assert (
+        w_led_reopened.append_group([removal_done], k_written=15, errno="EDQUOT")
+        == "aborted"
+    )
+    assert w_led_reopened.body_state({"body": body_ref, "present": False}) == {
+        "outcome": "body_state",
+        "state": "removal_pending",
+    }
+    assert w_led_reopened.append_group([removal_done]) == "committed"
+    assert w_led_reopened.body_state({"body": body_ref, "present": False}) == {
+        "outcome": "body_state",
+        "state": "removed",
+    }
+
+    # MAX_SAFE_INTEGER exhaustion in allocate_incarnation refuses as numeric_domain.
+    w_max = AbortWriter(60000, make_body_profile("prewrite_durable_ledger"))
+    assert w_max.append_group([body_stream_opened]) == "committed"
+    assert (
+        w_max.allocate_incarnation(body_ref, requested_n=MAX_SAFE_INTEGER)
+        == MAX_SAFE_INTEGER
+    )
+    try:
+        w_max.allocate_incarnation(body_ref)
+    except legacy.Reject as err:
+        assert err.reason == "numeric_domain"
+    else:
+        raise AssertionError(
+            "MAX_SAFE_INTEGER exhaustion did not refuse as numeric_domain"
+        )
+
+    # 4. AST mutation controls on AbortWriter (F4): prove each abort/gate/incarnation guard
+    #    kills its mutant.
+    for mut_label, target_old, target_new, probe_fn in (
+        (
+            "allow_full_write_failed_fsync_truncate",
+            "0 <= k_written < total_len",
+            "0 <= k_written <= total_len",
+            lambda cls: (
+                lambda w: (
+                    (
+                        w.append_group([opened]),
+                        w.append_group(
+                            [entry2],
+                            k_written=entry2_len,
+                            errno="ENOSPC",
+                            fsync_ok=False,
+                        ),
+                    )[1]
+                    == "poisoned"
+                )
+            )(cls(60000)),
+        ),
+        (
+            "skip_abort_fsync_gate",
+            "same_file and truncate_ok and abort_fsync_ok and revalidated_ok",
+            "same_file and truncate_ok and revalidated_ok",
+            lambda cls: (
+                lambda w: (
+                    (
+                        w.append_group([opened]),
+                        w.append_group(
+                            [entry2],
+                            k_written=10,
+                            errno="ENOSPC",
+                            gate={"abort_fsync_ok": False},
+                        ),
+                    )[1]
+                    == "poisoned"
+                )
+            )(cls(60000)),
+        ),
+        (
+            "reuse_effect_relied_on_incarnation",
+            "floor = max(committed_max, effect_max)",
+            "floor = committed_max",
+            lambda cls: (
+                lambda w: (
+                    (
+                        w.append_group([body_stream_opened]),
+                        w.record_body_effect(body_ref, 1),
+                        w.append_group([make_pub(2, 1)], k_written=10, errno="ENOSPC"),
+                        w.allocate_incarnation(body_ref),
+                    )[3]
+                    == 2
+                )
+            )(cls(60000, make_body_profile("effect_dependent"))),
+        ),
+        (
+            "reuse_prewrite_burned_ledger_incarnation",
+            "floor = max(committed_max, burned_max)",
+            "floor = committed_max",
+            lambda cls: (
+                lambda w: (
+                    (
+                        w.append_group([body_stream_opened]),
+                        w.allocate_incarnation(body_ref),
+                        w.append_group([make_pub(2, 1)], k_written=0, errno="ENOSPC"),
+                        w.allocate_incarnation(body_ref),
+                    )[3]
+                    == 2
+                )
+            )(cls(60000, make_body_profile("prewrite_durable_ledger"))),
+        ),
+    ):
+        assert probe_fn(AbortWriter) is True, ("baseline probe failed", mut_label)
+        mut_src = source.replace(target_old, target_new, 1)
+        assert mut_src != source, ("abort mutation target not found", mut_label)
+        ns = {"__file__": __file__, "__name__": "abort_mutation"}
+        exec(compile(ast.parse(mut_src), __file__, "exec"), ns)
+        assert probe_fn(ns["AbortWriter"]) is False, (
+            "abort mutant survived",
+            mut_label,
+        )
 
 
 def check_case_stage3_shapes(c, path):
@@ -2215,7 +2738,7 @@ def check_case_stage3_shapes(c, path):
                 return
             schema = (
                 "write-receipt"
-                if parsed_rcpt.get("kind") == "receipt"
+                if parsed_rcpt.get("kind") in ("receipt", "reconciliation")
                 else "protection-receipt"
             )
             assert shape_raw(step["raw_receipt"], schema) == (
@@ -2224,7 +2747,7 @@ def check_case_stage3_shapes(c, path):
         elif "receipt" in step:
             schema = (
                 "write-receipt"
-                if step["receipt"].get("kind") == "receipt"
+                if step["receipt"].get("kind") in ("receipt", "reconciliation")
                 else "protection-receipt"
             )
             assert shape(step["receipt"], schema) == (

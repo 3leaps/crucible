@@ -4,8 +4,12 @@
 #   2. Every `container:` image pin carries an immutable `@sha256:<64-hex>` digest.
 #   3. Workflow and job `permissions:` blocks stay within least-privilege bounds
 #      (`contents: write` restricted to the `create-release` job in `release.yml`).
-# Includes EPR-0002 negative controls proving unpinned actions, digestless
-# containers, and broadened permissions fail closed.
+#   4. Both `*.yml` and `*.yaml` workflow files are scanned, and YAML block
+#      scalars (`|`, `>`) are forbidden on security-relevant keys (`uses`,
+#      `container`, `image`, `permissions`).
+# Includes EPR-0002 negative controls proving unpinned actions, block-scalar
+# pins, `.yaml` workflows, digestless containers, and broadened permissions
+# fail closed.
 
 set -euo pipefail
 
@@ -24,6 +28,7 @@ USES_RE = re.compile(
 )
 IMAGE_DIGEST_RE = re.compile(r"^[^\s#]+@sha256:[0-9a-f]{64}$")
 ALLOWED_READ_SCOPES = {"contents", "pull-requests", "actions"}
+ALLOWED_BLOCK_SCALAR_KEYS = {"run", "description"}
 
 
 def strip_comment(raw: str) -> str:
@@ -117,6 +122,10 @@ def check_workflow(path: pathlib.Path) -> list[str]:
         clean_val = strip_comment(raw_val)
 
         if clean_val in ("|", ">", "|-", ">-", "|+", ">+"):
+            if key not in ALLOWED_BLOCK_SCALAR_KEYS:
+                errors.append(
+                    f"{path.name}:{lineno}: YAML block scalar '{clean_val}' is not permitted for key '{key}'"
+                )
             block_scalar_indent = indent
             continue
 
@@ -211,9 +220,9 @@ def check_workflow(path: pathlib.Path) -> list[str]:
 
 
 target = pathlib.Path(sys.argv[1])
-files = sorted(target.glob("*.yml"))
+files = sorted(list(target.glob("*.yml")) + list(target.glob("*.yaml")))
 if not files:
-    sys.stderr.write(f"error: no workflow .yml files found in {target}\n")
+    sys.stderr.write(f"error: no workflow .yml/.yaml files found in {target}\n")
     sys.exit(1)
 
 all_errors: list[str] = []
@@ -263,6 +272,52 @@ jobs:
       - uses: actions/checkout@v4
 EOF
 expect_reject "tag-pinned action" "${tmp_dir}/tag-pin" "must be pinned to a 40-hex commit SHA"
+
+mkdir -p "${tmp_dir}/yaml-ext"
+cat >"${tmp_dir}/yaml-ext/ci.yaml" <<'EOF'
+name: CI
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+EOF
+expect_reject ".yaml workflow extension with tag-pinned action" "${tmp_dir}/yaml-ext" "ci.yaml:9: action 'actions/checkout@v4' must be pinned"
+
+mkdir -p "${tmp_dir}/block-scalar-uses"
+cat >"${tmp_dir}/block-scalar-uses/ci.yml" <<'EOF'
+name: CI
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: |
+          actions/checkout@v4
+EOF
+expect_reject "block-scalar uses" "${tmp_dir}/block-scalar-uses" "YAML block scalar '|' is not permitted for key 'uses'"
+
+mkdir -p "${tmp_dir}/block-scalar-image"
+cat >"${tmp_dir}/block-scalar-image/ci.yml" <<'EOF'
+name: CI
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: >-
+        alpine:3.21
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+EOF
+expect_reject "block-scalar container image" "${tmp_dir}/block-scalar-image" "YAML block scalar '>-' is not permitted for key 'image'"
 
 mkdir -p "${tmp_dir}/no-comment"
 cat >"${tmp_dir}/no-comment/ci.yml" <<'EOF'

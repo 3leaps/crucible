@@ -484,6 +484,8 @@ PY
 
 # Check primary and signing subkey expiration horizons on an ASCII-armored
 # OpenPGP public key pin (default: docs/security/release-signing-keys.asc):
+#   - Every pinned primary key and signing subkey must carry exactly one
+#     verified binding signature and a finite positive expiration timestamp.
 #   - <= 0s remaining: fail closed (exit 1) naming key role, fingerprint, and UTC expiry.
 #   - <= 30d remaining: emit a warning on stderr naming remaining days and UTC expiry.
 check_release_key_expiry() {
@@ -494,8 +496,12 @@ import binascii
 import datetime
 import hashlib
 import math
+import os
 import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 
 HORIZON_SECONDS = 30 * 86400
@@ -617,7 +623,7 @@ while i < len(raw):
             "fpr": fpr,
             "created": created,
             "expires": None,
-            "sig_created": -1,
+            "sig_count": 0,
             "signing": False,
         }
         current_key = entry
@@ -625,35 +631,117 @@ while i < len(raw):
             primaries.append(entry)
         else:
             subkeys.append(entry)
-    elif tag == 2 and current_key is not None and len(body) >= 6 and body[0] == 4:
+    elif tag == 2:
+        if current_key is None or len(body) < 6 or body[0] != 4:
+            sys.exit(f"error: unsupported or detached OpenPGP signature packet in {pin_path}")
         sig_type = body[1]
         is_primary_sig = current_key["role"] == "primary key" and sig_type in (0x10, 0x11, 0x12, 0x13, 0x1F)
         is_subkey_sig = current_key["role"] == "signing subkey" and sig_type == 0x18
-        if is_primary_sig or is_subkey_sig:
-            hashed_len = int.from_bytes(body[4:6], "big")
-            if 6 + hashed_len > len(body):
-                sys.exit("error: malformed OpenPGP binding signature")
-            flags, sig_created, key_exp_offset = parse_subpackets(body[6 : 6 + hashed_len])
-            if flags & 0x02:
-                current_key["signing"] = True
-            sc = sig_created if sig_created is not None else 0
-            if sc >= int(current_key["sig_created"]):
-                current_key["sig_created"] = sc
-                if key_exp_offset is not None and key_exp_offset > 0:
-                    current_key["expires"] = int(current_key["created"]) + key_exp_offset
-                elif key_exp_offset == 0:
-                    current_key["expires"] = None
+        if not (is_primary_sig or is_subkey_sig):
+            sys.exit(f"error: unexpected OpenPGP signature type 0x{sig_type:02x} in {pin_path}")
+        hashed_len = int.from_bytes(body[4:6], "big")
+        if 6 + hashed_len > len(body):
+            sys.exit("error: malformed OpenPGP binding signature")
+        flags, _sig_created, key_exp_offset = parse_subpackets(body[6 : 6 + hashed_len])
+        current_key["sig_count"] = int(current_key["sig_count"]) + 1
+        if int(current_key["sig_count"]) > 1:
+            sys.exit(
+                f"error: pinned release {current_key['role']} {current_key['fpr']} "
+                "carries multiple binding signatures"
+            )
+        if flags & 0x02:
+            current_key["signing"] = True
+        if key_exp_offset is not None and key_exp_offset > 0:
+            current_key["expires"] = int(current_key["created"]) + key_exp_offset
+        else:
+            current_key["expires"] = None
 
 signing_subkeys = [k for k in subkeys if k["signing"]]
-if len(primaries) != 1 or len(signing_subkeys) != 1:
+if len(primaries) != 1 or len(signing_subkeys) != 1 or len(subkeys) != 1:
     sys.exit(f"error: {pin_path} must hold exactly one primary key and one signing subkey")
+
+for key in (primaries[0], signing_subkeys[0]):
+    if int(key["sig_count"]) != 1:
+        sys.exit(
+            f"error: pinned release {key['role']} {key['fpr']} must carry exactly one binding signature"
+        )
+    if key["expires"] is None:
+        sys.exit(
+            f"error: pinned release {key['role']} {key['fpr']} has no expiration timestamp"
+        )
+
+gpg_bin = shutil.which("gpg")
+if gpg_bin:
+    gpgconf_bin = shutil.which("gpgconf")
+    tmp_home = tempfile.mkdtemp(prefix="crucible-keycheck.")
+    os.chmod(tmp_home, 0o700)
+    try:
+        env = dict(os.environ, GNUPGHOME=tmp_home)
+        imp = subprocess.run(
+            [gpg_bin, "--batch", "--quiet", "--import", str(pin_path)],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if imp.returncode != 0:
+            sys.exit(f"error: gpg failed to import {pin_path}")
+        chk = subprocess.run(
+            [gpg_bin, "--batch", "--with-colons", "--check-sigs"],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if chk.returncode != 0:
+            sys.exit(f"error: gpg signature check failed on {pin_path}")
+        good_sigs = 0
+        for line in chk.stdout.splitlines():
+            parts = line.split(":")
+            if parts[0] in ("sig", "rev"):
+                if parts[1] != "!":
+                    sys.exit(
+                        f"error: unverified or bad binding signature ({parts[0]}:{parts[1]}) in {pin_path}"
+                    )
+                good_sigs += 1
+        if good_sigs < 2:
+            sys.exit(f"error: expected verified primary and subkey binding signatures in {pin_path}")
+        lst = subprocess.run(
+            [gpg_bin, "--batch", "--with-colons", "--with-subkey-fingerprint", "--list-keys"],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if lst.returncode != 0:
+            sys.exit(f"error: gpg list-keys failed on {pin_path}")
+        gpg_exp: dict[str, int] = {}
+        pending_exp: int | None = None
+        for line in lst.stdout.splitlines():
+            parts = line.split(":")
+            if parts[0] in ("pub", "sub"):
+                exp_field = parts[6] if len(parts) > 6 else ""
+                if not exp_field.isdigit() or int(exp_field) <= 0:
+                    sys.exit(f"error: gpg reported missing expiration timestamp in {pin_path}")
+                pending_exp = int(exp_field)
+            elif parts[0] == "fpr" and pending_exp is not None:
+                fpr_val = parts[9] if len(parts) > 9 else ""
+                gpg_exp[fpr_val] = pending_exp
+                pending_exp = None
+        for key in (primaries[0], signing_subkeys[0]):
+            fpr_str = str(key["fpr"])
+            if gpg_exp.get(fpr_str) != int(key["expires"]):
+                sys.exit(
+                    f"error: packet expiry for {key['role']} {fpr_str} disagrees with verified gpg expiry"
+                )
+    finally:
+        if gpgconf_bin:
+            subprocess.run(
+                [gpgconf_bin, "--homedir", tmp_home, "--kill", "all"],
+                capture_output=True,
+            )
+        shutil.rmtree(tmp_home, ignore_errors=True)
 
 now = int(time.time())
 for key in (primaries[0], signing_subkeys[0]):
-    exp = key["expires"]
-    if exp is None:
-        continue
-    exp_int = int(exp)
+    exp_int = int(key["expires"])
     exp_iso = datetime.datetime.fromtimestamp(exp_int, datetime.timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )

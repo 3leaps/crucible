@@ -792,7 +792,7 @@ def verify_suite_report(
 # --- timestamps & JCS digest ------------------------------------------------
 
 
-_FRACTION = re.compile(r"[Tt]\d{2}:\d{2}:\d{2}\.(\d+)")
+_FRACTION = re.compile(r"[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}\.([0-9]+)", re.ASCII)
 
 
 def instant(text: Any):
@@ -910,7 +910,7 @@ def check_entry(e, where: str, *, check_at: bool = True) -> None:
             raise Reject("supersedes_revision", where)
 
 
-def check_journal(lines: list, label: str) -> dict:
+def check_journal(lines: list, label: str, *, check_entry_at: bool = True) -> dict:
     """Validate a journal; return facts used by receipt checks."""
     if not lines:
         raise Reject("empty", label)
@@ -948,7 +948,7 @@ def check_journal(lines: list, label: str) -> dict:
         elif e["group"] != i:
             raise Reject("group", f"{where}: a new group must start at its own seq")
         open_group = g
-        check_entry(e, where, check_at=(label != "v1"))
+        check_entry(e, where, check_at=check_entry_at)
         if e["type"] in ("appended", "revised"):
             rec = e["record"]
             rid = rec["record_id"]
@@ -1671,6 +1671,11 @@ def self_test() -> None:
         "2026-10-12T12:00:00+00:60",
         "2026-02-29T12:00:00Z",
         "2026-04-31T12:00:00Z",
+        "\uff12\uff10\uff12\uff16-10-12T12:00:00Z",
+        "2026-\uff11\uff10-12T12:00:00Z",
+        "2026-10-12T\uff11\uff12:00:00Z",
+        "2026-10-12T12:00:00.\uff11\uff12\uff13Z",
+        "2026-10-12T12:00:00.000000\uff11Z",
         12345,
         None,
     ]:

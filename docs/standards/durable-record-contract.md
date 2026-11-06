@@ -135,10 +135,15 @@ Wire readers and conformance gates evaluate inputs in four ordered stages:
 
 1. **Strict JSON ingestion (`ingest`)** — valid UTF-8 RFC 8259 syntax, unique
    object member names at every nesting depth, no lone surrogates, and no
-   non-JSON or non-finite IEEE 754 numbers. For NDJSON journals, every entry
-   line (including the final line `k = L - 1`) MUST be terminated by a single
-   `0x0A` (`\n`) with no `0x0D` (`\r`); a non-empty final line missing its
-   trailing `0x0A` is an incomplete append and fails at `ingest`;
+   non-JSON or non-finite IEEE 754 numbers. For NDJSON journals, let `L` be the
+   byte length of a serialized entry line including its terminating `0x0A`
+   (`\n`), and `k` be the number of bytes written for that line: every entry
+   line (including the final line of the file) MUST be terminated by a single
+   `0x0A` (`\n`) with no `0x0D` (`\r`). A non-empty final line missing its
+   trailing `0x0A` (including `k = L - 1` bytes that close the JSON object `{...}`
+   without `\n`) is an incomplete append and fails at `ingest`. Forbidding
+   `0x0D` (`\r`) across all `v0` and `v1` NDJSON inputs is an explicit framing
+   tightening in this revision;
 2. **Exact numeric-domain preflight (`numeric_domain`)** — at protocol integer
    schema paths only (never inside `record.payload`), raw JSON numeric tokens
    are checked before binary64 conversion using bounded decimal/exponent
@@ -154,15 +159,18 @@ Wire readers and conformance gates evaluate inputs in four ordered stages:
 3. **Schema validation (`shape`)** — JSON Schema Draft 2020-12 validation
    yielding a structured validity verdict (`true`, or `false` with validation
    diagnostics; parser, range or tool failures are infrastructure errors, never
-   schema rejections). Durable-record schemas use a finite Draft 2020-12
-   keyword subset (`$schema`, `$id`, `$defs`, `$ref`, `title`, `description`,
-   `type`, `const`, `enum`, `properties`, `required`, `additionalProperties`,
-   `items`, `contains`, `minItems`, `maxItems`, `uniqueItems`, `minLength`,
-   `maxLength`, `pattern`, `format`, `minimum`, `maximum`, `allOf`, `anyOf`,
-   `oneOf`, `not`, `if`, `then`, `else`). Every `$ref` targets a local
-   `#/$defs/<name>` definition and MUST NOT be combined with sibling assertion
-   keywords (`maxLength`, `type`, `pattern`, etc.); `format: "date-time"` is
-   the only admitted `format` attribute;
+   schema rejections). Because the pinned validator (`goneat`) does not
+   implement arbitrary Draft 2020-12 vocabularies or sibling assertions
+   alongside `$ref`, durable-record schemas are restricted to a finite Draft
+   2020-12 keyword subset enforced at schema qualification (`$schema`, `$id`,
+   `$defs`, `$ref`, `title`, `description`, `type`, `const`, `enum`,
+   `properties`, `required`, `additionalProperties`, `items`, `contains`,
+   `minItems`, `maxItems`, `uniqueItems`, `minLength`, `maxLength`, `pattern`,
+   `format`, `minimum`, `maximum`, `allOf`, `anyOf`, `oneOf`, `not`, `if`,
+   `then`, `else`). Every `$ref` targets a local `#/$defs/<name>` definition
+   and MUST NOT be combined with sibling assertion keywords (`maxLength`,
+   `type`, `pattern`, etc.); `format: "date-time"` is the only admitted
+   `format` attribute;
 4. **Logical semantics** — stream, group, digest, revision-chain, timestamp,
    receipt, coverage and profile invariants. Direct typed APIs enforce the same
    `[minimum, 9007199254740991]` range, though an already-parsed float cannot
@@ -177,8 +185,11 @@ three reconciliation results `found`, `not_found`, and `unknown`, plus
 is validated against the `v0` RFC 3339 profile:
 
 - **Lexical grammar:** `YYYY-MM-DD('T'|'t')HH:MM:SS(.d+)?('Z'|'z'|[+-]HH:MM)`
-  (ASCII digits only; period `.` fractional separator when present; 2-digit
-  fields; offset hours `00`–`23`, minutes `00`–`59`);
+  (ASCII digits `0`–`9` `0x30`–`0x39` only; Unicode non-ASCII digits such as
+  `U+FF10..U+FF19` are refused; period `.` fractional separator when present;
+  2-digit fields; offset hours `00`–`23`, minutes `00`–`59`; `-00:00` is
+  accepted in `v0` per RFC 3339 Section 4.3 as UTC epoch-equivalent alongside
+  `Z`, `z`, and `+00:00`);
 - **Calendar & year bounds:** proleptic Gregorian month/day validity (leap year
   iff `year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)`), with both the
   written local year and the UTC-normalized year in `0001`–`9999` (`0000`,
@@ -188,6 +199,10 @@ is validated against the `v0` RFC 3339 profile:
 - **Microsecond precision ceiling:** fractional seconds with any nonzero digit
   beyond the 6th fractional place (sub-microsecond precision) fail closed as
   `timestamp` rather than truncating.
+
+| `v0` position | Non-string / bad type | Impossible calendar date (`2026-02-30...`) or leap second (`:60`) | Bare date (`2026-10-12`), comma fraction, 1-digit hour, bad offset (`+24:00`), non-ASCII digits, year `0000`, UTC year underflow/overflow, or `>6` nonzero fractional digits |
+| --- | --- | --- | --- |
+| `journal-entry.at`, `reconciliation.attempted_at`, `reconciliation.window_covers_from`, `reconciliation.window_covers_until` (end-to-end staged gate under pinned `goneat`) | Stage 3 `shape` (and Stage 4 `timestamp` if invoked directly) | Stage 3 `shape` (and Stage 4 `timestamp` if invoked directly) | Passes pinned `goneat` `format: "date-time"`; refused at Stage 4 as `timestamp` (or `continuation` when observed as a `v1` continuation source/ancestor) |
 
 ## Governed objects
 

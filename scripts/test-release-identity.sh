@@ -301,6 +301,88 @@ git_fixture checkout --quiet main
 label="expired key refused by verify-pinned-tag" expect_refused "expired at 2024-01-02T00:00:00Z" v1.0.10
 gpgconf --homedir "$work/exp-gnupg" --kill all >/dev/null 2>&1 || true
 
+mkdir -m 700 "$work/noexp-gnupg"
+GNUPGHOME="$work/noexp-gnupg" gpg --batch --quiet --passphrase '' \
+    --quick-generate-key "$tagger_name <$tagger_email>" ed25519 cert 0 2>/dev/null
+noexp_primary="$(GNUPGHOME="$work/noexp-gnupg" gpg --batch --with-colons --list-keys "$tagger_email" |
+    awk -F: '$1=="fpr" {print $10; exit}')"
+GNUPGHOME="$work/noexp-gnupg" gpg --batch --quiet --passphrase '' \
+    --quick-add-key "$noexp_primary" ed25519 sign 0 2>/dev/null
+git_fixture checkout --quiet -B side-noexp "$base"
+GNUPGHOME="$work/noexp-gnupg" gpg --batch --armor --export "$noexp_primary" >"$repo/docs/security/release-signing-keys.asc"
+rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
+    >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "no-expiry key refused by release-derive-anchors" "has no expiration timestamp"
+gpgconf --homedir "$work/noexp-gnupg" --kill all >/dev/null 2>&1 || true
+
+# Appended duplicate/unverified subkey binding signature packet is refused.
+git_fixture checkout --quiet -B side-dupsig "$base"
+python3 - "$repo/docs/security/release-signing-keys.asc" <<'PY'
+import base64
+import pathlib
+import sys
+import zlib
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+lines = [
+    line.strip()
+    for line in text.splitlines()
+    if line.strip()
+    and not line.startswith("-----")
+    and ":" not in line
+    and not line.startswith("=")
+]
+raw = base64.b64decode("".join(lines), validate=True)
+
+# Locate the final signature packet (subkey binding sig) and append a copy.
+i = 0
+last_sig = b""
+while i < len(raw):
+    start = i
+    ctb = raw[i]
+    i += 1
+    if ctb & 0x40:
+        tag = ctb & 0x3F
+        l0 = raw[i]
+        i += 1
+        if l0 < 192:
+            body_len = l0
+        elif l0 < 224:
+            body_len = ((l0 - 192) << 8) + raw[i] + 192
+            i += 1
+        else:
+            body_len = int.from_bytes(raw[i : i + 4], "big")
+            i += 4
+    else:
+        tag = (ctb >> 2) & 0x0F
+        ltype = ctb & 0x03
+        if ltype == 0:
+            body_len = raw[i]
+            i += 1
+        elif ltype == 1:
+            body_len = int.from_bytes(raw[i : i + 2], "big")
+            i += 2
+        else:
+            body_len = int.from_bytes(raw[i : i + 4], "big")
+            i += 4
+    i += body_len
+    if tag == 2:
+        last_sig = raw[start:i]
+
+tampered_raw = raw + last_sig
+b64 = base64.b64encode(tampered_raw).decode("ascii")
+wrapped = "\n".join(b64[j : j + 64] for j in range(0, len(b64), 64))
+path.write_text(
+    f"-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n{wrapped}\n-----END PGP PUBLIC KEY BLOCK-----\n",
+    encoding="utf-8",
+)
+PY
+rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
+    >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "duplicate subkey binding signature refused" "carries multiple binding signatures"
+git_fixture checkout --quiet main
+
 if ((failures)); then
     echo "[!!] release identity controls: $failures failure(s)" >&2
     exit 1
