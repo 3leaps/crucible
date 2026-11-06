@@ -48,7 +48,7 @@ def parse_rfc3339(text: str) -> datetime:
     hour = int(match.group("hour"))
     minute = int(match.group("minute"))
     second = int(match.group("second"))
-    if hour > 23 or minute > 59:
+    if not (1 <= year <= 9999) or hour > 23 or minute > 59:
         raise ValueError(f"unparseable RFC3339 timestamp: {text!r}")
     if second == 60:
         raise ValueError(f"leap second is not admitted: {text!r}")
@@ -77,9 +77,9 @@ def parse_rfc3339(text: str) -> datetime:
         parsed = datetime(
             year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo
         )
-    except ValueError as exc:
+        return parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError) as exc:
         raise ValueError(f"unparseable RFC3339 timestamp: {text!r}") from exc
-    return parsed.astimezone(timezone.utc)
 
 
 def epoch_seconds(text: str) -> int:
@@ -128,8 +128,13 @@ def self_test() -> None:
     expect_reject("hour-24", "2026-08-15T24:00:00Z")
     expect_reject("leap-second-utc", "2016-12-31T23:59:60Z")
     expect_reject("leap-second-offset", "2016-12-31T23:59:60+00:00")
+    expect_reject("year-0000", "0000-01-01T00:00:00Z")
+    expect_reject("year-0001-utc-underflow", "0001-01-01T00:00:00+01:00")
+    expect_reject("year-9999-utc-overflow", "9999-12-31T23:59:59-01:00")
 
     expect_accept("zulu", "2026-08-15T17:00:00Z")
+    expect_accept("year-0001-min", "0001-01-01T00:00:00Z")
+    expect_accept("year-9999-max", "9999-12-31T23:59:59.999999Z")
     expect_accept("lowercase", "2026-08-15t17:00:00z")
     expect_accept("numeric-offset", "2026-08-15T17:00:00+00:00")
     expect_accept("negative-offset", "2026-08-15T13:00:00-04:00")

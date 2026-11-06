@@ -7,9 +7,16 @@ Schemas: [`schemas/durable-record/v1`](../../schemas/durable-record/v1/).
 
 This family adds `tombstoned` and `untombstoned` journal entries. Adding entry
 types is a breaking change under the [v0 standard](durable-record-contract.md),
-so this is v1. The v0 schemas and semantics remain unchanged. Repository release
-numbers and contract versions are independent; an experimental v1 contract does
-not imply a stable implementation.
+so this is v1. `contract: durable-record/v0` is deprecated (`"status": "deprecated"`,
+`"superseded_by": "contract: durable-record/v1"` in
+[`schemas/durable-record/v0/contract.json`](../../schemas/durable-record/v0/contract.json))
+for new stream production; new durable-record producers MUST target
+`contract: durable-record/v1`. The v0 schemas, fixtures, and validator checks
+remain in the repository because v1 stream continuations (`continued_from`,
+`imported_from`) and multi-version store readers still verify historical v0
+source streams and ancestor journals. Repository release numbers and contract
+versions are independent; an experimental v1 contract does not imply a stable
+implementation.
 
 The record's `v` denotes its envelope version, not the contract-family
 version. A v1 journal carries **record envelope `v: 1`**: the v0 envelope with
@@ -98,7 +105,10 @@ wire ceiling at API, import and journal boundaries before emitting, hashing or
 incrementing; counter or atomic-group exhaustion (`seq`, `revision`,
 `incarnation`, `group + group_size - 1`) refuses without wraparound.
 
-Evaluation follows the four-stage order: strict JSON ingestion (`ingest`) ->
+Evaluation follows the four-stage order: strict JSON ingestion (`ingest`,
+including NDJSON line framing where every line `0 <= k < L` — including the
+final line `k = L - 1` — MUST end with a single LF `0x0A` without CR `0x0D`,
+refusing any unterminated final line or blank line as `ingest`) ->
 exact protocol-integer raw-token preflight (`numeric_domain`, bounded without
 expanding huge exponents; accepting `12`, `12.0`, `1.2e1`, `0.0`, `-0.0` where
 `minimum` permits; rejecting fractional tails such as `12.0000000000000001`,
@@ -106,9 +116,18 @@ underflow `1e-400`, and magnitudes above `9007199254740991`; passing non-numeric
 types and safe negative integers through to field `type`/`minimum` checks) ->
 schema validation (`shape`) -> logical semantics. Direct typed APIs enforce the
 same permitted range, while raw-byte checks certify wire tokens before binary64
-conversion. An observed source or ancestor journal failing any of these four
-stages supplies no restriction state and refuses the relying continuation as
-`continuation`.
+conversion. An observed v0 or v1 source or ancestor journal failing any of these
+four stages (including v0 Stage 4 `timestamp` validation on every entry `at` in
+the full observed journal, whether at or beyond `cut_seq`) supplies no
+restriction state and refuses the relying continuation as `continuation`.
+
+To keep Stage 3 (`shape`) deterministic across validators, `durable-record`
+schemas use a finite JSON Schema Draft 2020-12 keyword subset enforced by the
+contract controls: `$ref` targets only local `#/$defs/<name>` definitions and
+carries no sibling assertion keywords (`pattern`, `minLength`, `maxLength`,
+`format`, `enum`, `const`, `minimum`, `maximum`, etc. alongside `$ref` are
+forbidden; constraints belong on the `$defs` target or inside `allOf`), and
+`format` is restricted to `"date-time"`.
 
 ## Production time, instants and ordering
 
@@ -124,15 +143,26 @@ acceptance. Store acceptance time is the journal entry's `at`, outside the
 record digest.
 
 Every instant on the v1 wire is spelled `YYYY-MM-DDTHH:MM:SS.ffffffZ`: UTC,
-`Z`, exactly six fractional digits, and a valid RFC 3339 date and time (no
-February 30, no hour 24, no leap second). This covers journal `at`, `observed_at`,
-`produced_at.instant`, reconciliation `attempted_at` and coverage endpoints.
-Emitters MUST use this spelling. Readers MUST refuse any other spelling, and any
-canonical-looking instant that is not a valid date and time, as
-`instant_spelling` and MUST NOT normalize it: a digest covers the bytes the
-producer wrote, so a store that rewrote `observed_at` or `produced_at.instant`
-would invalidate the caller's digest. An instant that is not exactly
-representable at microseconds is refused, never rounded.
+uppercase `T` and `Z`, four-digit year `0001` through `9999` inclusive (`0000`
+is refused), month `01` through `12`, proleptic Gregorian day-of-month valid for
+`(year, month)` (February `29` valid only when `year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)`),
+hour `00` through `23`, minute `00` through `59`, second `00` through `59`
+(`:60` leap seconds are unconditionally refused), period `.`, and exactly six
+fractional digits (`000000` through `999999`). This covers journal `at`,
+`observed_at`, `produced_at.instant`, reconciliation `attempted_at` and coverage
+endpoints (`window_covers_from`, `window_covers_until`). Emitters MUST use this
+spelling. Validation splits across two stages: Stage 3 (`shape`) enforces both
+`pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"`
+and `format: "date-time"` on `$defs/instant`, and Stage 4 (`instant_spelling`)
+enforces proleptic Gregorian calendar validity, year bounds `0001`..`9999`, and
+second `00`..`59` even when a schema validator omits or partially implements
+`format` assertion semantics. Readers MUST refuse any non-conforming instant as
+`shape` (Stage 3) or `instant_spelling` (Stage 4) and MUST NOT normalize it: a
+digest covers the bytes the producer wrote, so a store that rewrote
+`observed_at` or `produced_at.instant` would invalidate the caller's digest. An
+instant that is not exactly representable at microseconds is refused, never
+rounded. In protection request evaluation, `observed_at` is checked at Stage 4
+before operation-level target, hold, or sequence checks.
 
 `seq` orders one stream's journal. It is a store artifact and is not portable:
 it changes when content is re-recorded into another stream. Portable ordering
@@ -508,6 +538,49 @@ No cross-stream order is required between `body_published` and the content
 entries that reference the body. Lifecycle does not change any restriction: a
 removed body does not retire, release or restrict a record, and no
 `full_content` export may succeed without every required body.
+
+**Incomplete-append abort and torn-tail boundary.** A store writer that suffers
+an intra-process write or flush failure before its commit step completes (for
+example, a partial NDJSON line write due to `ENOSPC` or a failed `fsync` before
+the writer returns) MUST either truncate the journal back to the prior committed
+byte offset before releasing the writer lock or poison the writer handle so no
+subsequent operation can append after an incomplete tail. Every committed NDJSON
+line `0 <= k < L` — including the final line `k = L - 1` — MUST end with a
+single newline (`0x0A`); a final line lacking its terminating newline is an
+incomplete append, never a committed entry, and a reopening reader MUST refuse
+an un-truncated tail lacking a trailing newline as `ingest`. An aborted append
+produces no committed journal entry, advances no durable `seq`, and returns no
+accepted receipt.
+
+**Incarnation allocation policy (`runtime.incarnation_allocation`).** When
+`deletion.external_bodies` is `"supported"`, a stratum profile MAY declare
+`runtime.incarnation_allocation` as either `"effect_dependent"` or
+`"prewrite_durable_ledger"` (the field is forbidden when
+`deletion.external_bodies != "supported"`):
+
+- `"effect_dependent"`: the store allocates an incarnation number in memory
+  during the append attempt without persisting an out-of-band incarnation
+  ledger before the journal commit. If an append aborts before commit and before
+  any irreversible physical body effect occurs, the store rolls back the
+  in-memory allocation (or re-derives the next incarnation from the committed
+  journal prefix), so the next committed `body_published` for that `(digest, length)`
+  uses the contiguous incarnation `n` (`1` on first publication, `prior + 1`
+  after `body_removed(prior)`). Once physical body unlink has started after a
+  committed `body_removal_started(n)`, the removal is in flight (`removal_pending`)
+  and is no longer an uncommitted pre-effect abort.
+- `"prewrite_durable_ledger"`: the store persists an incarnation counter in a
+  separate durable ledger before attempting the journal append; this profile
+  requires explicit recovery metadata to reconcile ledger-allocated incarnations
+  after an aborted journal append and is reserved for strata that implement the
+  durable recovery extension.
+
+| Faultpoint                                                                                      | Pre-fault committed tail | Physical body bytes | Required post-abort journal state & reader state                                                                 | Next retry / follow-up rule                                                                           |
+| ----------------------------------------------------------------------------------------------- | ------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Partial `body_published(1)` bytes written without trailing `\n`, writer truncates to prior cut  | none                     | present             | Truncated to prior cut; reader observes `publishing`                                                             | Retry `body_published(1)` commits at `seq = 1`, `incarnation = 1`; reader observes `available`        |
+| Partial `body_published(1)` bytes left on disk without trailing `\n` (un-truncated torn tail)   | none                     | present             | Reopen refuses journal at Stage 1 as `ingest` (never treated as committed or empty history)                      | Requires explicit tail truncation or recovery before any further append or state derivation           |
+| Partial `body_removal_started(1)` aborted and truncated before commit; no physical unlink       | `body_published(1)`      | present             | Truncated to `body_published(1)`; reader observes `available`                                                    | Retry `body_removal_started(1)` commits at `seq = 2`, `incarnation = 1`                               |
+| Committed `body_removal_started(1)`, physical unlink completed, partial `body_removed(1)` abort | `body_removal_started(1)`| absent              | Truncated to `body_removal_started(1)`; reader observes `removal_pending` (neither `removed` nor `integrity_loss`)| Retry `body_removed(1)` commits at `seq = 3`, `incarnation = 1`; reader observes `removed`            |
+| Complete `body_removed(1)`, partial `body_published(2)` aborted and truncated (`effect_dependent`)| `body_removed(1)`      | present             | Truncated to `body_removed(1)`; reader observes `publishing`                                                     | Retry `body_published(2)` commits with contiguous `incarnation = 2` (no burned incarnation gap)       |
 
 ## Serving, reuse and export
 

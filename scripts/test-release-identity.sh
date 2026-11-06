@@ -42,9 +42,9 @@ tagger_name="Release Control Fixture"
 tagger_email="release-control@example.invalid"
 export GNUPGHOME="$work/gnupg"
 mkdir -m 700 "$GNUPGHOME"
-gpg --batch --quiet --passphrase '' --quick-generate-key "$tagger_name <$tagger_email>" ed25519 cert 1d 2>/dev/null
+gpg --batch --quiet --passphrase '' --quick-generate-key "$tagger_name <$tagger_email>" ed25519 cert 90d 2>/dev/null
 primary="$(gpg --batch --with-colons --list-keys "$tagger_email" | awk -F: '$1=="fpr" {print $10; exit}')"
-gpg --batch --quiet --passphrase '' --quick-add-key "$primary" ed25519 sign 1d 2>/dev/null
+gpg --batch --quiet --passphrase '' --quick-add-key "$primary" ed25519 sign 90d 2>/dev/null
 signing="$(gpg --batch --with-colons --with-subkey-fingerprint --list-keys "$primary" |
     awk -F: '$1=="sub" {s=1; next} s && $1=="fpr" {print $10; exit}')"
 [[ "$primary" =~ ^[0-9A-F]{40}$ && "$signing" =~ ^[0-9A-F]{40}$ ]] || die "fixture key generation failed"
@@ -231,6 +231,75 @@ if (cd "$root" && ./scripts/release-verify-anchors.sh HEAD "$work/head-pins") >"
 else
     fail "$label: $(cat "$work/err")"
 fi
+
+# --- key expiration horizon (<30d warning, <=0d fail-closed) -----------------
+mkdir -m 700 "$work/soon-gnupg"
+GNUPGHOME="$work/soon-gnupg" gpg --batch --quiet --passphrase '' \
+    --quick-generate-key "$tagger_name <$tagger_email>" ed25519 cert 10d 2>/dev/null
+soon_primary="$(GNUPGHOME="$work/soon-gnupg" gpg --batch --with-colons --list-keys "$tagger_email" |
+    awk -F: '$1=="fpr" {print $10; exit}')"
+GNUPGHOME="$work/soon-gnupg" gpg --batch --quiet --passphrase '' \
+    --quick-add-key "$soon_primary" ed25519 sign 10d 2>/dev/null
+soon_signing="$(GNUPGHOME="$work/soon-gnupg" gpg --batch --with-colons --with-subkey-fingerprint --list-keys "$soon_primary" |
+    awk -F: '$1=="sub" {s=1; next} s && $1=="fpr" {print $10; exit}')"
+git_fixture checkout --quiet -B side-soon "$base"
+GNUPGHOME="$work/soon-gnupg" gpg --batch --armor --export "$soon_primary" >"$repo/docs/security/release-signing-keys.asc"
+rm -f "$repo/keys/expected-fingerprints.txt" "$repo/keys/expected-fingerprints.ndjson"
+if (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --write) >"$work/out" 2>"$work/err" &&
+    grep -q "warning: pinned release signing subkey $soon_signing expires within 30 days" "$work/err"; then
+    pass "key expiring within 30 days emits warning on derive"
+else
+    fail "key expiring within 30 days did not emit expected warning on derive: $(cat "$work/err")"
+fi
+git_fixture add -A
+git_fixture commit --quiet -m "soon-expiring key"
+GNUPGHOME="$work/soon-gnupg" git_fixture -c gpg.program=gpg tag -s -a v1.0.9 -u "$soon_signing!" -m "Release v1.0.9"
+git_fixture checkout --quiet main
+if verify v1.0.9 && grep -q "warning: pinned release signing subkey $soon_signing expires within 30 days" "$work/err"; then
+    pass "key expiring within 30 days accepted with warning on verify-pinned-tag"
+else
+    fail "key expiring within 30 days failed or missed warning on verify-pinned-tag: $(cat "$work/err")"
+fi
+gpgconf --homedir "$work/soon-gnupg" --kill all >/dev/null 2>&1 || true
+
+mkdir -m 700 "$work/exp-gnupg"
+cat >"$work/gpg-past" <<'EOF'
+#!/usr/bin/env bash
+exec gpg --faked-system-time 20240101T000000 "$@"
+EOF
+chmod +x "$work/gpg-past"
+GNUPGHOME="$work/exp-gnupg" "$work/gpg-past" --batch --quiet --passphrase '' \
+    --quick-generate-key "$tagger_name <$tagger_email>" ed25519 cert 1d 2>/dev/null
+exp_primary="$(GNUPGHOME="$work/exp-gnupg" gpg --batch --with-colons --list-keys "$tagger_email" |
+    awk -F: '$1=="fpr" {print $10; exit}')"
+GNUPGHOME="$work/exp-gnupg" "$work/gpg-past" --batch --quiet --passphrase '' \
+    --quick-add-key "$exp_primary" ed25519 sign 1d 2>/dev/null
+exp_signing="$(GNUPGHOME="$work/exp-gnupg" gpg --batch --with-colons --with-subkey-fingerprint --list-keys "$exp_primary" |
+    awk -F: '$1=="sub" {s=1; next} s && $1=="fpr" {print $10; exit}')"
+git_fixture checkout --quiet -B side-expired "$base"
+GNUPGHOME="$work/exp-gnupg" gpg --batch --armor --export "$exp_primary" >"$repo/docs/security/release-signing-keys.asc"
+rc=0 && (cd "$repo" && THREELEAPS_CRUCIBLE_DECERNOR_BIN="$checker" ./scripts/release-derive-anchors.sh --check) \
+    >"$work/out" 2>"$work/err" || rc=$?
+expect_reason "expired key refused by release-derive-anchors" "expired at 2024-01-02T00:00:00Z"
+"$checker" fingerprint "$repo/docs/security/release-signing-keys.asc" --class public --kind gpg \
+    --format ndjson --path-mode none --gpg-role primary >"$work/exp-gpg.ndjson"
+"$checker" fingerprint "$repo/docs/security/crucible-minisign.pub" --class public --kind minisign \
+    --format ndjson --path-mode none >"$work/exp-minisign.ndjson"
+python3 - "$work" "$repo/keys" <<'PY'
+import json, pathlib, sys
+w = pathlib.Path(sys.argv[1])
+k = pathlib.Path(sys.argv[2])
+gpg = [json.loads(l) for l in (w / "exp-gpg.ndjson").read_text().splitlines() if l]
+ms = [json.loads(l) for l in (w / "exp-minisign.ndjson").read_text().splitlines() if l and "minisign-public-blob-sha256-v1" in l]
+(k / "expected-fingerprints.ndjson").write_text("".join(json.dumps(r, separators=(",", ":")) + "\n" for r in (gpg[0], ms[0])))
+(k / "expected-fingerprints.txt").write_text(f"gpg {gpg[0]['fingerprint']}\nminisign {ms[0]['fingerprint']}\n")
+PY
+git_fixture add -A
+git_fixture commit --quiet -m "expired key"
+GNUPGHOME="$work/exp-gnupg" git_fixture -c gpg.program="$work/gpg-past" tag -s -a v1.0.10 -u "$exp_signing!" -m "Release v1.0.10"
+git_fixture checkout --quiet main
+label="expired key refused by verify-pinned-tag" expect_refused "expired at 2024-01-02T00:00:00Z" v1.0.10
+gpgconf --homedir "$work/exp-gnupg" --kill all >/dev/null 2>&1 || true
 
 if ((failures)); then
     echo "[!!] release identity controls: $failures failure(s)" >&2

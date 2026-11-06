@@ -262,6 +262,13 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
           "description": "The store's body-removal stream, an ordinary v1 stream carrying only body lifecycle entries. Required exactly when deletion.external_bodies is supported."
+        },
+        "incarnation_allocation": {
+          "enum": [
+            "effect_dependent",
+            "prewrite_durable_ledger"
+          ],
+          "description": "How stream incarnations are allocated across incomplete-append aborts and body removals: effect_dependent (next incarnation strictly greater than highest durably journaled body_removal_stream incarnation) or prewrite_durable_ledger (monotone durable ledger incremented before external-body pre-write). Permitted only when deletion.external_bodies is supported."
         }
       },
       "allOf": [
@@ -284,8 +291,17 @@
           },
           "else": {
             "not": {
-              "required": [
-                "body_removal_stream"
+              "anyOf": [
+                {
+                  "required": [
+                    "body_removal_stream"
+                  ]
+                },
+                {
+                  "required": [
+                    "incarnation_allocation"
+                  ]
+                }
               ]
             }
           }

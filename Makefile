@@ -247,6 +247,8 @@ contract-tools: ## Fail closed when a required contract-validation tool is missi
 	done
 
 test: test-bootstrap-engine-verification test-check-attribution test-portability test-contract-shards ## Run release-control and attribution-footer tests
+	@./scripts/test-workflow-pins.sh
+	@python3 scripts/content-check.py --self-test
 	@./scripts/test-release-env.sh
 	@./scripts/test-release-fetch-decernor.sh
 	@./scripts/test-release-github-verified.sh

@@ -622,6 +622,7 @@ class State:
         require(
             self.instant(at) >= self.instant(self.journal[-1]["at"]), "journal_time"
         )
+        self.instant(r["observed_at"])
         # Stream scope and live-key replay precede target/current-state checks.
         prior = (
             self.live(r["idempotency_key"], at) if r["stream"] == self.stream else None
@@ -816,6 +817,7 @@ def observed(journal, window, source, upstream, raw_entries=None):
             else shape(e, schema)
         )
         require(e.get("v") == family and ok_shape, "continuation")
+    state = None
     try:
         legacy.check_journal(journal, "source")
         if family == 0:
@@ -1148,6 +1150,15 @@ def mutation_controls():
         ("ingest", "require", "journal_version", 0, "v0-journal", None),
         ("ingest", "require", "record_version", 0, "record-envelope-v0", None),
         ("instant", "require", "instant_spelling", 0, "instant-journal-at", None),
+        ("instant", "require", "instant_spelling", 1, "instant-year-zero", None),
+        (
+            "instant",
+            "require",
+            "instant_spelling",
+            1,
+            "produced-at-impossible-date",
+            None,
+        ),
         (
             "ingest",
             "require",
@@ -1257,6 +1268,22 @@ def mutation_controls():
         ("import_record", "require", "continuation", 1, "import-other-source", None),
         ("observed", "require", "continuation", 1, "source-record-extra-field", None),
         ("observed", "require", "continuation", 2, "source-invalid-restore", None),
+        (
+            "observed",
+            "require",
+            "continuation",
+            2,
+            "source-v0-invalid-timestamp-beyond-cut",
+            None,
+        ),
+        (
+            "observed",
+            "require",
+            "continuation",
+            2,
+            "ancestor-v0-invalid-timestamp",
+            None,
+        ),
         ("check_review", "require", "continuation", 2, "review-not-singleton", None),
         (
             "check_review",
@@ -1869,6 +1896,224 @@ def suite_error_controls():
             raise AssertionError(f"suite_error_controls did not fail on {label}")
 
 
+def timestamp_and_abort_controls():
+    """Verify v1 timestamp position-coverage mutations and incomplete-append abort faultpoints."""
+    source = (
+        Path(__file__).read_text(encoding="utf-8").split("def reason_controls(", 1)[0]
+    )
+    # Position-deletion controls: removing self.instant(...) at each v1 timestamp position
+    # must cause its corresponding vector to stop refusing as instant_spelling.
+    for pos_label, method_name, target_expr, witness in (
+        (
+            "record.produced_at.instant",
+            "ingest",
+            "self.instant(e['record']['produced_at']['instant'])",
+            "produced-at-instant-spelling",
+        ),
+        (
+            "reconcile.attempted_at",
+            "reconcile",
+            "self.instant(attempted_at)",
+            "instant-reconcile-attempted-at",
+        ),
+    ):
+        tree = ast.parse(source)
+        state_cls = next(
+            n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "State"
+        )
+        fn_node = next(
+            n
+            for n in state_cls.body
+            if isinstance(n, ast.FunctionDef) and n.name == method_name
+        )
+        replaced = 0
+        for parent in ast.walk(fn_node):
+            for field, old in ast.iter_fields(parent):
+                if isinstance(old, ast.Call) and ast.unparse(old) == target_expr:
+                    setattr(
+                        parent,
+                        field,
+                        ast.parse(
+                            "self.instant('2026-10-20T00:00:02.000000Z')", mode="eval"
+                        ).body,
+                    )
+                    replaced += 1
+        assert replaced == 1, ("position-deletion target mismatch", pos_label, replaced)
+        ns = {"__file__": __file__, "__name__": "pos_mutation"}
+        exec(compile(ast.fix_missing_locations(tree), __file__, "exec"), ns)
+        ns["SHAPE_CACHE"].update(SHAPE_CACHE)
+        outcome = ns["check_case"](load(BASE / "vectors" / f"{witness}.json"))
+        assert outcome.get("refusal") != "instant_spelling", (
+            "position-deletion did not unmask",
+            pos_label,
+            outcome,
+        )
+
+    # Incomplete-append abort & faultpoint matrix controls (G3).
+    opened = {
+        "v": 1,
+        "seq": 1,
+        "group": 1,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "stream_opened",
+        "at": "2026-10-20T00:00:01.000000Z",
+        "mode": "revisioned",
+        "failure_model": "survives_power_loss",
+    }
+    rec1 = {
+        "v": 1,
+        "stream": "records.example",
+        "record_id": "first",
+        "revision": 1,
+        "payload_contract": "contract: example/v0",
+        "payload": {"note": "one"},
+        "provenance": {"actor_kind": "human", "actor": "operator"},
+        "classification": {"retention": "standard", "sensitivity": "0-public"},
+    }
+    entry2 = {
+        "v": 1,
+        "seq": 2,
+        "group": 2,
+        "group_size": 1,
+        "stream": "records.example",
+        "type": "appended",
+        "at": "2026-10-20T00:00:02.000000Z",
+        "record": rec1,
+        "digest": digest(rec1),
+        "idempotency_key": "write-first-1",
+    }
+    # 1. pre_first_entry_bytes: abort before any bytes after C=1; next write gets seq=2.
+    s_pre = State(60000)
+    s_pre.ingest(opened)
+    s_pre.ingest(entry2)
+    assert len(s_pre.journal) == 2 and s_pre.journal[-1]["seq"] == 2
+    bad_obs_req = load(BASE / "vectors/instant-observed-at-seven-digits.json")["steps"][
+        0
+    ]["request"]
+    bad_obs_req = {
+        **bad_obs_req,
+        "stream": "other.stream",
+        "observed_at": "0000-01-01T00:00:00.000000Z",
+    }
+    assert check_case(
+        {
+            "window_ms": 60000,
+            "journal": [opened],
+            "steps": [{"request": bad_obs_req, "at": "2026-10-20T00:00:04.000000Z"}],
+        }
+    ) == {"refusal": "instant_spelling"}
+
+    # 2. mid_line_without_newline: unterminated final NDJSON line refused as ingest if not
+    #    truncated; truncating back to byte_offset(C) restores clean prefix without phantom key.
+    line1_bytes = json.dumps(opened, separators=(",", ":")) + "\n"
+    partial_line2 = json.dumps(entry2, separators=(",", ":"))[
+        :-5
+    ]  # missing closing braces + \n
+    try:
+        legacy.parse_wire_lines(line1_bytes + partial_line2, "mid-line-fault")
+    except legacy.Reject as err:
+        assert err.reason == "ingest", err.reason
+    else:
+        raise AssertionError("mid_line_without_newline was not refused as ingest")
+    clean_prefix = legacy.parse_wire_lines(
+        (line1_bytes + partial_line2)[: len(line1_bytes)], "aborted-to-c"
+    )
+    assert len(clean_prefix) == 1 and clean_prefix[0]["seq"] == 1
+
+    # 3. partial_atomic_group_m_of_g: 1 of 2 entries in atomic group refused as inconsistent_cut
+    #    if not truncated; truncating back to C=1 allows fresh seq=2 write.
+    partial_group_member = {**entry2, "group": 2, "group_size": 2}
+    untruncated_res = check_case(
+        {"window_ms": 60000, "journal": [opened, partial_group_member], "steps": []}
+    )
+    assert untruncated_res == {"refusal": "inconsistent_cut"}, untruncated_res
+    truncated_res = check_case(
+        {"window_ms": 60000, "journal": [opened], "steps": [{"entry": entry2}]}
+    )
+    assert (
+        truncated_res["results"] == [{"outcome": "journaled"}]
+        and truncated_res["journal_size"] == 2
+    )
+
+    # 4 & 5. prewrite_body_before_body_published (effect_dependent vs prewrite_durable_ledger).
+    body_ref = {
+        "digest": "sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de",
+        "length": 8,
+    }
+    body_stream_opened = {
+        "v": 1,
+        "seq": 1,
+        "group": 1,
+        "group_size": 1,
+        "stream": "store.bodies",
+        "type": "stream_opened",
+        "at": "2026-10-20T00:00:01.000000Z",
+        "mode": "single_revision",
+        "failure_model": "survives_power_loss",
+    }
+    for alloc_mode, retry_incarnation in (
+        ("effect_dependent", 1),
+        ("prewrite_durable_ledger", 2),
+    ):
+        prof = {
+            "capabilities": ["contract: durable-record/v1"],
+            "origin": "declared",
+            "conformance": "none",
+            "build": {
+                "name": "example-store",
+                "version": "0.1.0",
+                "compiled_strata": ["journal-files"],
+                "compiled_capabilities": ["body_ref", "tombstoning"],
+            },
+            "runtime": {
+                "stratum": "journal-files",
+                "failure_model": "survives_power_loss",
+                "history_policy": "append_only",
+                "enabled_capabilities": ["body_ref", "tombstoning"],
+                "idempotency_window_ms": 60000,
+                "deletion": {
+                    "live_head": "supported",
+                    "retained_history": "unsupported",
+                    "managed_replicas": "not_applicable",
+                    "external_bodies": "supported",
+                    "decryption": "unsupported",
+                    "unmanaged_copies": "outside_claim",
+                },
+                "body_removal_stream": "store.bodies",
+                "incarnation_allocation": alloc_mode,
+            },
+        }
+        pub_entry = {
+            "v": 1,
+            "seq": 2,
+            "group": 2,
+            "group_size": 1,
+            "stream": "store.bodies",
+            "type": "body_published",
+            "at": "2026-10-20T00:00:02.000000Z",
+            "body": body_ref,
+            "incarnation": retry_incarnation,
+        }
+        res = check_case(
+            {
+                "window_ms": 60000,
+                "profile": prof,
+                "journal": [body_stream_opened],
+                "steps": [
+                    {"body_state": {"body": body_ref, "present": True}},
+                    {"entry": pub_entry},
+                    {"body_state": {"body": body_ref, "present": True}},
+                ],
+            }
+        )
+        assert res["results"] == [
+            {"outcome": "body_state", "state": "publishing"},
+            {"outcome": "journaled"},
+            {"outcome": "body_state", "state": "available"},
+        ], (alloc_mode, res)
+
+
 def check_case_stage3_shapes(c, path):
     """Run Stage 3 (shape) on destination items in order, stopping if Stage 1+2 refuses."""
     invalid = c.get("invalid_journal_entries", [])
@@ -2094,6 +2339,7 @@ def main():
             legacy.check_profile(load(path), path.name)
     reason_controls(cases)
     count = mutation_controls()
+    timestamp_and_abort_controls()
     assert SUITE_CALLS == 1, f"expected 1 batched suite call, got {SUITE_CALLS}"
     print(
         f"Durable-record/v1 logical controls PASS: {len(cases)} vectors; {len(rejects)} schema rejects; {count} mutation witnesses; {SUITE_CALLS} batched suite run. No store qualification."

@@ -94,6 +94,16 @@ for f in "$base"/rejects/semantic/reject-*.ndjson; do
         exit 1
     }
 done
+printf '%s' '{"v":0,"seq":1,"group":1,"group_size":1,"stream":"session-handoff.example","type":"stream_opened","at":"2026-10-12T14:00:00Z","mode":"revisioned","failure_model":"survives_power_loss"}' >"$tmpd/unterminated.ndjson"
+if python3 -I "$chk" journal "$tmpd/unterminated.ndjson" 2>"$tmpd/err"; then
+    echo "[!!] unterminated final NDJSON line accepted" >&2
+    exit 1
+fi
+got=$(sed -n 's/^\[!!\] \([a-z_]*\):.*/\1/p' "$tmpd/err" | head -n 1)
+[ "$got" = "ingest" ] || {
+    echo "[!!] unterminated final NDJSON line rejected as '$got', expected 'ingest'" >&2
+    exit 1
+}
 
 echo "    durable-record: receipt rejects schema-valid, detected with labeled reason..."
 python3 -I "$chk" receipt "$base/rejects/receipt/baseline-receipt.json" "$base/examples/journal.example.ndjson" || exit 1
