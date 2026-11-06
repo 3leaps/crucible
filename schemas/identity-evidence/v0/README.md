@@ -71,21 +71,27 @@ configuration and authenticated bindings select decoders/verifiers; a source str
 never selects a verifier or starts a fetch. `not-applicable` custody forbids a key
 reference; an existing key with unestablished custody uses `unknown`.
 
+The [native process observation profile](profiles/native-process-observation/README.md)
+and `examples/native-process-observation.json` define an observation-only provider
+payload for OS process incarnation, seven-state fact visibility, Linux PID
+numbering-namespace verification, start-identity sub-profiles, strict incarnation
+comparison and fail-closed projection into `local-process-session:v0`.
+
 The [local process/session profile](profiles/local-process-session/README.md) and
 `examples/local-process-session-launch.json` demonstrate complete launch binding
 with explicit synthetic verifier inputs and thirty-one context/report fit cases. The profile's exact
 specification and payload schema are pinned by digest. A two-producer import
 collision fixture lives under `fixtures/`. Human/account subjects remain deferred.
 
-The profile is a fit exercise; algorithms, accepted roots, native adapters,
-authenticated exchange, budget/replay enforcement and full twin vectors are not
-qualified by this corpus.
+These profiles are contract-fit and provider-shape drafts; algorithms, accepted
+roots, native adapters, authenticated exchange, budget/replay enforcement and full
+twin vectors are not qualified by this corpus.
 
 ## Experimental wire pass
 
 The [report admission profile](profiles/report-admission/README.md) defines the
 working 256 KiB received/canonical cap, JSON depth 16 and per-event optional
-`time_attribution`. `time-attribution-mixed.json` is a thirteenth synthetic report;
-its trusted-time receipt is deliberately unverified. Seventeen hand-authored wire
+`time_attribution`. `time-attribution-mixed.json` is a synthetic report whose
+trusted-time receipt is deliberately unverified. Seventeen hand-authored wire
 vectors and mutation checks exercise the parsing boundary. Passing them is not
 provider, provenance, cryptographic or cross-language implementation qualification.

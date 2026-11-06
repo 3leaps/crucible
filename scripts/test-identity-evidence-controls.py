@@ -565,6 +565,318 @@ def check_import_collisions(reports):
                 seen[key] = record
 
 
+NATIVE_CONTEXT_FACTS = (
+    "security_principal",
+    "namespace_context_digest",
+    "executable_digest",
+    "arguments_digest",
+    "security_context_digest",
+)
+
+
+def _validate_start_subprofile(obs, obs_profile):
+    start = obs["process"]["start_identity"]
+    sub_id = start["profile"]["id"]
+    sub = obs_profile["start_identity_profiles"].get(sub_id)
+    if (
+        sub is None
+        or sub["status"] == "reserved"
+        or start["profile"]["revision"] != sub["revision"]
+    ):
+        return None, "insufficient:unsupported-start-identity-profile"
+    if obs["observer"]["platform_family"] != sub["platform_family"]:
+        return None, "insufficient:platform-profile-mismatch"
+    return sub, None
+
+
+def _validate_linux_pidns(value, sub):
+    if not re.fullmatch(sub["pid_namespace_pattern"], value):
+        return False
+    _, dev_s, ino_s = value.split(":")
+    max_u64 = int(sub["value_max_u64"])
+    return int(dev_s) <= max_u64 and int(ino_s) <= max_u64
+
+
+def _validate_start_value(value, sub):
+    if not re.fullmatch(sub["value_pattern"], value):
+        return False
+    if "value_max_u64" in sub:
+        return int(value) <= int(sub["value_max_u64"])
+    sec_s, _ = value.split(".")
+    return int(sec_s) <= int(sub["seconds_max_i64"])
+
+
+def _context_fact_payload(fact_name, fact_obj):
+    return (
+        fact_obj["principal"]
+        if fact_name == "security_principal"
+        else fact_obj["digest"]
+    )
+
+
+def compare_native_observations(
+    baseline, candidate, policy, obs_profile, obs_profile_ref
+):
+    """Deterministic native-process-observation comparison control; no OS syscalls."""
+    for item in (baseline, candidate):
+        require(item["profile"] == obs_profile_ref, "unsupported-evidence-profile")
+    if not (
+        baseline["observer"]["bracketed"] is True
+        and candidate["observer"]["bracketed"] is True
+    ):
+        return "insufficient:unbracketed-observation"
+    base_sub, err = _validate_start_subprofile(baseline, obs_profile)
+    if err is not None:
+        return err
+    cand_sub, err = _validate_start_subprofile(candidate, obs_profile)
+    if err is not None:
+        return err
+
+    b_proc, c_proc = baseline["process"], candidate["process"]
+    established = set(obs_profile["established_host_scope_stabilities"])
+    if (
+        not policy.get("host_scope_trusted", True)
+        or b_proc["host_scope"]["stability"] not in established
+        or c_proc["host_scope"]["stability"] not in established
+    ):
+        return "insufficient:unestablished-host-scope"
+    for key in ("namespace", "value", "derivation"):
+        if b_proc["host_scope"][key] != c_proc["host_scope"][key]:
+            return "mismatch:host-scope-mismatch"
+
+    if (
+        b_proc["boot_id"]["status"] != "observed"
+        or c_proc["boot_id"]["status"] != "observed"
+    ):
+        return "insufficient:missing-boot-id"
+    if not re.fullmatch(
+        base_sub["boot_id_pattern"], b_proc["boot_id"]["value"]
+    ) or not re.fullmatch(cand_sub["boot_id_pattern"], c_proc["boot_id"]["value"]):
+        return "insufficient:invalid-boot-id"
+    if b_proc["boot_id"]["value"] != c_proc["boot_id"]["value"]:
+        return "mismatch:boot-id-mismatch"
+
+    if (
+        b_proc["start_identity"]["status"] != "observed"
+        or c_proc["start_identity"]["status"] != "observed"
+    ):
+        return "insufficient:missing-start-identity"
+    if b_proc["start_identity"]["profile"] != c_proc["start_identity"]["profile"]:
+        return "insufficient:incompatible-start-identity-profile"
+
+    ns_policy = base_sub["pid_namespace_policy"]
+    if ns_policy == "required-observed":
+        if (
+            b_proc["pid_numbering_namespace"]["status"] != "observed"
+            or c_proc["pid_numbering_namespace"]["status"] != "observed"
+        ):
+            return "insufficient:missing-pid-numbering-namespace"
+        if (
+            b_proc["target_pid_namespace"]["status"] != "observed"
+            or c_proc["target_pid_namespace"]["status"] != "observed"
+        ):
+            return "insufficient:missing-target-pid-namespace"
+        for ns_val in (
+            b_proc["pid_numbering_namespace"]["value"],
+            c_proc["pid_numbering_namespace"]["value"],
+            b_proc["target_pid_namespace"]["value"],
+            c_proc["target_pid_namespace"]["value"],
+        ):
+            if not _validate_linux_pidns(ns_val, base_sub):
+                return "insufficient:invalid-pid-namespace"
+        if (
+            b_proc["target_pid_namespace"]["value"]
+            != c_proc["target_pid_namespace"]["value"]
+        ):
+            return "mismatch:target-pid-namespace-mismatch"
+        if (
+            b_proc["pid_numbering_namespace"]["value"]
+            != c_proc["pid_numbering_namespace"]["value"]
+        ):
+            return "insufficient:pid-numbering-namespace-mismatch"
+    elif ns_policy == "unsupported-not-applicable":
+        for proc in (b_proc, c_proc):
+            if (
+                proc["pid_numbering_namespace"]["status"] != "unsupported"
+                or proc["target_pid_namespace"]["status"] != "unsupported"
+            ):
+                return "insufficient:invalid-macos-pid-namespace-status"
+    else:
+        return "insufficient:unsupported-pid-namespace-policy"
+
+    min_pid = int(obs_profile["pid_range"]["min"])
+    max_pid = int(obs_profile["pid_range"]["max"])
+    if not (
+        min_pid <= int(b_proc["pid"]) <= max_pid
+        and min_pid <= int(c_proc["pid"]) <= max_pid
+    ):
+        return "insufficient:invalid-pid-range"
+    if b_proc["pid"] != c_proc["pid"]:
+        return "mismatch:pid-mismatch"
+
+    if not _validate_start_value(
+        b_proc["start_identity"]["value"], base_sub
+    ) or not _validate_start_value(c_proc["start_identity"]["value"], base_sub):
+        return "insufficient:invalid-start-identity"
+    if b_proc["start_identity"]["value"] != c_proc["start_identity"]["value"]:
+        return "mismatch:start-identity-mismatch"
+
+    if (
+        b_proc["process_state"]["status"] != "observed"
+        or c_proc["process_state"]["status"] != "observed"
+    ):
+        return "insufficient:missing-process-state"
+    if policy.get("require_live", True) and c_proc["process_state"]["value"] != "live":
+        return "mismatch:process-not-live"
+
+    b_ctx, c_ctx = b_proc["execution_context"], c_proc["execution_context"]
+    for fact in policy.get("required_context_facts", ()):
+        if b_ctx[fact]["status"] != "observed" or c_ctx[fact]["status"] != "observed":
+            return f"insufficient:missing-context-{fact}"
+        if _context_fact_payload(fact, b_ctx[fact]) != _context_fact_payload(
+            fact, c_ctx[fact]
+        ):
+            return f"mismatch:context-changed-{fact}"
+
+    if policy.get("detect_observed_context_drift", True):
+        for fact in NATIVE_CONTEXT_FACTS:
+            if (
+                b_ctx[fact]["status"] == "observed"
+                and c_ctx[fact]["status"] == "observed"
+                and _context_fact_payload(fact, b_ctx[fact])
+                != _context_fact_payload(fact, c_ctx[fact])
+            ):
+                return f"mismatch:context-changed-{fact}"
+
+    return "match"
+
+
+def project_to_local_process_session_process(
+    obs, host_scope_trusted, obs_profile, obs_profile_ref
+):
+    """Fail-closed adapter from native-process-observation to local-process-session process."""
+    require(obs["profile"] == obs_profile_ref, "unsupported-evidence-profile")
+    require(obs["observer"]["bracketed"] is True, "unbracketed-observation")
+    sub, err = _validate_start_subprofile(obs, obs_profile)
+    require(err is None, err or "invalid-subprofile")
+    proc = obs["process"]
+    require(
+        host_scope_trusted
+        and proc["host_scope"]["stability"]
+        in set(obs_profile["established_host_scope_stabilities"]),
+        "unestablished-host-scope",
+    )
+    require(
+        proc["process_state"]["status"] == "observed"
+        and proc["process_state"]["value"] == "live",
+        "process-not-live",
+    )
+    require(
+        proc["boot_id"]["status"] == "observed"
+        and bool(re.fullmatch(sub["boot_id_pattern"], proc["boot_id"]["value"])),
+        "missing-or-invalid-boot-id",
+    )
+    require(
+        proc["start_identity"]["status"] == "observed"
+        and _validate_start_value(proc["start_identity"]["value"], sub),
+        "missing-or-invalid-start-identity",
+    )
+    require(
+        proc["pid_numbering_namespace"]["status"] == "observed"
+        and proc["target_pid_namespace"]["status"] == "observed",
+        "missing-pid-namespace-for-session-bundle",
+    )
+    require(
+        _validate_linux_pidns(proc["pid_numbering_namespace"]["value"], sub)
+        and _validate_linux_pidns(proc["target_pid_namespace"]["value"], sub)
+        and proc["pid_numbering_namespace"]["value"]
+        == proc["target_pid_namespace"]["value"],
+        "ambiguous-pid-namespace-for-session-bundle",
+    )
+    ctx = proc["execution_context"]
+    for fact in NATIVE_CONTEXT_FACTS:
+        require(
+            ctx[fact]["status"] == "observed",
+            f"missing-context-for-session-bundle:{fact}",
+        )
+    return {
+        "subject_ref": proc["subject_ref"],
+        "host_scope": f"{proc['host_scope']['namespace']}/{proc['host_scope']['value']}",
+        "boot_id": proc["boot_id"]["value"],
+        "pid_namespace": proc["target_pid_namespace"]["value"],
+        "pid": proc["pid"],
+        "start_identity": {
+            "profile": copy.deepcopy(proc["start_identity"]["profile"]),
+            "value": proc["start_identity"]["value"],
+        },
+        "execution_context": {
+            "security_principal": copy.deepcopy(ctx["security_principal"]["principal"]),
+            "namespace_context_digest": ctx["namespace_context_digest"]["digest"],
+            "executable_digest": ctx["executable_digest"]["digest"],
+            "arguments_digest": ctx["arguments_digest"]["digest"],
+            "security_context_digest": ctx["security_context_digest"]["digest"],
+        },
+    }
+
+
+def bind_native_observation_report(report, obs, obs_profile_ref):
+    """Verify observation-only report descriptor binding to a native-process-observation payload."""
+    require(
+        report["assessments"] == [] and "evaluator" not in report,
+        "observation-report-not-observation-only",
+    )
+    subjects = {s["id"]: s for s in report["subjects"]}
+    proc = obs["process"]
+    require(
+        subjects.get(proc["subject_ref"], {}).get("kind") == "process",
+        "observation-subject-not-process",
+    )
+    if "identifier_ref" in proc["host_scope"]:
+        ident = next(
+            (
+                x
+                for x in report["identifiers"]
+                if x["id"] == proc["host_scope"]["identifier_ref"]
+            ),
+            None,
+        )
+        require(
+            ident is not None
+            and subjects.get(ident["subject_ref"], {}).get("kind")
+            in {"os-installation", "physical-device", "virtual-machine", "container"}
+            and all(
+                ident[k] == proc["host_scope"][k]
+                for k in (
+                    "namespace",
+                    "value",
+                    "derivation",
+                    "stability",
+                    "clone_behavior",
+                )
+            ),
+            "host-scope-identifier-mismatch",
+        )
+    obs_digest = fixture_digest(obs)
+    matched = [
+        e
+        for e in report["evidence"]
+        if e["format_profile"] == obs_profile_ref or e["digest"] == obs_digest
+    ]
+    require(len(matched) == 1, "observation-evidence-descriptor-missing")
+    ev = matched[0]
+    require(
+        ev["format_profile"] == obs_profile_ref
+        and ev["digest"] == obs_digest
+        and ev["method"] == "os-observation"
+        and ev["subject_ref"] == proc["subject_ref"]
+        and ev["collected_at"] == obs["observed_at"]
+        and "key_ref" not in ev
+        and "identifier_ref" not in ev
+        and "boundary" not in ev,
+        "observation-evidence-descriptor-mismatch",
+    )
+
+
 def _extract_json_report(stdout, stderr):
     decoder = json.JSONDecoder()
     for stream in (stdout, stderr):
@@ -1403,10 +1715,452 @@ def main():
     shape(r, FAMILY / "report.schema.json")
     necessary_conditions(r)
 
+    # Native process observation profile pins, 7-state bijection, shape, comparison & projection controls.
+    obs_root = FAMILY / "profiles/native-process-observation"
+    obs_profile_path = obs_root / "profile.json"
+    obs_schema_path = obs_root / "evidence.schema.json"
+    obs_readme_path = obs_root / "README.md"
+    obs_profile = json.loads(obs_profile_path.read_text(encoding="utf-8"))
+    obs_schema = json.loads(obs_schema_path.read_text(encoding="utf-8"))
+    obs_readme_digest = (
+        "sha256:" + hashlib.sha256(obs_readme_path.read_bytes()).hexdigest()
+    )
+    obs_schema_digest = (
+        "sha256:" + hashlib.sha256(obs_schema_path.read_bytes()).hexdigest()
+    )
+    obs_profile_ref = {
+        "id": obs_profile["id"],
+        "revision": "sha256:"
+        + hashlib.sha256(obs_profile_path.read_bytes()).hexdigest(),
+    }
+    require(
+        obs_profile["specification"]["revision"] == obs_readme_digest,
+        "native-obs-specification-pin-drift",
+    )
+    require(
+        obs_profile["evidence_schema"]["revision"] == obs_schema_digest,
+        "native-obs-schema-pin-drift",
+    )
+    for sub in obs_profile["start_identity_profiles"].values():
+        require(
+            sub["revision"] == obs_readme_digest,
+            "native-obs-subprofile-pin-drift",
+        )
+    fact_statuses = obs_schema["$defs"]["fact-status"]["enum"]
+    cap_statuses = schema["$defs"]["capability"]["properties"]["status"]["enum"]
+    mapping = obs_profile["status_mapping"]
+    require(
+        list(mapping.keys()) == fact_statuses
+        and set(mapping.values()) == set(cap_statuses)
+        and len(set(mapping.values())) == len(fact_statuses) == 7
+        and mapping["observed"] == "available",
+        "native-obs-status-bijection-drift",
+    )
+
+    macos_obs = json.loads(
+        (obs_root / "evidence.example.json").read_text(encoding="utf-8")
+    )
+    linux_obs = json.loads(
+        (obs_root / "evidence.linux.example.json").read_text(encoding="utf-8")
+    )
+    shape(macos_obs, obs_schema_path)
+    shape(linux_obs, obs_schema_path)
+    bind_native_observation_report(
+        examples["native-process-observation"], macos_obs, obs_profile_ref
+    )
+
+    # All 7 fact states are representable on context facts when conditional rules hold.
+    for fact_state in fact_statuses:
+        m = copy.deepcopy(macos_obs)
+        if fact_state == "observed":
+            m["process"]["execution_context"]["arguments_digest"] = {
+                "status": "observed",
+                "digest": "sha256:" + "9" * 64,
+            }
+        else:
+            m["process"]["execution_context"]["arguments_digest"] = {
+                "status": fact_state,
+                "reason": f"synthetic-{fact_state}",
+            }
+        shape(m, obs_schema_path)
+
+    obs_shape_rejects = []
+    # Conditional presence/absence violations across fact wrappers.
+    m = copy.deepcopy(macos_obs)
+    del m["process"]["boot_id"]["value"]
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    m["process"]["pid_numbering_namespace"]["value"] = "pidns:4:1"
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    del m["process"]["pid_numbering_namespace"]["reason"]
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    m["process"]["execution_context"]["arguments_digest"]["digest"] = (
+        "sha256:" + "9" * 64
+    )
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(linux_obs)
+    del m["process"]["execution_context"]["arguments_digest"]["digest"]
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    del m["process"]["execution_context"]["security_principal"]["principal"]
+    obs_shape_rejects.append(m)
+    m = copy.deepcopy(macos_obs)
+    m["process"]["execution_context"]["security_principal"] = {
+        "status": "inaccessible",
+        "principal": {"namespace": "example.test/uid", "value": "501"},
+        "reason": "denied",
+    }
+    obs_shape_rejects.append(m)
+    # Invalid status label, PID sentinel/range violations, and forbidden serialized handle descriptor.
+    m = copy.deepcopy(macos_obs)
+    m["process"]["process_state"] = {"status": "denied", "reason": "not-in-enum"}
+    obs_shape_rejects.append(m)
+    for bad_pid in ("0", "-1", "01", "2147483648", "4294967295"):
+        m = copy.deepcopy(macos_obs)
+        m["process"]["pid"] = bad_pid
+        obs_shape_rejects.append(m)
+    m = copy.deepcopy(linux_obs)
+    m["process"]["pidfd"] = "7"
+    obs_shape_rejects.append(m)
+    for bad_obs in obs_shape_rejects:
+        shape(bad_obs, obs_schema_path, accepted=False)
+
+    # Deterministic comparison controls covering all 5 entarch semantic resolutions.
+    default_policy = {
+        "host_scope_trusted": True,
+        "require_live": True,
+        "required_context_facts": ("security_principal",),
+        "detect_observed_context_drift": True,
+    }
+    obs_comparison_cases = []
+    obs_comparison_cases.append(
+        ("macos-match", macos_obs, copy.deepcopy(macos_obs), default_policy, "match")
+    )
+    obs_comparison_cases.append(
+        ("linux-match", linux_obs, copy.deepcopy(linux_obs), default_policy, "match")
+    )
+    # Sub-second / microsecond and monotonic-tick native precision (no 2s tolerance).
+    c = copy.deepcopy(macos_obs)
+    c["process"]["start_identity"]["value"] = "1761739170.123457"
+    obs_comparison_cases.append(
+        (
+            "macos-1us-diff",
+            macos_obs,
+            c,
+            default_policy,
+            "mismatch:start-identity-mismatch",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["start_identity"]["value"] = "987654322"
+    obs_comparison_cases.append(
+        (
+            "linux-1tick-diff",
+            linux_obs,
+            c,
+            default_policy,
+            "mismatch:start-identity-mismatch",
+        )
+    )
+    # Cross-profile comparison: host/boot diff -> Mismatch; same host+boot -> Insufficient (never macOS wildcard).
+    obs_comparison_cases.append(
+        (
+            "cross-profile-diff-boot",
+            macos_obs,
+            linux_obs,
+            default_policy,
+            "mismatch:boot-id-mismatch",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["boot_id"]["value"] = macos_obs["process"]["boot_id"]["value"]
+    obs_comparison_cases.append(
+        (
+            "cross-profile-same-boot",
+            macos_obs,
+            c,
+            default_policy,
+            "insufficient:incompatible-start-identity-profile",
+        )
+    )
+    # Linux PID numbering namespace vs target PID namespace controls.
+    c = copy.deepcopy(linux_obs)
+    c["process"]["pid_numbering_namespace"] = {
+        "status": "error",
+        "reason": "procfs NSpid depth mismatch on bind-mounted /proc",
+    }
+    obs_comparison_cases.append(
+        (
+            "linux-unverified-numbering-ns",
+            linux_obs,
+            c,
+            default_policy,
+            "insufficient:missing-pid-numbering-namespace",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["target_pid_namespace"] = {
+        "status": "inaccessible",
+        "reason": "ptrace_may_access denied /proc/<pid>/ns/pid",
+    }
+    obs_comparison_cases.append(
+        (
+            "linux-inaccessible-target-ns",
+            linux_obs,
+            c,
+            default_policy,
+            "insufficient:missing-target-pid-namespace",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["pid_numbering_namespace"]["value"] = "pidns:4:4026532200"
+    obs_comparison_cases.append(
+        (
+            "linux-numbering-view-mismatch",
+            linux_obs,
+            c,
+            default_policy,
+            "insufficient:pid-numbering-namespace-mismatch",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["target_pid_namespace"]["value"] = "pidns:4:4026532200"
+    obs_comparison_cases.append(
+        (
+            "linux-target-ns-mismatch",
+            linux_obs,
+            c,
+            default_policy,
+            "mismatch:target-pid-namespace-mismatch",
+        )
+    )
+    # HostScope distrust & unknown/process stability refusal vs trusted mismatch.
+    obs_comparison_cases.append(
+        (
+            "untrusted-host-scope",
+            macos_obs,
+            copy.deepcopy(macos_obs),
+            {**default_policy, "host_scope_trusted": False},
+            "insufficient:unestablished-host-scope",
+        )
+    )
+    for bad_stability in ("unknown", "process"):
+        c = copy.deepcopy(macos_obs)
+        c["process"]["host_scope"]["stability"] = bad_stability
+        obs_comparison_cases.append(
+            (
+                f"host-scope-stability-{bad_stability}",
+                macos_obs,
+                c,
+                default_policy,
+                "insufficient:unestablished-host-scope",
+            )
+        )
+    c = copy.deepcopy(macos_obs)
+    c["process"]["host_scope"]["value"] = "reinstalled-host-b"
+    obs_comparison_cases.append(
+        (
+            "host-scope-reinstall-mismatch",
+            macos_obs,
+            c,
+            default_policy,
+            "mismatch:host-scope-mismatch",
+        )
+    )
+    # Pre/post bracketing, zombie vs error/unknown state, reserved Windows profile, and context mutation.
+    c = copy.deepcopy(macos_obs)
+    c["observer"]["bracketed"] = False
+    obs_comparison_cases.append(
+        (
+            "unbracketed-candidate",
+            macos_obs,
+            c,
+            default_policy,
+            "insufficient:unbracketed-observation",
+        )
+    )
+    c = copy.deepcopy(macos_obs)
+    c["process"]["process_state"]["value"] = "zombie"
+    obs_comparison_cases.append(
+        ("zombie-candidate", macos_obs, c, default_policy, "mismatch:process-not-live")
+    )
+    for state_err in ("inaccessible", "error", "unknown"):
+        c = copy.deepcopy(macos_obs)
+        c["process"]["process_state"] = {
+            "status": state_err,
+            "reason": f"state-{state_err}",
+        }
+        obs_comparison_cases.append(
+            (
+                f"state-{state_err}",
+                macos_obs,
+                c,
+                default_policy,
+                "insufficient:missing-process-state",
+            )
+        )
+    c = copy.deepcopy(macos_obs)
+    c["observer"]["platform_family"] = "windows"
+    c["process"]["start_identity"]["profile"]["id"] = (
+        "urn:3leaps:identity-evidence:start-identity:windows-filetime:v0"
+    )
+    c["process"]["start_identity"]["value"] = "134062128000000000"
+    obs_comparison_cases.append(
+        (
+            "reserved-windows-subprofile",
+            c,
+            copy.deepcopy(c),
+            default_policy,
+            "insufficient:unsupported-start-identity-profile",
+        )
+    )
+    c = copy.deepcopy(linux_obs)
+    c["process"]["execution_context"]["arguments_digest"]["digest"] = (
+        "sha256:" + "f" * 64
+    )
+    obs_comparison_cases.append(
+        (
+            "linux-arguments-drift",
+            linux_obs,
+            c,
+            default_policy,
+            "mismatch:context-changed-arguments_digest",
+        )
+    )
+    obs_comparison_cases.append(
+        (
+            "macos-required-unprobed-arguments",
+            macos_obs,
+            copy.deepcopy(macos_obs),
+            {**default_policy, "required_context_facts": ("arguments_digest",)},
+            "insufficient:missing-context-arguments_digest",
+        )
+    )
+    for case_id, b_obs, c_obs, pol, expected in obs_comparison_cases:
+        shape(b_obs, obs_schema_path)
+        shape(c_obs, obs_schema_path)
+        got = compare_native_observations(
+            b_obs, c_obs, pol, obs_profile, obs_profile_ref
+        )
+        require(
+            got == expected,
+            f"native comparison {case_id}: got {got}, expected {expected}",
+        )
+
+    # End-to-end projection + input_reports provenance into local-process-session:v0.
+    projected_proc = project_to_local_process_session_process(
+        linux_obs, True, obs_profile, obs_profile_ref
+    )
+    linux_obs_report = copy.deepcopy(examples["native-process-observation"])
+    linux_obs_report["report_id"] = "native-process-observation-linux"
+    linux_obs_report["evidence"][0].update(
+        source="synthetic-linux-procfs-fixture",
+        digest=fixture_digest(linux_obs),
+    )
+    linux_obs_report["capabilities"] = [
+        {
+            "id": "cap-pidfd-handle",
+            "subject_ref": "process-a",
+            "provider": "linux-pidfd",
+            "capability": "process-continuity-handle",
+            "status": "available",
+            "reason": "Private pidfd_open(pid, 0) handle bracketed by procfs stat and namespace checks.",
+            "observed_at": "2026-10-29T12:00:00Z",
+        }
+    ]
+    shape(linux_obs_report, FAMILY / "report.schema.json")
+    necessary_conditions(linux_obs_report)
+    bind_native_observation_report(linux_obs_report, linux_obs, obs_profile_ref)
+
+    composed_bundle = copy.deepcopy(bundle)
+    composed_bundle["process"] = projected_proc
+    composed_bundle["launch"]["process_digest"] = fixture_digest(projected_proc)
+    composed_receipt_digest = fixture_digest(composed_bundle["launch"])
+    composed_bundle["challenge"]["receipt_digest"] = composed_receipt_digest
+    composed_transcript = {
+        "domain": profile["transcript_domain"],
+        "profile": profile_ref,
+        "process_digest": fixture_digest(projected_proc),
+        "session_digest": fixture_digest(composed_bundle["session"]),
+        "receipt_digest": composed_receipt_digest,
+        "challenge": composed_bundle["challenge"],
+    }
+    composed_transcript_digest = fixture_digest(composed_transcript)
+    composed_bundle["proof"]["transcript_digest"] = composed_transcript_digest
+    shape(composed_bundle, process_root / "evidence.schema.json")
+
+    composed_report = copy.deepcopy(examples["local-process-session-launch"])
+    composed_report["report_id"] = "composed-local-process-session-launch"
+    composed_report["subjects"].append({"id": "host-a", "kind": "os-installation"})
+    composed_report["identifiers"].append(
+        copy.deepcopy(linux_obs_report["identifiers"][0])
+    )
+    composed_report["input_reports"] = [
+        {
+            "id": "source-native-observation",
+            "report_id": linux_obs_report["report_id"],
+            "digest": fixture_digest(linux_obs_report),
+        }
+    ]
+    imported_ev = copy.deepcopy(linux_obs_report["evidence"][0])
+    imported_ev["origin"] = {
+        "input_ref": "source-native-observation",
+        "record_ref": imported_ev["id"],
+    }
+    composed_report["evidence"].append(imported_ev)
+    for ev in composed_report["evidence"]:
+        if ev["format_profile"] == profile_ref:
+            ev["digest"] = fixture_digest(composed_bundle)
+    composed_ctx = copy.deepcopy(original_context)
+    composed_ctx["current_process"] = copy.deepcopy(projected_proc)
+    composed_ctx["verified_receipt_digest"] = composed_receipt_digest
+    composed_ctx["verified_transcript_digest"] = composed_transcript_digest
+    shape(composed_report, FAMILY / "report.schema.json")
+    necessary_conditions(
+        composed_report, {linux_obs_report["report_id"]: linux_obs_report}
+    )
+    process_session_fit(
+        composed_report, composed_bundle, composed_ctx, profile, profile_ref
+    )
+
+    # Fail-closed projection negative controls (no invented digests or null bypass).
+    projection_refusals = [
+        (macos_obs, True, "missing-pid-namespace-for-session-bundle"),
+        (linux_obs, False, "unestablished-host-scope"),
+    ]
+    partial_linux = copy.deepcopy(linux_obs)
+    partial_linux["process"]["execution_context"]["arguments_digest"] = {
+        "status": "not-probed",
+        "reason": "default opt-in policy",
+    }
+    projection_refusals.append(
+        (partial_linux, True, "missing-context-for-session-bundle:arguments_digest")
+    )
+    diff_ns_linux = copy.deepcopy(linux_obs)
+    diff_ns_linux["process"]["pid_numbering_namespace"]["value"] = "pidns:4:4026532200"
+    projection_refusals.append(
+        (diff_ns_linux, True, "ambiguous-pid-namespace-for-session-bundle")
+    )
+    for bad_proj_obs, trusted_flag, expected_err in projection_refusals:
+        shape(bad_proj_obs, obs_schema_path)
+        try:
+            project_to_local_process_session_process(
+                bad_proj_obs, trusted_flag, obs_profile, obs_profile_ref
+            )
+        except ValueError as exc:
+            require(
+                str(exc) == expected_err,
+                f"projection refusal got {exc}, expected {expected_err}",
+            )
+        else:
+            raise ValueError(f"accepted invalid session projection: {expected_err}")
+
     flush_shapes()
     suite_error_controls(goneat)
     print(
-        f"PASS: 4 dimension definitions, {len(examples)} examples, {len(schema_mutations)} shape rejects, {len(semantic_mutations)} semantic rejects, {len(process_cases)} process fit cases (+13 boundary/refusal controls), 6 time shape refusals, 5 time binding/provenance refusals, two-producer collision, 7 capability states, stale history, batched suite error controls"
+        f"PASS: 4 dimension definitions, {len(examples)} examples, {len(schema_mutations)} shape rejects, {len(semantic_mutations)} semantic rejects, {len(process_cases)} process fit cases (+13 boundary/refusal controls), {len(obs_shape_rejects)} native-obs shape rejects, {len(obs_comparison_cases)} native-obs comparison cases, {len(projection_refusals) + 1} session projection controls, 6 time shape refusals, 5 time binding/provenance refusals, two-producer collision, 7 capability states, stale history, batched suite error controls"
     )
     print(
         "Logical draft controls only; no native, cryptographic, policy or twin implementation qualification."

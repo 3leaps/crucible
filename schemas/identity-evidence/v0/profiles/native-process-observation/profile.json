@@ -1,0 +1,97 @@
+{
+  "id": "urn:3leaps:identity-evidence:native-process-observation:v0",
+  "status": "draft",
+  "specification": {
+    "path": "README.md",
+    "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0"
+  },
+  "evidence_schema": {
+    "id": "https://schemas.3leaps.dev/identity-evidence/v0/profiles/native-process-observation/evidence.schema.json",
+    "revision": "sha256:7e0758616381966b934a17e753f072b7a2082c4277cd2c28b71d849bde98d22d"
+  },
+  "max_observation_age_seconds": 5,
+  "pid_range": {
+    "min": "1",
+    "max": "2147483647"
+  },
+  "status_mapping": {
+    "observed": "available",
+    "not-present": "not-present",
+    "inaccessible": "inaccessible",
+    "unsupported": "unsupported",
+    "not-probed": "not-probed",
+    "error": "error",
+    "unknown": "unknown"
+  },
+  "established_host_scope_stabilities": [
+    "boot",
+    "installation",
+    "enrollment",
+    "device"
+  ],
+  "default_not_probed_context_facts": [
+    "namespace_context_digest",
+    "executable_digest",
+    "arguments_digest",
+    "security_context_digest"
+  ],
+  "context_digest_domains": {
+    "arguments_digest": "3leaps.native-process-observation.arguments.v0",
+    "executable_digest": "3leaps.native-process-observation.executable-image.v0",
+    "namespace_context_digest": "3leaps.native-process-observation.namespaces.v0",
+    "security_context_digest": "3leaps.native-process-observation.security-context.v0"
+  },
+  "start_identity_profiles": {
+    "urn:3leaps:identity-evidence:start-identity:linux-procfs-stat:v0": {
+      "status": "draft",
+      "platform_family": "linux",
+      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "pid_namespace_policy": "required-observed",
+      "pid_namespace_pattern": "^pidns:(?:0|[1-9][0-9]{0,19}):(?:0|[1-9][0-9]{0,19})$",
+      "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
+      "value_max_u64": "18446744073709551615",
+      "clock_origin": "monotonic-boot-ticks",
+      "residuals": [
+        "sub-tick-pid-reuse-window",
+        "post-observation-toctou-window"
+      ]
+    },
+    "urn:3leaps:identity-evidence:start-identity:macos-kinfo-starttime:v0": {
+      "status": "draft",
+      "platform_family": "macos",
+      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "boot_id_pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "pid_namespace_policy": "unsupported-not-applicable",
+      "value_pattern": "^(?:0|[1-9][0-9]{0,18})\\.[0-9]{6}$",
+      "seconds_max_i64": "9223372036854775807",
+      "clock_origin": "wall-clock-microtime-at-fork",
+      "residuals": [
+        "wall-clock-step-and-microsecond-reuse-window",
+        "post-observation-toctou-window"
+      ]
+    },
+    "urn:3leaps:identity-evidence:start-identity:windows-filetime:v0": {
+      "status": "reserved",
+      "platform_family": "windows",
+      "revision": "sha256:24da9a314a04bbc03fea01b7857c764fc14079adf04a8416f4bd9dfcb5eb7cc0",
+      "pid_namespace_policy": "unsupported-not-applicable",
+      "value_pattern": "^(?:0|[1-9][0-9]{0,19})$",
+      "value_max_u64": "18446744073709551615",
+      "clock_origin": "wall-clock-filetime-100ns",
+      "residuals": [
+        "reserved-unqualified-platform"
+      ]
+    }
+  },
+  "limits": {
+    "report_bytes": 262144,
+    "evidence_bytes_each": 262144,
+    "aggregate_evidence_bytes": 2097152,
+    "dependency_depth": 4,
+    "retrieval_count": 32,
+    "verification_deadline_ms": 2000,
+    "json_nesting_depth": 16,
+    "canonical_report_bytes": 262144
+  }
+}
