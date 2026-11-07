@@ -47,14 +47,33 @@ committed keys/expected-fingerprints.ndjson "$out/anchors.ndjson"
 committed docs/security/release-signing-keys.asc "$out/pin.asc"
 committed docs/security/crucible-minisign.pub "$out/minisign.pub"
 
+all_records_matched() {
+    python3 -I - "$1" <<'PY'
+import json
+import pathlib
+import sys
+
+lines = [
+    json.loads(line)
+    for line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
+sys.exit(0 if lines and all(r.get("status") == "match" for r in lines) else 1)
+PY
+}
+
 if ! "$RELEASE_DECERNOR_BIN" fingerprint verify \
     --anchors "$out/anchors.txt" \
     --anchors-ndjson "$out/anchors.ndjson" \
     --gpg "$out/pin.asc" \
     --minisign "$out/minisign.pub" >"$out/verify.ndjson" 2>"$out/verify.err"; then
+    if all_records_matched "$out/verify.ndjson"; then
+        check_release_key_expiry "$out/pin.asc"
+    fi
     cat "$out/verify.err" >&2
     die "committed pins differ from their anchors in $commit"
 fi
 rm -f "$out/verify.ndjson" "$out/verify.err"
+check_release_key_expiry "$out/pin.asc"
 
 echo "[ok] committed pins match their anchors in $commit"

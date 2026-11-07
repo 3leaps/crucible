@@ -22,6 +22,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/catalog/roles/opslead.md`, and
   `docs/guides/agentic-interface-adoption.md`.
 
+- **Durable-record `v1` body-removal incomplete-append abort boundary and `runtime.incarnation_allocation`.**
+  Clarifies in `docs/standards/durable-record-v1-contract.md` that every
+  committed NDJSON journal line `0 <= k < L` (including the final line
+  `k = L - 1`) ends with a single LF (`0x0A`) without CR (`0x0D`), that an
+  unterminated final line refuses at Stage 1 as `ingest`, and that a writer
+  suffering an intra-process write or flush failure before commit truncates to
+  the prior cut or poisons the handle. Adds optional
+  `runtime.incarnation_allocation` (`"effect_dependent"` |
+  `"prewrite_durable_ledger"`, permitted only when
+  `deletion.external_bodies == "supported"`) to
+  `schemas/durable-record/v1/stratum-profile.schema.json`, schema reject
+  fixtures, and incomplete-append abort faultpoint controls in
+  `scripts/test-durable-record-v1-controls.py`.
+
+- **Workflow supply-chain pinning, release signing-key expiration horizon, and local-path hygiene controls.**
+  Adds `scripts/test-workflow-pins.sh` (enforcing 40-hex commit SHA pins with
+  version comments on `uses:`, `@sha256:` digests on `container` images, and
+  workflow permission boundaries across `.github/workflows/*.yml`),
+  `check_release_key_expiry` in `scripts/release-env.sh` wired into
+  `scripts/release-derive-anchors.sh` and `scripts/release-verify-anchors.sh`
+  (failing closed on expired primary or signing subkeys and warning on stderr
+  when expiration is within 30 days), and `scripts/content-check.py` (scanning
+  tracked files for generic local OS path shapes).
+
+### Changed
+
+- **Durable-record `v0` and `v1` timestamp validation profiles and finite JSON Schema subset admission.**
+  Documents and enforces the `v0` and `v1` RFC 3339 instant profiles across
+  `docs/standards/durable-record-contract.md`,
+  `docs/standards/durable-record-v1-contract.md`,
+  `scripts/rfc3339-instant.py`, `scripts/validate-durable-record-fixtures.py`,
+  and `scripts/test-durable-record-v1-controls.py`: year bounds `0001`–`9999`
+  inclusive (`0000` and UTC year underflow/overflow refused), proleptic
+  Gregorian calendar validation, unconditional `:60` leap-second refusal,
+  Stage 4 `v0` timestamp validation on every journal entry `at` (including
+  historical `v0` source and ancestor journals observed by `v1` continuations)
+  and all reconciliation receipt `attempted_at` / coverage positions, Stage 4
+  `observed_at` precedence in `v1` protection requests, and finite JSON Schema
+  Draft 2020-12 keyword subset admission forbidding sibling assertion keywords
+  alongside `$ref`.
+
+### Deprecated
+
+- **Durable-record `v0` (`contract: durable-record/v0`) for new stream production.**
+  Marks `schemas/durable-record/v0/contract.json` as `"status": "deprecated"`
+  (`"superseded_by": "contract: durable-record/v1"`). Existing `v0` schemas,
+  fixtures, and validator checks remain supported for reading and verifying
+  historical `v0` streams and `v1` stream continuations.
+
 ## [0.2.7] - 2026-11-02
 
 ### Added

@@ -34,6 +34,7 @@ minisign_pin=docs/security/crucible-minisign.pub
 for pin in "$gpg_pin" "$minisign_pin"; do
     [[ -f "$pin" && ! -L "$pin" && -s "$pin" ]] || die "public export $pin must be a non-empty regular file"
 done
+check_release_key_expiry "$gpg_pin"
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT

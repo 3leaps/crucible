@@ -31,8 +31,9 @@ jobs:
           goneat version
           # The runner image must carry the goneat version the Makefile pins.
           want="$(sed -n 's/^GONEAT_VERSION ?= //p' Makefile)"
-          goneat version | head -n1 | grep -Fqx "goneat ${want}" ||
-            { echo "runner goneat does not match GONEAT_VERSION ${want}"; exit 1; }
+          got="$(goneat version | sed -n '1p')"
+          test "${got}" = "goneat ${want}" ||
+            { echo "runner goneat (${got}) does not match GONEAT_VERSION ${want}"; exit 1; }
           yamlfmt --version
           yamllint --version
           prettier --version
