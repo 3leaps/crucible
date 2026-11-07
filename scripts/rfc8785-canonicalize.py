@@ -1,28 +1,104 @@
 #!/usr/bin/env python3
 """RFC 8785 JSON Canonicalization Scheme (JCS).
 
-Standard-library only. Reads one JSON document from stdin or a file path
-and writes canonical UTF-8 bytes to stdout with no trailing newline.
+Standard-library only. Reads a JSON document (or strict LF-terminated NDJSON
+stream with --ndjson-array) from stdin or a file path and writes canonical
+UTF-8 bytes (or --digest / --vector / --check verdict) to stdout.
 
 Numbers follow ECMA-262 Number::toString (RFC 8785 §3.2.2.3) and are
 restricted to the I-JSON numeric domain (RFC 7493): finite IEEE 754
-binary64 values that convert without precision loss. Non-finite values
-and integers that are not exactly representable as binary64 are rejected.
-Object member names must be unique at every nesting depth. Strings must
-be well-formed Unicode (no lone surrogates). Non-control Unicode,
-including U+2028 and U+2029, is serialized as UTF-8.
+binary64 values, with integer tokens admitted only when their exact mathematical
+value is an IEEE 754 binary64 value or when the token is already the canonical
+ECMAScript spelling of its nearest binary64. Non-finite values and imprecise
+integers are rejected. Object member names must be unique at every nesting
+depth. Strings must be well-formed Unicode scalar values and must not contain
+lone surrogates or any of the 66 Unicode noncharacters forbidden by RFC 7493
+§2.1 (U+FDD0..U+FDEF and U+..FFFE / U+..FFFF across planes 0..16). Non-control
+Unicode, including U+2028 and U+2029, is serialized as unescaped UTF-8.
 
-This is conformance-gate materialization for contract: service-job/v0.
-It is not a consumer library. jq -S is not JCS and must not be used as
-the digest oracle.
+This is the stdlib conformance-gate witness for Crucible contracts, aligned
+with the canonprims jcs/rfc8785 domain and CLI surface. It is not a consumer
+library. jq -S is not JCS and must not be used as the digest oracle.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sys
-from typing import Any
+from typing import Any, BinaryIO
+
+DEFAULT_MAX_BYTES = 16_777_216
+DEFAULT_MAX_DEPTH = 128
+DEFAULT_MAX_OBJECT_MEMBERS = 1_048_576
+DEFAULT_MAX_STRING_BYTES = 16_777_216
+
+EXIT_OK = 0
+EXIT_REFUSED = 1
+EXIT_USAGE = 2
+EXIT_INPUT = 4
+EXIT_OUTPUT = 5
+
+
+def is_unicode_noncharacter(code: int) -> bool:
+    """Return True if code is one of the 66 Unicode noncharacters (RFC 7493 §2.1)."""
+    return (0xFDD0 <= code <= 0xFDEF) or (
+        0 <= code <= 0x10FFFF and (code & 0xFFFF) in (0xFFFE, 0xFFFF)
+    )
+
+
+def _validate_ijson_string(value: str, max_string_bytes: int | None = None) -> None:
+    for char in value:
+        code = ord(char)
+        if 0xD800 <= code <= 0xDFFF:
+            raise ValueError("lone_surrogate: lone surrogate is not permitted in JCS")
+        if is_unicode_noncharacter(code):
+            raise ValueError(
+                f"noncharacter: Unicode noncharacter U+{code:04X} is not permitted in I-JSON / JCS"
+            )
+    if max_string_bytes is not None and len(value.encode("utf-8")) > max_string_bytes:
+        raise ValueError("too_large: decoded string exceeds max_string_bytes")
+
+
+def _reject_constant(token: str) -> Any:
+    raise ValueError(f"non-finite numbers are not permitted in JCS: {token}")
+
+
+def _parse_ijson_float(token: str) -> float:
+    value = float(token)
+    if not math.isfinite(value):
+        raise ValueError(
+            "non_finite_number: non-finite numbers are not permitted in JCS"
+        )
+    return value
+
+
+def _parse_ijson_int(token: str) -> int:
+    digits = token[1:] if token.startswith("-") else token
+    # The largest finite IEEE 754 binary64 has 309 integer digits. Rejecting
+    # longer integer tokens before int() avoids Python's 4300-digit conversion
+    # ceiling and enforces the I-JSON binary64 integer domain deterministically.
+    if len(digits) > 309:
+        raise ValueError(
+            "integer_outside_binary64: integer is outside the I-JSON IEEE 754 binary64 domain"
+        )
+    nearest = float(token)
+    if not math.isfinite(nearest):
+        raise ValueError(
+            "integer_outside_binary64: integer is outside the I-JSON IEEE 754 binary64 domain"
+        )
+    exact_val = int(token)
+    nearest_int = int(nearest)
+    if nearest_int == exact_val:
+        return exact_val
+    # Canonical output must remain admissible as input (e.g. 2^64 canonicalizes
+    # to 18446744073709552000 under ES6 Number::toString).
+    if _encode_number(nearest) == token:
+        return nearest_int
+    raise ValueError(
+        "integer_outside_binary64: integer is outside the I-JSON IEEE 754 binary64 domain"
+    )
 
 
 def _unique_object(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
@@ -31,18 +107,140 @@ def _unique_object(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
     # document that would be signed or digested.
     result: dict[Any, Any] = {}
     for key, value in pairs:
+        _validate_ijson_string(key)
         if key in result:
-            raise ValueError("duplicate object member name")
+            raise ValueError("duplicate_member: duplicate object member name")
         result[key] = value
     return result
 
 
-def jcs_loads(raw: str) -> Any:
-    return json.loads(raw, object_pairs_hook=_unique_object)
+def _validate_loaded_tree(
+    root: Any,
+    *,
+    max_depth: int | None = None,
+    max_object_members: int | None = None,
+    max_string_bytes: int | None = None,
+) -> None:
+    stack: list[tuple[Any, int]] = [(root, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if isinstance(node, str):
+            _validate_ijson_string(node, max_string_bytes=max_string_bytes)
+        elif isinstance(node, list):
+            next_depth = depth + 1
+            if max_depth is not None and next_depth > max_depth:
+                raise ValueError("too_deep: container nesting exceeds max_depth")
+            for item in reversed(node):
+                stack.append((item, next_depth))
+        elif isinstance(node, dict):
+            next_depth = depth + 1
+            if max_depth is not None and next_depth > max_depth:
+                raise ValueError("too_deep: container nesting exceeds max_depth")
+            if max_object_members is not None and len(node) > max_object_members:
+                raise ValueError(
+                    "too_large: object member count exceeds max_object_members"
+                )
+            for key, item in reversed(list(node.items())):
+                _validate_ijson_string(key, max_string_bytes=max_string_bytes)
+                stack.append((item, next_depth))
+
+
+def _check_lexer_depth_and_limits(
+    raw: str,
+    *,
+    max_depth: int | None,
+) -> None:
+    """Reject non-RFC-8259 leading/trailing whitespace and excessive container depth
+    before json.loads can trigger a Python C-stack RecursionError."""
+    if raw and (raw[0] == "\ufeff"):
+        raise ValueError("invalid_json: UTF-8 BOM is not permitted")
+    if max_depth is None:
+        return
+    depth = 0
+    in_string = False
+    escaped = False
+    for ch in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch in "[{":
+                depth += 1
+                if depth > max_depth:
+                    raise ValueError("too_deep: container nesting exceeds max_depth")
+            elif ch in "]}":
+                depth -= 1
+                if depth < 0:
+                    # Let json.loads report syntax error on unmatched closer.
+                    return
+
+
+def jcs_loads(
+    raw: str,
+    *,
+    max_depth: int | None = DEFAULT_MAX_DEPTH,
+    max_object_members: int | None = DEFAULT_MAX_OBJECT_MEMBERS,
+    max_string_bytes: int | None = DEFAULT_MAX_STRING_BYTES,
+) -> Any:
+    if not isinstance(raw, str):
+        raise TypeError("jcs_loads requires a str")
+    _check_lexer_depth_and_limits(raw, max_depth=max_depth)
+
+    def object_hook(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
+        if max_object_members is not None and len(pairs) > max_object_members:
+            raise ValueError(
+                "too_large: object member count exceeds max_object_members"
+            )
+        result: dict[Any, Any] = {}
+        for key, value in pairs:
+            _validate_ijson_string(key, max_string_bytes=max_string_bytes)
+            if key in result:
+                raise ValueError("duplicate_member: duplicate object member name")
+            result[key] = value
+        return result
+
+    try:
+        document = json.loads(
+            raw,
+            object_pairs_hook=object_hook,
+            parse_int=_parse_ijson_int,
+            parse_float=_parse_ijson_float,
+            parse_constant=_reject_constant,
+        )
+    except RecursionError as exc:
+        raise ValueError("too_deep: container nesting exceeds recursion limit") from exc
+
+    _validate_loaded_tree(
+        document,
+        max_depth=max_depth,
+        max_object_members=max_object_members,
+        max_string_bytes=max_string_bytes,
+    )
+    return document
 
 
 def jcs_dumps(value: Any) -> str:
     return _encode(value)
+
+
+def jcs_sort_set_bytes(elements: Any) -> bytes:
+    """Canonicalize a top-level list as a duplicate-free JCS set sorted by element UTF-8 bytes."""
+    if not isinstance(elements, list):
+        raise ValueError("sort_set: top-level value must be a JSON array")
+    encoded = [jcs_dumps(item).encode("utf-8") for item in elements]
+    encoded.sort()
+    for idx in range(1, len(encoded)):
+        if encoded[idx] == encoded[idx - 1]:
+            raise ValueError(
+                "duplicate_set_element: duplicate element in canonical set"
+            )
+    return b"[" + b",".join(encoded) + b"]"
 
 
 def _encode(value: Any) -> str:
@@ -87,7 +285,11 @@ def _encode_string(value: str) -> str:
         elif char == "\t":
             chunks.append("\\t")
         elif 0xD800 <= code <= 0xDFFF:
-            raise ValueError("lone surrogate is not permitted in JCS")
+            raise ValueError("lone_surrogate: lone surrogate is not permitted in JCS")
+        elif is_unicode_noncharacter(code):
+            raise ValueError(
+                f"noncharacter: Unicode noncharacter U+{code:04X} is not permitted in I-JSON / JCS"
+            )
         elif code < 0x20:
             chunks.append(f"\\u{code:04x}")
         else:
@@ -101,12 +303,21 @@ def _require_ijson_number(value: int | float) -> float:
     if isinstance(value, bool):
         raise TypeError("bool is not a JCS number")
     if isinstance(value, int):
-        as_float = float(value)
-        if not math.isfinite(as_float) or as_float != value:
-            raise ValueError("integer is outside the I-JSON IEEE 754 binary64 domain")
+        try:
+            as_float = float(value)
+        except OverflowError as exc:
+            raise ValueError(
+                "integer_outside_binary64: integer is outside the I-JSON IEEE 754 binary64 domain"
+            ) from exc
+        if not math.isfinite(as_float) or int(as_float) != value:
+            raise ValueError(
+                "integer_outside_binary64: integer is outside the I-JSON IEEE 754 binary64 domain"
+            )
         return as_float
     if not math.isfinite(value):
-        raise ValueError("non-finite numbers are not permitted in JCS")
+        raise ValueError(
+            "non_finite_number: non-finite numbers are not permitted in JCS"
+        )
     return value
 
 
@@ -123,7 +334,9 @@ def _encode_number(value: int | float) -> str:
 
     rendered = str(number)
     if "n" in rendered:
-        raise ValueError("non-finite numbers are not permitted in JCS")
+        raise ValueError(
+            "non_finite_number: non-finite numbers are not permitted in JCS"
+        )
 
     sign = ""
     if rendered[0] == "-":
@@ -177,25 +390,286 @@ def _encode_number(value: int | float) -> str:
     return sign + first + dot + last + exp_str
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) > 2 or (len(argv) == 2 and argv[1] in {"-h", "--help"}):
-        sys.stderr.write("usage: rfc8785-canonicalize.py [input.json]\n")
-        return 2
+def _usage_text() -> str:
+    return (
+        "usage: rfc8785-canonicalize.py [options] [input.json|-]\n"
+        "options:\n"
+        "  --check                 exit 0 only if input is already canonical JCS\n"
+        "  --digest                write sha256:<hex> of canonical bytes + newline\n"
+        "  --vector                write canonical preimage + byte_length + digest JSON\n"
+        "  --ndjson-array          frame strict LF-terminated NDJSON lines as a JCS array\n"
+        "  --head N                with --ndjson-array, read only the first N lines (N >= 1)\n"
+        "  --sort-set              sort top-level array by element JCS bytes; refuse duplicates\n"
+        "  --max-bytes BYTES       maximum input byte count (default: 16777216)\n"
+        "  --max-depth DEPTH       maximum container nesting depth (default: 128)\n"
+        "  --max-object-members N  maximum members per object (default: 1048576)\n"
+        "  --max-string-bytes N    maximum decoded UTF-8 bytes per string (default: 16777216)\n"
+    )
+
+
+def _parse_nonneg_int(flag: str, raw_val: str) -> int:
     try:
-        if len(argv) == 1:
-            raw = sys.stdin.buffer.read().decode("utf-8")
+        parsed = int(raw_val, 10)
+    except ValueError as exc:
+        raise ValueError(f"invalid integer for {flag}: {raw_val!r}") from exc
+    if parsed < 0:
+        raise ValueError(f"{flag} must be >= 0")
+    return parsed
+
+
+def _parse_cli_args(argv: list[str]) -> tuple[dict[str, Any] | None, int]:
+    opts: dict[str, Any] = {
+        "file": "-",
+        "check": False,
+        "digest": False,
+        "vector": False,
+        "ndjson_array": False,
+        "head": None,
+        "sort_set": False,
+        "max_bytes": DEFAULT_MAX_BYTES,
+        "max_depth": DEFAULT_MAX_DEPTH,
+        "max_object_members": DEFAULT_MAX_OBJECT_MEMBERS,
+        "max_string_bytes": DEFAULT_MAX_STRING_BYTES,
+    }
+    positional: list[str] = []
+    idx = 1
+    while idx < len(argv):
+        arg = argv[idx]
+        if arg in ("-h", "--help"):
+            sys.stdout.write(_usage_text())
+            return None, EXIT_OK
+        if arg == "--":
+            positional.extend(argv[idx + 1 :])
+            break
+        if arg == "--check":
+            opts["check"] = True
+        elif arg == "--digest":
+            opts["digest"] = True
+        elif arg == "--vector":
+            opts["vector"] = True
+        elif arg == "--ndjson-array":
+            opts["ndjson_array"] = True
+        elif arg == "--sort-set":
+            opts["sort_set"] = True
+        elif arg in (
+            "--head",
+            "--max-bytes",
+            "--max-depth",
+            "--max-object-members",
+            "--max-string-bytes",
+        ) or arg.startswith(
+            (
+                "--head=",
+                "--max-bytes=",
+                "--max-depth=",
+                "--max-object-members=",
+                "--max-string-bytes=",
+            )
+        ):
+            if "=" in arg:
+                flag, val_str = arg.split("=", 1)
+            else:
+                flag = arg
+                idx += 1
+                if idx >= len(argv):
+                    sys.stderr.write(f"jcs: missing value for {flag}\n{_usage_text()}")
+                    return None, EXIT_USAGE
+                val_str = argv[idx]
+            try:
+                if flag == "--head":
+                    head_n = int(val_str, 10)
+                    if head_n < 1:
+                        raise ValueError("--head must be >= 1")
+                    opts["head"] = head_n
+                elif flag == "--max-bytes":
+                    opts["max_bytes"] = _parse_nonneg_int(flag, val_str)
+                elif flag == "--max-depth":
+                    opts["max_depth"] = _parse_nonneg_int(flag, val_str)
+                elif flag == "--max-object-members":
+                    opts["max_object_members"] = _parse_nonneg_int(flag, val_str)
+                elif flag == "--max-string-bytes":
+                    opts["max_string_bytes"] = _parse_nonneg_int(flag, val_str)
+            except ValueError as exc:
+                sys.stderr.write(f"jcs: {exc}\n{_usage_text()}")
+                return None, EXIT_USAGE
+        elif arg.startswith("-") and arg != "-":
+            sys.stderr.write(f"jcs: unknown option: {arg}\n{_usage_text()}")
+            return None, EXIT_USAGE
         else:
-            with open(argv[1], encoding="utf-8") as stream:
-                raw = stream.read()
-        document = jcs_loads(raw)
-        sys.stdout.buffer.write(jcs_dumps(document).encode("utf-8"))
+            positional.append(arg)
+        idx += 1
+
+    if len(positional) > 1:
+        sys.stderr.write(f"jcs: too many positional arguments\n{_usage_text()}")
+        return None, EXIT_USAGE
+    if positional:
+        opts["file"] = positional[0]
+
+    out_modes = int(opts["check"]) + int(opts["digest"]) + int(opts["vector"])
+    if out_modes > 1:
+        sys.stderr.write(
+            "jcs: --check, --digest, and --vector are mutually exclusive\n"
+        )
+        return None, EXIT_USAGE
+    if opts["ndjson_array"] and opts["check"]:
+        sys.stderr.write("jcs: --ndjson-array cannot be combined with --check\n")
+        return None, EXIT_USAGE
+    if opts["head"] is not None and not opts["ndjson_array"]:
+        sys.stderr.write("jcs: --head requires --ndjson-array\n")
+        return None, EXIT_USAGE
+
+    return opts, EXIT_OK
+
+
+def _read_bounded_bytes(stream: BinaryIO, max_bytes: int) -> bytes:
+    data = stream.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError("too_large: input exceeds max_bytes")
+    return data
+
+
+def _read_ndjson_prefix_lines(
+    stream: BinaryIO, *, head: int | None, max_bytes: int
+) -> list[bytes]:
+    lines: list[bytes] = []
+    total_bytes = 0
+    while head is None or len(lines) < head:
+        remaining = max_bytes - total_bytes
+        line = stream.readline(remaining + 1)
+        if not line:
+            break
+        total_bytes += len(line)
+        if total_bytes > max_bytes:
+            raise ValueError("too_large: NDJSON input exceeds max_bytes")
+        if not line.endswith(b"\n"):
+            raise ValueError(
+                "invalid_json: unterminated NDJSON line (missing trailing LF)"
+            )
+        if line.endswith(b"\r\n"):
+            raise ValueError(
+                "invalid_json: CRLF line ending is not permitted in NDJSON"
+            )
+        body = line[:-1]
+        if not body or not body.strip(b" \t\r"):
+            raise ValueError(
+                "invalid_json: empty or blank NDJSON line is not permitted"
+            )
+        lines.append(body)
+
+    if head is not None and len(lines) < head:
+        raise ValueError(
+            f"invalid_json: expected at least {head} NDJSON lines, found {len(lines)}"
+        )
+    if not lines:
+        raise ValueError("invalid_json: empty NDJSON input")
+    return lines
+
+
+def main(argv: list[str]) -> int:
+    opts, status = _parse_cli_args(argv)
+    if opts is None:
+        return status
+
+    max_bytes: int = opts["max_bytes"]
+    max_depth: int = opts["max_depth"]
+    max_object_members: int = opts["max_object_members"]
+    max_string_bytes: int = opts["max_string_bytes"]
+    target: str = opts["file"]
+
+    raw_bytes: bytes = b""
+    try:
+        if opts["ndjson_array"]:
+            if max_depth < 1:
+                raise ValueError("too_deep: NDJSON array requires max_depth >= 1")
+            elem_max_depth = max_depth - 1
+            if target == "-":
+                raw_lines = _read_ndjson_prefix_lines(
+                    sys.stdin.buffer, head=opts["head"], max_bytes=max_bytes
+                )
+            else:
+                try:
+                    with open(target, "rb") as f:
+                        raw_lines = _read_ndjson_prefix_lines(
+                            f, head=opts["head"], max_bytes=max_bytes
+                        )
+                except OSError as exc:
+                    sys.stderr.write(f"jcs: cannot read {target}: {exc}\n")
+                    return EXIT_INPUT
+            elements: list[Any] = []
+            for raw_line in raw_lines:
+                line_text = raw_line.decode("utf-8", errors="strict")
+                elements.append(
+                    jcs_loads(
+                        line_text,
+                        max_depth=elem_max_depth,
+                        max_object_members=max_object_members,
+                        max_string_bytes=max_string_bytes,
+                    )
+                )
+            if opts["sort_set"]:
+                canonical_bytes = jcs_sort_set_bytes(elements)
+            else:
+                canonical_bytes = (
+                    b"["
+                    + b",".join(jcs_dumps(item).encode("utf-8") for item in elements)
+                    + b"]"
+                )
+        else:
+            if target == "-":
+                raw_bytes = _read_bounded_bytes(sys.stdin.buffer, max_bytes)
+            else:
+                try:
+                    with open(target, "rb") as f:
+                        raw_bytes = _read_bounded_bytes(f, max_bytes)
+                except OSError as exc:
+                    sys.stderr.write(f"jcs: cannot read {target}: {exc}\n")
+                    return EXIT_INPUT
+            raw_text = raw_bytes.decode("utf-8", errors="strict")
+            document = jcs_loads(
+                raw_text,
+                max_depth=max_depth,
+                max_object_members=max_object_members,
+                max_string_bytes=max_string_bytes,
+            )
+            if opts["sort_set"]:
+                canonical_bytes = jcs_sort_set_bytes(document)
+            else:
+                canonical_bytes = jcs_dumps(document).encode("utf-8")
+    except UnicodeDecodeError as exc:
+        sys.stderr.write(f"jcs: invalid_utf8: {exc}\n")
+        return EXIT_REFUSED
     except json.JSONDecodeError as exc:
         sys.stderr.write(f"jcs: invalid JSON: {exc}\n")
-        return 1
+        return EXIT_REFUSED
     except ValueError as exc:
         sys.stderr.write(f"jcs: {exc}\n")
-        return 1
-    return 0
+        return EXIT_REFUSED
+
+    try:
+        if opts["check"]:
+            if raw_bytes != canonical_bytes:
+                sys.stderr.write("jcs: not_canonical: input is not canonical JCS\n")
+                return EXIT_REFUSED
+            return EXIT_OK
+        if opts["digest"]:
+            digest_hex = hashlib.sha256(canonical_bytes).hexdigest()
+            sys.stdout.buffer.write(f"sha256:{digest_hex}\n".encode("ascii"))
+            return EXIT_OK
+        if opts["vector"]:
+            digest_hex = hashlib.sha256(canonical_bytes).hexdigest()
+            vector_obj = {
+                "byte_length": len(canonical_bytes),
+                "canonical": canonical_bytes.decode("utf-8"),
+                "digest": f"sha256:{digest_hex}",
+                "scheme": "jcs/rfc8785",
+            }
+            sys.stdout.buffer.write((jcs_dumps(vector_obj) + "\n").encode("utf-8"))
+            return EXIT_OK
+        sys.stdout.buffer.write(canonical_bytes)
+    except OSError as exc:
+        sys.stderr.write(f"jcs: output error: {exc}\n")
+        return EXIT_OUTPUT
+    return EXIT_OK
 
 
 if __name__ == "__main__":

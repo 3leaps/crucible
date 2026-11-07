@@ -792,22 +792,13 @@ def verify_suite_report(
 # --- timestamps & JCS digest ------------------------------------------------
 
 
-_FRACTION = re.compile(r"[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}\.([0-9]+)", re.ASCII)
-
-
 def instant(text: Any):
     if not isinstance(text, str):
         raise Reject("timestamp", f"{text!r}: timestamp must be a string")
-    # The shared helper resolves to microseconds. This checker fails closed on
-    # any fraction it cannot represent exactly (non-zero digits beyond six)
-    # rather than truncating, so a sub-microsecond ordering cannot pass.
-    m = _FRACTION.search(text)
-    if m and len(m.group(1)) > 6 and m.group(1)[6:].strip("0"):
-        raise Reject(
-            "timestamp", f"{text!r}: precision beyond microseconds is not representable"
-        )
+    # The shared helper resolves to microseconds; pass reject_submicrosecond_nonzero=True
+    # so non-zero digits beyond the 6th fractional place fail closed rather than truncating.
     try:
-        return _rfc3339.parse_rfc3339(text)
+        return _rfc3339.parse_rfc3339(text, reject_submicrosecond_nonzero=True)
     except ValueError as e:
         raise Reject("timestamp", f"{text!r}: {e}") from e
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **RFC 8785 canonicalization and RFC 3339 instant helper hardening.**
+  Hardens `scripts/rfc8785-canonicalize.py` to reject all 66 RFC 7493 §2.1
+  Unicode noncharacters (`U+FDD0..U+FDEF` and `U+..FFFE` / `U+..FFFF` across
+  planes `0..16`, raw or escaped) and out-of-domain integer tokens before
+  arbitrary-precision integer expansion, while adding `--check`, `--digest`,
+  `--vector`, `--ndjson-array` (`--head N`), `--sort-set`, and explicit input
+  bounds (`--max-bytes`, `--max-depth`, `--max-object-members`,
+  `--max-string-bytes`), covered by `scripts/test-rfc8785-controls.py`.
+  Extends `scripts/rfc3339-instant.py` with `max_fraction_digits` and
+  `reject_submicrosecond_nonzero` options on `parse_rfc3339` and exact
+  arbitrary-precision fractional ordering in `compare`.
+
 ## [0.2.8] - 2026-11-07
 
 ### Added

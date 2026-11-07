@@ -122,6 +122,55 @@ def load_strict(path: str):
         rej("ingest", f"{path}: {e}")
 
 
+def load_vector(path: str):
+    """Load a vector script strictly at ingest while deferring message payload I-JSON checks to identity_digest (payload_domain)."""
+    raw_text = open(path, encoding="utf-8").read()
+
+    def _unique_obj(pairs):
+        out = {}
+        for k, val in pairs:
+            if k in out:
+                raise ValueError(
+                    "duplicate_object_member: duplicate object member name"
+                )
+            out[k] = val
+        return out
+
+    def _bounded_int(tok: str) -> int:
+        digits = tok[1:] if tok.startswith("-") else tok
+        if len(digits) > 309:
+            raise ValueError(
+                "integer_outside_binary64: integer exceeds binary64 digit domain"
+            )
+        return int(tok)
+
+    def _bad_const(tok: str):
+        raise ValueError(f"non_finite_number: {tok} is not permitted in JCS")
+
+    try:
+        doc = json.loads(
+            raw_text,
+            object_pairs_hook=_unique_obj,
+            parse_int=_bounded_int,
+            parse_constant=_bad_const,
+        )
+        envelope = copy.deepcopy(doc)
+        if isinstance(envelope, dict) and isinstance(envelope.get("ops"), list):
+            for op in envelope["ops"]:
+                if isinstance(op, dict) and isinstance(op.get("params"), dict):
+                    params = op["params"]
+                    for list_key in ("messages", "children"):
+                        items = params.get(list_key)
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, dict) and "payload" in item:
+                                    item["payload"] = None
+        jcs.jcs_dumps(envelope)
+        return doc
+    except ValueError as e:
+        rej("ingest", f"{path}: {e}")
+
+
 def goneat_validate(schema: str, doc) -> bool:
     with tempfile.NamedTemporaryFile(
         "w", suffix=".json", encoding="utf-8", delete=False
@@ -639,7 +688,7 @@ def match(expected, actual, names: dict, where: str) -> None:
 
 
 def check_vector(base: str, path: str) -> None:
-    v = load_strict(path)
+    v = load_vector(path)
     for k in (
         "name",
         "requires",
