@@ -519,13 +519,104 @@ store has already observed MAY be recorded as completion of the matching open
 removal without a fresh unlink; recording it authorizes no further removal.
 
 **Eligibility.** Lifecycle entries establish neither the authority for a
-removal nor its eligibility. Removal MUST honor every applicable hold in every
-stream that shares the bytes, including inherited restrictions; unknown
-protection or sharing coverage fails closed. The policy for removing bytes that
-are still referenced and not held belongs to retention policy, with its own
-authorization and reference checks, which this section does not define. Until
-that policy and its controls are specified, a conforming store keeps physical
-removal fail-closed.
+removal nor its eligibility. Physical removal of `body: {digest, length}` is
+evaluated per exact `{digest, length}` pair (never by record pin identity alone;
+the same SHA-256 digest with a different byte length is isolated) at a
+**consistent store-wide decision cut**, under the store-wide reference and
+protection exclusion fence held continuously across the eligibility check and
+the physical unlink.
+
+- **Scope boundary (all-retired-record reclamation):** Because `retired` in `v1`
+  applies to an entire `record_id` rather than individual revisions, reclaiming
+  referenced bytes applies strictly when **every** referring record across
+  **every** sharing stream in the store is `retired`. An older (superseded)
+  revision of an unretired (active) record remains part of retained history and
+  continues to reference its body bytes even when a newer revision of that same
+  record references a different body or no external body; per-revision
+  reference release (`keep-N` revisions of an active record) and destruction of
+  held bytes while preservation holds remain active are outside this contract.
+  When a metadata-only revision reuses an earlier revision's `{digest, length}`,
+  retiring the record retires all of its revisions together. A store's local
+  policy admitting only same-store, `v1`-only continuation sources is a
+  stream-open admission rule, not a modification to `v1` continuation syntax.
+- **All-retired-record eligibility conditions:** Physical removal of
+  `body: {digest, length}` MAY proceed only when, at a consistent store-wide
+  decision cut:
+  1. Target `incarnation` is the current removable incarnation for
+     `body: {digest, length}` in the valid designated
+     `runtime.body_removal_stream`: for an initial start (`mode: "start"`), the
+     latest entry for `body` is `body_published(n)` with `n == incarnation`;
+     for a retry unlink with bytes still present (`mode: "retry_unlink"`), the
+     latest entry for `body` is `body_removal_started(n)` with
+     `n == incarnation` (not completed and not abandoned/superseded by a later
+     `body_published(n')`).
+  2. Complete store-wide stream membership (`store_streams`) and valid
+     consistent cuts are established for every stream in the store, excluding
+     **only** the exact designated `runtime.body_removal_stream` named in the
+     store profile. Any other stream omitted from the observed cuts, unopened,
+     at a damaged or incomplete cut, or having unobservable continuation
+     source/ancestor state is **not** an empty reference set and fails closed as
+     `protection_unavailable`.
+  3. No active hold (`tombstoned` without `untombstoned` covering any
+     referencing record, revision, or the body itself) and no active or pending
+     inherited continuation restriction (`inherited_block` or non-current
+     `restrictions_reviewed`) applies in any sharing stream (`protected_use`).
+  4. **Every** record (`record_id`) that has **any** revision (current head or
+     superseded historical revision) referencing `body: {digest, length}` across
+     **every** sharing stream in the store is `retired` at that stream's
+     decision cut; if any unretired record in any sharing stream references
+     `body: {digest, length}` in any revision, removal is refused as
+     `still_referenced`. Re-recording a source record via `imported_from` in a
+     continuation stream neither transfers ownership nor extinguishes the
+     source reference: when a continuation stream and its source/ancestor share
+     the store's physical bodies, every referencing source/ancestor record and
+     every re-recording destination record must be `retired`. An external
+     continuation source that does not share the store's physical bodies does
+     not create a local body reference, but its inherited restrictions and
+     currency checks on any local continuation stream still dominate
+     (`protection_unavailable` when unobservable; `protected_use` when
+     restricted or pending review).
+  5. Whenever the referenced record set across the store is non-empty (all
+     referencing records retired), a verified removal `authorization` covering
+     `{store, body: {digest, length}, incarnation}` is present and valid at the
+     decision instant (`decision_time`), failing closed as
+     `removal_authorization` otherwise. Unreferenced orphan bytes—where
+     complete store-wide coverage at Precedence 2–4 proves zero records have
+     ever referenced `{digest, length}`—are eligible without triggering
+     Precedence 5 (`authorization` remains optional on `body_removal_started` at
+     the JSON Schema layer and required by this decision rule whenever bytes
+     have ever been referenced).
+- **Reason independence:** Eligibility is independent of `reason` (`retention`,
+  `operator`, or `rights_restricted`); neither `operator` nor
+  `rights_restricted` bypasses incomplete coverage (`protection_unavailable`),
+  holds or inherited restrictions (`protected_use`), active references
+  (`still_referenced`), or required `authorization` (`removal_authorization`).
+- **Deterministic refusal precedence (Precedence 1–5):** Both initial start and
+  retry re-verification before unlink MUST evaluate simultaneous faults in the
+  following deterministic order:
+
+  | Precedence | Stage / Check | Refusal Code |
+  | --- | --- | --- |
+  | 1 | Designated-stream wire/domain/shape/placement/journal validity, plus target `incarnation` transition check against the designated stream's current state (`body_lifecycle` when not published, already removed, or abandoned by `body_published(n')`) | `ingest` -> `numeric_domain` -> `shape` -> `body_removal_stream` -> `body_lifecycle` |
+  | 2 | Store-wide stream membership completeness, valid per-stream cuts on every non-designated stream, and observable continuation source/ancestor state | `protection_unavailable` |
+  | 3 | Active record, revision, or body holds (`tombstoned`) or active/pending inherited continuation restrictions (`inherited_block` or pending review) on any sharing stream | `protected_use` |
+  | 4 | Any unretired record referencing `body: {digest, length}` in any revision (latest or superseded) across any sharing stream (including same-store continuation sources) | `still_referenced` |
+  | 5 | Non-empty referenced set (all referencing records retired) with missing, wrong-`store`, wrong-`body`, wrong-`incarnation`, wrong-policy, not-yet-valid, or expired `authorization` at `decision_time` | `removal_authorization` |
+
+- **Authorization verifier obligations & retry re-verification:** Presence of
+  `{ref, digest}` alone establishes nothing. The store or verifier MUST validate
+  the authorization against target `store`, `body: {digest, length}`, and
+  `incarnation`, retention `policy` identifier/version and permitted action,
+  authenticated scope over the decision cuts (re-evaluating broader policy
+  scopes against the actual consistent store-wide decision cut at execution
+  time), and temporal validity `[not_before, expires_at]` at `decision_time`. An
+  existing `body_removal_started(n)` entry never freezes eligibility: any retry
+  with bytes present (`retry_unlink`) MUST re-run Precedence 1–5 in full under
+  exclusion (and implementations MUST test the check-to-unlink race window via a
+  dedicated `remove.checked` faultpoint seam). In the logical vector form, the
+  `removal_eligibility` step grades Precedence 1–5 over trusted store-derived
+  inputs and decomposed `authorization` claims at a pinned `decision_time`; it
+  does not certify physical exclusion.
 
 **Reader states.** A body's state is read from the designated stream's
 complete, valid journal at a consistent cut, together with an observation of
@@ -802,6 +893,8 @@ outcomes or v1 validation failures.
 | `body_removal_stream`    | A lifecycle entry, type or continuation is outside the designated stream                          |
 | `body_lifecycle`         | A lifecycle entry is not a valid transition for its body's incarnation                            |
 | `body_observation`       | A body state observation is not an exact body and a verified present or absent                    |
+| `still_referenced`       | An unretired record references the target body in a current or superseded revision                |
+| `removal_authorization`  | Referenced retired-record bytes lack a valid authorization for store, body, incarnation and time  |
 
 ## Conformance and limits
 
@@ -811,7 +904,11 @@ cuts, keyed and unkeyed retirement, production time, instant spelling, record
 envelope version, export omissions, inherited restrictions, body closure,
 continuation review (cut and manifest digests, imports, currency), body
 lifecycle (every reader-state cell, incarnation gaps, abandonment,
-republication, invalid transitions, placement and designation), and wire
+republication, invalid transitions, placement and designation), retention
+removal eligibility (orphan vs. all-retired-record reclamation, active
+superseded-revision blocking, same-store continuation references, store-wide
+coverage, Precedence 1–5 pairwise ordering, authorization binding and temporal
+bounds, reason invariance, and `retry_unlink` re-verification), and wire
 ingestion and numeric-domain boundaries (safe-integer ceiling, integral decimal
 and exponent spellings, precision-aliasing fractions, underflow/overflow
 exponents, counter exhaustion, arbitrary payload numbers, and continuation

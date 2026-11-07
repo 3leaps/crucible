@@ -266,6 +266,15 @@ PROTOCOL_NUMERIC_SCHEMAS: dict[str, dict[str, Any]] = {
     "body_state_request": {
         "body": "lifecycle_body",
     },
+    "removal_authorization": {
+        "body": "lifecycle_body",
+        "incarnation": "int",
+    },
+    "removal_eligibility": {
+        "body": "lifecycle_body",
+        "incarnation": "int",
+        "authorization": "removal_authorization",
+    },
     "profile_runtime": {
         "clock_skew_bound_ms": "int",
         "idempotency_window_ms": "int",

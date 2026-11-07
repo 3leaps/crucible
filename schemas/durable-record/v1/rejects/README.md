@@ -21,7 +21,11 @@ A case may carry `profile`, the stratum profile of the store. When it names a
 length, `false` is observed absence. An unknown or failed observation has no
 step form: a malformed observation is refused as `body_observation`, and
 `invalid_body_state_steps` names the steps that also fail the
-`body-state-request` schema. Cases exercising raw UTF-8 JSON wire tokens (`raw_profile`, `raw_journal`, `raw_source_journal`, `raw_ancestors`, and `steps[*].raw_*`) run strict JSON ingestion (`ingest`) and exact safe-integer preflight (`numeric_domain`) before schema validation (`shape`) and logical semantics.
+`body-state-request` schema. A `removal_eligibility` step on the designated
+`body_removal_stream` evaluates store-wide physical body removal eligibility
+(`eligible` or a deterministic Precedence 1–5 refusal code) across declared
+`store_streams`, observed sharing-stream cuts, continuation state, and
+decomposed removal `authorization` inputs. Cases exercising raw UTF-8 JSON wire tokens (`raw_profile`, `raw_journal`, `raw_source_journal`, `raw_ancestors`, and `steps[*].raw_*`) run strict JSON ingestion (`ingest`) and exact safe-integer preflight (`numeric_domain`) before schema validation (`shape`) and logical semantics.
 
 ## Schema rejects
 
@@ -242,6 +246,48 @@ step form: a malformed observation is refused as `body_observation`, and
 - [reconciliation-window-covers-until-year-zero.json](../vectors/reconciliation-window-covers-until-year-zero.json)
 - [record-envelope-v0.json](../vectors/record-envelope-v0.json)
 - [record-future-revision.json](../vectors/record-future-revision.json)
+- [removal-active-reference.json](../vectors/removal-active-reference.json)
+- [removal-all-retired-multi-stream.json](../vectors/removal-all-retired-multi-stream.json)
+- [removal-all-retired-single-stream.json](../vectors/removal-all-retired-single-stream.json)
+- [removal-auth-before-not-before.json](../vectors/removal-auth-before-not-before.json)
+- [removal-auth-expired.json](../vectors/removal-auth-expired.json)
+- [removal-auth-missing.json](../vectors/removal-auth-missing.json)
+- [removal-auth-unverified-scope.json](../vectors/removal-auth-unverified-scope.json)
+- [removal-auth-wrong-body-digest.json](../vectors/removal-auth-wrong-body-digest.json)
+- [removal-auth-wrong-body-length.json](../vectors/removal-auth-wrong-body-length.json)
+- [removal-auth-wrong-incarnation.json](../vectors/removal-auth-wrong-incarnation.json)
+- [removal-auth-wrong-store.json](../vectors/removal-auth-wrong-store.json)
+- [removal-body-length-isolation.json](../vectors/removal-body-length-isolation.json)
+- [removal-continuation-dest-active.json](../vectors/removal-continuation-dest-active.json)
+- [removal-continuation-review-pending.json](../vectors/removal-continuation-review-pending.json)
+- [removal-continuation-source-active.json](../vectors/removal-continuation-source-active.json)
+- [removal-damaged-retiring-stream.json](../vectors/removal-damaged-retiring-stream.json)
+- [removal-damaged-sharing-stream.json](../vectors/removal-damaged-sharing-stream.json)
+- [removal-inherited-block.json](../vectors/removal-inherited-block.json)
+- [removal-instant-auth-expires-at-spelling.json](../vectors/removal-instant-auth-expires-at-spelling.json)
+- [removal-instant-auth-not-before-spelling.json](../vectors/removal-instant-auth-not-before-spelling.json)
+- [removal-instant-decision-time-spelling.json](../vectors/removal-instant-decision-time-spelling.json)
+- [removal-missing-store-stream.json](../vectors/removal-missing-store-stream.json)
+- [removal-multi-stream-second-active.json](../vectors/removal-multi-stream-second-active.json)
+- [removal-non-designated-bodies-stream.json](../vectors/removal-non-designated-bodies-stream.json)
+- [removal-orphan-eligible.json](../vectors/removal-orphan-eligible.json)
+- [removal-precedence-p1-over-p2.json](../vectors/removal-precedence-p1-over-p2.json)
+- [removal-precedence-p2-over-p3.json](../vectors/removal-precedence-p2-over-p3.json)
+- [removal-precedence-p3-over-p4.json](../vectors/removal-precedence-p3-over-p4.json)
+- [removal-precedence-p4-over-p5.json](../vectors/removal-precedence-p4-over-p5.json)
+- [removal-reason-invariance.json](../vectors/removal-reason-invariance.json)
+- [removal-retired-with-body-hold.json](../vectors/removal-retired-with-body-hold.json)
+- [removal-retired-with-record-hold.json](../vectors/removal-retired-with-record-hold.json)
+- [removal-retired-with-revision-hold.json](../vectors/removal-retired-with-revision-hold.json)
+- [removal-retry-abandoned-by-republish.json](../vectors/removal-retry-abandoned-by-republish.json)
+- [removal-retry-eligible.json](../vectors/removal-retry-eligible.json)
+- [removal-retry-new-active-ref.json](../vectors/removal-retry-new-active-ref.json)
+- [removal-retry-new-hold.json](../vectors/removal-retry-new-hold.json)
+- [removal-rights-restricted-still-referenced.json](../vectors/removal-rights-restricted-still-referenced.json)
+- [removal-shared-retired-and-active.json](../vectors/removal-shared-retired-and-active.json)
+- [removal-superseded-active-revision.json](../vectors/removal-superseded-active-revision.json)
+- [removal-unobservable-continuation-source.json](../vectors/removal-unobservable-continuation-source.json)
+- [removal-wrong-designated-stream.json](../vectors/removal-wrong-designated-stream.json)
 - [repeated-retirement.json](../vectors/repeated-retirement.json)
 - [replay-after-restore.json](../vectors/replay-after-restore.json)
 - [restore-does-not-unretire.json](../vectors/restore-does-not-unretire.json)
