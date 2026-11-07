@@ -158,9 +158,14 @@ def load_vector(path: str):
         if isinstance(envelope, dict) and isinstance(envelope.get("ops"), list):
             for op in envelope["ops"]:
                 if isinstance(op, dict) and isinstance(op.get("params"), dict):
-                    params = op["params"]
-                    for list_key in ("messages", "children"):
-                        items = params.get(list_key)
+                    op_name = op.get("op")
+                    list_key = (
+                        "messages"
+                        if op_name == "enqueue"
+                        else ("children" if op_name == "fan_out" else None)
+                    )
+                    if list_key is not None:
+                        items = op["params"].get(list_key)
                         if isinstance(items, list):
                             for item in items:
                                 if isinstance(item, dict) and "payload" in item:

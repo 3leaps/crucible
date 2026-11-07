@@ -24,7 +24,6 @@ library. jq -S is not JCS and must not be used as the digest oracle.
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import sys
 from typing import Any, BinaryIO
@@ -39,6 +38,23 @@ EXIT_REFUSED = 1
 EXIT_USAGE = 2
 EXIT_INPUT = 4
 EXIT_OUTPUT = 5
+
+_WS_CHARS = " \t\n\r"
+_SIMPLE_ESCAPES = {
+    '"': '"',
+    "\\": "\\",
+    "/": "/",
+    "b": "\b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+_ENC_VAL = 0
+_ENC_LIT = 1
+_ENC_KEY = 2
 
 
 def is_unicode_noncharacter(code: int) -> bool:
@@ -62,7 +78,7 @@ def _validate_ijson_string(value: str, max_string_bytes: int | None = None) -> N
 
 
 def _reject_constant(token: str) -> Any:
-    raise ValueError(f"non-finite numbers are not permitted in JCS: {token}")
+    raise ValueError(f"invalid_json: non-JSON constant is not permitted: {token}")
 
 
 def _parse_ijson_float(token: str) -> float:
@@ -114,71 +130,167 @@ def _unique_object(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
     return result
 
 
-def _validate_loaded_tree(
-    root: Any,
-    *,
-    max_depth: int | None = None,
-    max_object_members: int | None = None,
-    max_string_bytes: int | None = None,
-) -> None:
-    stack: list[tuple[Any, int]] = [(root, 0)]
-    while stack:
-        node, depth = stack.pop()
-        if isinstance(node, str):
-            _validate_ijson_string(node, max_string_bytes=max_string_bytes)
-        elif isinstance(node, list):
-            next_depth = depth + 1
-            if max_depth is not None and next_depth > max_depth:
-                raise ValueError("too_deep: container nesting exceeds max_depth")
-            for item in reversed(node):
-                stack.append((item, next_depth))
-        elif isinstance(node, dict):
-            next_depth = depth + 1
-            if max_depth is not None and next_depth > max_depth:
-                raise ValueError("too_deep: container nesting exceeds max_depth")
-            if max_object_members is not None and len(node) > max_object_members:
+def _skip_ws(raw: str, pos: int, n: int) -> int:
+    while pos < n and raw[pos] in _WS_CHARS:
+        pos += 1
+    return pos
+
+
+def _parse_hex4(raw: str, pos: int, n: int) -> int:
+    if pos + 4 > n:
+        raise ValueError("invalid_json: incomplete \\uXXXX escape")
+    chunk = raw[pos : pos + 4]
+    if any(ch not in _HEX_DIGITS for ch in chunk):
+        raise ValueError("invalid_json: invalid \\uXXXX escape")
+    return int(chunk, 16)
+
+
+def _utf8_scalar_len(code: int) -> int:
+    if code <= 0x7F:
+        return 1
+    if code <= 0x7FF:
+        return 2
+    if code <= 0xFFFF:
+        return 3
+    return 4
+
+
+def _parse_string_token(
+    raw: str, pos: int, n: int, max_string_bytes: int | None
+) -> tuple[str, int]:
+    pos += 1  # consume opening '"'
+    chars: list[str] = []
+    utf8_bytes = 0
+    while pos < n:
+        ch = raw[pos]
+        if ch == '"':
+            return "".join(chars), pos + 1
+        code = ord(ch)
+        if code < 0x20:
+            raise ValueError("invalid_json: unescaped control character in string")
+        if ch != "\\":
+            if 0xD800 <= code <= 0xDFFF:
                 raise ValueError(
-                    "too_large: object member count exceeds max_object_members"
+                    "lone_surrogate: lone surrogate is not permitted in JCS"
                 )
-            for key, item in reversed(list(node.items())):
-                _validate_ijson_string(key, max_string_bytes=max_string_bytes)
-                stack.append((item, next_depth))
+            if is_unicode_noncharacter(code):
+                raise ValueError(
+                    f"noncharacter: Unicode noncharacter U+{code:04X} is not permitted in I-JSON / JCS"
+                )
+            utf8_bytes += _utf8_scalar_len(code)
+            if max_string_bytes is not None and utf8_bytes > max_string_bytes:
+                raise ValueError("too_large: decoded string exceeds max_string_bytes")
+            chars.append(ch)
+            pos += 1
+            continue
 
-
-def _check_lexer_depth_and_limits(
-    raw: str,
-    *,
-    max_depth: int | None,
-) -> None:
-    """Reject non-RFC-8259 leading/trailing whitespace and excessive container depth
-    before json.loads can trigger a Python C-stack RecursionError."""
-    if raw and (raw[0] == "\ufeff"):
-        raise ValueError("invalid_json: UTF-8 BOM is not permitted")
-    if max_depth is None:
-        return
-    depth = 0
-    in_string = False
-    escaped = False
-    for ch in raw:
-        if in_string:
-            if escaped:
-                escaped = False
-            elif ch == "\\":
-                escaped = True
-            elif ch == '"':
-                in_string = False
+        pos += 1
+        if pos >= n:
+            raise ValueError("invalid_json: unterminated escape sequence")
+        esc = raw[pos]
+        pos += 1
+        if esc in _SIMPLE_ESCAPES:
+            decoded = _SIMPLE_ESCAPES[esc]
+            scalar = ord(decoded)
+        elif esc == "u":
+            u1 = _parse_hex4(raw, pos, n)
+            pos += 4
+            if 0xDC00 <= u1 <= 0xDFFF:
+                raise ValueError(
+                    "lone_surrogate: lone low surrogate is not permitted in JCS"
+                )
+            if 0xD800 <= u1 <= 0xDBFF:
+                if pos + 2 > n or raw[pos : pos + 2] != "\\u":
+                    raise ValueError(
+                        "lone_surrogate: lone high surrogate is not permitted in JCS"
+                    )
+                pos += 2
+                u2 = _parse_hex4(raw, pos, n)
+                pos += 4
+                if not (0xDC00 <= u2 <= 0xDFFF):
+                    raise ValueError(
+                        "lone_surrogate: lone high surrogate is not permitted in JCS"
+                    )
+                scalar = 0x10000 + ((u1 - 0xD800) << 10) + (u2 - 0xDC00)
+            else:
+                scalar = u1
+            decoded = chr(scalar)
         else:
-            if ch == '"':
-                in_string = True
-            elif ch in "[{":
-                depth += 1
-                if depth > max_depth:
-                    raise ValueError("too_deep: container nesting exceeds max_depth")
-            elif ch in "]}":
-                depth -= 1
-                if depth < 0:
-                    # Let json.loads report syntax error on unmatched closer.
-                    return
+            raise ValueError("invalid_json: invalid escape sequence")
+
+        if is_unicode_noncharacter(scalar):
+            raise ValueError(
+                f"noncharacter: Unicode noncharacter U+{scalar:04X} is not permitted in I-JSON / JCS"
+            )
+        utf8_bytes += _utf8_scalar_len(scalar)
+        if max_string_bytes is not None and utf8_bytes > max_string_bytes:
+            raise ValueError("too_large: decoded string exceeds max_string_bytes")
+        chars.append(decoded)
+
+    raise ValueError("invalid_json: unterminated string")
+
+
+def _parse_number_token(raw: str, pos: int, n: int) -> tuple[int | float, int]:
+    start = pos
+    if raw[pos] == "-":
+        pos += 1
+    if pos >= n or not ("0" <= raw[pos] <= "9"):
+        raise ValueError("invalid_json: invalid number")
+    if raw[pos] == "0":
+        pos += 1
+        if pos < n and "0" <= raw[pos] <= "9":
+            raise ValueError("invalid_json: leading zero in number")
+    else:
+        while pos < n and "0" <= raw[pos] <= "9":
+            pos += 1
+
+    is_int = True
+    if pos < n and raw[pos] == ".":
+        is_int = False
+        pos += 1
+        frac_start = pos
+        while pos < n and "0" <= raw[pos] <= "9":
+            pos += 1
+        if pos == frac_start:
+            raise ValueError("invalid_json: missing fraction digits in number")
+
+    if pos < n and raw[pos] in ("e", "E"):
+        is_int = False
+        pos += 1
+        if pos < n and raw[pos] in ("+", "-"):
+            pos += 1
+        exp_start = pos
+        while pos < n and "0" <= raw[pos] <= "9":
+            pos += 1
+        if pos == exp_start:
+            raise ValueError("invalid_json: missing exponent digits in number")
+
+    token = raw[start:pos]
+    if is_int:
+        return _parse_ijson_int(token), pos
+    return _parse_ijson_float(token), pos
+
+
+def _parse_object_member_head(
+    raw: str,
+    pos: int,
+    n: int,
+    obj: dict[str, Any],
+    *,
+    max_object_members: int | None,
+    max_string_bytes: int | None,
+) -> tuple[str, int]:
+    if pos >= n or raw[pos] != '"':
+        raise ValueError("invalid_json: expected quoted object member name")
+    if max_object_members is not None and len(obj) >= max_object_members:
+        raise ValueError("too_large: object member count exceeds max_object_members")
+    key, pos = _parse_string_token(raw, pos, n, max_string_bytes)
+    if key in obj:
+        raise ValueError("duplicate_member: duplicate object member name")
+    pos = _skip_ws(raw, pos, n)
+    if pos >= n or raw[pos] != ":":
+        raise ValueError("invalid_json: expected ':' after object member name")
+    return key, pos + 1
 
 
 def jcs_loads(
@@ -188,41 +300,118 @@ def jcs_loads(
     max_object_members: int | None = DEFAULT_MAX_OBJECT_MEMBERS,
     max_string_bytes: int | None = DEFAULT_MAX_STRING_BYTES,
 ) -> Any:
+    """Iterative RFC 8259 + I-JSON loader with deterministic left-to-right defect detection."""
     if not isinstance(raw, str):
         raise TypeError("jcs_loads requires a str")
-    _check_lexer_depth_and_limits(raw, max_depth=max_depth)
+    n = len(raw)
+    if n > 0 and raw[0] == "\ufeff":
+        raise ValueError("invalid_json: UTF-8 BOM is not permitted")
 
-    def object_hook(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
-        if max_object_members is not None and len(pairs) > max_object_members:
-            raise ValueError(
-                "too_large: object member count exceeds max_object_members"
-            )
-        result: dict[Any, Any] = {}
-        for key, value in pairs:
-            _validate_ijson_string(key, max_string_bytes=max_string_bytes)
-            if key in result:
-                raise ValueError("duplicate_member: duplicate object member name")
-            result[key] = value
-        return result
+    pos = _skip_ws(raw, 0, n)
+    frames: list[list[Any]] = []
+    need_value = True
+    val: Any = None
 
-    try:
-        document = json.loads(
-            raw,
-            object_pairs_hook=object_hook,
-            parse_int=_parse_ijson_int,
-            parse_float=_parse_ijson_float,
-            parse_constant=_reject_constant,
-        )
-    except RecursionError as exc:
-        raise ValueError("too_deep: container nesting exceeds recursion limit") from exc
+    while True:
+        if need_value:
+            pos = _skip_ws(raw, pos, n)
+            if pos >= n:
+                raise ValueError("invalid_json: unexpected end of input")
+            ch = raw[pos]
+            if ch == "[":
+                if max_depth is not None and len(frames) >= max_depth:
+                    raise ValueError("too_deep: container nesting exceeds max_depth")
+                pos = _skip_ws(raw, pos + 1, n)
+                if pos < n and raw[pos] == "]":
+                    val = []
+                    pos += 1
+                    need_value = False
+                    continue
+                frames.append(["arr", []])
+                continue
+            if ch == "{":
+                if max_depth is not None and len(frames) >= max_depth:
+                    raise ValueError("too_deep: container nesting exceeds max_depth")
+                pos = _skip_ws(raw, pos + 1, n)
+                if pos < n and raw[pos] == "}":
+                    val = {}
+                    pos += 1
+                    need_value = False
+                    continue
+                obj: dict[str, Any] = {}
+                key, pos = _parse_object_member_head(
+                    raw,
+                    pos,
+                    n,
+                    obj,
+                    max_object_members=max_object_members,
+                    max_string_bytes=max_string_bytes,
+                )
+                frames.append(["obj", obj, key])
+                continue
+            if ch == '"':
+                val, pos = _parse_string_token(raw, pos, n, max_string_bytes)
+            elif ch == "t":
+                if raw[pos : pos + 4] != "true":
+                    raise ValueError("invalid_json: invalid literal")
+                val = True
+                pos += 4
+            elif ch == "f":
+                if raw[pos : pos + 5] != "false":
+                    raise ValueError("invalid_json: invalid literal")
+                val = False
+                pos += 5
+            elif ch == "n":
+                if raw[pos : pos + 4] != "null":
+                    raise ValueError("invalid_json: invalid literal")
+                val = None
+                pos += 4
+            elif ch == "-" or ("0" <= ch <= "9"):
+                val, pos = _parse_number_token(raw, pos, n)
+            else:
+                raise ValueError("invalid_json: unexpected character")
+            need_value = False
+            continue
 
-    _validate_loaded_tree(
-        document,
-        max_depth=max_depth,
-        max_object_members=max_object_members,
-        max_string_bytes=max_string_bytes,
-    )
-    return document
+        if not frames:
+            pos = _skip_ws(raw, pos, n)
+            if pos != n:
+                raise ValueError("invalid_json: trailing data after top-level value")
+            return val
+
+        top = frames[-1]
+        if top[0] == "arr":
+            top[1].append(val)
+        else:
+            top[1][top[2]] = val
+
+        pos = _skip_ws(raw, pos, n)
+        if pos >= n:
+            raise ValueError("invalid_json: unterminated container")
+        delim = raw[pos]
+        if delim == ",":
+            pos = _skip_ws(raw, pos + 1, n)
+            if top[0] == "obj":
+                key, pos = _parse_object_member_head(
+                    raw,
+                    pos,
+                    n,
+                    top[1],
+                    max_object_members=max_object_members,
+                    max_string_bytes=max_string_bytes,
+                )
+                top[2] = key
+            need_value = True
+        elif delim == "]" and top[0] == "arr":
+            pos += 1
+            val = top[1]
+            frames.pop()
+        elif delim == "}" and top[0] == "obj":
+            pos += 1
+            val = top[1]
+            frames.pop()
+        else:
+            raise ValueError("invalid_json: expected ',' or closing bracket")
 
 
 def jcs_dumps(value: Any) -> str:
@@ -243,26 +432,66 @@ def jcs_sort_set_bytes(elements: Any) -> bytes:
     return b"[" + b",".join(encoded) + b"]"
 
 
-def _encode(value: Any) -> str:
-    if value is None:
-        return "null"
-    if value is True:
-        return "true"
-    if value is False:
-        return "false"
-    if isinstance(value, str):
-        return _encode_string(value)
-    if isinstance(value, int) and not isinstance(value, bool):
-        return _encode_number(value)
-    if isinstance(value, float):
-        return _encode_number(value)
-    if isinstance(value, list):
-        return "[" + ",".join(_encode(item) for item in value) + "]"
-    if isinstance(value, dict):
-        keys = sorted(value.keys(), key=lambda key: key.encode("utf-16-be"))
-        parts = [_encode_string(key) + ":" + _encode(value[key]) for key in keys]
-        return "{" + ",".join(parts) + "}"
-    raise TypeError(f"unsupported type for JCS: {type(value)!r}")
+def _require_str_key(key: Any) -> str:
+    if not isinstance(key, str):
+        raise TypeError(f"JCS object member name must be str, got {type(key)!r}")
+    return key
+
+
+def _encode(root: Any) -> str:
+    """Iterative RFC 8785 serializer (no Python recursion depth limit)."""
+    parts: list[str] = []
+    stack: list[tuple[int, Any]] = [(_ENC_VAL, root)]
+    while stack:
+        op, node = stack.pop()
+        if op == _ENC_LIT:
+            parts.append(node)
+            continue
+        if op == _ENC_KEY:
+            parts.append(_encode_string(node))
+            parts.append(":")
+            continue
+        if node is None:
+            parts.append("null")
+        elif node is True:
+            parts.append("true")
+        elif node is False:
+            parts.append("false")
+        elif isinstance(node, str):
+            parts.append(_encode_string(node))
+        elif isinstance(node, int) and not isinstance(node, bool):
+            parts.append(_encode_number(node))
+        elif isinstance(node, float):
+            parts.append(_encode_number(node))
+        elif isinstance(node, list):
+            if not node:
+                parts.append("[]")
+            else:
+                parts.append("[")
+                stack.append((_ENC_LIT, "]"))
+                for idx in range(len(node) - 1, -1, -1):
+                    stack.append((_ENC_VAL, node[idx]))
+                    if idx > 0:
+                        stack.append((_ENC_LIT, ","))
+        elif isinstance(node, dict):
+            if not node:
+                parts.append("{}")
+            else:
+                keys = sorted(
+                    node.keys(),
+                    key=lambda key: _require_str_key(key).encode("utf-16-be"),
+                )
+                parts.append("{")
+                stack.append((_ENC_LIT, "}"))
+                for idx in range(len(keys) - 1, -1, -1):
+                    k = keys[idx]
+                    stack.append((_ENC_VAL, node[k]))
+                    stack.append((_ENC_KEY, k))
+                    if idx > 0:
+                        stack.append((_ENC_LIT, ","))
+        else:
+            raise TypeError(f"unsupported type for JCS: {type(node)!r}")
+    return "".join(parts)
 
 
 def _encode_string(value: str) -> str:
@@ -407,13 +636,12 @@ def _usage_text() -> str:
     )
 
 
-def _parse_nonneg_int(flag: str, raw_val: str) -> int:
-    try:
-        parsed = int(raw_val, 10)
-    except ValueError as exc:
-        raise ValueError(f"invalid integer for {flag}: {raw_val!r}") from exc
-    if parsed < 0:
-        raise ValueError(f"{flag} must be >= 0")
+def _parse_ascii_uint(flag: str, raw_val: str, *, min_val: int = 0) -> int:
+    if not raw_val or not raw_val.isascii() or not raw_val.isdigit():
+        raise ValueError(f"invalid integer for {flag}: {raw_val!r}")
+    parsed = int(raw_val, 10)
+    if parsed < min_val:
+        raise ValueError(f"{flag} must be >= {min_val}")
     return parsed
 
 
@@ -477,18 +705,15 @@ def _parse_cli_args(argv: list[str]) -> tuple[dict[str, Any] | None, int]:
                 val_str = argv[idx]
             try:
                 if flag == "--head":
-                    head_n = int(val_str, 10)
-                    if head_n < 1:
-                        raise ValueError("--head must be >= 1")
-                    opts["head"] = head_n
+                    opts["head"] = _parse_ascii_uint(flag, val_str, min_val=1)
                 elif flag == "--max-bytes":
-                    opts["max_bytes"] = _parse_nonneg_int(flag, val_str)
+                    opts["max_bytes"] = _parse_ascii_uint(flag, val_str)
                 elif flag == "--max-depth":
-                    opts["max_depth"] = _parse_nonneg_int(flag, val_str)
+                    opts["max_depth"] = _parse_ascii_uint(flag, val_str)
                 elif flag == "--max-object-members":
-                    opts["max_object_members"] = _parse_nonneg_int(flag, val_str)
+                    opts["max_object_members"] = _parse_ascii_uint(flag, val_str)
                 elif flag == "--max-string-bytes":
-                    opts["max_string_bytes"] = _parse_nonneg_int(flag, val_str)
+                    opts["max_string_bytes"] = _parse_ascii_uint(flag, val_str)
             except ValueError as exc:
                 sys.stderr.write(f"jcs: {exc}\n{_usage_text()}")
                 return None, EXIT_USAGE
@@ -637,9 +862,6 @@ def main(argv: list[str]) -> int:
                 canonical_bytes = jcs_dumps(document).encode("utf-8")
     except UnicodeDecodeError as exc:
         sys.stderr.write(f"jcs: invalid_utf8: {exc}\n")
-        return EXIT_REFUSED
-    except json.JSONDecodeError as exc:
-        sys.stderr.write(f"jcs: invalid JSON: {exc}\n")
         return EXIT_REFUSED
     except ValueError as exc:
         sys.stderr.write(f"jcs: {exc}\n")

@@ -6,7 +6,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -310,6 +312,10 @@ def test_cli_modes() -> None:
         ("--ndjson-array", "--head", "0"),
         ("--ndjson-array", "--head", "-1"),
         ("--ndjson-array", "--head", "abc"),
+        ("--ndjson-array", "--head", "1_0"),
+        ("--max-bytes", "1_000"),
+        ("--max-bytes", " 5"),
+        ("--max-depth", "+5"),
         ("--unknown-flag",),
         ("a.json", "b.json"),
     ):
@@ -348,13 +354,103 @@ def test_durable_record_cut_digest_parity() -> None:
     assert proc.stdout.decode("ascii").strip() == want_cut_digest
 
 
+def test_deep_nesting_and_refusal_codes() -> None:
+    for depth in (600, 1500):
+        arr_bytes = (b"[" * depth) + (b"]" * depth)
+        p_ok = run_cli("--max-depth", "5000", stdin_bytes=arr_bytes)
+        assert p_ok.returncode == 0, (
+            f"depth {depth} failed: {p_ok.stderr.decode('utf-8', 'replace')}"
+        )
+        assert p_ok.stdout == arr_bytes
+
+        p_lim = run_cli("--max-depth", str(depth - 1), stdin_bytes=arr_bytes)
+        assert p_lim.returncode == 1 and p_lim.stdout == b""
+        assert p_lim.stderr.startswith(b"jcs: too_deep:")
+        assert b"Traceback" not in p_lim.stderr
+
+        # Direct in-memory tree for jcs_dumps and jcs_loads
+        obj_tree: object = 1
+        for _ in range(depth):
+            obj_tree = {"b": 0, "a": obj_tree}
+        dumped = jcs.jcs_dumps(obj_tree)
+        reloaded = jcs.jcs_loads(dumped, max_depth=5000)
+        assert jcs.jcs_dumps(reloaded) == dumped
+
+    precedence_cases: list[tuple[tuple[str, ...], bytes, bytes]] = [
+        ((), b"NaN", b"jcs: invalid_json:"),
+        ((), b"Infinity", b"jcs: invalid_json:"),
+        ((), b"-Infinity", b"jcs: invalid_json:"),
+        ((), b'"\\uD800', b"jcs: lone_surrogate:"),
+        ((), b'"\\uD800\\u12"', b"jcs: invalid_json:"),
+        ((), b'{"a":1,"a":2,"b":01}', b"jcs: duplicate_member:"),
+        ((), b'{"a":01,"a":2}', b"jcs: invalid_json:"),
+        (("--max-object-members", "2"), b'{"a":1,"b":2,"a":3}', b"jcs: too_large:"),
+        (("--max-object-members", "2"), b'{"a":1,"b":2,}', b"jcs: invalid_json:"),
+    ]
+    for extra_args, payload, want_prefix in precedence_cases:
+        proc = run_cli(*extra_args, stdin_bytes=payload)
+        assert proc.returncode == 1 and proc.stdout == b"", (
+            f"expected refusal on {payload!r}"
+        )
+        assert proc.stderr.startswith(want_prefix), (
+            f"{payload!r}: expected stderr prefix {want_prefix!r}, got {proc.stderr!r}"
+        )
+
+
+def test_optional_conformance_corpus() -> None:
+    corpus_env = os.environ.get("JCS_CONFORMANCE_DIR", "").strip()
+    if not corpus_env:
+        return
+    corpus_dir = Path(corpus_env)
+    manifest = json.loads((corpus_dir / "cases.json").read_text(encoding="utf-8"))
+    cases = manifest["cases"]
+    code_re = re.compile(r"^jcs: ([a-z_0-9]+)")
+    for case in cases:
+        if "generate" in case:
+            gen = case["generate"]
+            data = (gen["prefix"] + gen["unit"] * gen["count"] + gen["suffix"]).encode(
+                "utf-8"
+            )
+        else:
+            data = (corpus_dir / case["input"]).read_bytes()
+        cli_args: list[str] = []
+        for k, v in case.get("limits", {}).items():
+            cli_args.extend(["--" + k.replace("_", "-"), str(v)])
+        proc = run_cli(*cli_args, stdin_bytes=data)
+        expect = case["expect"]
+        if expect == "ok":
+            assert proc.returncode == 0, (
+                f"{case['id']}: expected ok, got {proc.stderr!r}"
+            )
+            want_out = (
+                data
+                if case["output"] == "=input"
+                else (corpus_dir / case["output"]).read_bytes()
+            )
+            assert proc.stdout == want_out, f"{case['id']}: canonical bytes mismatch"
+        else:
+            assert proc.returncode == 1 and proc.stdout == b"", (
+                f"{case['id']}: expected refusal {expect}, got rc={proc.returncode}"
+            )
+            err_text = proc.stderr.decode("utf-8", "replace")
+            assert "Traceback" not in err_text, f"{case['id']}: traceback: {err_text}"
+            m = code_re.match(err_text)
+            got_code = m.group(1) if m else ""
+            assert got_code == expect, (
+                f"{case['id']}: expected code {expect!r}, got {got_code!r} ({err_text!r})"
+            )
+    print(f"    [ok] JCS conformance corpus passed ({len(cases)}/{len(cases)} cases)")
+
+
 def main() -> int:
     test_noncharacters()
     test_integer_domain()
     test_cli_modes()
+    test_deep_nesting_and_refusal_codes()
     test_durable_record_cut_digest_parity()
+    test_optional_conformance_corpus()
     print(
-        "    [ok] RFC 8785 domain (66 noncharacters, binary64 ints) and CLI modes passed"
+        "    [ok] RFC 8785 domain (66 noncharacters, binary64 ints), deep nesting, and CLI modes passed"
     )
     return 0
 
