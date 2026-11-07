@@ -10,6 +10,47 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.8 (2026-11-07)
+
+**Defines `durable-record` (`v0` and `v1`) RFC 3339 instant validation profiles and finite JSON Schema subset admission, deprecates `durable-record/v0` for new producers, specifies the `durable-record/v1` writer-owned incomplete-append abort boundary and `runtime.incarnation_allocation`, adds the draft `opslead` role, and adds workflow supply-chain, key-expiry, and local-path hygiene gates.**
+
+- **Durable-record (`v0` and `v1`) timestamp profiles, `v0` deprecation, and `v1` incomplete-append abort boundary**:
+  enforces ASCII-only RFC 3339 instant validation with year bounds `0001`–`9999`
+  (`0000` and UTC year underflow/overflow refused), proleptic Gregorian calendar
+  validation, unconditional `:60` leap-second refusal, per-position Stage 3 vs.
+  Stage 4 evaluation trace, and finite JSON Schema Draft 2020-12 keyword subset
+  admission (forbidding sibling assertion keywords alongside `$ref`). Marks
+  `schemas/durable-record/v0/contract.json` as `"status": "deprecated"`
+  (`"superseded_by": "contract: durable-record/v1"`) for new stream production
+  while keeping historical `v0` validation intact. Specifies the
+  `durable-record/v1` writer-owned incomplete-append abort boundary (`0 <= k < L`
+  under continuous reader and writer exclusion, `SameFile` descriptor identity
+  on the truncate handle, `fsync` of file and directory, post-truncate `fstat`
+  size match, prior-cut `1..cut_seq` re-validation, and fail-closed in-process
+  handle poisoning on indeterminate commits or gate failures) and adds optional
+  `runtime.incarnation_allocation` (`"effect_dependent"` |
+  `"prewrite_durable_ledger"`) to `stratum-profile.schema.json`.
+- **Agentic role catalog (`opslead` `1.0.0`, draft)**: adds supplemental
+  `config/agentic/roles/opslead.yaml` (category `governance`, domains
+  `governance`, `coordination`, and `automation`) and
+  `docs/catalog/roles/opslead.md` for accountable stewardship of estate
+  operating procedures, seat and identity lifecycle records, and operating
+  baselines, with explicit boundary separation from `dispatch`, `secops`,
+  `devsecops`, `projectmgr`, and `cxotech`.
+- **Workflow supply-chain pinning, signing-key expiration horizon, and local-path hygiene**:
+  adds `scripts/test-workflow-pins.sh` (enforcing 40-hex commit SHA pins with
+  version comments on `uses:`, `@sha256:` digests on `container` images, and
+  workflow permission boundaries), `check_release_key_expiry` in
+  `scripts/release-env.sh` wired into `scripts/release-derive-anchors.sh` and
+  `scripts/release-verify-anchors.sh` (failing closed on expired primary or
+  signing subkeys and warning within 30 days of expiration), and
+  `scripts/content-check.py` (scanning tracked files for generic local OS path
+  shapes).
+
+See [docs/releases/v0.2.8.md](docs/releases/v0.2.8.md).
+
+---
+
 ## v0.2.7 (2026-11-02)
 
 **Adds proposed `identity-evidence/v0` and draft `seat-spheres/v0` contracts, extends `project-work/v0` with commitment and `agent`/`run` provenance fields, adds the draft `advisor` role, splits SPDX `MIT`/`CC0-1.0` license files, and enforces pre-sign tagger identity.**
@@ -68,20 +109,3 @@ semantics`) with bounded raw-token safe-integer inspection before binary64
   `devsecops` and `watcher`.
 
 See [docs/releases/v0.2.6.md](docs/releases/v0.2.6.md).
-
----
-
-## v0.2.5 (2026-10-29)
-
-**Role prompts add execution continuity; contract controls fix UTF-8 subprocess decoding and large integer body lengths.**
-
-- **Role prompts (`devlead` 1.2.0, `devrev` 1.3.0, `uxdev` 1.2.0)**: add
-  execution-continuity guidance and bounded implementation, review and
-  interface loops while keeping existing authority and independent-review
-  boundaries unchanged.
-- **Fixed**: contract and permission controls decode captured subprocess output
-  as UTF-8 with replacement rather than the host locale's default encoding, and
-  durable-record/v1 logical controls handle nonnegative integer body lengths
-  above the floating-point range without `OverflowError`.
-
-See [docs/releases/v0.2.5.md](docs/releases/v0.2.5.md).
