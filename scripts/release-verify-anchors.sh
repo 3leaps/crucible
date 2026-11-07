@@ -47,12 +47,8 @@ committed keys/expected-fingerprints.ndjson "$out/anchors.ndjson"
 committed docs/security/release-signing-keys.asc "$out/pin.asc"
 committed docs/security/crucible-minisign.pub "$out/minisign.pub"
 
-if ! "$RELEASE_DECERNOR_BIN" fingerprint verify \
-    --anchors "$out/anchors.txt" \
-    --anchors-ndjson "$out/anchors.ndjson" \
-    --gpg "$out/pin.asc" \
-    --minisign "$out/minisign.pub" >"$out/verify.ndjson" 2>"$out/verify.err"; then
-    if python3 -I - "$out/verify.ndjson" <<'PY'
+all_records_matched() {
+    python3 -I - "$1" <<'PY'
 import json
 import pathlib
 import sys
@@ -64,7 +60,14 @@ lines = [
 ]
 sys.exit(0 if lines and all(r.get("status") == "match" for r in lines) else 1)
 PY
-    then
+}
+
+if ! "$RELEASE_DECERNOR_BIN" fingerprint verify \
+    --anchors "$out/anchors.txt" \
+    --anchors-ndjson "$out/anchors.ndjson" \
+    --gpg "$out/pin.asc" \
+    --minisign "$out/minisign.pub" >"$out/verify.ndjson" 2>"$out/verify.err"; then
+    if all_records_matched "$out/verify.ndjson"; then
         check_release_key_expiry "$out/pin.asc"
     fi
     cat "$out/verify.err" >&2
