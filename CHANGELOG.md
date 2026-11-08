@@ -11,13 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Durable-record `v1` retention policy for all-retired-record body reclamation.**
   Specifies the `durable-record/v1` retention eligibility rules, deterministic
-  Precedence 1–5 refusal ordering (adding `still_referenced` and
-  `removal_authorization` to the closed refusal vocabulary), decomposed removal
-  authorization verification obligations, and initial/retry re-verification
-  under the store-wide exclusion fence in
-  `docs/standards/durable-record-v1-contract.md`. Adds the `removal_eligibility`
-  logical conformance step, 42 `removal-*.json` vectors, safe-integer and
-  canonical-instant preflight checks, and 26 AST mutation witnesses in
+  Precedence `1 -> 2 -> 2b -> 3 -> 4 -> 5` refusal ordering (including
+  same-store `decision_time >= e["at"]` `journal_time` enforcement at Precedence
+  2b, conservative observed continuation ancestry hold blocking at Precedence 3,
+  and adding `still_referenced` and `removal_authorization` to the closed refusal
+  vocabulary), decomposed `{id, version}` policy-bound removal authorization
+  verification obligations, and initial/retry re-verification under the
+  store-wide exclusion fence in `docs/standards/durable-record-v1-contract.md`.
+  Adds `schemas/durable-record/v1/removal-eligibility-request.schema.json`, the
+  `removal_eligibility` logical conformance step, 70 `removal-*.json` vectors,
+  5 schema reject pairs, safe-integer and canonical-instant preflight checks,
+  and 43 AST mutation witnesses in
   `scripts/validate-durable-record-fixtures.py` and
   `scripts/test-durable-record-v1-controls.py`.
 

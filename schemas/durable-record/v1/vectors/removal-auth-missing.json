@@ -180,7 +180,11 @@
         "incarnation": 1,
         "mode": "start",
         "reason": "retention",
-        "decision_time": "2026-10-28T00:10:00.000000Z"
+        "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        }
       }
     }
   ],

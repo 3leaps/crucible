@@ -167,7 +167,7 @@
                 "source_state_digest": "sha256:5cb72fd9337154074dc353b97f04c8dc84bba51bf1aa1f73db49a14dd890b93c",
                 "destination_applied_state_digest": "sha256:3c59c381e275373d99ed64f6d792608b3c0c594e8ee56b62c441ebd02412148e",
                 "authorization": {
-                  "ref": "review:ext",
+                  "ref": "review:records.dest:4",
                   "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                 },
                 "provenance": {
@@ -175,7 +175,8 @@
                   "actor": "operator"
                 }
               }
-            ]
+            ],
+            "inherited_block": false
           }
         ],
         "body": {
@@ -186,6 +187,10 @@
         "mode": "start",
         "reason": "retention",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -195,7 +200,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",

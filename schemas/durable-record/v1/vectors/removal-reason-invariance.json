@@ -134,6 +134,10 @@
         "mode": "start",
         "reason": "retention",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -143,7 +147,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -264,6 +271,10 @@
         "mode": "start",
         "reason": "retention",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -273,7 +284,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -393,6 +407,10 @@
         "mode": "start",
         "reason": "retention",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -402,7 +420,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -475,6 +496,10 @@
         "mode": "start",
         "reason": "operator",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -484,7 +509,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -605,6 +633,10 @@
         "mode": "start",
         "reason": "operator",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -614,7 +646,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -734,6 +769,10 @@
         "mode": "start",
         "reason": "operator",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -743,7 +782,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -816,6 +858,10 @@
         "mode": "start",
         "reason": "rights_restricted",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -825,7 +871,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -946,6 +995,10 @@
         "mode": "start",
         "reason": "rights_restricted",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -955,7 +1008,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
@@ -1075,6 +1131,10 @@
         "mode": "start",
         "reason": "rights_restricted",
         "decision_time": "2026-10-28T00:10:00.000000Z",
+        "expected_policy": {
+          "id": "all-retired",
+          "version": "1"
+        },
         "authorization": {
           "ref": "removal-auth-1",
           "digest": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
@@ -1084,7 +1144,10 @@
             "length": 8
           },
           "incarnation": 1,
-          "policy": "all-retired-v1",
+          "policy": {
+            "id": "all-retired",
+            "version": "1"
+          },
           "action": "remove_body",
           "scope_verified": true,
           "not_before": "2026-10-28T00:00:00.000000Z",
