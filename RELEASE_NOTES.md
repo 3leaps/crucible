@@ -10,6 +10,58 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.9 (2026-11-08)
+
+**Specifies the `durable-record/v1` retention policy for retired-record body reclamation, designated `body-removal` stream recovery, and detached canonical `stream-seal` artifacts; adds the draft `identity-evidence/v0` `native-process-observation:v0` provider profile; and hardens the RFC 8785 JCS and RFC 3339 instant helper scripts.**
+
+- **Durable-record `v1` retention policy, designated `body-removal` recovery, and detached stream seals**:
+  specifies deterministic Precedence `1 -> 2 -> 2b -> 3 -> 4 -> 5` eligibility
+  evaluation for removing external body bytes referenced only by retired records
+  under a store-wide exclusion fence (designated-stream placement and target
+  `incarnation` `body_removal_stream` / `body_lifecycle` state, store-wide stream
+  and continuation coverage `protection_unavailable`, same-store
+  `decision_time >= e["at"]` `journal_time` ordering, conservative
+  continuation/sealed-ancestor `protected_use` hold blocking, `still_referenced`
+  on unretired referencing records, and `{id, version}` policy-bound
+  `removal_authorization` verification), paired with
+  `schemas/durable-record/v1/removal-eligibility-request.schema.json`. Adds
+  designated `body-removal` stream recovery via `stream_opened.recovery` and
+  `runtime.quarantined_designated_streams` under
+  `runtime.incarnation_allocation: "prewrite_durable_ledger"`, the 19-row
+  per-`(digest, length)` reconciliation table (`R1`–`R19`, `recovery_incomplete`),
+  and sticky `publishing` / `integrity_loss` carry-forward across clean cuts and
+  multi-hop predecessor replay. Adds `schemas/durable-record/v1/stream-seal.schema.json`
+  for detached canonical RFC 8785 JCS stream seals with canonical
+  `effective_restriction_manifest_digest` preimages, transitive `ancestor_seals`
+  finality verification, zero trailing bytes at `cut_seq`, and conservative
+  sealed-ancestor hold dominance, backed by 183 new conformance vectors (395
+  total), 17 new schema reject fixtures (66 total), and 107 new AST mutation
+  witnesses (187 total).
+- **Identity evidence (`native-process-observation:v0`, draft)**: adds
+  `schemas/identity-evidence/v0/profiles/native-process-observation/`
+  (`profile.json`, `evidence.schema.json`, `README.md`, and platform examples)
+  plus `schemas/identity-evidence/v0/examples/native-process-observation.json`
+  for standalone native process incarnation and context observation without
+  requiring launch or possession evidence, defining the seven-state fact
+  visibility vocabulary mapped 1:1 to report capability status, host-scope and
+  clock/user/PID-namespace descriptor semantics, three-class Linux `/proc`
+  `openat2` and magic-link resolution rules, `u32`/`u64` integer bounds,
+  incarnation bracketing, and fail-closed projection into
+  `local-process-session:v0`.
+- **RFC 8785 canonicalization and RFC 3339 instant helper hardening**: replaces
+  recursive JSON parsing and serialization in `scripts/rfc8785-canonicalize.py`
+  with an iterative implementation enforcing explicit input bounds, rejecting all
+  66 RFC 7493 §2.1 Unicode noncharacters across planes `0..16` and out-of-domain
+  integer tokens before arbitrary-precision expansion, and adding `--check`,
+  `--digest`, `--vector`, `--ndjson-array` (`--head N`), and `--sort-set` CLI
+  modes (`scripts/test-rfc8785-controls.py`); extends `scripts/rfc3339-instant.py`
+  with `max_fraction_digits`, `reject_submicrosecond_nonzero`, and exact
+  arbitrary-precision fractional ordering in `compare`.
+
+See [docs/releases/v0.2.9.md](docs/releases/v0.2.9.md).
+
+---
+
 ## v0.2.8 (2026-11-07)
 
 **Defines `durable-record` (`v0` and `v1`) RFC 3339 instant validation profiles and finite JSON Schema subset admission, deprecates `durable-record/v0` for new producers, specifies the `durable-record/v1` writer-owned incomplete-append abort boundary and `runtime.incarnation_allocation`, adds the draft `opslead` role, and adds workflow supply-chain, key-expiry, and local-path hygiene gates.**
@@ -82,30 +134,3 @@ See [docs/releases/v0.2.8.md](docs/releases/v0.2.8.md).
   document-wide `ingest` checks ahead of `numeric_domain`.
 
 See [docs/releases/v0.2.7.md](docs/releases/v0.2.7.md).
-
----
-
-## v0.2.6 (2026-10-30)
-
-**Durable-record bounds protocol integers at 2^53 - 1 and batches schema validation; role catalog adds draft devsecops, mediaeng and creative prompts and refines secops.**
-
-- **Durable-record (`v0` and `v1`)**: bounds all 53 contract-defined integer
-  fields across all 13 `durable-record/v0` and `durable-record/v1` schemas at
-  `9007199254740991` ($2^{53} - 1$), leaving arbitrary `record.payload` numbers
-  and `scripts/rfc8785-canonicalize.py` unchanged. Defines the four-stage wire
-  evaluation order (`ingest` -> `numeric_domain` -> `shape` -> `logical
-semantics`) with bounded raw-token safe-integer inspection before binary64
-  rounding, counter-exhaustion refusal without wraparound, and typed-boundary
-  range enforcement. Batches schema validation through `goneat validate suite
---format json` so parser, range or tool failures raise harness errors rather
-  than satisfying negative schema cases.
-- **Role catalog (`devsecops` 1.0.0, `mediaeng` 1.0.0, `creative` 1.0.0, `secops` 1.1.0)**:
-  adds draft `devsecops` (repository-side security tooling, CI security gates,
-  signing/verification automation and supply-chain pinning without live secrets
-  or signing authority), `mediaeng` (deterministic audio, video, graphics,
-  vector, DSP, codec and rendering pipelines) and `creative` (structured
-  musical, video, vector and procedural media production under human artistic
-  direction), and updates `secops` (`1.1.0`) to sharpen boundaries with
-  `devsecops` and `watcher`.
-
-See [docs/releases/v0.2.6.md](docs/releases/v0.2.6.md).
