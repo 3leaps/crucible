@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Identity-evidence `v0` `native-process-observation:v0` provider profile (draft).**
+  Adds `schemas/identity-evidence/v0/profiles/native-process-observation/`
+  (`profile.json`, `evidence.schema.json`, `README.md`, and platform examples)
+  plus `schemas/identity-evidence/v0/examples/native-process-observation.json`
+  for standalone native process incarnation and context observation without
+  requiring launch or possession evidence. Defines the seven-state fact
+  visibility vocabulary mapped 1:1 to report capability status, host-scope and
+  clock/user/PID-namespace descriptor semantics, three-class Linux `/proc`
+  `openat2` and magic-link resolution rules, `u32`/`u64` integer bounds,
+  pre/post incarnation bracketing, fail-closed projection into
+  `local-process-session:v0`, and batched control coverage in
+  `scripts/test-identity-evidence-controls.py`.
+
 - **Durable-record `v1` designated `body-removal` stream recovery and detached canonical stream seals.**
   Specifies recovery of a damaged designated `body-removal` stream via a new
   designated successor stream (`stream_opened.recovery`,
