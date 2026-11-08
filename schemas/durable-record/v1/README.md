@@ -18,6 +18,7 @@ define retained-record restrictions and the v1 boundary.
 | `export-result.schema.json`               | Decision at a cut; not a durable authorization token                       |
 | `body-state-request.schema.json`          | Logical body-state observation input (`body` plus verified `present`)      |
 | `removal-eligibility-request.schema.json` | Logical store-wide retention removal-eligibility decision input            |
+| `stream-seal.schema.json`                 | Detached canonical JCS seal binding a closed, write-fenced source cut      |
 | `examples/`                      | Wire instances; filename prefix identifies the schema                      |
 | `vectors/`                       | Ordered operations with authored expected receipts and final logical state |
 | `rejects/schema/`                | One-field shape rejects with passing baselines                             |

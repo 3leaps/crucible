@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Durable-record `v1` designated `body-removal` stream recovery and detached canonical stream seals.**
+  Specifies recovery of a damaged designated `body-removal` stream via a new
+  designated successor stream (`stream_opened.recovery`,
+  `runtime.quarantined_designated_streams`, ordered `reconciled_bodies` floors
+  under `runtime.incarnation_allocation: "prewrite_durable_ledger"`, the 19-row
+  per-`(digest, length)` reconciliation table `R1`–`R19`, multi-hop predecessor
+  replay, activation atomicity/fencing invariants, and adding
+  `recovery_incomplete` to the closed refusal vocabulary) and detached verified
+  stream seals (`schemas/durable-record/v1/stream-seal.schema.json`, canonical
+  `effective_restriction_manifest_digest` preimages, transitive
+  `ancestor_seals` finality and store/trust-profile verification, zero trailing
+  bytes at `cut_seq`, and conservative sealed-ancestor hold dominance in
+  `removal_eligibility`) in `docs/standards/durable-record-v1-contract.md`.
+  Adds `schemas/durable-record/v1/examples/stream-seal.example.json`, 109
+  `recovery-*.json`, `seal-*.json`, and `removal-*.json` vectors, 12 schema
+  reject pairs, activation/stale-handle faultpoints, and 50 AST mutation
+  witnesses in `scripts/validate-durable-record-fixtures.py` and
+  `scripts/test-durable-record-v1-controls.py`.
+
 - **Durable-record `v1` retention policy for all-retired-record body reclamation.**
   Specifies the `durable-record/v1` retention eligibility rules, deterministic
   Precedence `1 -> 2 -> 2b -> 3 -> 4 -> 5` refusal ordering (including
