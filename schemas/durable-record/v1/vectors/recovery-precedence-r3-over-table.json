@@ -95,7 +95,7 @@
             },
             "floor": 1,
             "activation_observation": "present_valid",
-            "post_recovery_state": "removed"
+            "post_recovery_state": "available"
           }
         ],
         "authorization": {

@@ -515,22 +515,32 @@ upstream journal) only when **all** of the following hold:
    ancestor state fails closed as `protection_unavailable`, and live state
    changes fail closed as `restrictions_pending`).
 3. **Exact cut match, manifest match & zero trailing bytes:** The observed
-   source journal validates under its declared capability, has exact length
-   `cut_seq` ending a complete atomic group, hashes to `cut_digest`, has derived
-   effective restriction manifest digest equal to
-   `effective_restriction_manifest_digest`, and has **zero trailing bytes**
-   beyond `cut_seq`. Any trailing entry or raw trailing bytes (valid,
-   unterminated, or damaged) beyond a sealed cut violate the seal and refuse
-   the relying continuation as `continuation`.
-4. **Complete ancestor closure:** When the sealed source is itself a
-   continuation, every upstream boundary above it MUST likewise be permanently
-   closed and fenced (`closer_authenticated: true` and
-   `source_write_fenced: true`) by a verified seal bound in `ancestor_seals`
-   (matching `{store, capability, stream, cut_seq, seal_digest}` in strict JCS
-   byte order with no duplicates, with `cut_seq == review.source.cut_seq` and
-   `effective_restriction_manifest_digest == review.source_state_digest` at each
-   sealed boundary). A local source seal MUST NOT hide an unsealed, missing, or
-   unfenced (`source_write_fenced: false`) upstream ancestor.
+   source journal validates under its declared capability, has a complete
+   atomic group at `1..cut_seq` hashing to `cut_digest`, has derived effective
+   restriction manifest digest for `1..cut_seq` equal to
+   `effective_restriction_manifest_digest`, and has **zero raw trailing bytes**
+   (`trailing_bytes == ""`, refusing any unterminated or damaged tail as
+   `continuation`). When `source_write_fenced` is `true`, the observed source
+   journal MUST have exact length `cut_seq` with zero entries beyond `cut_seq`
+   (any entry beyond `cut_seq` violates the claimed write fence and refuses as
+   `continuation`); when `source_write_fenced` is `false`, valid committed
+   entries beyond `cut_seq` leave the seal non-final under condition 2 so live
+   source changes fail closed as `restrictions_pending`.
+4. **Complete transitive ancestor closure:** When the sealed source is itself a
+   continuation, `ancestor_seals` MUST record the **exact transitive closure**
+   of upstream boundaries above it (strict JCS byte order, unique `(capability,
+   stream)` targets, no cycles, no conflicting boundary tuples, and no
+   unrelated stream entries; structural, conflict, or padding violations refuse
+   as `continuation`), and every upstream boundary at every depth MUST be
+   permanently closed and fenced (`closer_authenticated: true` and
+   `source_write_fenced: true`) by a verified seal (`cut_seq ==
+   review.source.cut_seq` and `effective_restriction_manifest_digest ==
+   review.source_state_digest` at each sealed continuation hop). When a
+   manifest preimage is supplied for a sealed boundary, it MUST have the closed
+   `{holds, retired, inherited}` object shape and canonical JCS digest matching
+   `effective_restriction_manifest_digest` (mismatch refuses as `continuation`).
+   A local or intermediate seal MUST NOT hide an unsealed, missing, or unfenced
+   (`source_write_fenced: false`) deeper upstream ancestor.
 
 In the logical vector form, seal verification supplies the detached `seal`
 object alongside explicit trusted verifier inputs (`expected_store`,
@@ -1036,16 +1046,33 @@ stream** whose `stream_opened` entry carries `recovery`:
        `"available"` (effective lifecycle state entering `S_i` becomes
        `body_published(n)`, so if bytes are later lost in `S_i` or at `S_{i+1}`,
        state transitions to `"integrity_loss"` under `R10` and `body_removed(n)`
-       is refused as `body_lifecycle`—never reverting to `R15`
-       `"removal_pending"`).
+       or `retry_unlink` is refused as `body_lifecycle`—never reverting to `R15`
+       `"removal_pending"`). Re-initiating removal after an abandoned `R12` or
+       `R13` transition—including when the abandoned `body_removal_started`
+       carried `reason: "rights_restricted"`—requires fresh
+       `removal_eligibility` evaluation (and fresh `authorization` when
+       referenced) plus a new `body_removal_started` entry on the current
+       published incarnation (`n` after `R12`, or `n' > floor` after `R13` and
+       `body_published(n')`).
      - Under `R15` (`prior_state == body_removal_started(n)`, damaged tail,
        `floor == n`, `activation_observation == "absent"`), the open removal is
        preserved (`post_recovery_state == "removal_pending"`), allowing
        `body_removed(n)` in `S_i`.
-     - Under `"publishing"` (`R7`, `R9`, `R13`, `R19`) or `"integrity_loss"`
-       (`R6`, `R10`, `R16`, `R18`), any open removal is closed, un-republished
-       `"integrity_loss"` remains sticky until a new `body_published(n')`, and
-       the high-water bound advances to `prior_bound := floor`.
+     - Under `"publishing"` (`R7`, `R9`, `R13`, `R19`), any open removal is
+       closed, `prior_bound` advances to `floor`, and the body enters a durable
+       un-committed recovery-publishing state: until a new `body_published(n')`
+       with `n' > floor` commits, subsequent clean-cut `body_state` reads and
+       later recovery hops `S_{i+1}` yield `"publishing"` when bytes are
+       `present_valid` and `"integrity_loss"` when bytes are `absent` (never
+       reverting to `"removed"` after `R19` at `floor == n` or `"unpublished"`
+       after `R7` at `floor == 0`).
+     - Under `"integrity_loss"` (`R6`, `R10`, `R16`, `R18`), any open removal is
+       closed, `prior_bound` advances to `floor`, and `"integrity_loss"` remains
+       sticky across both `absent` and `present_valid` observations (at clean
+       cuts and across later recovery hops `S_{i+1}`) until a new
+       `body_published(n')` with `n' > floor` commits; un-republished byte
+       reappearance never downgrades `"integrity_loss"` to `"publishing"` or
+       `"available"`.
   3. Replay `S_i`'s subsequent lifecycle entries from that post-recovery
      effective state and `prior_bound := floor`, requiring every new
      `body_published(n')` in `S_i` to satisfy `n' > prior_bound`.

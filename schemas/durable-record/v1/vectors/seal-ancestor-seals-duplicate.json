@@ -28,16 +28,16 @@
             {
               "store": "store.alpha",
               "capability": "contract: durable-record/v1",
-              "stream": "records.anc.a",
+              "stream": "records.root",
               "cut_seq": 2,
-              "seal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+              "seal_digest": "sha256:172e84f73db42e1a81e08796c16da1cce128472cbbc6b262948bc198edd2b8ce"
             },
             {
               "store": "store.alpha",
               "capability": "contract: durable-record/v1",
-              "stream": "records.anc.a",
+              "stream": "records.root",
               "cut_seq": 2,
-              "seal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+              "seal_digest": "sha256:172e84f73db42e1a81e08796c16da1cce128472cbbc6b262948bc198edd2b8ce"
             }
           ],
           "trust_profile": {
@@ -145,6 +145,40 @@
               "actor_kind": "process",
               "actor": "reviewer"
             }
+          }
+        ],
+        "ancestor_seal_contexts": [
+          {
+            "seal": {
+              "v": 1,
+              "store": "store.alpha",
+              "capability": "contract: durable-record/v1",
+              "stream": "records.root",
+              "cut_seq": 2,
+              "cut_digest": "sha256:f62b6aa0377c43d5b251d759d62707edf3684a1925430825c25554a0b4f31278",
+              "effective_restriction_manifest_digest": "sha256:5cb72fd9337154074dc353b97f04c8dc84bba51bf1aa1f73db49a14dd890b93c",
+              "ancestor_seals": [],
+              "trust_profile": {
+                "id": "seal-authority",
+                "version": "1"
+              },
+              "sealed_at": "2026-10-28T00:00:10.000000Z",
+              "provenance": {
+                "actor_kind": "process",
+                "actor": "closer"
+              },
+              "authorization": {
+                "ref": "authority:stream-closer",
+                "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+              }
+            },
+            "expected_store": "store.alpha",
+            "accepted_trust_profile": {
+              "id": "seal-authority",
+              "version": "1"
+            },
+            "closer_authenticated": true,
+            "source_write_fenced": true
           }
         ]
       }

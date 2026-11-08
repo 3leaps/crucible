@@ -22,9 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ancestor_seals` finality and store/trust-profile verification, zero trailing
   bytes at `cut_seq`, and conservative sealed-ancestor hold dominance in
   `removal_eligibility`) in `docs/standards/durable-record-v1-contract.md`.
-  Adds `schemas/durable-record/v1/examples/stream-seal.example.json`, 90
+  Adds `schemas/durable-record/v1/examples/stream-seal.example.json`, 109
   `recovery-*.json`, `seal-*.json`, and `removal-*.json` vectors, 12 schema
-  reject pairs, activation/stale-handle faultpoints, and 38 AST mutation
+  reject pairs, activation/stale-handle faultpoints, and 50 AST mutation
   witnesses in `scripts/validate-durable-record-fixtures.py` and
   `scripts/test-durable-record-v1-controls.py`.
 

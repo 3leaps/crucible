@@ -183,6 +183,8 @@ def compute_recovery_row(prior_phase, prior_bound, floor, obs, damaged, referenc
                 return "removed"
             return "integrity_loss"
         return "publishing"
+    if prior_phase == "recovery_integrity_loss":
+        return "integrity_loss"
     if obs == "present_valid":
         return "publishing"
     return "integrity_loss"
@@ -192,25 +194,25 @@ def _apply_recovery_transition(
     prior_phase, prior_bound, open_set, floor, obs, post_state
 ):
     new_open = set(open_set)
-    if prior_phase is None:
-        if floor == 0:
-            return (0, None), set()
-        return (floor, "fenced"), set()
-    if prior_phase == "published":
-        if floor == prior_bound and obs == "present_valid":
-            return (floor, "published"), set()
-        return (floor, "fenced"), set()
     if prior_phase == "started":
         if floor == prior_bound and obs == "present_valid":
             return (floor, "published"), set()
         if floor == prior_bound and obs == "absent":
             return (floor, "started"), new_open
-        return (floor, "fenced"), set()
-    if prior_phase == "removed":
-        if floor == prior_bound:
-            return (floor, "removed"), set()
-        return (floor, "fenced"), set()
-    return (floor, "fenced"), set()
+        return (
+            (floor, "recovery_publishing")
+            if obs == "present_valid"
+            else (floor, "recovery_integrity_loss")
+        ), set()
+    if post_state == "unpublished":
+        return (0, None), set()
+    if post_state == "available":
+        return (floor, "published"), set()
+    if post_state == "removed":
+        return (floor, "removed"), set()
+    if post_state == "publishing":
+        return (floor, "recovery_publishing"), set()
+    return (floor, "recovery_integrity_loss"), set()
 
 
 def integral(value):
@@ -481,12 +483,14 @@ class State:
 
     def track_body(self, e):
         # One lifecycle per {digest, length}: (latest incarnation, phase), where
-        # phase is published, started or removed.
+        # phase is published, started, removed, recovery_publishing or
+        # recovery_integrity_loss.
         key = (e["body"]["digest"], e["body"]["length"])
         latest, phase = self.bodies.get(key, (0, None))
         n, typ = e["incarnation"], e["type"]
         if typ == "body_published":
-            # A later publication closes an open removal as abandoned.
+            # A later publication closes an open removal as abandoned and
+            # clears carried recovery publishing/integrity-loss state.
             require(n > latest, "body_lifecycle")
             self.bodies[key] = (n, "published")
         elif typ == "body_removal_started":
@@ -1713,11 +1717,23 @@ def _validate_and_replay_recovery_chain(case, s):
             require(required_keys - set(item_keys) == set(), "recovery_incomplete")
             for it in items:
                 k = (it["body"]["digest"], int(it["body"]["length"]))
-                prior_bound, _ = longest_bodies.get(k, (0, None))
+                prior_bound, prior_phase = longest_bodies.get(k, (0, None))
                 fl = int(it["floor"])
                 require(fl >= prior_bound, "recovery_incomplete")
                 if k in ledger_map:
                     require(fl == ledger_map[k], "recovery_incomplete")
+                is_ref = k in s.referenced_bodies
+                expected_state = compute_recovery_row(
+                    prior_phase,
+                    prior_bound,
+                    fl,
+                    it["activation_observation"],
+                    True,
+                    is_ref,
+                )
+                require(
+                    it["post_recovery_state"] == expected_state, "recovery_incomplete"
+                )
 
         def rec_r2():
             for it in items:
@@ -1732,22 +1748,8 @@ def _validate_and_replay_recovery_chain(case, s):
         def rec_r4_r19():
             for it in items:
                 k = (it["body"]["digest"], int(it["body"]["length"]))
-                prior_bound, prior_phase = longest_bodies.get(k, (0, None))
-                fl = int(it["floor"])
                 live_obs = live_obs_map.get(k, it["activation_observation"])
                 require(live_obs == it["activation_observation"], "recovery_incomplete")
-                is_ref = k in s.referenced_bodies
-                expected_state = compute_recovery_row(
-                    prior_phase,
-                    prior_bound,
-                    fl,
-                    it["activation_observation"],
-                    True,
-                    is_ref,
-                )
-                require(
-                    it["post_recovery_state"] == expected_state, "recovery_incomplete"
-                )
 
         rec_precedence = [rec_r1, rec_r2, rec_r3, rec_r4_r19]
         for r_fn in rec_precedence:
@@ -1923,8 +1925,19 @@ def _verify_seal_against_journal(inst_checker, seal_ctx, source_journal):
     )
     jcs_ancestors = [legacy._jcs.jcs_dumps(m) for m in seal["ancestor_seals"]]
     require(jcs_ancestors == sorted(jcs_ancestors), "continuation")
-    require(len(jcs_ancestors) == len(set(jcs_ancestors)), "continuation")
+    anc_stream_keys = [(m["capability"], m["stream"]) for m in seal["ancestor_seals"]]
+    require(len(anc_stream_keys) == len(set(anc_stream_keys)), "continuation")
     return prefix
+
+
+def _verify_manifest_preimage(m_doc, expected_digest):
+    require(
+        isinstance(m_doc, dict)
+        and set(m_doc) == {"holds", "retired", "inherited"}
+        and all(isinstance(m_doc[k], list) for k in ("holds", "retired", "inherited")),
+        "continuation",
+    )
+    require(digest(m_doc) == expected_digest, "continuation")
 
 
 def _evaluate_seal_context(
@@ -1957,9 +1970,16 @@ def _evaluate_seal_context(
     else:
         seal = seal_ctx["seal"]
 
+    if "manifest" in seal_ctx:
+        _verify_manifest_preimage(
+            seal_ctx["manifest"], seal["effective_restriction_manifest_digest"]
+        )
+
     is_cont = source_journal[0].get("continues") is not None
+    seal_key = (seal["capability"], seal["stream"])
     anc_ctxs = seal_ctx.get("ancestor_seal_contexts", [])
     ctx_by_key = {}
+    anc_journals_by_key = {}
     for ac in anc_ctxs:
         require(
             isinstance(ac, dict)
@@ -1992,26 +2012,81 @@ def _evaluate_seal_context(
             and len(ac_jcs_anc) == len(set(ac_jcs_anc)),
             "continuation",
         )
+        ac_key = (ac_seal["capability"], ac_seal["stream"])
+        require(ac_key != seal_key and ac_key not in ctx_by_key, "continuation")
+        ac_sub_keys = [
+            (m["capability"], m["stream"]) for m in ac_seal["ancestor_seals"]
+        ]
+        require(
+            ac_key not in ac_sub_keys and len(ac_sub_keys) == len(set(ac_sub_keys)),
+            "continuation",
+        )
+        if "manifest" in ac:
+            _verify_manifest_preimage(
+                ac["manifest"], ac_seal["effective_restriction_manifest_digest"]
+            )
         if "journal" in ac or "raw_journal" in ac:
             aj, araw = _parse_source_spec(
                 ac["raw_journal"] if "raw_journal" in ac else ac["journal"]
             )
+            require(
+                isinstance(aj, list)
+                and aj
+                and all(isinstance(e, dict) for e in aj)
+                and "v" in aj[0],
+                "continuation",
+            )
+            anc_journals_by_key[ac_key] = (ac, aj, araw)
+        ctx_by_key[ac_key] = ac
+
+    anc_journal_uncurrent = set()
+    anc_journal_upstreams = {}
+    for ac_key, (ac, aj, araw) in anc_journals_by_key.items():
+        ac_seal = ac["seal"]
+        if aj[0].get("continues") is None:
             observed(aj, window_ms, None, None, raw_entries=araw)
             _verify_seal_against_journal(inst_checker, ac, aj)
-        ctx_by_key[(ac_seal["capability"], ac_seal["stream"])] = ac
+            require(ac_seal["ancestor_seals"] == [], "continuation")
+        else:
+            aj_prefix = _verify_seal_against_journal(inst_checker, ac, aj)
+            _ah, _ar, aj_rev = restriction_state(aj_prefix)
+            aj_up_key = (
+                (aj_rev["source"]["capability"], aj_rev["source"]["stream"])
+                if aj_rev is not None
+                else (
+                    aj_prefix[0]["continues"]["capability"],
+                    aj_prefix[0]["continues"]["stream"],
+                )
+            )
+            anc_journal_upstreams[ac_key] = aj_up_key
+            up_ctx = ctx_by_key.get(aj_up_key)
+            aj_cur = _check_sealed_intermediate_journal(
+                aj,
+                up_ctx["seal"] if up_ctx is not None else None,
+                window_ms,
+                raw_entries=araw,
+            )
+            if not aj_cur or all(
+                (m["capability"], m["stream"]) != aj_up_key
+                for m in ac_seal["ancestor_seals"]
+            ):
+                anc_journal_uncurrent.add(ac_key)
 
     if not is_cont:
         if observed_upstream is None:
             observed(source_journal, window_ms, None, None, raw_entries=raw_entries)
         prefix = _verify_seal_against_journal(inst_checker, seal_ctx, source_journal)
-        require(seal["ancestor_seals"] == [], "continuation")
+        require(seal["ancestor_seals"] == [] and not anc_ctxs, "continuation")
         is_final = _seal_establishes_finality(seal_ctx, True)
         return is_final, False, prefix
 
     # Sealed intermediate continuation source.
     prefix = _verify_seal_against_journal(inst_checker, seal_ctx, source_journal)
+    top_anc_by_key = {}
     for entry in seal["ancestor_seals"]:
         key = (entry["capability"], entry["stream"])
+        require(key != seal_key, "continuation")
+        top_anc_by_key[key] = entry
         if key in ctx_by_key:
             ac = ctx_by_key[key]
             ac_seal = ac["seal"]
@@ -2031,14 +2106,6 @@ def _evaluate_seal_context(
             prefix[0]["continues"]["stream"],
         )
     )
-    matching_entry = next(
-        (
-            m
-            for m in seal["ancestor_seals"]
-            if (m["capability"], m["stream"]) == needed_key
-        ),
-        None,
-    )
     matching_ctx = ctx_by_key.get(needed_key)
     mid_current = _check_sealed_intermediate_journal(
         source_journal,
@@ -2049,34 +2116,87 @@ def _evaluate_seal_context(
 
     ancestors_final = True
     unobserved_anc_hold = False
-    if matching_entry is None or matching_ctx is None:
-        ancestors_final = False
-        unobserved_anc_hold = True
-    else:
-        for entry in seal["ancestor_seals"]:
-            key = (entry["capability"], entry["stream"])
-            ac = ctx_by_key.get(key)
-            if ac is None:
-                ancestors_final = False
-                unobserved_anc_hold = True
-                continue
-            ac_seal = ac["seal"]
-            if (
-                ac.get("closer_authenticated") is not True
-                or ac.get("source_write_fenced") is not True
-            ):
-                ancestors_final = False
-            m_digest = ac_seal["effective_restriction_manifest_digest"]
-            if m_digest != EMPTY_MANIFEST_DIGEST:
-                if "manifest" in ac:
-                    m_doc = ac["manifest"]
-                    require(digest(m_doc) == m_digest, "continuation")
-                    if len(m_doc.get("holds", [])) > 0:
-                        unobserved_anc_hold = True
-                else:
-                    unobserved_anc_hold = True
-        if matching_ctx["seal"]["ancestor_seals"] and len(seal["ancestor_seals"]) < 2:
+    reachable_keys = set()
+    canonical_edge_by_key = {}
+
+    def _bind_edge(key, edge):
+        if key in canonical_edge_by_key:
+            require(canonical_edge_by_key[key] == edge, "continuation")
+        else:
+            canonical_edge_by_key[key] = edge
+
+    def walk_ancestor(key, expected_entry, visiting):
+        nonlocal ancestors_final, unobserved_anc_hold
+        require(key not in visiting, "continuation")
+        if expected_entry is not None:
+            _bind_edge(
+                key,
+                (
+                    expected_entry["store"],
+                    expected_entry["capability"],
+                    expected_entry["stream"],
+                    int(expected_entry["cut_seq"]),
+                    expected_entry["seal_digest"],
+                ),
+            )
+        reachable_keys.add(key)
+        if key in top_anc_by_key:
+            top_e = top_anc_by_key[key]
+            _bind_edge(
+                key,
+                (
+                    top_e["store"],
+                    top_e["capability"],
+                    top_e["stream"],
+                    int(top_e["cut_seq"]),
+                    top_e["seal_digest"],
+                ),
+            )
+        if key not in top_anc_by_key:
             ancestors_final = False
+            unobserved_anc_hold = True
+        ac = ctx_by_key.get(key)
+        if ac is None:
+            ancestors_final = False
+            unobserved_anc_hold = True
+            return
+        ac_seal = ac["seal"]
+        _bind_edge(
+            key,
+            (
+                ac_seal["store"],
+                ac_seal["capability"],
+                ac_seal["stream"],
+                int(ac_seal["cut_seq"]),
+                digest(ac_seal),
+            ),
+        )
+        if (
+            ac.get("closer_authenticated") is not True
+            or ac.get("source_write_fenced") is not True
+            or key in anc_journal_uncurrent
+        ):
+            ancestors_final = False
+        m_digest = ac_seal["effective_restriction_manifest_digest"]
+        if "manifest" in ac:
+            if len(ac["manifest"].get("holds", [])) > 0:
+                unobserved_anc_hold = True
+        elif m_digest != EMPTY_MANIFEST_DIGEST:
+            unobserved_anc_hold = True
+        next_visiting = visiting | {key}
+        sub_keys_present = set()
+        for sub_e in ac_seal["ancestor_seals"]:
+            sub_k = (sub_e["capability"], sub_e["stream"])
+            sub_keys_present.add(sub_k)
+            walk_ancestor(sub_k, sub_e, next_visiting)
+        if (
+            key in anc_journal_upstreams
+            and anc_journal_upstreams[key] not in sub_keys_present
+        ):
+            walk_ancestor(anc_journal_upstreams[key], None, next_visiting)
+
+    walk_ancestor(needed_key, None, {seal_key})
+    require(set(top_anc_by_key.keys()) <= reachable_keys, "continuation")
 
     is_final = _seal_establishes_finality(seal_ctx, ancestors_final)
     if not mid_current and is_final:
@@ -3389,11 +3509,51 @@ def mutation_controls():
             None,
         ),
         (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->publishing",
+            4,
+            "recovery-r10-two-hop-wrong-publishing",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->removed",
+            5,
+            "recovery-r19-two-hop-wrong-removed",
+            None,
+        ),
+        (
+            "_apply_recovery_transition",
+            "collapse_recovery_integrity_loss",
+            "",
+            0,
+            "recovery-r10-sticky-reappear",
+            ("state", "publishing", 0),
+        ),
+        (
+            "_apply_recovery_transition",
+            "collapse_r19_publishing_to_removed",
+            "",
+            0,
+            "recovery-r19-subsequent-byte-loss",
+            ("state", "removed", 0),
+        ),
+        (
             "_validate_and_replay_recovery_chain",
             "swap_rec_precedence",
             "0",
             0,
             "recovery-precedence-r1-over-r2",
+            ("top_refusal", "numeric_domain", 0),
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "swap_rec_precedence",
+            "0",
+            0,
+            "recovery-precedence-r1-state-over-r2",
             ("top_refusal", "numeric_domain", 0),
         ),
         (
@@ -3411,6 +3571,14 @@ def mutation_controls():
             0,
             "recovery-precedence-r3-over-table",
             ("top_refusal", "recovery_incomplete", 0),
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "recovery_incomplete",
+            10,
+            "recovery-live-obs-mismatch",
+            None,
         ),
         (
             "_verify_seal_against_journal",
@@ -3546,6 +3714,54 @@ def mutation_controls():
             "protected_use",
             4,
             "removal-sealed-ancestor-active-hold",
+            None,
+        ),
+        (
+            "_verify_manifest_preimage",
+            "require",
+            "continuation",
+            0,
+            "seal-ancestor-manifest-missing-holds-key",
+            None,
+        ),
+        (
+            "_verify_manifest_preimage",
+            "require",
+            "continuation",
+            1,
+            "seal-ancestor-manifest-digest-mismatch",
+            None,
+        ),
+        (
+            "_evaluate_seal_context",
+            "skip_transitive_ancestor_seals",
+            "",
+            0,
+            "seal-ancestor-transitive-omitted",
+            None,
+        ),
+        (
+            "_evaluate_seal_context",
+            "round1_len2_ancestor_shortcut",
+            "",
+            0,
+            "seal-ancestor-four-level-omitted-root",
+            None,
+        ),
+        (
+            "_evaluate_seal_context",
+            "compare",
+            "ac.get('source_write_fenced') is not True",
+            0,
+            "seal-ancestor-four-level-unfenced-root",
+            None,
+        ),
+        (
+            "_evaluate_seal_context",
+            "allow_unrelated_ancestor_padding",
+            "",
+            0,
+            "seal-ancestor-unrelated-padding",
             None,
         ),
     ]
@@ -3724,6 +3940,39 @@ def mutation_controls():
                 and n.value.value == value.split("->", 1)[0]
             ):
                 matches.append(n)
+            elif (
+                kind == "collapse_recovery_integrity_loss"
+                and isinstance(n, ast.Return)
+                and "recovery_integrity_loss" in ast.unparse(n)
+                and "if " not in ast.unparse(n)
+            ):
+                matches.append(n)
+            elif (
+                kind == "collapse_r19_publishing_to_removed"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "post_state == 'publishing'"
+            ):
+                matches.append(n)
+            elif (
+                kind == "skip_transitive_ancestor_seals"
+                and isinstance(n, ast.For)
+                and ast.unparse(n.iter) == "ac_seal['ancestor_seals']"
+            ):
+                matches.append(n)
+            elif (
+                kind == "round1_len2_ancestor_shortcut"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "key not in top_anc_by_key"
+            ):
+                matches.append(n)
+            elif (
+                kind == "allow_unrelated_ancestor_padding"
+                and isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Name)
+                and n.func.id == "require"
+                and "reachable_keys" in ast.unparse(n.args[0])
+            ):
+                matches.append(n)
         matches.sort(key=lambda n: (n.lineno, n.col_offset))
         assert len(matches) > occurrence, (
             "no-op mutation",
@@ -3823,6 +4072,20 @@ def mutation_controls():
             )
         elif kind == "row_return":
             target.value = ast.Constant(value.split("->", 1)[1])
+        elif kind == "collapse_recovery_integrity_loss":
+            target.value = ast.parse(
+                "((floor, 'recovery_publishing'), set())", mode="eval"
+            ).body
+        elif kind == "collapse_r19_publishing_to_removed":
+            target.body = ast.parse("return (floor, 'removed'), set()\n").body
+        elif kind == "skip_transitive_ancestor_seals":
+            target.body = [ast.Pass()]
+        elif kind == "round1_len2_ancestor_shortcut":
+            target.test = ast.parse(
+                "key not in top_anc_by_key and len(top_anc_by_key) < 2", mode="eval"
+            ).body
+        elif kind == "allow_unrelated_ancestor_padding":
+            target.args[0] = ast.Constant(True)
         else:
             replacement = ast.Constant(kind == "compare_true")
             for parent in ast.walk(tree):
