@@ -17,9 +17,12 @@ For detailed release content, see [docs/releases/](docs/releases/).
 - **Durable-record `v1` retention policy, designated `body-removal` recovery, and detached stream seals**:
   specifies deterministic Precedence `1 -> 2 -> 2b -> 3 -> 4 -> 5` eligibility
   evaluation for removing external body bytes referenced only by retired records
-  under a store-wide exclusion fence (`still_referenced`, same-store
-  `decision_time >= e["at"]` `journal_time` ordering, conservative continuation
-  ancestry hold blocking, and `{id, version}` policy-bound
+  under a store-wide exclusion fence (designated-stream placement and target
+  `incarnation` `body_removal_stream` / `body_lifecycle` state, store-wide stream
+  and continuation coverage `protection_unavailable`, same-store
+  `decision_time >= e["at"]` `journal_time` ordering, conservative
+  continuation/sealed-ancestor `protected_use` hold blocking, `still_referenced`
+  on unretired referencing records, and `{id, version}` policy-bound
   `removal_authorization` verification), paired with
   `schemas/durable-record/v1/removal-eligibility-request.schema.json`. Adds
   designated `body-removal` stream recovery via `stream_opened.recovery` and
@@ -31,8 +34,9 @@ For detailed release content, see [docs/releases/](docs/releases/).
   for detached canonical RFC 8785 JCS stream seals with canonical
   `effective_restriction_manifest_digest` preimages, transitive `ancestor_seals`
   finality verification, zero trailing bytes at `cut_seq`, and conservative
-  sealed-ancestor hold dominance, backed by 179 new conformance vectors, 17
-  schema reject pairs, and 93 AST mutation witnesses.
+  sealed-ancestor hold dominance, backed by 183 new conformance vectors (395
+  total), 17 new schema reject fixtures (66 total), and 107 new AST mutation
+  witnesses (187 total).
 - **Identity evidence (`native-process-observation:v0`, draft)**: adds
   `schemas/identity-evidence/v0/profiles/native-process-observation/`
   (`profile.json`, `evidence.schema.json`, `README.md`, and platform examples)
