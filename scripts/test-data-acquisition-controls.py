@@ -84,7 +84,7 @@ def instant(value):
         "unrepresentable_precision",
     )
     try:
-        return _rfc3339.parse_rfc3339(value)
+        return _rfc3339.parse_rfc3339(value, reject_submicrosecond_nonzero=True)
     except ValueError:
         raise Refusal("invalid_time")
 

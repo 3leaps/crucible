@@ -453,6 +453,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 
 lint-contracts-2: ## Contract controls for shard 2
 	@if command -v goneat >/dev/null 2>&1; then \
+		echo "    RFC 8785 canonicalizer controls..."; \
+		python3 scripts/test-rfc8785-controls.py || exit 1; \
 		echo "    Agent-wait controls..."; \
 		sh scripts/test-agent-wait-controls.sh || exit 1; \
 		echo "    Service-job controls..."; \
