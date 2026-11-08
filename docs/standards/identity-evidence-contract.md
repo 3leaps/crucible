@@ -4,7 +4,7 @@ description: "Portable observations and scoped assurance assessments for hosts, 
 category: "standards"
 status: "draft"
 version: "0.1.0"
-lastUpdated: "2026-10-29"
+lastUpdated: "2026-11-05"
 maintainer: "3leaps-core"
 reviewers: ["architecture", "security"]
 approvers: ["lead-maintainer"]
@@ -300,6 +300,12 @@ separating hostile same-account workloads. VM isolation from other guests does
 not imply isolation between processes sharing an account inside that VM. A
 verified helper release proves origin of bytes, not which process ran them.
 Local chip/OS detection remains observed unless accepted evidence covers it.
+
+A [native process observation profile](../../schemas/identity-evidence/v0/profiles/native-process-observation/README.md)
+specifies a standalone observation-only payload with seven-state fact visibility,
+verified Linux PID numbering-namespace binding, native start-identity sub-profiles,
+pre/post incarnation bracketing and fail-closed projection into session bundles
+without inventing unavailable namespace or context digests.
 
 A [local process/session contract-fit profile](../../schemas/identity-evidence/v0/profiles/local-process-session/README.md)
 works through incarnation, execution context, launch intent, session/key, audience,
