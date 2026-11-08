@@ -230,6 +230,7 @@ class State:
         self.upstream = None
         self.removal_stream = None
         self.bodies = {}
+        self.open_starts = {}
 
     def instant(self, text):
         # Every v1 wire instant uses one spelling. A reader refuses any other
@@ -419,9 +420,11 @@ class State:
         elif typ == "body_removal_started":
             require(n == latest and phase == "published", "body_lifecycle")
             self.bodies[key] = (n, "started")
+            self.open_starts.setdefault(key, set()).add(n)
         else:
             require(n == latest and phase == "started", "body_lifecycle")
             self.bodies[key] = (n, "removed")
+            self.open_starts.get(key, set()).discard(n)
 
     def body_state(self, step):
         # The observation is closed: an exact body and a real boolean. Anything
@@ -801,6 +804,441 @@ class State:
             protection_cut=r["protection_cut"],
         )
 
+    def retention_revisions(self):
+        return list(self.records.items())
+
+    def removable_incarnation_ok(self, body, incarnation, mode):
+        key = (body["digest"], int(body["length"]))
+        latest_n, phase = self.bodies.get(key, (0, None))
+        if mode == "start":
+            return phase == "published" and incarnation == latest_n
+        if mode == "retry_unlink":
+            return (
+                incarnation in self.open_starts.get(key, set())
+                and phase == "started"
+                and incarnation == latest_n
+            )
+        return False
+
+    def valid_removal_authorization(
+        self, auth, step, decision_ts, not_before_ts, expires_at_ts
+    ):
+        if not isinstance(auth, dict):
+            return False
+        if set(auth) != REQUIRED_AUTH_KEYS:
+            return False
+        if not (
+            isinstance(auth["ref"], str)
+            and auth["ref"] != ""
+            and isinstance(auth["digest"], str)
+            and DIGEST.fullmatch(auth["digest"]) is not None
+        ):
+            return False
+        auth_policy = auth["policy"]
+        if not (
+            isinstance(auth_policy, dict)
+            and set(auth_policy) == {"id", "version"}
+            and isinstance(auth_policy["id"], str)
+            and auth_policy["id"] != ""
+            and isinstance(auth_policy["version"], str)
+            and auth_policy["version"] != ""
+        ):
+            return False
+        if auth_policy["id"] != step["expected_policy"]["id"]:
+            return False
+        if auth_policy["version"] != step["expected_policy"]["version"]:
+            return False
+        if auth["store"] != step["store"]:
+            return False
+        auth_body = auth["body"]
+        if not (
+            isinstance(auth_body, dict)
+            and set(auth_body) == {"digest", "length"}
+            and isinstance(auth_body["digest"], str)
+            and DIGEST.fullmatch(auth_body["digest"]) is not None
+            and integral(auth_body["length"])
+        ):
+            return False
+        if auth_body["digest"] != step["body"]["digest"]:
+            return False
+        if int(auth_body["length"]) != int(step["body"]["length"]):
+            return False
+        if not integral(auth["incarnation"]) or int(auth["incarnation"]) < 1:
+            return False
+        if int(auth["incarnation"]) != int(step["incarnation"]):
+            return False
+        if auth["action"] != "remove_body":
+            return False
+        if auth["scope_verified"] is not True:
+            return False
+        if not_before_ts is None or expires_at_ts is None:
+            return False
+        if decision_ts < not_before_ts:
+            return False
+        if decision_ts > expires_at_ts:
+            return False
+        return True
+
+    def removal_eligibility(self, step):
+        legacy.check_typed_domain(step, "removal_eligibility", "removal_eligibility")
+        legacy.check_journal(self.journal, "v1", check_entry_at=False)
+        decision_ts = self.instant(
+            step.get("decision_time") if isinstance(step, dict) else None
+        )
+        auth = step.get("authorization") if isinstance(step, dict) else None
+        auth_not_before_ts = None
+        auth_expires_at_ts = None
+        if isinstance(auth, dict):
+            if "not_before" in auth:
+                auth_not_before_ts = self.instant(auth["not_before"])
+            if "expires_at" in auth:
+                auth_expires_at_ts = self.instant(auth["expires_at"])
+
+        def removal_refused(reason):
+            return dict(outcome="removal_eligibility", verdict="refused", reason=reason)
+
+        target_body = step.get("body") if isinstance(step, dict) else None
+        exp_pol = step.get("expected_policy") if isinstance(step, dict) else None
+        store_streams = step.get("store_streams") if isinstance(step, dict) else None
+        observed_list = step.get("observed_streams") if isinstance(step, dict) else None
+        step_shape_ok = (
+            isinstance(step, dict)
+            and REQUIRED_REMOVAL_STEP_KEYS <= set(step) <= ALLOWED_REMOVAL_STEP_KEYS
+            and isinstance(step["store"], str)
+            and step["store"] != ""
+            and isinstance(store_streams, list)
+            and len(store_streams) >= 1
+            and all(isinstance(s, str) and s != "" for s in store_streams)
+            and isinstance(observed_list, list)
+            and isinstance(target_body, dict)
+            and set(target_body) == {"digest", "length"}
+            and isinstance(target_body["digest"], str)
+            and DIGEST.fullmatch(target_body["digest"]) is not None
+            and integral(target_body["length"])
+            and isinstance(exp_pol, dict)
+            and set(exp_pol) == {"id", "version"}
+            and isinstance(exp_pol["id"], str)
+            and exp_pol["id"] != ""
+            and isinstance(exp_pol["version"], str)
+            and exp_pol["version"] != ""
+        )
+
+        duplicate_store_streams = False
+        duplicate_observed_streams = False
+        coverage_missing = False
+        stream_damaged = False
+        unobservable_source = False
+        same_store_source_mismatch = False
+        local_hold = False
+        inherited_hold = False
+        source_chain_hold = False
+        pending_review_hold = False
+        all_refs = []
+        active_refs = []
+        replayed_by_name = {}
+
+        if isinstance(store_streams, list) and isinstance(observed_list, list):
+            expected_sharing = [s for s in store_streams if s != self.removal_stream]
+            obs_names = [
+                obs.get("stream")
+                for obs in observed_list
+                if isinstance(obs, dict) and isinstance(obs.get("stream"), str)
+            ]
+            observed_by_name = {
+                obs["stream"]: obs
+                for obs in observed_list
+                if isinstance(obs, dict) and isinstance(obs.get("stream"), str)
+            }
+            duplicate_store_streams = len(store_streams) != len(set(store_streams))
+            duplicate_observed_streams = len(obs_names) != len(set(obs_names))
+            coverage_missing = (
+                (
+                    self.removal_stream is not None
+                    and self.removal_stream not in store_streams
+                )
+                or len(obs_names) != len(observed_list)
+                or any(
+                    name not in store_streams or name == self.removal_stream
+                    for name in obs_names
+                )
+            )
+            for s_name in expected_sharing:
+                if s_name not in observed_by_name:
+                    coverage_missing = True
+                    continue
+                obs = observed_by_name[s_name]
+                st, damaged, unobs, chain_journals = _replay_observed_sharing_stream(
+                    obs, self.window
+                )
+                if damaged:
+                    stream_damaged = True
+                    continue
+                if unobs:
+                    unobservable_source = True
+                    continue
+                replayed_by_name[s_name] = (obs, st, chain_journals)
+                if obs.get("inherited_block") is True:
+                    inherited_hold = True
+                for anc_j in chain_journals:
+                    anc_holds, _, _ = restriction_state(anc_j)
+                    if anc_holds:
+                        source_chain_hold = True
+                if not st.review_current():
+                    pending_review_hold = True
+                if (
+                    isinstance(target_body, dict)
+                    and set(target_body)
+                    == {
+                        "digest",
+                        "length",
+                    }
+                    and integral(target_body["length"])
+                ):
+                    for pk, rec in st.retention_revisions():
+                        if body_matches_target(rec.get("body"), target_body):
+                            all_refs.append((s_name, pk))
+                            p_dict = dict(
+                                stream=pk[0],
+                                record_id=pk[1],
+                                revision=pk[2],
+                                digest=pk[3],
+                            )
+                            if st.blocked(p_dict):
+                                local_hold = True
+                            if rec["record_id"] not in st.retired:
+                                active_refs.append((s_name, pk))
+
+            for _s_name, (_obs, st, _cj) in replayed_by_name.items():
+                if st.continues is not None and st.continues["stream"] in store_streams:
+                    src_name = st.continues["stream"]
+                    if src_name not in replayed_by_name:
+                        unobservable_source = True
+                    elif st.source != replayed_by_name[src_name][1].journal:
+                        same_store_source_mismatch = True
+
+        def check_p1():
+            if self.removal_stream is None or self.stream != self.removal_stream:
+                return removal_refused("body_removal_stream")
+            if not step_shape_ok:
+                return removal_refused("body_lifecycle")
+            if step.get("mode") not in ("start", "retry_unlink"):
+                return removal_refused("body_lifecycle")
+            if step.get("reason") not in (
+                "retention",
+                "operator",
+                "rights_restricted",
+            ):
+                return removal_refused("body_lifecycle")
+            if not integral(step["incarnation"]) or int(step["incarnation"]) < 1:
+                return removal_refused("body_lifecycle")
+            if not self.removable_incarnation_ok(
+                target_body, int(step["incarnation"]), step["mode"]
+            ):
+                return removal_refused("body_lifecycle")
+            return None
+
+        def check_p2():
+            if duplicate_store_streams:
+                return removal_refused("protection_unavailable")
+            if duplicate_observed_streams:
+                return removal_refused("protection_unavailable")
+            if coverage_missing:
+                return removal_refused("protection_unavailable")
+            if stream_damaged:
+                return removal_refused("protection_unavailable")
+            if unobservable_source:
+                return removal_refused("protection_unavailable")
+            if same_store_source_mismatch:
+                return removal_refused("protection_unavailable")
+            return None
+
+        def check_p2b():
+            if decision_ts < self.instant(self.journal[-1]["at"]):
+                return removal_refused("journal_time")
+            for _s_name, (_obs, st, _cj) in replayed_by_name.items():
+                if decision_ts < st.instant(st.journal[-1]["at"]):
+                    return removal_refused("journal_time")
+            return None
+
+        def check_p3():
+            if local_hold:
+                return removal_refused("protected_use")
+            if inherited_hold:
+                return removal_refused("protected_use")
+            if source_chain_hold:
+                return removal_refused("protected_use")
+            if pending_review_hold:
+                return removal_refused("protected_use")
+            return None
+
+        def check_p4():
+            if active_refs:
+                return removal_refused("still_referenced")
+            return None
+
+        def check_p5():
+            if all_refs and not self.valid_removal_authorization(
+                auth, step, decision_ts, auth_not_before_ts, auth_expires_at_ts
+            ):
+                return removal_refused("removal_authorization")
+            return None
+
+        precedence_order = [
+            check_p1,
+            check_p2,
+            check_p2b,
+            check_p3,
+            check_p4,
+            check_p5,
+        ]
+        for check_fn in precedence_order:
+            verdict = check_fn()
+            if verdict is not None:
+                return verdict
+        return {"outcome": "removal_eligibility", "verdict": "eligible"}
+
+
+REQUIRED_REMOVAL_STEP_KEYS = {
+    "store",
+    "store_streams",
+    "observed_streams",
+    "body",
+    "incarnation",
+    "mode",
+    "reason",
+    "decision_time",
+    "expected_policy",
+}
+ALLOWED_REMOVAL_STEP_KEYS = REQUIRED_REMOVAL_STEP_KEYS | {"authorization"}
+REQUIRED_AUTH_KEYS = {
+    "ref",
+    "digest",
+    "store",
+    "body",
+    "incarnation",
+    "policy",
+    "action",
+    "scope_verified",
+    "not_before",
+    "expires_at",
+}
+ALLOWED_OBS_KEYS = {
+    "stream",
+    "damaged",
+    "journal",
+    "raw_journal",
+    "source_journal",
+    "raw_source_journal",
+    "ancestors",
+    "raw_ancestors",
+    "inherited_block",
+}
+
+
+def _norm_body_field(b, k):
+    return int(b[k]) if k == "length" else b[k]
+
+
+def body_matches_target(rec_body, target_body):
+    return (
+        rec_body is not None
+        and integral(rec_body["length"])
+        and integral(target_body["length"])
+        and all(
+            _norm_body_field(rec_body, k) == _norm_body_field(target_body, k)
+            for k in ("digest", "length")
+        )
+    )
+
+
+def _replay_observed_sharing_stream(obs, window_ms):
+    if (
+        not isinstance(obs, dict)
+        or not ({"stream"} <= set(obs) <= ALLOWED_OBS_KEYS)
+        or not isinstance(obs.get("stream"), str)
+    ):
+        return None, True, False, []
+    if "damaged" in obs and type(obs["damaged"]) is not bool:
+        return None, True, False, []
+    if obs.get("damaged", False) is True:
+        return None, True, False, []
+    if (
+        ("journal" in obs and "raw_journal" in obs)
+        or ("source_journal" in obs and "raw_source_journal" in obs)
+        or ("ancestors" in obs and "raw_ancestors" in obs)
+    ):
+        return None, True, False, []
+    if ("ancestors" in obs or "raw_ancestors" in obs) and not (
+        "source_journal" in obs or "raw_source_journal" in obs
+    ):
+        return None, False, True, []
+    raw_entries = None
+    if "raw_journal" in obs:
+        try:
+            journal = [
+                legacy.parse_wire(raw, "journal_entry", "observed_raw_journal")
+                for raw in obs["raw_journal"]
+            ]
+            raw_entries = obs["raw_journal"]
+        except legacy.Reject:
+            return None, True, False, []
+    elif "journal" in obs and isinstance(obs["journal"], list) and obs["journal"]:
+        journal = obs["journal"]
+    else:
+        return None, True, False, []
+
+    for idx, entry in enumerate(journal):
+        ok_shape = (
+            shape_raw(raw_entries[idx], "journal-entry")
+            if raw_entries is not None
+            else shape(entry, "journal-entry")
+        )
+        if not ok_shape:
+            return None, True, False, []
+
+    st = State(window_ms)
+    chain_journals = []
+    if "source_journal" in obs or "raw_source_journal" in obs:
+        try:
+            obs_case = {**obs, "window_ms": window_ms}
+            (st.source, st.upstream), chain_journals = _chain_with_journals(obs_case)
+        except legacy.Reject:
+            return None, False, True, []
+        if st.upstream is UNOBSERVED:
+            return None, False, True, []
+
+    try:
+        legacy.check_journal(journal, "v1", check_entry_at=False)
+        for entry in journal:
+            st.ingest(entry)
+    except legacy.Reject:
+        if (
+            journal
+            and isinstance(journal[0], dict)
+            and "continues" in journal[0]
+            and st.source is None
+        ):
+            return None, False, True, []
+        return None, True, False, []
+
+    if st.stream != obs.get("stream"):
+        return None, True, False, []
+    if st.continues is not None:
+        if "inherited_block" not in obs:
+            return None, False, True, []
+        if type(obs.get("inherited_block", False)) is not bool:
+            return None, False, True, []
+    else:
+        if (
+            "inherited_block" in obs
+            or "source_journal" in obs
+            or "raw_source_journal" in obs
+            or "ancestors" in obs
+            or "raw_ancestors" in obs
+        ):
+            return None, False, True, []
+    return st, False, False, chain_journals
+
 
 class Unobserved:
     def review_current(self):
@@ -854,7 +1292,7 @@ def _parse_source_spec(spec):
     return spec, None
 
 
-def chain(case):
+def _chain_with_journals(case):
     # The observed source chain: the immediate source, then each ancestor the
     # store observes. Each is replayed under its own family; a source that is
     # itself a continuation is replayed over its own source, so its review
@@ -869,6 +1307,7 @@ def chain(case):
     )
     specs = [first_spec] + list(anc_specs)
     upstream = None
+    validated_rev = []
     for spec in reversed(specs):
         journal, raw_entries = _parse_source_spec(spec)
         # A malformed container is refused by name, never by an exception.
@@ -885,13 +1324,21 @@ def chain(case):
             # A continuation source whose own source is not observed cannot
             # show that the chain is current.
             first_journal, _ = _parse_source_spec(specs[0])
-            return copy.deepcopy(first_journal), UNOBSERVED
+            return (copy.deepcopy(first_journal), UNOBSERVED), []
+        if journal[0].get("continues") is None and upstream is not None:
+            require(False, "continuation")
         source, above = upstream if upstream else (None, None)
         state = observed(
             journal, case["window_ms"], source, above, raw_entries=raw_entries
         )
         continuation = state is not None and state.continues is not None
         upstream = (copy.deepcopy(journal), state if continuation else None)
+        validated_rev.append(copy.deepcopy(journal))
+    return upstream, list(reversed(validated_rev))
+
+
+def chain(case):
+    upstream, _ = _chain_with_journals(case)
     return upstream
 
 
@@ -939,6 +1386,12 @@ def materialize_destination_wire(case):
                 "body_state_request",
                 f"steps[{idx}].raw_body_state",
             )
+        elif "raw_removal_eligibility" in s:
+            s["removal_eligibility"] = legacy.parse_wire(
+                s["raw_removal_eligibility"],
+                "removal_eligibility",
+                f"steps[{idx}].raw_removal_eligibility",
+            )
         elif "raw_use" in s:
             s["use"] = legacy.parse_wire(
                 s["raw_use"], "export_request", f"steps[{idx}].raw_use"
@@ -974,6 +1427,8 @@ def evaluate(case):
             results.append({"outcome": "journaled"})
         elif "body_state" in step:
             results.append(s.body_state(step["body_state"]))
+        elif "removal_eligibility" in step:
+            results.append(s.removal_eligibility(step["removal_eligibility"]))
         elif "source_entry" in step:
             # The source journal advances outside this stream.
             case = copy.deepcopy(case)
@@ -1101,7 +1556,7 @@ def reason_controls(cases):
                 1
                 if node.func.id == "require"
                 else 0
-                if node.func.id == "refused"
+                if node.func.id in ("refused", "removal_refused")
                 else None
             )
             if index is not None and len(node.args) > index:
@@ -1533,6 +1988,374 @@ def mutation_controls():
             "body-state-other-stream",
             None,
         ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "body_removal_stream",
+            0,
+            "removal-wrong-designated-stream",
+            ("reason", "body_lifecycle", 0),
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "still_referenced",
+            0,
+            "removal-active-reference",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "invert_not_in",
+            "rec['record_id'] not in st.retired",
+            0,
+            "removal-all-retired-single-stream",
+            ("reason", "still_referenced", 0),
+        ),
+        (
+            "retention_revisions",
+            "latest_revision_only",
+            "",
+            0,
+            "removal-superseded-active-revision",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "key_by_first_pin",
+            "",
+            0,
+            "removal-shared-retired-and-active",
+            None,
+        ),
+        (
+            "body_matches_target",
+            "body_length",
+            "",
+            0,
+            "removal-body-length-isolation",
+            ("reason", "still_referenced", 0),
+        ),
+        (
+            "removal_eligibility",
+            "first_stream_only",
+            "",
+            0,
+            "removal-multi-stream-second-active",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "body_lifecycle",
+            0,
+            "removal-step-extra-field",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            0,
+            "removal-duplicate-store-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            1,
+            "removal-duplicate-observed-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            2,
+            "removal-missing-store-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            3,
+            "removal-damaged-sharing-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            4,
+            "removal-unobservable-continuation-source",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            5,
+            "removal-same-store-source-mismatch",
+            None,
+        ),
+        (
+            "_replay_observed_sharing_stream",
+            "compare",
+            "'inherited_block' not in obs",
+            0,
+            "removal-missing-inherited-block",
+            None,
+        ),
+        (
+            "_replay_observed_sharing_stream",
+            "compare",
+            "type(obs.get('inherited_block', False)) is not bool",
+            0,
+            "removal-nonbool-inherited-block",
+            None,
+        ),
+        (
+            "_replay_observed_sharing_stream",
+            "compare",
+            "'inherited_block' in obs",
+            0,
+            "removal-plain-stream-with-inherited-block",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "prefix_removal_stream",
+            "",
+            0,
+            "removal-non-designated-bodies-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "journal_time",
+            0,
+            "removal-decision-time-before-designated-cut",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "journal_time",
+            1,
+            "removal-decision-time-before-sharing-cut",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protected_use",
+            0,
+            "removal-retired-with-body-hold",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protected_use",
+            1,
+            "removal-inherited-block",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protected_use",
+            2,
+            "removal-source-active-record-hold-reviewed",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "immediate_source_only",
+            "",
+            0,
+            "removal-ancestor-active-hold-reviewed",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protected_use",
+            3,
+            "removal-continuation-review-pending",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "reason_bypass",
+            "",
+            0,
+            "removal-rights-restricted-still-referenced",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "removal_authorization",
+            0,
+            "removal-auth-missing",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "set(auth) != REQUIRED_AUTH_KEYS",
+            0,
+            "removal-auth-extra-field",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth_policy['id'] != step['expected_policy']['id']",
+            0,
+            "removal-auth-wrong-policy-id",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth_policy['version'] != step['expected_policy']['version']",
+            0,
+            "removal-auth-wrong-policy-version",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth['store'] != step['store']",
+            0,
+            "removal-auth-wrong-store",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth_body['digest'] != step['body']['digest']",
+            0,
+            "removal-auth-wrong-body-digest",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "int(auth_body['length']) != int(step['body']['length'])",
+            0,
+            "removal-auth-wrong-body-length",
+            None,
+        ),
+        (
+            "integral",
+            "allow_bool_int",
+            "",
+            0,
+            "removal-auth-bool-incarnation",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "int(auth['incarnation']) != int(step['incarnation'])",
+            0,
+            "removal-auth-wrong-incarnation",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth['action'] != 'remove_body'",
+            0,
+            "removal-auth-wrong-action",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "auth['scope_verified'] is not True",
+            0,
+            "removal-auth-unverified-scope",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "decision_ts < not_before_ts",
+            0,
+            "removal-auth-before-not-before",
+            None,
+        ),
+        (
+            "valid_removal_authorization",
+            "compare",
+            "decision_ts > expires_at_ts",
+            0,
+            "removal-auth-expired",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "skip_retry_reverify",
+            "",
+            0,
+            "removal-retry-new-active-ref",
+            None,
+        ),
+        (
+            "removable_incarnation_ok",
+            "abandoned_incarnation_ok",
+            "",
+            0,
+            "removal-retry-abandoned-by-republish",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "swap_precedence",
+            "0",
+            0,
+            "removal-precedence-p1-over-p2",
+            ("reason", "protection_unavailable", 0),
+        ),
+        (
+            "removal_eligibility",
+            "swap_precedence",
+            "1",
+            0,
+            "removal-precedence-p2-over-p2b",
+            ("reason", "journal_time", 0),
+        ),
+        (
+            "removal_eligibility",
+            "swap_precedence",
+            "2",
+            0,
+            "removal-precedence-p2b-over-p3",
+            ("reason", "protected_use", 0),
+        ),
+        (
+            "removal_eligibility",
+            "swap_precedence",
+            "3",
+            0,
+            "removal-precedence-p3-over-p4",
+            ("reason", "still_referenced", 0),
+        ),
+        (
+            "removal_eligibility",
+            "swap_precedence",
+            "4",
+            0,
+            "removal-precedence-p4-over-p5",
+            ("reason", "removal_authorization", 0),
+        ),
     ]
     for method, kind, value, occurrence, witness, alternative in specs:
         tree = ast.parse(source)
@@ -1574,10 +2397,63 @@ def mutation_controls():
                         and child.value.value == value
                         or isinstance(child.value, ast.Call)
                         and isinstance(child.value.func, ast.Name)
-                        and child.value.func.id == "refused"
+                        and child.value.func.id in ("refused", "removal_refused")
                         and child.value.args[0].value == value
                     ):
                         matches.append(n)
+            elif (
+                kind == "invert_not_in"
+                and isinstance(n, ast.Compare)
+                and ast.unparse(n) == value
+            ):
+                matches.append(n)
+            elif kind == "latest_revision_only" and n is scope:
+                matches.append(n)
+            elif (
+                kind == "key_by_first_pin"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test)
+                == "body_matches_target(rec.get('body'), target_body)"
+            ):
+                matches.append(n)
+            elif (
+                kind == "first_stream_only"
+                and isinstance(n, ast.For)
+                and ast.unparse(n.iter) == "expected_sharing"
+            ):
+                matches.append(n)
+            elif (
+                kind == "immediate_source_only"
+                and isinstance(n, ast.For)
+                and ast.unparse(n.iter) == "chain_journals"
+            ):
+                matches.append(n)
+            elif (
+                kind == "allow_bool_int"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "type(value) is int"
+            ):
+                matches.append(n)
+            elif (
+                kind == "prefix_removal_stream"
+                and isinstance(n, ast.Compare)
+                and ast.unparse(n) == "s != self.removal_stream"
+            ):
+                matches.append(n)
+            elif (
+                kind in ("reason_bypass", "skip_retry_reverify", "swap_precedence")
+                and isinstance(n, ast.Assign)
+                and len(n.targets) == 1
+                and isinstance(n.targets[0], ast.Name)
+                and n.targets[0].id == "precedence_order"
+            ):
+                matches.append(n)
+            elif (
+                kind == "abandoned_incarnation_ok"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "mode == 'retry_unlink'"
+            ):
+                matches.append(n)
             elif (
                 kind == "slide_dedup"
                 and isinstance(n, ast.If)
@@ -1636,6 +2512,53 @@ def mutation_controls():
         elif kind == "restore_all":
             target.func.attr = "clear"
             target.args = []
+        elif kind == "invert_not_in":
+            target.ops = [ast.In()]
+        elif kind == "latest_revision_only":
+            target.body = ast.parse(
+                "latest = {}\n"
+                "for k, r in sorted(self.records.items(), key=lambda x: x[0][2]):\n"
+                "    latest[r['record_id']] = (k, r)\n"
+                "return list(latest.values())\n"
+            ).body
+        elif kind == "key_by_first_pin":
+            target.body.append(ast.Break())
+        elif kind == "first_stream_only":
+            target.iter = ast.parse("expected_sharing[:1]", mode="eval").body
+        elif kind == "immediate_source_only":
+            target.iter = ast.parse("chain_journals[:1]", mode="eval").body
+        elif kind == "allow_bool_int":
+            target.test = ast.parse("isinstance(value, int)", mode="eval").body
+        elif kind == "prefix_removal_stream":
+            replacement = ast.parse(
+                "not s.startswith(self.removal_stream or '')", mode="eval"
+            ).body
+            for parent in ast.walk(tree):
+                for field, old in ast.iter_fields(parent):
+                    if old is target:
+                        setattr(parent, field, replacement)
+                    elif isinstance(old, list):
+                        for i, member in enumerate(old):
+                            if member is target:
+                                old[i] = replacement
+        elif kind == "reason_bypass":
+            target.value = ast.parse(
+                "([check_p1, check_p2, check_p2b] if step['reason'] in ('operator', 'rights_restricted') else [check_p1, check_p2, check_p2b, check_p3, check_p4, check_p5])",
+                mode="eval",
+            ).body
+        elif kind == "skip_retry_reverify":
+            target.value = ast.parse(
+                "([check_p1] if step['mode'] == 'retry_unlink' else [check_p1, check_p2, check_p2b, check_p3, check_p4, check_p5])",
+                mode="eval",
+            ).body
+        elif kind == "abandoned_incarnation_ok":
+            target.body = ast.parse(
+                "return incarnation in self.open_starts.get(key, set())\n"
+            ).body
+        elif kind == "swap_precedence":
+            swap_i = int(value)
+            elts = target.value.elts
+            elts[swap_i], elts[swap_i + 1] = elts[swap_i + 1], elts[swap_i]
         else:
             replacement = ast.Constant(kind == "compare_true")
             for parent in ast.walk(tree):
@@ -1662,7 +2585,17 @@ def mutation_controls():
             field, expected, index = alternative
             named = copy.deepcopy(case["expected"])
             if field == "reason":
-                named["results"][index] = {"outcome": "refused", "reason": expected}
+                if named["results"][index].get("outcome") == "removal_eligibility":
+                    named["results"][index] = {
+                        "outcome": "removal_eligibility",
+                        "verdict": "refused",
+                        "reason": expected,
+                    }
+                else:
+                    named["results"][index] = {
+                        "outcome": "refused",
+                        "reason": expected,
+                    }
             elif expected == "allowed":
                 use = case["steps"][index]["use"]
                 named["results"][index] = dict(
@@ -1691,7 +2624,14 @@ def mutation_controls():
                 "allowed",
                 "body_state",
             }
-            assert all(r.get("outcome") in accepted for r in outcome["results"]), (
+            assert all(
+                r.get("outcome") in accepted
+                or (
+                    r.get("outcome") == "removal_eligibility"
+                    and r.get("verdict") == "eligible"
+                )
+                for r in outcome["results"]
+            ), (
                 "mutation did not accept",
                 witness,
                 outcome,
@@ -1787,6 +2727,20 @@ def _collect_case_shape_items(c, add_key):
             add_key("body-state-request", step["raw_body_state"])
         elif "body_state" in step:
             add_key("body-state-request", json.dumps(step["body_state"]))
+        elif "raw_removal_eligibility" in step:
+            try:
+                legacy.parse_wire(
+                    step["raw_removal_eligibility"],
+                    "removal_eligibility",
+                    f"steps[{idx}].raw_removal_eligibility",
+                )
+            except legacy.Reject:
+                return
+            add_key("removal-eligibility-request", step["raw_removal_eligibility"])
+        elif "removal_eligibility" in step:
+            add_key(
+                "removal-eligibility-request", json.dumps(step["removal_eligibility"])
+            )
 
     def collect_source_list(spec):
         if isinstance(spec, list) and spec and all(isinstance(x, str) for x in spec):
@@ -1843,11 +2797,57 @@ def _collect_case_shape_items(c, add_key):
                 anc_copy[step["ancestor"]].append(copy.deepcopy(step["ancestor_entry"]))
                 collect_source_list(anc_copy[step["ancestor"]])
 
+    for idx, step in enumerate(c["steps"]):
+        rem = None
+        if "raw_removal_eligibility" in step:
+            try:
+                rem = legacy.parse_wire(
+                    step["raw_removal_eligibility"],
+                    "removal_eligibility",
+                    f"steps[{idx}].raw_removal_eligibility",
+                )
+            except legacy.Reject:
+                continue
+        elif "removal_eligibility" in step:
+            rem = step["removal_eligibility"]
+        if isinstance(rem, dict):
+            for obs in rem.get("observed_streams", []):
+                if not isinstance(obs, dict):
+                    continue
+                if "raw_journal" in obs and isinstance(obs["raw_journal"], list):
+                    try:
+                        for j_i, raw in enumerate(obs["raw_journal"]):
+                            legacy.parse_wire(
+                                raw, "journal_entry", f"observed_raw[{j_i}]"
+                            )
+                            add_key("journal-entry", raw)
+                    except legacy.Reject:
+                        pass
+                elif "journal" in obs and isinstance(obs["journal"], list):
+                    for e in obs["journal"]:
+                        if isinstance(e, dict):
+                            add_key("journal-entry", json.dumps(e))
+                if "raw_source_journal" in obs:
+                    collect_source_list(list(obs["raw_source_journal"]))
+                elif "source_journal" in obs:
+                    collect_source_list(obs["source_journal"])
+                if "raw_ancestors" in obs:
+                    for a in obs["raw_ancestors"]:
+                        collect_source_list(list(a))
+                elif "ancestors" in obs:
+                    for a in obs["ancestors"]:
+                        collect_source_list(a)
+
     for result in c["expected"].get("results", []):
         if result.get("kind") in ("reconciliation", "receipt"):
             add_key("write-receipt", json.dumps(result))
             continue
-        if result["outcome"] in ("journaled", "receipt_verified", "body_state"):
+        if result["outcome"] in (
+            "journaled",
+            "receipt_verified",
+            "body_state",
+            "removal_eligibility",
+        ):
             continue
         name = (
             "export-result"
@@ -2099,6 +3099,24 @@ def timestamp_and_abort_controls():
             "self.instant(received['window_covers_until'])",
             "reconciliation-window-covers-until-year-zero",
         ),
+        (
+            "removal_eligibility.decision_time",
+            "removal_eligibility",
+            "self.instant(step.get('decision_time') if isinstance(step, dict) else None)",
+            "removal-instant-decision-time-spelling",
+        ),
+        (
+            "removal_eligibility.authorization.not_before",
+            "removal_eligibility",
+            "self.instant(auth['not_before'])",
+            "removal-instant-auth-not-before-spelling",
+        ),
+        (
+            "removal_eligibility.authorization.expires_at",
+            "removal_eligibility",
+            "self.instant(auth['expires_at'])",
+            "removal-instant-auth-expires-at-spelling",
+        ),
     ):
         tree = ast.parse(source)
         state_cls = next(
@@ -2160,6 +3178,14 @@ def timestamp_and_abort_controls():
             lambda c: (
                 c["steps"][0]["receipt"],
                 c["steps"][0]["receipt"]["window_covers_from"],
+            ),
+        ),
+        (
+            "removal-instant-auth-expires-at-spelling.json",
+            "v1/removal-eligibility-request.schema.json",
+            lambda c: (
+                c["steps"][0]["removal_eligibility"],
+                c["steps"][0]["removal_eligibility"]["authorization"]["expires_at"],
             ),
         ),
     ):
@@ -2676,6 +3702,15 @@ def check_case_stage3_shapes(c, path):
         and ("receipt" in c["steps"][i] or "raw_receipt" in c["steps"][i])
         for i in invalid_receipts
     ), path
+    invalid_removals = c.get("invalid_removal_steps", [])
+    assert len(invalid_removals) == len(set(invalid_removals)) and all(
+        0 <= i < len(c["steps"])
+        and (
+            "removal_eligibility" in c["steps"][i]
+            or "raw_removal_eligibility" in c["steps"][i]
+        )
+        for i in invalid_removals
+    ), path
 
     def abort_stage12(err):
         assert err.reason in ("ingest", "numeric_domain"), (path, err)
@@ -2791,6 +3826,23 @@ def check_case_stage3_shapes(c, path):
             assert shape(step["body_state"], "body-state-request") == (
                 step_index not in invalid_states
             ), path
+        elif "raw_removal_eligibility" in step:
+            try:
+                legacy.parse_wire(
+                    step["raw_removal_eligibility"],
+                    "removal_eligibility",
+                    f"steps[{step_index}].raw_removal_eligibility",
+                )
+            except legacy.Reject as err:
+                abort_stage12(err)
+                return
+            assert shape_raw(
+                step["raw_removal_eligibility"], "removal-eligibility-request"
+            ) == (step_index not in invalid_removals), path
+        elif "removal_eligibility" in step:
+            assert shape(
+                step["removal_eligibility"], "removal-eligibility-request"
+            ) == (step_index not in invalid_removals), path
 
 
 def main():
@@ -2850,7 +3902,12 @@ def main():
             if result.get("kind") in ("reconciliation", "receipt"):
                 assert shape(result, "write-receipt"), (path.name, result)
                 continue
-            if result["outcome"] in ("journaled", "receipt_verified", "body_state"):
+            if result["outcome"] in (
+                "journaled",
+                "receipt_verified",
+                "body_state",
+                "removal_eligibility",
+            ):
                 continue
             name = (
                 "export-result"

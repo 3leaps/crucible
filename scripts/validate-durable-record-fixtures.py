@@ -266,6 +266,21 @@ PROTOCOL_NUMERIC_SCHEMAS: dict[str, dict[str, Any]] = {
     "body_state_request": {
         "body": "lifecycle_body",
     },
+    "observed_sharing_stream": {
+        "journal": ("list", "journal_entry"),
+        "source_journal": ("list", "journal_entry"),
+        "ancestors": ("list", ("list", "journal_entry")),
+    },
+    "removal_authorization": {
+        "body": "lifecycle_body",
+        "incarnation": "int",
+    },
+    "removal_eligibility": {
+        "body": "lifecycle_body",
+        "incarnation": "int",
+        "observed_streams": ("list", "observed_sharing_stream"),
+        "authorization": "removal_authorization",
+    },
     "profile_runtime": {
         "clock_skew_bound_ms": "int",
         "idempotency_window_ms": "int",
