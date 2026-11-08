@@ -236,9 +236,30 @@ PROTOCOL_NUMERIC_SCHEMAS: dict[str, dict[str, Any]] = {
         "current": "revision_pin",
         "request": "protection_request",
         "continues": "source_cut",
+        "recovery": "stream_recovery",
         "source": "source_cut",
         "imported_from": "source_pin",
         "body": "lifecycle_body",
+    },
+    "reconciled_body": {
+        "body": "lifecycle_body",
+        "floor": "int",
+    },
+    "stream_recovery": {
+        "cut_seq": "int",
+        "reconciled_bodies": ("list", "reconciled_body"),
+    },
+    "ancestor_seal": {
+        "cut_seq": "int",
+    },
+    "stream_seal": {
+        "v": "int",
+        "cut_seq": "int",
+        "ancestor_seals": ("list", "ancestor_seal"),
+    },
+    "seal_context": {
+        "seal": "stream_seal",
+        "ancestor_seal_contexts": ("list", "seal_context"),
     },
     "protection_receipt": {
         "v": "int",
@@ -270,6 +291,7 @@ PROTOCOL_NUMERIC_SCHEMAS: dict[str, dict[str, Any]] = {
         "journal": ("list", "journal_entry"),
         "source_journal": ("list", "journal_entry"),
         "ancestors": ("list", ("list", "journal_entry")),
+        "source_seal": "seal_context",
     },
     "removal_authorization": {
         "body": "lifecycle_body",

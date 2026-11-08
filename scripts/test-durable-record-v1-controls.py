@@ -145,6 +145,72 @@ def source_pins(journal):
 LIFECYCLE = ("body_published", "body_removal_started", "body_removed")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 MAX_SAFE_INTEGER = legacy.MAX_SAFE_INTEGER
+EMPTY_MANIFEST_DIGEST = (
+    "sha256:5cb72fd9337154074dc353b97f04c8dc84bba51bf1aa1f73db49a14dd890b93c"
+)
+
+
+def compute_recovery_row(prior_phase, prior_bound, floor, obs, damaged, referenced):
+    if prior_phase is None:
+        if not damaged:
+            if obs == "absent":
+                return "unpublished"
+            return "publishing"
+        if floor == 0 and obs == "absent":
+            return "unpublished"
+        if floor > 0 and obs == "absent":
+            return "integrity_loss"
+        return "publishing"
+    if prior_phase == "published":
+        if obs == "present_valid":
+            if not damaged or floor == prior_bound:
+                return "available"
+            return "publishing"
+        return "integrity_loss"
+    if prior_phase == "started":
+        if not damaged:
+            return "removal_pending"
+        if obs == "present_valid":
+            if floor == prior_bound:
+                return "available"
+            return "publishing"
+        if floor == prior_bound:
+            return "removal_pending"
+        return "integrity_loss"
+    if prior_phase == "removed":
+        if obs == "absent":
+            if not damaged or floor == prior_bound:
+                return "removed"
+            return "integrity_loss"
+        return "publishing"
+    if obs == "present_valid":
+        return "publishing"
+    return "integrity_loss"
+
+
+def _apply_recovery_transition(
+    prior_phase, prior_bound, open_set, floor, obs, post_state
+):
+    new_open = set(open_set)
+    if prior_phase is None:
+        if floor == 0:
+            return (0, None), set()
+        return (floor, "fenced"), set()
+    if prior_phase == "published":
+        if floor == prior_bound and obs == "present_valid":
+            return (floor, "published"), set()
+        return (floor, "fenced"), set()
+    if prior_phase == "started":
+        if floor == prior_bound and obs == "present_valid":
+            return (floor, "published"), set()
+        if floor == prior_bound and obs == "absent":
+            return (floor, "started"), new_open
+        return (floor, "fenced"), set()
+    if prior_phase == "removed":
+        if floor == prior_bound:
+            return (floor, "removed"), set()
+        return (floor, "fenced"), set()
+    return (floor, "fenced"), set()
 
 
 def integral(value):
@@ -229,6 +295,12 @@ class State:
         self.restricted_at = []
         self.upstream = None
         self.removal_stream = None
+        self.incarnation_allocation = None
+        self.quarantined_designated_streams = []
+        self.expected_quarantined_chain = []
+        self.referenced_bodies = set()
+        self.source_seal_final = False
+        self.sealed_ancestor_hold = False
         self.bodies = {}
         self.open_starts = {}
 
@@ -444,14 +516,10 @@ class State:
         legacy.check_journal(self.journal, "v1", check_entry_at=False)
         require(self.removal_stream == self.stream, "body_removal_stream")
         body = step["body"]
-        _, phase = self.bodies.get((body["digest"], body["length"]), (0, None))
-        present = step["present"]
-        state = {
-            None: "publishing" if present else "unpublished",
-            "published": "available" if present else "integrity_loss",
-            "started": "removal_pending",
-            "removed": "publishing" if present else "removed",
-        }[phase]
+        bound, phase = self.bodies.get((body["digest"], int(body["length"])), (0, None))
+        obs = "present_valid" if step["present"] else "absent"
+        is_ref = (body["digest"], int(body["length"])) in self.referenced_bodies
+        state = compute_recovery_row(phase, bound, bound, obs, False, is_ref)
         return {"outcome": "body_state", "state": state}
 
     def check_review(self, e):
@@ -514,6 +582,8 @@ class State:
             return False
         if any(seq > after for seq in self.restricted_at):
             return False
+        if self.source_seal_final:
+            return True
         if source_manifest(self.source) != self.review["source_state_digest"]:
             return False
         return self.upstream is None or self.upstream.review_current()
@@ -879,6 +949,65 @@ class State:
             return False
         return True
 
+    def verify_seal_step(self, step_ctx):
+        require(
+            isinstance(step_ctx, dict)
+            and {"seal", "expected_store", "accepted_trust_profile"}
+            <= set(step_ctx)
+            <= ALLOWED_SEAL_CTX_KEYS,
+            "continuation",
+        )
+        seal = step_ctx["seal"]
+        legacy.check_typed_domain(seal, "stream_seal", "verify_seal")
+        self.instant(seal.get("sealed_at") if isinstance(seal, dict) else None)
+        ok_shape = (
+            shape_raw(step_ctx["raw_seal"], "stream-seal")
+            if "raw_seal" in step_ctx
+            else shape(seal, "stream-seal")
+        )
+        require(ok_shape, "continuation")
+        journal, raw_entries = _parse_source_spec(
+            step_ctx["raw_journal"]
+            if "raw_journal" in step_ctx
+            else step_ctx.get("journal")
+        )
+        require(
+            isinstance(journal, list)
+            and journal
+            and all(isinstance(e, dict) for e in journal)
+            and "v" in journal[0],
+            "continuation",
+        )
+        is_final, _anc_hold, _prefix = _evaluate_seal_context(
+            self,
+            step_ctx,
+            journal,
+            self.window,
+            raw_entries=raw_entries,
+            observed_upstream=UNOBSERVED
+            if journal[0].get("continues") is not None
+            else None,
+            check_top_seal=False,
+        )
+        if "expected_manifest" in step_ctx:
+            exp_m = step_ctx["expected_manifest"]
+            if "expected_manifest_jcs" in step_ctx:
+                require(
+                    legacy._jcs.jcs_dumps(exp_m) == step_ctx["expected_manifest_jcs"],
+                    "continuation",
+                )
+            require(
+                digest(exp_m) == seal["effective_restriction_manifest_digest"],
+                "continuation",
+            )
+        return {
+            "outcome": "seal_verified",
+            "final": is_final,
+            "effective_restriction_manifest_digest": seal[
+                "effective_restriction_manifest_digest"
+            ],
+        }
+
     def removal_eligibility(self, step):
         legacy.check_typed_domain(step, "removal_eligibility", "removal_eligibility")
         legacy.check_journal(self.journal, "v1", check_entry_at=False)
@@ -929,15 +1058,32 @@ class State:
         stream_damaged = False
         unobservable_source = False
         same_store_source_mismatch = False
+        quarantined_in_store_streams = False
+        quarantined_chain_mismatch = False
         local_hold = False
         inherited_hold = False
         source_chain_hold = False
         pending_review_hold = False
+        sealed_ancestor_hold = False
         all_refs = []
         active_refs = []
         replayed_by_name = {}
 
+        effective_quarantined = (
+            step.get("quarantined_designated_streams")
+            if isinstance(step, dict) and "quarantined_designated_streams" in step
+            else self.quarantined_designated_streams
+        )
+        if not isinstance(effective_quarantined, list) or (
+            effective_quarantined != self.expected_quarantined_chain
+        ):
+            quarantined_chain_mismatch = True
+
         if isinstance(store_streams, list) and isinstance(observed_list, list):
+            if isinstance(effective_quarantined, list) and any(
+                s in effective_quarantined for s in store_streams
+            ):
+                quarantined_in_store_streams = True
             expected_sharing = [s for s in store_streams if s != self.removal_stream]
             obs_names = [
                 obs.get("stream")
@@ -979,6 +1125,8 @@ class State:
                 replayed_by_name[s_name] = (obs, st, chain_journals)
                 if obs.get("inherited_block") is True:
                     inherited_hold = True
+                if st.sealed_ancestor_hold:
+                    sealed_ancestor_hold = True
                 for anc_j in chain_journals:
                     anc_holds, _, _ = restriction_state(anc_j)
                     if anc_holds:
@@ -1050,6 +1198,10 @@ class State:
                 return removal_refused("protection_unavailable")
             if same_store_source_mismatch:
                 return removal_refused("protection_unavailable")
+            if quarantined_in_store_streams:
+                return removal_refused("protection_unavailable")
+            if quarantined_chain_mismatch:
+                return removal_refused("protection_unavailable")
             return None
 
         def check_p2b():
@@ -1068,6 +1220,8 @@ class State:
             if source_chain_hold:
                 return removal_refused("protected_use")
             if pending_review_hold:
+                return removal_refused("protected_use")
+            if sealed_ancestor_hold:
                 return removal_refused("protected_use")
             return None
 
@@ -1109,7 +1263,10 @@ REQUIRED_REMOVAL_STEP_KEYS = {
     "decision_time",
     "expected_policy",
 }
-ALLOWED_REMOVAL_STEP_KEYS = REQUIRED_REMOVAL_STEP_KEYS | {"authorization"}
+ALLOWED_REMOVAL_STEP_KEYS = REQUIRED_REMOVAL_STEP_KEYS | {
+    "authorization",
+    "quarantined_designated_streams",
+}
 REQUIRED_AUTH_KEYS = {
     "ref",
     "digest",
@@ -1132,6 +1289,23 @@ ALLOWED_OBS_KEYS = {
     "ancestors",
     "raw_ancestors",
     "inherited_block",
+    "source_seal",
+}
+ALLOWED_SEAL_CTX_KEYS = {
+    "seal",
+    "raw_seal",
+    "expected_store",
+    "accepted_trust_profile",
+    "closer_authenticated",
+    "source_write_fenced",
+    "trailing_bytes",
+    "live_source_unobservable",
+    "journal",
+    "raw_journal",
+    "expected_manifest",
+    "expected_manifest_jcs",
+    "manifest",
+    "ancestor_seal_contexts",
 }
 
 
@@ -1202,10 +1376,16 @@ def _replay_observed_sharing_stream(obs, window_ms):
         try:
             obs_case = {**obs, "window_ms": window_ms}
             (st.source, st.upstream), chain_journals = _chain_with_journals(obs_case)
+            if "source_seal" in obs:
+                if not chain_journals and st.source is not None:
+                    chain_journals = [copy.deepcopy(st.source)]
+                _apply_case_source_seal(obs_case, st)
         except legacy.Reject:
             return None, False, True, []
         if st.upstream is UNOBSERVED:
             return None, False, True, []
+    elif "source_seal" in obs:
+        return None, False, True, []
 
     try:
         legacy.check_journal(journal, "v1", check_entry_at=False)
@@ -1235,6 +1415,7 @@ def _replay_observed_sharing_stream(obs, window_ms):
             or "raw_source_journal" in obs
             or "ancestors" in obs
             or "raw_ancestors" in obs
+            or "source_seal" in obs
         ):
             return None, False, True, []
     return st, False, False, chain_journals
@@ -1342,6 +1523,594 @@ def chain(case):
     return upstream
 
 
+class UncurrentSealed:
+    def review_current(self):
+        return False
+
+
+UNCURRENT_SEALED = UncurrentSealed()
+
+
+def _scan_quarantined_designated_image(
+    raw_img, expected_stream, init_bodies, init_open_starts, window_ms
+):
+    require(isinstance(raw_img, str), "recovery_incomplete")
+    img_bytes = raw_img.encode("utf-8")
+    img_digest = "sha256:" + hashlib.sha256(img_bytes).hexdigest()
+    hop_st = State(window_ms)
+    hop_st.removal_stream = expected_stream
+    hop_st.incarnation_allocation = "prewrite_durable_ledger"
+    hop_st.bodies = copy.deepcopy(init_bodies)
+    hop_st.open_starts = copy.deepcopy(init_open_starts)
+    offset = 0
+    longest_prefix = []
+    longest_offset = 0
+    longest_bodies = copy.deepcopy(init_bodies)
+    longest_open = copy.deepcopy(init_open_starts)
+    for ln in raw_img.splitlines(keepends=True):
+        if not ln.endswith("\n") or "\r" in ln:
+            break
+        try:
+            e = legacy.parse_wire(ln, "journal_entry", "quarantined")
+        except legacy.Reject:
+            break
+        if not shape_raw(ln, "journal-entry"):
+            break
+        try:
+            hop_st.ingest(e)
+        except legacy.Reject:
+            break
+        offset += len(ln.encode("utf-8"))
+        if e["seq"] == e["group"] + e["group_size"] - 1:
+            longest_prefix = copy.deepcopy(hop_st.journal)
+            longest_offset = offset
+            longest_bodies = copy.deepcopy(hop_st.bodies)
+            longest_open = copy.deepcopy(hop_st.open_starts)
+    is_damaged = longest_offset < len(img_bytes)
+    return longest_prefix, is_damaged, img_digest, longest_bodies, longest_open
+
+
+def _validate_and_replay_recovery_chain(case, s):
+    quarantined_list = list(s.quarantined_designated_streams)
+    quarantined_map = case.get("quarantined_streams", {})
+    candidates = case.get("candidate_streams", [])
+    first_entry = case["journal"][0] if case.get("journal") else {}
+    has_recovery_header = isinstance(first_entry, dict) and "recovery" in first_entry
+    if has_recovery_header:
+        require(
+            s.removal_stream is not None
+            and first_entry.get("stream") == s.removal_stream,
+            "body_removal_stream",
+        )
+    if has_recovery_header or len(quarantined_list) > 0:
+        require(
+            s.incarnation_allocation == "prewrite_durable_ledger",
+            "body_removal_stream",
+        )
+
+    seen_prev: dict[str, set[str]] = {}
+    open_entries = []
+    if has_recovery_header:
+        open_entries.append(first_entry)
+    for cand in candidates:
+        if isinstance(cand, dict) and "recovery" in cand:
+            open_entries.append(cand)
+    if isinstance(quarantined_map, dict):
+        for raw_q in quarantined_map.values():
+            if isinstance(raw_q, str):
+                first_ln = raw_q.splitlines(keepends=True)[:1]
+                if first_ln and first_ln[0].endswith("\n") and "\r" not in first_ln[0]:
+                    try:
+                        qe = legacy.parse_wire(first_ln[0], "journal_entry", "q_open")
+                        if isinstance(qe, dict) and "recovery" in qe:
+                            open_entries.append(qe)
+                    except legacy.Reject:
+                        pass
+    for oe in open_entries:
+        prev_s = oe["recovery"]["previous_stream"]
+        seen_prev.setdefault(prev_s, set()).add(oe["stream"])
+
+    fork_detected = any(len(claimants) > 1 for claimants in seen_prev.values())
+    require(not fork_detected, "body_removal_stream")
+    stale_profile_detected = (
+        s.removal_stream is not None and s.removal_stream in seen_prev
+    )
+    require(not stale_profile_detected, "body_removal_stream")
+
+    expected_chain = []
+    hops = []
+    if s.removal_stream is not None and first_entry.get("stream") == s.removal_stream:
+        visited = {first_entry["stream"]}
+        cur_open = first_entry
+        while isinstance(cur_open, dict) and "recovery" in cur_open:
+            rec = cur_open["recovery"]
+            prev_name = rec["previous_stream"]
+            require(prev_name not in visited, "body_removal_stream")
+            visited.add(prev_name)
+            expected_chain.append(prev_name)
+            if (
+                not isinstance(quarantined_map, dict)
+                or prev_name not in quarantined_map
+            ):
+                require(quarantined_list == expected_chain, "body_removal_stream")
+                require(False, "body_removal_stream")
+            raw_img = quarantined_map[prev_name]
+            hops.append((cur_open, prev_name, raw_img))
+            next_open = None
+            if isinstance(raw_img, str):
+                first_ln = raw_img.splitlines(keepends=True)[:1]
+                if first_ln and first_ln[0].endswith("\n") and "\r" not in first_ln[0]:
+                    try:
+                        parsed0 = legacy.parse_wire(
+                            first_ln[0], "journal_entry", "q_hop"
+                        )
+                        if (
+                            isinstance(parsed0, dict)
+                            and parsed0.get("type") == "stream_opened"
+                            and parsed0.get("stream") == prev_name
+                        ):
+                            next_open = parsed0
+                    except legacy.Reject:
+                        next_open = None
+            cur_open = next_open
+        require(quarantined_list == expected_chain, "body_removal_stream")
+    elif len(quarantined_list) > 0 and "quarantined_streams" in case:
+        # Non-designated stream evaluated with an explicit store quarantined map:
+        pass
+    s.expected_quarantined_chain = list(expected_chain)
+
+    if not hops:
+        return
+
+    bodies: dict[tuple[str, int], tuple[int, str | None]] = {}
+    open_starts: dict[tuple[str, int], set[int]] = {}
+    expected_store = case.get("expected_store")
+    hop_contexts = case.get("recovery_contexts", {})
+
+    for succ_open, prev_name, raw_img in reversed(hops):
+        rec = succ_open["recovery"]
+        if expected_store is not None:
+            require(rec["store"] == expected_store, "body_removal_stream")
+        (
+            longest_prefix,
+            is_damaged,
+            img_digest,
+            longest_bodies,
+            longest_open,
+        ) = _scan_quarantined_designated_image(
+            raw_img, prev_name, bodies, open_starts, s.window
+        )
+        hctx = hop_contexts.get(succ_open["stream"], {})
+        ledger_map = {
+            (b["body"]["digest"], int(b["body"]["length"])): int(b["floor"])
+            for b in hctx.get("ledger_floors", [])
+        }
+        live_obs_map = {
+            (b["body"]["digest"], int(b["body"]["length"])): b["observation"]
+            for b in hctx.get("live_activation_observations", [])
+        }
+        items = rec["reconciled_bodies"]
+        jcs_bodies = [legacy._jcs.jcs_dumps(it["body"]) for it in items]
+        item_keys = [(it["body"]["digest"], int(it["body"]["length"])) for it in items]
+        required_keys = set(longest_bodies.keys()) | set(ledger_map.keys())
+
+        def rec_r1():
+            require(len(longest_prefix) >= 1, "recovery_incomplete")
+            require(is_damaged, "recovery_incomplete")
+            require(
+                rec["quarantined_image_digest"] == img_digest, "recovery_incomplete"
+            )
+            require(rec["cut_seq"] == len(longest_prefix), "recovery_incomplete")
+            require(
+                rec["cut_digest"] == digest(longest_prefix[: int(rec["cut_seq"])]),
+                "recovery_incomplete",
+            )
+            require(
+                jcs_bodies == sorted(jcs_bodies)
+                and len(item_keys) == len(set(item_keys)),
+                "recovery_incomplete",
+            )
+            require(required_keys - set(item_keys) == set(), "recovery_incomplete")
+            for it in items:
+                k = (it["body"]["digest"], int(it["body"]["length"]))
+                prior_bound, _ = longest_bodies.get(k, (0, None))
+                fl = int(it["floor"])
+                require(fl >= prior_bound, "recovery_incomplete")
+                if k in ledger_map:
+                    require(fl == ledger_map[k], "recovery_incomplete")
+
+        def rec_r2():
+            for it in items:
+                require(int(it["floor"]) < MAX_SAFE_INTEGER, "numeric_domain")
+
+        def rec_r3():
+            for it in items:
+                k = (it["body"]["digest"], int(it["body"]["length"]))
+                live_obs = live_obs_map.get(k, it["activation_observation"])
+                require(live_obs != "present_corrupt", "body_observation")
+
+        def rec_r4_r19():
+            for it in items:
+                k = (it["body"]["digest"], int(it["body"]["length"]))
+                prior_bound, prior_phase = longest_bodies.get(k, (0, None))
+                fl = int(it["floor"])
+                live_obs = live_obs_map.get(k, it["activation_observation"])
+                require(live_obs == it["activation_observation"], "recovery_incomplete")
+                is_ref = k in s.referenced_bodies
+                expected_state = compute_recovery_row(
+                    prior_phase,
+                    prior_bound,
+                    fl,
+                    it["activation_observation"],
+                    True,
+                    is_ref,
+                )
+                require(
+                    it["post_recovery_state"] == expected_state, "recovery_incomplete"
+                )
+
+        rec_precedence = [rec_r1, rec_r2, rec_r3, rec_r4_r19]
+        for r_fn in rec_precedence:
+            r_fn()
+
+        next_bodies = dict(longest_bodies)
+        next_open = copy.deepcopy(longest_open)
+        for it in items:
+            k = (it["body"]["digest"], int(it["body"]["length"]))
+            prior_bound, prior_phase = longest_bodies.get(k, (0, None))
+            fl = int(it["floor"])
+            new_bp, new_os = _apply_recovery_transition(
+                prior_phase,
+                prior_bound,
+                longest_open.get(k, set()),
+                fl,
+                it["activation_observation"],
+                it["post_recovery_state"],
+            )
+            next_bodies[k] = new_bp
+            next_open[k] = new_os
+        bodies = next_bodies
+        open_starts = next_open
+
+    s.bodies = bodies
+    s.open_starts = open_starts
+
+
+def _check_sealed_intermediate_journal(journal, anc_seal, window_ms, raw_entries=None):
+    family = journal[0]["v"]
+    require(family in CAPABILITY, "continuation")
+    schema = BASE.parent / f"v{family}" / "journal-entry.schema.json"
+    for idx, e in enumerate(journal):
+        ok_shape = (
+            shape_raw(raw_entries[idx], schema)
+            if raw_entries is not None
+            else shape(e, schema)
+        )
+        require(e.get("v") == family and ok_shape, "continuation")
+    try:
+        legacy.check_journal(journal, "source")
+    except legacy.Reject:
+        require(False, "continuation")
+    continues = journal[0].get("continues")
+    require(continues is not None, "continuation")
+    if anc_seal is not None:
+        require(
+            continues["capability"] == anc_seal["capability"]
+            and continues["stream"] == anc_seal["stream"]
+            and int(continues["cut_seq"]) <= int(anc_seal["cut_seq"]),
+            "continuation",
+        )
+        if int(continues["cut_seq"]) == int(anc_seal["cut_seq"]):
+            require(continues["cut_digest"] == anc_seal["cut_digest"], "continuation")
+    if family == 0:
+        return True
+    st = State(window_ms)
+    latest_rev = None
+    imports_seq = []
+    restricted_seq = []
+    for idx, e in enumerate(journal):
+        try:
+            st.instant(e["at"])
+            if idx > 0:
+                require(
+                    st.instant(e["at"]) >= st.instant(journal[idx - 1]["at"]),
+                    "continuation",
+                )
+            if "record" in e:
+                require(e["record"]["v"] == 1, "continuation")
+                if "produced_at" in e["record"]:
+                    st.instant(e["record"]["produced_at"]["instant"])
+            if "request" in e:
+                st.instant(e["request"]["observed_at"])
+        except legacy.Reject:
+            require(False, "continuation")
+        typ = e["type"]
+        if typ == "stream_opened":
+            st.stream, st.failure_model = e["stream"], e["failure_model"]
+            st.continues = copy.deepcopy(continues)
+        elif typ in ("appended", "revised"):
+            require(e["record"]["record_id"] not in st.retired, "continuation")
+            if "imported_from" in e:
+                imp = e["imported_from"]
+                require(
+                    imp["capability"] == continues["capability"]
+                    and imp["pin"]["stream"] == continues["stream"],
+                    "continuation",
+                )
+                imports_seq.append(e["seq"])
+            st.records[pin_key(pin(e))] = e["record"]
+        elif typ in ("tombstoned", "untombstoned"):
+            r = e["request"]
+            require(e["request_digest"] == digest(r), "continuation")
+            require(
+                typ == ("tombstoned" if r["action"] == "tombstone" else "untombstoned"),
+                "continuation",
+            )
+            if st.refusal(r, e["at"]) is not None:
+                require(False, "continuation")
+            st.apply(r, e["seq"])
+            restricted_seq.append(e["seq"])
+        elif typ == "retired":
+            require(any(k[1] == e["record_id"] for k in st.records), "continuation")
+            if "idempotency_key" in e:
+                r = retirement_request(e)
+                require(e["request_digest"] == digest(r), "continuation")
+            st.retired.add(e["record_id"])
+            restricted_seq.append(e["seq"])
+        elif typ == "restrictions_reviewed":
+            src = e["source"]
+            require(
+                src["capability"] == continues["capability"]
+                and src["stream"] == continues["stream"]
+                and e["group"] == e["seq"]
+                and e["group_size"] == 1
+                and e["destination_cut_seq"] == e["seq"] - 1
+                and int(src["cut_seq"]) >= int(continues["cut_seq"])
+                and applied_manifest(journal[:idx])
+                == e["destination_applied_state_digest"],
+                "continuation",
+            )
+            if anc_seal is not None:
+                require(
+                    int(src["cut_seq"]) == int(anc_seal["cut_seq"])
+                    and src["cut_digest"] == anc_seal["cut_digest"]
+                    and e["source_state_digest"]
+                    == anc_seal["effective_restriction_manifest_digest"],
+                    "continuation",
+                )
+            latest_rev = e
+    if latest_rev is None:
+        return False
+    after = latest_rev["seq"]
+    if any(sq > after for sq in imports_seq) or any(
+        sq > after for sq in restricted_seq
+    ):
+        return False
+    return True
+
+
+def _seal_establishes_finality(seal_ctx, ancestors_final):
+    if seal_ctx.get("closer_authenticated") is not True:
+        return False
+    if seal_ctx.get("source_write_fenced") is not True:
+        return False
+    if not ancestors_final:
+        return False
+    return True
+
+
+def _verify_seal_against_journal(inst_checker, seal_ctx, source_journal):
+    seal = seal_ctx["seal"]
+    require(seal["v"] == 1, "continuation")
+    require(seal["store"] == seal_ctx["expected_store"], "continuation")
+    require(seal["trust_profile"] == seal_ctx["accepted_trust_profile"], "continuation")
+    require(
+        seal["capability"] == CAPABILITY.get(source_journal[0]["v"])
+        and seal["stream"] == source_journal[0]["stream"],
+        "continuation",
+    )
+    cut_seq = int(seal["cut_seq"])
+    require(complete_cut(source_journal, cut_seq), "continuation")
+    prefix = source_journal[:cut_seq]
+    require(digest(prefix) == seal["cut_digest"], "continuation")
+    trailing_bytes = seal_ctx.get("trailing_bytes", "")
+    require(isinstance(trailing_bytes, str) and trailing_bytes == "", "continuation")
+    if seal_ctx.get("source_write_fenced") is True:
+        require(len(source_journal) == cut_seq, "continuation")
+    require(
+        source_manifest(prefix) == seal["effective_restriction_manifest_digest"],
+        "continuation",
+    )
+    jcs_ancestors = [legacy._jcs.jcs_dumps(m) for m in seal["ancestor_seals"]]
+    require(jcs_ancestors == sorted(jcs_ancestors), "continuation")
+    require(len(jcs_ancestors) == len(set(jcs_ancestors)), "continuation")
+    return prefix
+
+
+def _evaluate_seal_context(
+    inst_checker,
+    seal_ctx,
+    source_journal,
+    window_ms,
+    *,
+    raw_entries=None,
+    observed_upstream=None,
+    check_top_seal=True,
+):
+    if check_top_seal:
+        require(
+            isinstance(seal_ctx, dict)
+            and {"seal", "expected_store", "accepted_trust_profile"}
+            <= set(seal_ctx)
+            <= ALLOWED_SEAL_CTX_KEYS,
+            "continuation",
+        )
+        seal = seal_ctx["seal"]
+        legacy.check_typed_domain(seal, "stream_seal", "source_seal")
+        inst_checker.instant(seal.get("sealed_at") if isinstance(seal, dict) else None)
+        ok_shape = (
+            shape_raw(seal_ctx["raw_seal"], "stream-seal")
+            if "raw_seal" in seal_ctx
+            else shape(seal, "stream-seal")
+        )
+        require(ok_shape, "continuation")
+    else:
+        seal = seal_ctx["seal"]
+
+    is_cont = source_journal[0].get("continues") is not None
+    anc_ctxs = seal_ctx.get("ancestor_seal_contexts", [])
+    ctx_by_key = {}
+    for ac in anc_ctxs:
+        require(
+            isinstance(ac, dict)
+            and {"seal", "expected_store", "accepted_trust_profile"}
+            <= set(ac)
+            <= ALLOWED_SEAL_CTX_KEYS,
+            "continuation",
+        )
+        ac_seal = ac["seal"]
+        legacy.check_typed_domain(ac_seal, "stream_seal", "ancestor_seal")
+        inst_checker.instant(
+            ac_seal.get("sealed_at") if isinstance(ac_seal, dict) else None
+        )
+        ac_shape = (
+            shape_raw(ac["raw_seal"], "stream-seal")
+            if "raw_seal" in ac
+            else shape(ac_seal, "stream-seal")
+        )
+        require(ac_shape, "continuation")
+        require(ac_seal["v"] == 1, "continuation")
+        require(ac_seal["store"] == ac["expected_store"], "continuation")
+        require(
+            ac_seal["trust_profile"] == ac["accepted_trust_profile"], "continuation"
+        )
+        ac_trailing = ac.get("trailing_bytes", "")
+        require(isinstance(ac_trailing, str) and ac_trailing == "", "continuation")
+        ac_jcs_anc = [legacy._jcs.jcs_dumps(m) for m in ac_seal["ancestor_seals"]]
+        require(
+            ac_jcs_anc == sorted(ac_jcs_anc)
+            and len(ac_jcs_anc) == len(set(ac_jcs_anc)),
+            "continuation",
+        )
+        if "journal" in ac or "raw_journal" in ac:
+            aj, araw = _parse_source_spec(
+                ac["raw_journal"] if "raw_journal" in ac else ac["journal"]
+            )
+            observed(aj, window_ms, None, None, raw_entries=araw)
+            _verify_seal_against_journal(inst_checker, ac, aj)
+        ctx_by_key[(ac_seal["capability"], ac_seal["stream"])] = ac
+
+    if not is_cont:
+        if observed_upstream is None:
+            observed(source_journal, window_ms, None, None, raw_entries=raw_entries)
+        prefix = _verify_seal_against_journal(inst_checker, seal_ctx, source_journal)
+        require(seal["ancestor_seals"] == [], "continuation")
+        is_final = _seal_establishes_finality(seal_ctx, True)
+        return is_final, False, prefix
+
+    # Sealed intermediate continuation source.
+    prefix = _verify_seal_against_journal(inst_checker, seal_ctx, source_journal)
+    for entry in seal["ancestor_seals"]:
+        key = (entry["capability"], entry["stream"])
+        if key in ctx_by_key:
+            ac = ctx_by_key[key]
+            ac_seal = ac["seal"]
+            require(
+                digest(ac_seal) == entry["seal_digest"]
+                and ac_seal["store"] == entry["store"]
+                and int(ac_seal["cut_seq"]) == int(entry["cut_seq"]),
+                "continuation",
+            )
+
+    _h, _r, mid_rev = restriction_state(prefix)
+    needed_key = (
+        (mid_rev["source"]["capability"], mid_rev["source"]["stream"])
+        if mid_rev is not None
+        else (
+            prefix[0]["continues"]["capability"],
+            prefix[0]["continues"]["stream"],
+        )
+    )
+    matching_entry = next(
+        (
+            m
+            for m in seal["ancestor_seals"]
+            if (m["capability"], m["stream"]) == needed_key
+        ),
+        None,
+    )
+    matching_ctx = ctx_by_key.get(needed_key)
+    mid_current = _check_sealed_intermediate_journal(
+        source_journal,
+        matching_ctx["seal"] if matching_ctx is not None else None,
+        window_ms,
+        raw_entries=raw_entries,
+    )
+
+    ancestors_final = True
+    unobserved_anc_hold = False
+    if matching_entry is None or matching_ctx is None:
+        ancestors_final = False
+        unobserved_anc_hold = True
+    else:
+        for entry in seal["ancestor_seals"]:
+            key = (entry["capability"], entry["stream"])
+            ac = ctx_by_key.get(key)
+            if ac is None:
+                ancestors_final = False
+                unobserved_anc_hold = True
+                continue
+            ac_seal = ac["seal"]
+            if (
+                ac.get("closer_authenticated") is not True
+                or ac.get("source_write_fenced") is not True
+            ):
+                ancestors_final = False
+            m_digest = ac_seal["effective_restriction_manifest_digest"]
+            if m_digest != EMPTY_MANIFEST_DIGEST:
+                if "manifest" in ac:
+                    m_doc = ac["manifest"]
+                    require(digest(m_doc) == m_digest, "continuation")
+                    if len(m_doc.get("holds", [])) > 0:
+                        unobserved_anc_hold = True
+                else:
+                    unobserved_anc_hold = True
+        if matching_ctx["seal"]["ancestor_seals"] and len(seal["ancestor_seals"]) < 2:
+            ancestors_final = False
+
+    is_final = _seal_establishes_finality(seal_ctx, ancestors_final)
+    if not mid_current and is_final:
+        # Sealed cut is authentic/final, but intermediate review itself was not current.
+        return "uncurrent_final", unobserved_anc_hold, prefix
+    return is_final, unobserved_anc_hold, prefix
+
+
+def _apply_case_source_seal(case, s):
+    seal_ctx = case["source_seal"]
+    raw_entries = case.get("raw_source_journal")
+    is_final, anc_hold, prefix = _evaluate_seal_context(
+        s,
+        seal_ctx,
+        s.source,
+        case["window_ms"],
+        raw_entries=raw_entries,
+        observed_upstream=s.upstream,
+    )
+    if is_final == "uncurrent_final":
+        s.source = copy.deepcopy(prefix)
+        s.upstream = UNCURRENT_SEALED
+        s.source_seal_final = False
+        s.sealed_ancestor_hold = anc_hold
+    elif is_final is True:
+        s.upstream = None
+        s.source_seal_final = True
+        s.sealed_ancestor_hold = anc_hold
+    else:
+        s.source_seal_final = False
+        if seal_ctx.get("live_source_unobservable") is True:
+            s.upstream = UNOBSERVED
+
+
 def _parse_raw_receipt_step(raw_text, where):
     ast_node = legacy.parse_raw_json(raw_text, where)
     kind = (
@@ -1392,6 +2161,12 @@ def materialize_destination_wire(case):
                 "removal_eligibility",
                 f"steps[{idx}].raw_removal_eligibility",
             )
+        elif "raw_verify_seal" in s:
+            s["verify_seal"] = legacy.parse_wire(
+                s["raw_verify_seal"],
+                "seal_context",
+                f"steps[{idx}].raw_verify_seal",
+            )
         elif "raw_use" in s:
             s["use"] = legacy.parse_wire(
                 s["raw_use"], "export_request", f"steps[{idx}].raw_use"
@@ -1406,9 +2181,28 @@ def evaluate(case):
     s = State(case["window_ms"])
     if "profile" in case:
         legacy.check_profile(case["profile"], "profile")
-        s.removal_stream = case["profile"]["runtime"].get("body_removal_stream")
+        rt = case["profile"]["runtime"]
+        s.removal_stream = rt.get("body_removal_stream")
+        s.incarnation_allocation = rt.get("incarnation_allocation")
+        s.quarantined_designated_streams = list(
+            rt.get("quarantined_designated_streams", [])
+        )
+    if "sharing_streams" in case:
+        for sj in case["sharing_streams"]:
+            legacy.check_journal(sj, "v1", check_entry_at=False)
+            sh_st = State(case["window_ms"])
+            for se in sj:
+                sh_st.ingest(se)
+            for _pk, rec in sh_st.retention_revisions():
+                if "body" in rec:
+                    s.referenced_bodies.add(
+                        (rec["body"]["digest"], int(rec["body"]["length"]))
+                    )
+    _validate_and_replay_recovery_chain(case, s)
     if "source_journal" in case or "raw_source_journal" in case:
         s.source, s.upstream = chain(case)
+        if "source_seal" in case:
+            _apply_case_source_seal(case, s)
     legacy.check_journal(case["journal"], "v1", check_entry_at=False)
     for e in case["journal"]:
         s.ingest(e)
@@ -1429,16 +2223,22 @@ def evaluate(case):
             results.append(s.body_state(step["body_state"]))
         elif "removal_eligibility" in step:
             results.append(s.removal_eligibility(step["removal_eligibility"]))
+        elif "verify_seal" in step:
+            results.append(s.verify_seal_step(step["verify_seal"]))
         elif "source_entry" in step:
             # The source journal advances outside this stream.
             case = copy.deepcopy(case)
             case["source_journal"].append(copy.deepcopy(step["source_entry"]))
             s.source, s.upstream = chain(case)
+            if "source_seal" in case:
+                _apply_case_source_seal(case, s)
             results.append({"outcome": "journaled"})
         elif "raw_source_entry" in step:
             case = copy.deepcopy(case)
             case["raw_source_journal"].append(step["raw_source_entry"])
             s.source, s.upstream = chain(case)
+            if "source_seal" in case:
+                _apply_case_source_seal(case, s)
             results.append({"outcome": "journaled"})
         elif "ancestor_entry" in step:
             # An ancestor journal advances outside this stream and its source.
@@ -2356,6 +3156,398 @@ def mutation_controls():
             "removal-precedence-p4-over-p5",
             ("reason", "removal_authorization", 0),
         ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            0,
+            "recovery-header-on-content-stream",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            1,
+            "recovery-missing-incarnation-allocation",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            1,
+            "recovery-effect-dependent-allocation",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            2,
+            "recovery-fork-predecessor",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            3,
+            "recovery-stale-profile",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_removal_stream",
+            7,
+            "recovery-extra-quarantined-stream",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            6,
+            "removal-quarantined-in-store-streams",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protection_unavailable",
+            7,
+            "removal-quarantined-extra-stream",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "recovery_incomplete",
+            1,
+            "recovery-undamaged-predecessor",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "recovery_incomplete",
+            3,
+            "recovery-shorter-than-longest-prefix",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "recovery_incomplete",
+            6,
+            "recovery-r1-missing-body-floor",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "recovery_incomplete",
+            7,
+            "recovery-r1-floor-below-prior-bound",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "ignore_hop_floor",
+            "",
+            0,
+            "recovery-successor-publish-at-or-below-floor",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "ignore_hop_floor",
+            "",
+            0,
+            "recovery-two-hop-s2-floor-below-s1",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "numeric_domain",
+            0,
+            "recovery-r2-floor-at-ceiling",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "require",
+            "body_observation",
+            0,
+            "recovery-r3-present-corrupt",
+            ("top_refusal", "recovery_incomplete"),
+        ),
+        (
+            "_apply_recovery_transition",
+            "raw_concat_recovery",
+            "",
+            0,
+            "recovery-r12-then-byte-loss",
+            ("state", "removal_pending", 0),
+        ),
+        (
+            "_apply_recovery_transition",
+            "raw_concat_recovery",
+            "",
+            0,
+            "recovery-r12-complete-refused",
+            None,
+        ),
+        (
+            "_apply_recovery_transition",
+            "leave_r13_open",
+            "",
+            0,
+            "recovery-r13-complete-refused",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "referenced_unpublished_loss",
+            "",
+            0,
+            "recovery-r4-ref-true",
+            ("state", "integrity_loss", 0),
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->unpublished",
+            0,
+            "recovery-r6-wrong-state-unpublished",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "publishing->available",
+            1,
+            "recovery-r7-wrong-state-available",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "publishing->available",
+            2,
+            "recovery-r9-wrong-state-available",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->available",
+            1,
+            "recovery-r10-wrong-state-available",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "removal_pending->integrity_loss",
+            1,
+            "recovery-r15-wrong-state-integrity-loss",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->removal_pending",
+            2,
+            "recovery-r16-wrong-state-removal-pending",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "removed->integrity_loss",
+            0,
+            "recovery-r17-wrong-state-integrity-loss",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "integrity_loss->removed",
+            3,
+            "recovery-r18-wrong-state-removed",
+            None,
+        ),
+        (
+            "compute_recovery_row",
+            "row_return",
+            "publishing->available",
+            4,
+            "recovery-r19-wrong-state-available",
+            None,
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "swap_rec_precedence",
+            "0",
+            0,
+            "recovery-precedence-r1-over-r2",
+            ("top_refusal", "numeric_domain", 0),
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "swap_rec_precedence",
+            "1",
+            0,
+            "recovery-precedence-r2-over-r3",
+            ("top_refusal", "body_observation", 0),
+        ),
+        (
+            "_validate_and_replay_recovery_chain",
+            "swap_rec_precedence",
+            "2",
+            0,
+            "recovery-precedence-r3-over-table",
+            ("top_refusal", "recovery_incomplete", 0),
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            1,
+            "seal-cross-store-replay",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            2,
+            "seal-trust-profile-mismatch",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            4,
+            "seal-cut-mid-group",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            4,
+            "seal-cut-beyond-end",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            5,
+            "seal-cut-digest-mismatch",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            6,
+            "seal-trailing-damaged-bytes",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            7,
+            "seal-trailing-entry-after-cut",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            8,
+            "seal-manifest-digest-mismatch",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            9,
+            "seal-ancestor-seals-unsorted",
+            None,
+        ),
+        (
+            "_verify_seal_against_journal",
+            "require",
+            "continuation",
+            10,
+            "seal-ancestor-seals-duplicate",
+            None,
+        ),
+        (
+            "_seal_establishes_finality",
+            "if_false_return",
+            "",
+            0,
+            "seal-closer-unauthenticated",
+            None,
+        ),
+        (
+            "_seal_establishes_finality",
+            "if_false_return",
+            "",
+            1,
+            "seal-consumer-pin-unfenced-unobservable",
+            None,
+        ),
+        (
+            "_seal_establishes_finality",
+            "if_false_return",
+            "",
+            1,
+            "seal-consumer-pin-unfenced-later-hold",
+            None,
+        ),
+        (
+            "_seal_establishes_finality",
+            "if_false_return",
+            "",
+            2,
+            "seal-ancestor-missing",
+            None,
+        ),
+        (
+            "_seal_establishes_finality",
+            "if_false_return",
+            "",
+            2,
+            "seal-ancestor-unfenced",
+            None,
+        ),
+        (
+            "instant",
+            "require",
+            "instant_spelling",
+            1,
+            "seal-instant-year-zero",
+            None,
+        ),
+        (
+            "removal_eligibility",
+            "if_reason",
+            "protected_use",
+            4,
+            "removal-sealed-ancestor-active-hold",
+            None,
+        ),
     ]
     for method, kind, value, occurrence, witness, alternative in specs:
         tree = ast.parse(source)
@@ -2484,6 +3676,54 @@ def mutation_controls():
                 and ast.unparse(n.func) == "self.active.remove"
             ):
                 matches.append(n)
+            elif (
+                kind == "if_false_return"
+                and isinstance(n, ast.If)
+                and len(n.body) == 1
+                and isinstance(n.body[0], ast.Return)
+                and isinstance(n.body[0].value, ast.Constant)
+                and n.body[0].value.value is False
+            ):
+                matches.append(n)
+            elif (
+                kind == "swap_rec_precedence"
+                and isinstance(n, ast.Assign)
+                and len(n.targets) == 1
+                and isinstance(n.targets[0], ast.Name)
+                and n.targets[0].id == "rec_precedence"
+            ):
+                matches.append(n)
+            elif (
+                kind == "raw_concat_recovery"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "prior_phase == 'started'"
+            ):
+                matches.append(n)
+            elif (
+                kind == "leave_r13_open"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "prior_phase == 'started'"
+            ):
+                matches.append(n)
+            elif (
+                kind == "ignore_hop_floor"
+                and isinstance(n, ast.Assign)
+                and ast.unparse(n) == "next_bodies[k] = new_bp"
+            ):
+                matches.append(n)
+            elif (
+                kind == "referenced_unpublished_loss"
+                and isinstance(n, ast.If)
+                and ast.unparse(n.test) == "prior_phase is None"
+            ):
+                matches.append(n)
+            elif (
+                kind == "row_return"
+                and isinstance(n, ast.Return)
+                and isinstance(n.value, ast.Constant)
+                and n.value.value == value.split("->", 1)[0]
+            ):
+                matches.append(n)
         matches.sort(key=lambda n: (n.lineno, n.col_offset))
         assert len(matches) > occurrence, (
             "no-op mutation",
@@ -2559,6 +3799,30 @@ def mutation_controls():
             swap_i = int(value)
             elts = target.value.elts
             elts[swap_i], elts[swap_i + 1] = elts[swap_i + 1], elts[swap_i]
+        elif kind == "if_false_return":
+            target.test = ast.Constant(False)
+        elif kind == "swap_rec_precedence":
+            swap_i = int(value)
+            elts = target.value.elts
+            elts[swap_i], elts[swap_i + 1] = elts[swap_i + 1], elts[swap_i]
+        elif kind == "raw_concat_recovery":
+            target.body = ast.parse("return (floor, 'started'), new_open\n").body
+        elif kind == "leave_r13_open":
+            target.body[-1] = ast.parse(
+                "return (prior_bound, 'started'), new_open\n"
+            ).body[0]
+        elif kind == "ignore_hop_floor":
+            target.value = ast.parse("(prior_bound, new_bp[1])", mode="eval").body
+        elif kind == "referenced_unpublished_loss":
+            target.body.insert(
+                0,
+                ast.parse(
+                    "if referenced and floor == 0 and obs == 'absent':\n"
+                    "    return 'integrity_loss'\n"
+                ).body[0],
+            )
+        elif kind == "row_return":
+            target.value = ast.Constant(value.split("->", 1)[1])
         else:
             replacement = ast.Constant(kind == "compare_true")
             for parent in ast.walk(tree):
@@ -2580,6 +3844,15 @@ def mutation_controls():
             kind,
             value,
         )
+        if alternative and alternative[0] == "top_refusal":
+            assert outcome == {"refusal": alternative[1]}, (
+                "wrong top-level refusal alternative",
+                witness,
+                outcome,
+                alternative,
+            )
+            print("[ok] mutation:", witness, kind, value)
+            continue
         assert "refusal" not in outcome, ("mutation still refused", witness, outcome)
         if alternative:
             field, expected, index = alternative
@@ -2621,6 +3894,7 @@ def mutation_controls():
                 "retired",
                 "journaled",
                 "receipt_verified",
+                "seal_verified",
                 "allowed",
                 "body_state",
             }
@@ -2765,6 +4039,65 @@ def _collect_case_shape_items(c, add_key):
                     if isinstance(e, dict) and e.get("v") == fam:
                         add_key(sch, json.dumps(e))
 
+    def collect_seal_ctx(sctx):
+        if not isinstance(sctx, dict):
+            return
+        if "raw_seal" in sctx and isinstance(sctx["raw_seal"], str):
+            try:
+                legacy.parse_wire(sctx["raw_seal"], "stream_seal", "raw_seal")
+                add_key("stream-seal", sctx["raw_seal"])
+            except legacy.Reject:
+                pass
+        elif "seal" in sctx and isinstance(sctx["seal"], dict):
+            add_key("stream-seal", json.dumps(sctx["seal"]))
+        if "raw_journal" in sctx:
+            collect_source_list(list(sctx["raw_journal"]))
+        elif "journal" in sctx:
+            collect_source_list(sctx["journal"])
+        for ac in sctx.get("ancestor_seal_contexts", []):
+            collect_seal_ctx(ac)
+
+    for idx, step in enumerate(c["steps"]):
+        if "raw_verify_seal" in step:
+            try:
+                vctx = legacy.parse_wire(
+                    step["raw_verify_seal"],
+                    "seal_context",
+                    f"steps[{idx}].raw_verify_seal",
+                )
+            except legacy.Reject:
+                continue
+            collect_seal_ctx(vctx)
+        elif "verify_seal" in step:
+            collect_seal_ctx(step["verify_seal"])
+
+    if "source_seal" in c:
+        collect_seal_ctx(c["source_seal"])
+
+    if "quarantined_streams" in c and isinstance(c["quarantined_streams"], dict):
+        for raw_img in c["quarantined_streams"].values():
+            if isinstance(raw_img, str):
+                for ln in raw_img.splitlines(keepends=True):
+                    if not ln.endswith("\n") or "\r" in ln:
+                        break
+                    try:
+                        legacy.parse_wire(ln, "journal_entry", "quarantined")
+                    except legacy.Reject:
+                        break
+                    add_key("journal-entry", ln)
+
+    if "candidate_streams" in c and isinstance(c["candidate_streams"], list):
+        for ce in c["candidate_streams"]:
+            if isinstance(ce, dict):
+                add_key("journal-entry", json.dumps(ce))
+
+    if "sharing_streams" in c and isinstance(c["sharing_streams"], list):
+        for sj in c["sharing_streams"]:
+            if isinstance(sj, list):
+                for se in sj:
+                    if isinstance(se, dict):
+                        add_key("journal-entry", json.dumps(se))
+
     if "raw_source_journal" in c:
         src_copy = list(c["raw_source_journal"])
         collect_source_list(src_copy)
@@ -2837,6 +4170,8 @@ def _collect_case_shape_items(c, add_key):
                 elif "ancestors" in obs:
                     for a in obs["ancestors"]:
                         collect_source_list(a)
+                if "source_seal" in obs:
+                    collect_seal_ctx(obs["source_seal"])
 
     for result in c["expected"].get("results", []):
         if result.get("kind") in ("reconciliation", "receipt"):
@@ -2847,6 +4182,7 @@ def _collect_case_shape_items(c, add_key):
             "receipt_verified",
             "body_state",
             "removal_eligibility",
+            "seal_verified",
         ):
             continue
         name = (
@@ -2885,6 +4221,35 @@ def prewarm_shape_cache(cases, rejects, examples):
         BASE.parent / "v0/journal-entry.schema.json",
         json.dumps({**v0_src_entry, "at": "２０２６-11-05T12:34:56Z"}),
     )
+    # Prewarm compact NDJSON lines scanned during AbortWriter.activate_recovery faultpoints.
+    for aw_entry in (
+        {
+            "v": 1,
+            "seq": 1,
+            "group": 1,
+            "group_size": 1,
+            "stream": "store.bodies",
+            "type": "stream_opened",
+            "at": "2026-10-20T00:00:01.000000Z",
+            "mode": "single_revision",
+            "failure_model": "survives_power_loss",
+        },
+        {
+            "v": 1,
+            "seq": 2,
+            "group": 2,
+            "group_size": 1,
+            "stream": "store.bodies",
+            "type": "body_published",
+            "at": "2026-10-20T00:00:02.000000Z",
+            "body": {
+                "digest": "sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de",
+                "length": 8,
+            },
+            "incarnation": 1,
+        },
+    ):
+        add_key("journal-entry", json.dumps(aw_entry, separators=(",", ":")) + "\n")
 
     items = [
         (f"k{idx}", schema_rel, payload)
@@ -2931,12 +4296,47 @@ class AbortWriter:
         if self.profile is not None:
             legacy.check_profile(self.profile, "profile")
             self.state.removal_stream = runtime.get("body_removal_stream")
+            self.state.incarnation_allocation = runtime.get("incarnation_allocation")
+            self.state.quarantined_designated_streams = list(
+                runtime.get("quarantined_designated_streams", [])
+            )
         self.poisoned = False
+        self.active_generation = 0
+        self.activation_in_progress = False
+        self.quarantined_images: dict[str, str] = {}
+        self.candidate_streams: list[dict] = []
         self.durable_effect_relied_on: dict[tuple[str, int], int] = {}
         self.durable_burned_ledger: dict[tuple[str, int], int] = {}
 
+    def open_handle(self):
+        require(
+            not self.poisoned and not self.activation_in_progress, "inconsistent_cut"
+        )
+        return (self.state.removal_stream, self.active_generation)
+
+    def append_with_handle(self, handle, entries, **kwargs):
+        require(
+            handle == (self.state.removal_stream, self.active_generation),
+            "body_removal_stream",
+        )
+        return self.append_group(entries, **kwargs)
+
+    def unlink_with_handle(self, handle, body, incarnation):
+        require(
+            not self.poisoned and not self.activation_in_progress, "inconsistent_cut"
+        )
+        require(
+            handle == (self.state.removal_stream, self.active_generation),
+            "body_removal_stream",
+        )
+        key = (body["digest"], int(body["length"]))
+        require(incarnation in self.state.open_starts.get(key, set()), "body_lifecycle")
+        return "unlinked"
+
     def allocate_incarnation(self, body, requested_n=None):
-        require(not self.poisoned, "inconsistent_cut")
+        require(
+            not self.poisoned and not self.activation_in_progress, "inconsistent_cut"
+        )
         key = (body["digest"], body["length"])
         committed_max = self.state.bodies.get(key, (0, None))[0]
         if self.incarnation_allocation == "prewrite_durable_ledger":
@@ -2970,7 +4370,9 @@ class AbortWriter:
         lost_exclusion=False,
         gate=None,
     ):
-        require(not self.poisoned, "inconsistent_cut")
+        require(
+            not self.poisoned and not self.activation_in_progress, "inconsistent_cut"
+        )
         payload = "".join(json.dumps(e, separators=(",", ":")) + "\n" for e in entries)
         total_len = len(payload.encode("utf-8"))
         if k_written is None and errno is None and fsync_ok and not lost_exclusion:
@@ -3029,15 +4431,93 @@ class AbortWriter:
         return "aborted"
 
     def body_state(self, step):
-        require(not self.poisoned, "inconsistent_cut")
+        require(
+            not self.poisoned and not self.activation_in_progress, "inconsistent_cut"
+        )
         return self.state.body_state(step)
+
+    def activate_recovery(
+        self,
+        successor_opened,
+        live_observations=None,
+        *,
+        crash_at=None,
+        successor_fsync_ok=True,
+        profile_fsync_ok=True,
+    ):
+        require(self.profile is not None, "body_removal_stream")
+        require(
+            self.incarnation_allocation == "prewrite_durable_ledger",
+            "body_removal_stream",
+        )
+        # Step 1: Enter continuous store-wide exclusion & permanently fence old handles.
+        self.activation_in_progress = True
+        self.active_generation += 1
+        if crash_at == "mid_activation":
+            return "crashed_mid_activation"
+
+        prev_stream = self.state.removal_stream
+        quarantined_candidate = dict(self.quarantined_images)
+        quarantined_candidate[prev_stream] = self.disk_bytes
+        new_profile = copy.deepcopy(self.profile)
+        new_rt = new_profile["runtime"]
+        q_list = [prev_stream] + list(new_rt.get("quarantined_designated_streams", []))
+        new_rt["quarantined_designated_streams"] = q_list
+        new_rt["body_removal_stream"] = successor_opened["stream"]
+        legacy.check_profile(new_profile, "profile")
+
+        replayed = State(self.window_ms)
+        replayed.removal_stream = new_rt["body_removal_stream"]
+        replayed.incarnation_allocation = new_rt["incarnation_allocation"]
+        replayed.quarantined_designated_streams = list(q_list)
+        ledger_floors = [
+            {"body": {"digest": k[0], "length": k[1]}, "floor": v}
+            for k, v in sorted(self.durable_burned_ledger.items())
+        ]
+        obs_items = list(live_observations or [])
+        sim_case = {
+            "window_ms": self.window_ms,
+            "profile": new_profile,
+            "journal": [successor_opened],
+            "quarantined_streams": quarantined_candidate,
+            "recovery_contexts": {
+                successor_opened["stream"]: {
+                    "ledger_floors": ledger_floors,
+                    "live_activation_observations": obs_items,
+                }
+            },
+        }
+        _validate_and_replay_recovery_chain(sim_case, replayed)
+        legacy.check_journal([successor_opened], "v1", check_entry_at=False)
+        replayed.ingest(successor_opened)
+
+        if crash_at == "after_successor_before_profile_swap":
+            self.candidate_streams.append(copy.deepcopy(successor_opened))
+            return "crashed_before_profile_swap"
+
+        if not (successor_fsync_ok and profile_fsync_ok):
+            self.poisoned = True
+            return "poisoned"
+
+        succ_payload = json.dumps(successor_opened, separators=(",", ":")) + "\n"
+        self.quarantined_images = quarantined_candidate
+        self.profile = new_profile
+        self.disk_bytes = succ_payload
+        self.committed_cut_offset = len(succ_payload)
+        self.committed_cut_seq = 1
+        self.state = replayed
+        self.poisoned = False
+        self.activation_in_progress = False
+        return "activated"
 
     def reopen_from_disk(self):
         # Fresh reopen after kill/power loss ignores in-memory state and
         # committed_cut_offset, scanning physical disk_bytes from byte 0 while
-        # preserving durable effect/ledger records.
+        # preserving durable effect/ledger records and quarantined images.
         reopened = AbortWriter(self.window_ms, self.profile)
         reopened.disk_bytes = self.disk_bytes
+        reopened.quarantined_images = dict(self.quarantined_images)
+        reopened.candidate_streams = copy.deepcopy(self.candidate_streams)
         reopened.durable_effect_relied_on = dict(self.durable_effect_relied_on)
         reopened.durable_burned_ledger = dict(self.durable_burned_ledger)
         parsed = (
@@ -3045,6 +4525,15 @@ class AbortWriter:
             if reopened.disk_bytes
             else []
         )
+        if reopened.profile is not None:
+            sim_case = {
+                "window_ms": reopened.window_ms,
+                "profile": reopened.profile,
+                "journal": parsed,
+                "quarantined_streams": reopened.quarantined_images,
+                "candidate_streams": reopened.candidate_streams,
+            }
+            _validate_and_replay_recovery_chain(sim_case, reopened.state)
         legacy.check_journal(parsed, "v1", check_entry_at=False)
         for e in parsed:
             reopened.state.ingest(e)
@@ -3117,6 +4606,12 @@ def timestamp_and_abort_controls():
             "self.instant(auth['expires_at'])",
             "removal-instant-auth-expires-at-spelling",
         ),
+        (
+            "verify_seal.sealed_at",
+            "verify_seal_step",
+            "self.instant(seal.get('sealed_at') if isinstance(seal, dict) else None)",
+            "seal-instant-year-zero",
+        ),
     ):
         tree = ast.parse(source)
         state_cls = next(
@@ -3186,6 +4681,14 @@ def timestamp_and_abort_controls():
             lambda c: (
                 c["steps"][0]["removal_eligibility"],
                 c["steps"][0]["removal_eligibility"]["authorization"]["expires_at"],
+            ),
+        ),
+        (
+            "seal-instant-impossible-date.json",
+            "v1/stream-seal.schema.json",
+            lambda c: (
+                c["steps"][0]["verify_seal"]["seal"],
+                c["steps"][0]["verify_seal"]["seal"]["sealed_at"],
             ),
         ),
     ):
@@ -3524,12 +5027,12 @@ def timestamp_and_abort_controls():
         "at": "2026-10-20T00:00:03.000000Z",
         "body": body_ref,
         "incarnation": 2,
-        "reason": "retention_expired",
+        "reason": "retention",
         "authorization": {
             "ref": "policy:retention",
             "digest": "sha256:" + "a" * 64,
         },
-        "provenance": {"actor_kind": "system", "actor": "sweeper"},
+        "provenance": {"actor_kind": "process", "actor": "sweeper"},
     }
     removal_done = {
         "v": 1,
@@ -3541,7 +5044,6 @@ def timestamp_and_abort_controls():
         "at": "2026-10-20T00:00:04.000000Z",
         "body": body_ref,
         "incarnation": 2,
-        "provenance": {"actor_kind": "system", "actor": "sweeper"},
     }
     assert (
         w_led_reopened.append_group([removal_started], k_written=15, errno="ENOSPC")
@@ -3585,6 +5087,182 @@ def timestamp_and_abort_controls():
         raise AssertionError(
             "MAX_SAFE_INTEGER exhaustion did not refuse as numeric_domain"
         )
+
+    # 3f. Recovery activation crash boundaries & stale-handle fencing (§2.B).
+    def make_recovery_opened(
+        prev_bytes, prefix_entries, post_state="available", floor=1
+    ):
+        img_dig = "sha256:" + hashlib.sha256(prev_bytes.encode("utf-8")).hexdigest()
+        return {
+            "v": 1,
+            "seq": 1,
+            "group": 1,
+            "group_size": 1,
+            "stream": "store.bodies.1",
+            "type": "stream_opened",
+            "at": "2026-10-20T00:00:10.000000Z",
+            "mode": "single_revision",
+            "failure_model": "survives_power_loss",
+            "recovery": {
+                "store": "store.alpha",
+                "previous_stream": "store.bodies",
+                "cut_seq": len(prefix_entries),
+                "cut_digest": digest(prefix_entries),
+                "quarantined_image_digest": img_dig,
+                "reconciled_bodies": [
+                    {
+                        "body": body_ref,
+                        "floor": floor,
+                        "activation_observation": "present_valid",
+                        "post_recovery_state": post_state,
+                    }
+                ],
+                "authorization": {
+                    "ref": "policy:recovery",
+                    "digest": "sha256:" + "b" * 64,
+                },
+                "provenance": {"actor_kind": "human", "actor": "operator"},
+            },
+        }
+
+    def _run_stale_handle_probe(w):
+        stale_h = w.open_handle()
+        w.disk_bytes += '{"corrupt_tail":'
+        succ_open = make_recovery_opened(
+            w.disk_bytes, [body_stream_opened, make_pub(2, 1)]
+        )
+        assert (
+            w.activate_recovery(
+                succ_open, [{"body": body_ref, "observation": "present_valid"}]
+            )
+            == "activated"
+        )
+        succ_pub = {
+            **make_pub(2, 2, at="2026-10-20T00:00:11.000000Z"),
+            "stream": "store.bodies.1",
+        }
+        try:
+            w.append_with_handle(stale_h, [succ_pub])
+        except legacy.Reject as err:
+            return err.reason == "body_removal_stream"
+        return False
+
+    def _run_mid_activation_probe(w):
+        w.disk_bytes += '{"corrupt_tail":'
+        succ_open = make_recovery_opened(
+            w.disk_bytes, [body_stream_opened, make_pub(2, 1)]
+        )
+        assert (
+            w.activate_recovery(
+                succ_open,
+                [{"body": body_ref, "observation": "present_valid"}],
+                crash_at="mid_activation",
+            )
+            == "crashed_mid_activation"
+        )
+        try:
+            w.body_state({"body": body_ref, "present": True})
+        except legacy.Reject as err:
+            return err.reason == "inconsistent_cut"
+        return False
+
+    # Verify full stale-handle fencing (both append & unlink) and fresh handle success after recovery.
+    w_rec = AbortWriter(60000, make_body_profile("prewrite_durable_ledger"))
+    assert w_rec.append_group([body_stream_opened]) == "committed"
+    assert w_rec.allocate_incarnation(body_ref) == 1
+    assert w_rec.append_group([make_pub(2, 1)]) == "committed"
+    stale_handle = w_rec.open_handle()
+    w_rec.disk_bytes += '{"torn":'
+    succ_header = make_recovery_opened(
+        w_rec.disk_bytes, [body_stream_opened, make_pub(2, 1)]
+    )
+    assert (
+        w_rec.activate_recovery(
+            succ_header, [{"body": body_ref, "observation": "present_valid"}]
+        )
+        == "activated"
+    )
+    assert w_rec.profile["runtime"]["body_removal_stream"] == "store.bodies.1"
+    assert w_rec.profile["runtime"]["quarantined_designated_streams"] == [
+        "store.bodies"
+    ]
+    for stale_op in (
+        lambda: w_rec.append_with_handle(
+            stale_handle,
+            [
+                {
+                    **make_pub(2, 2, at="2026-10-20T00:00:12.000000Z"),
+                    "stream": "store.bodies.1",
+                }
+            ],
+        ),
+        lambda: w_rec.unlink_with_handle(stale_handle, body_ref, 1),
+    ):
+        try:
+            stale_op()
+        except legacy.Reject as err:
+            assert err.reason == "body_removal_stream"
+        else:
+            raise AssertionError("stale predecessor handle was not fenced")
+    fresh_handle = w_rec.open_handle()
+    succ_rs = {
+        **removal_started,
+        "seq": 2,
+        "group": 2,
+        "stream": "store.bodies.1",
+        "at": "2026-10-20T00:00:12.000000Z",
+        "incarnation": 1,
+    }
+    assert w_rec.append_with_handle(fresh_handle, [succ_rs]) == "committed"
+    assert w_rec.unlink_with_handle(fresh_handle, body_ref, 1) == "unlinked"
+
+    # Crash after writing successor stream_opened before atomic profile swap -> reopen refuses stale profile.
+    w_swap_crash = AbortWriter(60000, make_body_profile("prewrite_durable_ledger"))
+    assert w_swap_crash.append_group([body_stream_opened]) == "committed"
+    assert w_swap_crash.allocate_incarnation(body_ref) == 1
+    assert w_swap_crash.append_group([make_pub(2, 1)]) == "committed"
+    clean_prefix_bytes = w_swap_crash.disk_bytes
+    w_swap_crash.disk_bytes += '{"torn":'
+    succ_hdr_swap = make_recovery_opened(
+        w_swap_crash.disk_bytes, [body_stream_opened, make_pub(2, 1)]
+    )
+    assert (
+        w_swap_crash.activate_recovery(
+            succ_hdr_swap,
+            [{"body": body_ref, "observation": "present_valid"}],
+            crash_at="after_successor_before_profile_swap",
+        )
+        == "crashed_before_profile_swap"
+    )
+    # Even if predecessor tail were clean on disk, unswapped profile with successor present refuses as stale.
+    w_swap_crash.disk_bytes = clean_prefix_bytes
+    try:
+        w_swap_crash.reopen_from_disk()
+    except legacy.Reject as err:
+        assert err.reason == "body_removal_stream"
+    else:
+        raise AssertionError("crash before profile swap did not refuse stale profile")
+
+    # Failed fsync on successor or profile during activation latches poisoned fail-closed.
+    for fsync_kwargs in (
+        {"successor_fsync_ok": False},
+        {"profile_fsync_ok": False},
+    ):
+        w_act_fsync = AbortWriter(60000, make_body_profile("prewrite_durable_ledger"))
+        assert w_act_fsync.append_group([body_stream_opened]) == "committed"
+        assert w_act_fsync.allocate_incarnation(body_ref) == 1
+        assert w_act_fsync.append_group([make_pub(2, 1)]) == "committed"
+        w_act_fsync.disk_bytes += '{"torn":'
+        sh = make_recovery_opened(
+            w_act_fsync.disk_bytes, [body_stream_opened, make_pub(2, 1)]
+        )
+        assert (
+            w_act_fsync.activate_recovery(
+                sh, [{"body": body_ref, "observation": "present_valid"}], **fsync_kwargs
+            )
+            == "poisoned"
+        )
+        assert w_act_fsync.poisoned is True
 
     # 4. AST mutation controls on AbortWriter (F4): prove each abort/gate/incarnation guard
     #    kills its mutant.
@@ -3659,12 +5337,39 @@ def timestamp_and_abort_controls():
                 )
             )(cls(60000, make_body_profile("prewrite_durable_ledger"))),
         ),
+        (
+            "skip_stale_handle_generation_fence",
+            "handle == (self.state.removal_stream, self.active_generation)",
+            "True",
+            lambda cls: (
+                lambda w: (
+                    w.append_group([body_stream_opened]),
+                    w.allocate_incarnation(body_ref),
+                    w.append_group([make_pub(2, 1)]),
+                    _run_stale_handle_probe(w),
+                )[3]
+            )(cls(60000, make_body_profile("prewrite_durable_ledger"))),
+        ),
+        (
+            "skip_mid_activation_exclusion",
+            "self.activation_in_progress = True",
+            "self.activation_in_progress = False",
+            lambda cls: (
+                lambda w: (
+                    w.append_group([body_stream_opened]),
+                    w.allocate_incarnation(body_ref),
+                    w.append_group([make_pub(2, 1)]),
+                    _run_mid_activation_probe(w),
+                )[3]
+            )(cls(60000, make_body_profile("prewrite_durable_ledger"))),
+        ),
     ):
         assert probe_fn(AbortWriter) is True, ("baseline probe failed", mut_label)
         mut_src = source.replace(target_old, target_new, 1)
         assert mut_src != source, ("abort mutation target not found", mut_label)
         ns = {"__file__": __file__, "__name__": "abort_mutation"}
         exec(compile(ast.parse(mut_src), __file__, "exec"), ns)
+        ns["SHAPE_CACHE"].update(SHAPE_CACHE)
         assert probe_fn(ns["AbortWriter"]) is False, (
             "abort mutant survived",
             mut_label,
@@ -3711,6 +5416,12 @@ def check_case_stage3_shapes(c, path):
         )
         for i in invalid_removals
     ), path
+    invalid_seals = c.get("invalid_seal_steps", [])
+    assert len(invalid_seals) == len(set(invalid_seals)) and all(
+        0 <= i < len(c["steps"])
+        and ("verify_seal" in c["steps"][i] or "raw_verify_seal" in c["steps"][i])
+        for i in invalid_seals
+    ), path
 
     def abort_stage12(err):
         assert err.reason in ("ingest", "numeric_domain"), (path, err)
@@ -3725,6 +5436,14 @@ def check_case_stage3_shapes(c, path):
         assert shape_raw(c["raw_profile"], "stratum-profile"), path
     elif "profile" in c:
         assert shape(c["profile"], "stratum-profile"), path
+
+    if "candidate_streams" in c:
+        for ce in c["candidate_streams"]:
+            assert shape(ce, "journal-entry"), path
+    if "sharing_streams" in c:
+        for sj in c["sharing_streams"]:
+            for se in sj:
+                assert shape(se, "journal-entry"), path
 
     if "raw_journal" in c:
         for i, raw in enumerate(c["raw_journal"]):
@@ -3843,6 +5562,34 @@ def check_case_stage3_shapes(c, path):
             assert shape(
                 step["removal_eligibility"], "removal-eligibility-request"
             ) == (step_index not in invalid_removals), path
+        elif "raw_verify_seal" in step:
+            try:
+                vctx = legacy.parse_wire(
+                    step["raw_verify_seal"],
+                    "seal_context",
+                    f"steps[{step_index}].raw_verify_seal",
+                )
+            except legacy.Reject as err:
+                abort_stage12(err)
+                return
+            if "raw_seal" in vctx:
+                assert shape_raw(vctx["raw_seal"], "stream-seal") == (
+                    step_index not in invalid_seals
+                ), path
+            else:
+                assert shape(vctx["seal"], "stream-seal") == (
+                    step_index not in invalid_seals
+                ), path
+        elif "verify_seal" in step:
+            vctx = step["verify_seal"]
+            if "raw_seal" in vctx:
+                assert shape_raw(vctx["raw_seal"], "stream-seal") == (
+                    step_index not in invalid_seals
+                ), path
+            else:
+                assert shape(vctx["seal"], "stream-seal") == (
+                    step_index not in invalid_seals
+                ), path
 
 
 def main():
@@ -3907,6 +5654,7 @@ def main():
                 "receipt_verified",
                 "body_state",
                 "removal_eligibility",
+                "seal_verified",
             ):
                 continue
             name = (
