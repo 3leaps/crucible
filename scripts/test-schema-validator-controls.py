@@ -31,11 +31,64 @@ def report_from(proc):
     return None
 
 
+def check_refusal(proc, kind, data_path):
+    """CLI admission/parse refusals are distinct from validation and tool failure."""
+    require(proc.returncode == 1, f"{kind}: unexpected exit {proc.returncode}")
+    require(report_from(proc) is None, f"{kind}: unexpected validation report")
+    first_line = proc.stderr.splitlines()[0] if proc.stderr else ""
+    if kind == "admission":
+        prefix = (
+            "Error: validation failed: failed to load schema: "
+            "schema not admitted (unknown-format): "
+        )
+    else:
+        # Bind the CLI's parse category to this exact input; do not match the
+        # engine's natural-language detail about a particular invalid value.
+        prefix = f"Error: failed to parse {data_path} as JSON: invalid JSON instance: "
+    require(
+        first_line.startswith(prefix) and len(first_line) > len(prefix),
+        f"{kind}: unrecognized refusal diagnostic",
+    )
+
+
+def refusal_controls():
+    """A process failure must never satisfy an admission or parser negative."""
+    path = Path("data.json")
+    for kind, diagnostic in (
+        (
+            "admission",
+            "Error: validation failed: failed to load schema: "
+            "schema not admitted (unknown-format): unsupported format",
+        ),
+        (
+            "parse",
+            f"Error: failed to parse {path} as JSON: invalid JSON instance: invalid input",
+        ),
+    ):
+        good = subprocess.CompletedProcess([], 1, "", diagnostic)
+        check_refusal(good, kind, path)
+        for code, stdout, stderr in (
+            (70, "", diagnostic),
+            (-9, "", diagnostic),
+            (0, "", diagnostic),
+            (1, "", "simulated fatal process failure"),
+            (1, "", "Error: failed to read schema: unavailable"),
+            (1, '{"valid": false, "errors": []}', diagnostic),
+        ):
+            bad = subprocess.CompletedProcess([], code, stdout, stderr)
+            try:
+                check_refusal(bad, kind, path)
+            except AssertionError:
+                continue
+            raise AssertionError(f"{kind}: operational failure accepted as refusal")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--goneat", default=shutil.which("goneat"))
     parser.add_argument("--require-metadata", action="store_true")
     args = parser.parse_args()
+    refusal_controls()
     require(args.goneat, "goneat is required")
     binary = Path(args.goneat).resolve()
     passed = 0
@@ -71,15 +124,9 @@ def main():
             )
             report = report_from(proc)
             if admission:
-                require(
-                    proc.returncode != 0 and report is None,
-                    f"{label}: expected schema admission failure",
-                )
+                check_refusal(proc, "admission", data_path)
             elif expected is None:
-                require(
-                    proc.returncode != 0 and not (report or {}).get("valid"),
-                    f"{label}: expected raw JSON parse failure",
-                )
+                check_refusal(proc, "parse", data_path)
             else:
                 require(report is not None, f"{label}: missing validation report")
                 require(report["valid"] is expected, f"{label}: wrong verdict {report}")
