@@ -111,6 +111,14 @@ or define a separately reviewed scope profile. Provider-specific filters and win
 are not v0 scope predicates. A filtered index needs a stable declared keyspace
 whose complete enumeration can actually be qualified.
 
+Producer-side discovery compilers such as `date_partitions` or `segments` that
+resolve delimiter-bounded partitions or path segments to an exact, finite union
+of literal UTF-8 prefixes MUST emit the resolved canonical `{namespace, prefix}`
+set under `scope_profile: "unicode-prefix/v0"`. No separate wire scope profile
+is needed when the resolved observation plan is exactly that prefix union.
+Discovery does not change the byte-preservation, exact-equivalence or
+discovery-failure requirements of this contract.
+
 A plan's `set_id` MUST equal the segmented-snapshot selection's `namespace_id`.
 This is the index-set identity, distinct from a scope's object `namespace`. Plan
 scopes MUST be sorted
