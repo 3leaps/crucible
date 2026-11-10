@@ -562,7 +562,7 @@ function transition(t: Transition): Outcome {
       "acknowledgment_mismatch",
     );
     refuse(
-      typeof ack.acknowledged_by === "string" && ack.acknowledged_by.length > 0,
+      typeof ack.acknowledged_by === "string" && ID.test(ack.acknowledged_by),
       "acknowledgment_actor",
     );
     checkInstant(ack.acknowledged_at);
@@ -657,7 +657,10 @@ function enrich(
   parent: NonNullable<Transition["parent"]>,
   parentRows: Row[],
 ): Outcome {
-  refuse(t.observation_at === null && t.observations.length === 0, "enrichment_observation");
+  refuse(
+    t.observation_at === null && t.observations.length === 0 && t.absence_authority.length === 0,
+    "enrichment_observation",
+  );
   refuse(same(t.scopes, parent.scopes) && t.acknowledgment === null, "enrichment_scope_change");
   const rows = parentRows.map((r) => ({
     ...r,
@@ -829,8 +832,20 @@ function bound(pin: Binding, store: Record<string, string>, parse = true): JsonO
   return parse ? strictJSON(bytes) : raw;
 }
 
+function checkMetadataProfile(metadata: JsonObject) {
+  refuse(
+    metadata.kind === "index_metadata" &&
+      metadata.row_profile === "object-inventory/v0" &&
+      metadata.encoding_profile === "parquet-inventory/v0" &&
+      Array.isArray(metadata.capabilities) &&
+      metadata.capabilities.includes("contract: durable-index/v0"),
+    "graph_profile",
+  );
+}
+
 function bindings(input: JsonObject): unknown {
   const m = input.metadata;
+  checkMetadataProfile(m);
   const store = input.store;
   refuse(
     exactInteger(m, "generation") &&
@@ -875,6 +890,18 @@ function bindings(input: JsonObject): unknown {
     new Set(m.coverage.map((p: Binding) => p.id)).size === m.coverage.length,
     "coverage_identity",
   );
+  const observedIds = new Set<string>();
+  for (const observation of input.observations) {
+    refuse(closed(observation, [...SOURCE_FIELDS]), "observation_fields");
+    checkSource(observation);
+    refuse(
+      plan.scopes.some((scope: Scope) => contains(scope, observation.namespace, observation.key)),
+      "observation_outside_plan",
+    );
+    const id = rowId(observation);
+    refuse(!observedIds.has(id), "duplicate_observation");
+    observedIds.add(id);
+  }
   const authority: Scope[] = [];
   const selection = m.selection;
   const uri =
@@ -894,7 +921,10 @@ function bindings(input: JsonObject): unknown {
       partition: { namespace: scope.namespace },
       ...(scope.prefix ? { prefix: scope.prefix } : {}),
     };
-    refuse(att.claims.length === 1 && same(claim.scope, wireScope), "coverage_scope");
+    refuse(
+      att.claims.length === 1 && att.supersedes === undefined && same(claim.scope, wireScope),
+      "coverage_scope",
+    );
     refuse(
       att.subject.artifact_id === selection.artifact_id &&
         att.subject.grain_id === input.grain_id &&
@@ -1064,7 +1094,11 @@ function graph(input: JsonObject): JsonObject {
       "graph_identity",
     );
     refuse(
-      profile.profile_id === "example.index-logical/v0" &&
+      manifest.kind === "snapshot_manifest" &&
+        Array.isArray(manifest.capabilities) &&
+        manifest.capabilities.includes("contract: segmented-snapshot/v0") &&
+        manifest.capabilities.includes("contract: durable-index/v0") &&
+        profile.profile_id === "example.index-logical/v0" &&
         pub.profile.id === profile.profile_id &&
         same(pub.profile, manifest.profile) &&
         profile.operations.includes("full_verify") &&
@@ -1074,8 +1108,9 @@ function graph(input: JsonObject): JsonObject {
     );
     fetch(profile.semantic_spec, false, false);
     refuse(
-      profile.semantic_spec.sha256 ===
-        sha256(readFileSync(join(SCHEMAS, "fixtures/logical-profile.md"))) &&
+      profile.semantic_spec.id === profile.profile_id &&
+        profile.semantic_spec.sha256 ===
+          sha256(readFileSync(join(SCHEMAS, "fixtures/logical-profile.md"))) &&
         same(profile.capabilities, ["contract: segmented-snapshot/v0"]) &&
         profile.kind === "snapshot_profile" &&
         same(profile.operations, ["full_verify"]) &&
@@ -1090,6 +1125,7 @@ function graph(input: JsonObject): JsonObject {
     refuse(["complete", "partial"].includes(descriptor.lifecycle), "graph_publication");
     refuse(manifest.profile_metadata, "graph_dependency");
     const metadata = fetch(manifest.profile_metadata);
+    checkMetadataProfile(metadata);
     refuse(
       same(metadata.selection, pub.selection) &&
         manifest.profile_metadata.id === pub.selection.snapshot_id,
@@ -1126,6 +1162,11 @@ function graph(input: JsonObject): JsonObject {
       catalog.id === manifest.field_catalog.id &&
         catalog.grain === manifest.grain_id &&
         Array.isArray(catalog.fields) &&
+        catalog.fields.length === ROW_FIELDS.length &&
+        (catalog.withheld_fields === undefined ||
+          (Array.isArray(catalog.withheld_fields) && catalog.withheld_fields.length === 0)) &&
+        (catalog.withheld_field_count === undefined ||
+          (exactInteger(catalog, "withheld_field_count") && catalog.withheld_field_count === 0)) &&
         new Set(catalog.fields.map((f: JsonObject) => f.name)).size === catalog.fields.length &&
         ROW_FIELDS.every((f, i) =>
           catalog.fields.some(
@@ -1150,6 +1191,14 @@ function graph(input: JsonObject): JsonObject {
         ),
       "graph_catalog",
     );
+    if (descriptor.field_catalogs !== undefined) {
+      refuse(Array.isArray(descriptor.field_catalogs), "graph_catalog");
+      const embedded = descriptor.field_catalogs.filter((c: JsonObject) => c.id === catalog.id);
+      refuse(
+        embedded.length <= 1 && embedded.every((c: JsonObject) => same(c, catalog)),
+        "graph_catalog",
+      );
+    }
     const grain = descriptor.grains.find((g: JsonObject) => g.id === manifest.grain_id);
     const rep = descriptor.representations.find(
       (r: JsonObject) => r.id === manifest.representation_id,
@@ -1160,8 +1209,10 @@ function graph(input: JsonObject): JsonObject {
         descriptor.artifact_id === pub.selection.artifact_id &&
         descriptor.capabilities.includes("contract: data-artifact/v0") &&
         descriptor.producer.profile === profile.profile_id &&
+        grain.kind === "record_stream" &&
         grain.record_kind === "object-inventory/v0" &&
         rep.grain === manifest.grain_id &&
+        rep.role === "audit_stream" &&
         rep.format === "ndjson" &&
         rep.profile === profile.profile_id &&
         rep.uri === pub.manifest.ref &&
@@ -1169,8 +1220,11 @@ function graph(input: JsonObject): JsonObject {
         rep.read_path?.sidecar_required === true &&
         typeof rep.read_path?.sharded === "boolean" &&
         typeof rep.read_path?.range_readable === "boolean" &&
-        typeof rep.read_path?.appendable === "boolean" &&
-        Array.isArray(rep.read_path?.scan_capabilities) &&
+        rep.read_path?.appendable === false &&
+        same(rep.read_path?.scan_capabilities, []) &&
+        rep.read_path?.read_path_granularity === "artifact" &&
+        rep.read_path?.gateable_unit_granularity === "artifact" &&
+        rep.protection_enforceable_granularity === "artifact" &&
         grain.field_catalog_ref === manifest.field_catalog.id &&
         rep.field_catalog_ref === manifest.field_catalog.id,
       "graph_descriptor",
@@ -1398,6 +1452,23 @@ function report(label: string, results: Result[]): number {
   return failures;
 }
 
+// Compare manifest entries with the actual executions, not merely with the
+// set of supported runner names. Each logical path must execute exactly once.
+function inventoryFaults(listed: string[], executed: Map<string, number>): string[] {
+  const faults: string[] = [];
+  const counts = new Map<string, number>();
+  for (const path of listed) counts.set(path, (counts.get(path) ?? 0) + 1);
+  for (const [path, count] of counts) {
+    if (count !== 1) faults.push(`listed ${count} times: ${path}`);
+    const runs = executed.get(path) ?? 0;
+    if (runs !== 1) faults.push(`executed ${runs} times: ${path}`);
+  }
+  for (const [path, count] of executed) {
+    if (!counts.has(path)) faults.push(`unlisted execution (${count}): ${path}`);
+  }
+  return faults;
+}
+
 function main(): number {
   const json = (dir: string) =>
     readdirSync(dir)
@@ -1411,13 +1482,28 @@ function main(): number {
     .sort();
   console.log("durable-index independent reader (logical; not a reference implementation)");
   let failures = 0;
-  failures += report("plan vectors", json(join(VECTORS, "plans")).map(checkPlan));
+  const cases = readJson(join(SCHEMAS, "cases.json"));
+  const executed = new Map<string, number>();
+  const record = (path: string, result: Result): Result => {
+    executed.set(path, (executed.get(path) ?? 0) + 1);
+    return result;
+  };
+  failures += report(
+    "plan vectors",
+    json(join(VECTORS, "plans")).map((file) => record(`vectors/plans/${file}`, checkPlan(file))),
+  );
   failures += report(
     "transition vectors",
-    json(join(VECTORS, "transitions")).map(checkTransitionVector),
+    json(join(VECTORS, "transitions")).map((file) =>
+      record(`vectors/transitions/${file}`, checkTransitionVector(file)),
+    ),
   );
-  failures += report("transition rejects", rejectDirs.map(checkTransitionReject));
-  const cases = readJson(join(SCHEMAS, "cases.json"));
+  failures += report(
+    "transition rejects",
+    rejectDirs.map((dir) =>
+      record(`rejects/semantic/${dir}/case.json`, checkTransitionReject(dir)),
+    ),
+  );
   for (const runner of [
     "rows",
     "parsing",
@@ -1431,7 +1517,10 @@ function main(): number {
       const c = readJson(join(SCHEMAS, path));
       return c.runner === runner;
     });
-    failures += report(runner, paths.map(checkIndependent));
+    failures += report(
+      runner,
+      paths.map((path: string) => record(path, checkIndependent(path))),
+    );
   }
   // Mutations of independently accepted inputs must reach the named refusal.
   // These exercise the actual guards, not fixture-supplied expected outputs.
@@ -1499,6 +1588,131 @@ function main(): number {
     pin.byte_length = utf8.encode(bytes).length;
     pin.sha256 = sha256(utf8.encode(bytes));
   };
+  for (const [field, value] of [
+    ["row_profile", "unknown/v99"],
+    ["encoding_profile", "unknown/v99"],
+    ["kind", "unknown"],
+    ["capabilities", []],
+  ] as [string, unknown][]) {
+    const evidence = fixture("vectors/bindings/baseline.json");
+    evidence.metadata[field] = value;
+    const standalone = independentOutcome("bindings", evidence) as { refusal?: string };
+    if (standalone.refusal !== "graph_profile") {
+      console.error(`[!!] binding metadata ${field}: got ${standalone.refusal ?? "accept"}`);
+      failures++;
+    }
+    const g = fixture("vectors/graphs/baseline.json");
+    const pub = readJsonFromText(g.store[g.publication.ref]);
+    const manifest = readJsonFromText(g.store[pub.manifest.ref]);
+    const metadata = readJsonFromText(g.store[manifest.profile_metadata.ref]);
+    metadata[field] = value;
+    repin(g.store, manifest.profile_metadata, metadata);
+    repin(g.store, pub.manifest, manifest);
+    repin(g.store, g.publication, pub);
+    const result = independentOutcome("graphs", g) as { refusal?: string };
+    if (result.refusal !== "graph_profile") {
+      console.error(`[!!] graph metadata ${field}: got ${result.refusal ?? "accept"}`);
+      failures++;
+    }
+  }
+  // Each graph mutation is re-pinned through publication so the intended
+  // semantic guard, rather than an integrity mismatch, decides the result.
+  for (const change of [
+    "manifest capability",
+    "manifest kind",
+    "profile spec id",
+    "catalog withheld",
+    "catalog extra",
+    "inline catalog",
+    "appendable",
+  ]) {
+    const g = fixture("vectors/graphs/baseline.json");
+    const pub = readJsonFromText(g.store[g.publication.ref]);
+    const manifest = readJsonFromText(g.store[pub.manifest.ref]);
+    let reason = "graph_profile";
+    if (change === "manifest capability")
+      manifest.capabilities = ["contract: segmented-snapshot/v0"];
+    else if (change === "manifest kind") manifest.kind = "wrong";
+    else if (change === "profile spec id") {
+      const profile = readJsonFromText(g.store[pub.profile.ref]);
+      profile.semantic_spec.id = "wrong";
+      repin(g.store, pub.profile, profile);
+      manifest.profile = clone(pub.profile);
+    } else if (change === "catalog withheld" || change === "catalog extra") {
+      const catalog = readJsonFromText(g.store[manifest.field_catalog.ref]);
+      if (change === "catalog withheld") {
+        catalog.withheld_fields = ["secret"];
+        catalog.withheld_field_count = 1;
+      } else catalog.fields.push({ ...catalog.fields[0], name: "extra" });
+      repin(g.store, manifest.field_catalog, catalog);
+      reason = "graph_catalog";
+    } else {
+      const descriptor = readJsonFromText(g.store[pub.descriptor.ref]);
+      if (change === "inline catalog") {
+        const catalog = readJsonFromText(g.store[manifest.field_catalog.ref]);
+        catalog.fields[0].type = "integer";
+        descriptor.field_catalogs = [catalog];
+        reason = "graph_catalog";
+      } else {
+        descriptor.representations[0].read_path.appendable = true;
+        reason = "graph_descriptor";
+      }
+      repin(g.store, pub.descriptor, descriptor);
+    }
+    repin(g.store, pub.manifest, manifest);
+    repin(g.store, g.publication, pub);
+    const result = independentOutcome("graphs", g) as { refusal?: string };
+    if (result.refusal !== reason) {
+      console.error(`[!!] ${change}: got ${result.refusal ?? "accept"}`);
+      failures++;
+    }
+  }
+  const embeddedGraph = fixture("vectors/graphs/baseline.json");
+  const embeddedPub = readJsonFromText(embeddedGraph.store[embeddedGraph.publication.ref]);
+  const embeddedManifest = readJsonFromText(embeddedGraph.store[embeddedPub.manifest.ref]);
+  const embeddedDescriptor = readJsonFromText(embeddedGraph.store[embeddedPub.descriptor.ref]);
+  embeddedDescriptor.field_catalogs = [
+    readJsonFromText(embeddedGraph.store[embeddedManifest.field_catalog.ref]),
+  ];
+  repin(embeddedGraph.store, embeddedPub.descriptor, embeddedDescriptor);
+  repin(embeddedGraph.store, embeddedGraph.publication, embeddedPub);
+  const embeddedResult = independentOutcome("graphs", embeddedGraph) as { evidence_scope?: string };
+  if (embeddedResult.evidence_scope !== "logical_projection") {
+    console.error("[!!] matching inline catalog control");
+    failures++;
+  }
+  const superseded = fixture("vectors/bindings/baseline.json");
+  const supersededPin = superseded.metadata.coverage[0];
+  const supersededAttestation = readJsonFromText(superseded.store[supersededPin.ref]);
+  supersededAttestation.supersedes = "previous";
+  repin(superseded.store, supersededPin, supersededAttestation);
+  const supersededResult = independentOutcome("bindings", superseded) as { refusal?: string };
+  if (supersededResult.refusal !== "coverage_scope") {
+    console.error("[!!] superseded coverage control");
+    failures++;
+  }
+  const duplicated = fixture("vectors/bindings/baseline.json");
+  duplicated.observations.push(clone(duplicated.observations[0]));
+  const duplicatedResult = independentOutcome("bindings", duplicated) as { refusal?: string };
+  if (duplicatedResult.refusal !== "duplicate_observation") {
+    console.error("[!!] duplicate bound observation control");
+    failures++;
+  }
+  const invalidActor = fixture("vectors/transitions/ack-retains-omitted-row.json");
+  invalidActor.acknowledgment.acknowledged_by = "invalid actor";
+  const invalidActorResult = evaluate(invalidActor) as { refusal?: string };
+  if (invalidActorResult.refusal !== "acknowledgment_actor") {
+    console.error("[!!] acknowledgment actor control");
+    failures++;
+  }
+  const enrichAuthority = fixture("vectors/transitions/enrichment-only.json");
+  enrichAuthority.absence_authority = clone(enrichAuthority.scopes);
+  const enrichAuthorityResult = evaluate(enrichAuthority) as { refusal?: string };
+  if (enrichAuthorityResult.refusal !== "enrichment_observation") {
+    console.error("[!!] enrichment authority control");
+    failures++;
+  }
+
   const loss = fixture("vectors/transitions/ack-retains-omitted-row.json");
   const boundLoss = fixture("vectors/bound_transitions/observe.json");
   boundLoss.transition = clone(loss);
@@ -1717,6 +1931,29 @@ function main(): number {
     failures++;
   }
   console.log(`  mutation witnesses: ${witnesses.length}; numeric controls: 9`);
+  const listed = [...cases.plans, ...cases.transitions, ...cases.scenarios];
+  for (const fault of inventoryFaults(listed, executed)) {
+    console.error(`[!!] logical inventory: ${fault}`);
+    failures++;
+  }
+  // A supported transitions runner at a new location must not be silently
+  // skipped merely because the directory scanners did not dispatch it.
+  const hypothetical = "control/new-transition-case.json";
+  const omitted = inventoryFaults([...listed, hypothetical], executed);
+  if (!omitted.includes(`executed 0 times: ${hypothetical}`)) {
+    console.error("[!!] inventory did not detect an unexecuted scenario");
+    failures++;
+  }
+  const repeatedExecutions = new Map(executed);
+  repeatedExecutions.set(hypothetical, 2);
+  if (
+    !inventoryFaults([...listed, hypothetical], repeatedExecutions).includes(
+      `executed 2 times: ${hypothetical}`,
+    )
+  ) {
+    console.error("[!!] inventory did not detect a duplicate execution");
+    failures++;
+  }
   // Every scenario must select a supported runner, and plan/transition files must
   // be listed. This prevents a newly accepted fixture from silently going unused.
   const supported = new Set([
