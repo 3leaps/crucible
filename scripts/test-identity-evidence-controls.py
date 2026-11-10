@@ -1500,14 +1500,10 @@ def shape_suite(items, goneat_bin):
 
 
 def suite_error_controls(goneat_bin):
-    """Verify batched goneat suite rejects parse/range/schema errors as RuntimeError."""
+    """Separate genuine suite failures from the validator's numeric-decoder profile."""
     report_schema = FAMILY / "report.schema.json"
     for label, bad_item in (
         ("malformed_json", ("bad", report_schema, "{\n")),
-        (
-            "float64_overflow",
-            ("huge", report_schema, '{"contract":"identity-evidence/v0","n":1e400}\n'),
-        ),
         ("missing_schema", ("missing", FAMILY / "nonexistent.schema.json", "{}\n")),
     ):
         try:
@@ -1516,6 +1512,27 @@ def suite_error_controls(goneat_bin):
             pass
         else:
             raise AssertionError(f"suite_error_controls did not fail on {label}")
+
+    # Older Goneat releases parse JSON numbers through float64 and reject 1e400
+    # before schema evaluation. Exact-decoding releases preserve the finite decimal
+    # and report this additional property as an ordinary schema rejection instead.
+    # Probe behavior, rather than a version label, during the pin transition.
+    try:
+        verdicts = shape_suite(
+            [
+                (
+                    "huge",
+                    report_schema,
+                    '{"contract":"identity-evidence/v0","n":1e400}\n',
+                )
+            ],
+            goneat_bin,
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "1e400" in message and "float64" in message, message
+    else:
+        assert verdicts == {"huge": False}, verdicts
 
 
 def main():

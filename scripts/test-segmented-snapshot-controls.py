@@ -13,6 +13,7 @@ import functools
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 import tempfile
 import urllib.parse
@@ -23,6 +24,8 @@ FAMILY = REPO / "schemas/segmented-snapshot/v0"
 BASE = FAMILY / "fixtures/base"
 CAPABILITY = "contract: segmented-snapshot/v0"
 SAFE_INTEGER = 9007199254740991
+_TYPE_NAMES = "(?:array|boolean|integer|null|number|object|string)"
+_TYPE_MISMATCH = re.compile(rf"^got {_TYPE_NAMES}, want {_TYPE_NAMES}$")
 FILES = {
     "artifact:profile-spec": "profile-spec.md",
     "artifact:retention-spec": "retention-spec.md",
@@ -237,6 +240,7 @@ def metaschema_result(result: subprocess.CompletedProcess, paths: list[str]) -> 
                         )
                         or " must be " in message
                         or message.endswith(" is required")
+                        or _TYPE_MISMATCH.fullmatch(message) is not None
                     )
         valid = all(record["valid"] for record in records)
         assert (result.returncode == 0) == valid
@@ -304,6 +308,16 @@ def test_metaschema_report_binding() -> None:
         refused(invalid, code=1)
         invalid[0]["errors"] = ["(root): fields is required"]
         assert metaschema_result(result(invalid, 1), paths) is False
+        invalid[0]["errors"] = ["properties.value.type: got string, want array"]
+        assert metaschema_result(result(invalid, 1), paths) is False
+        for malformed_type_diagnostic in (
+            "properties.value.type: got string want array",
+            "properties.value.type: got string, want mapping",
+            "properties.value.type: got bytes, want array",
+            "properties.value.type: got string, want array; resolver failed",
+        ):
+            invalid[0]["errors"] = [malformed_type_diagnostic]
+            refused(invalid, code=1)
     print("[ok] metaschema slash inputs and one-to-one report binding")
 
 
@@ -803,7 +817,14 @@ def main() -> None:
         catalog_report = catalog_reports[0]
         report, _ = json.JSONDecoder().raw_decode(catalog_report.stderr.lstrip())
         assert catalog_report.returncode == 1 and report["valid"] is False
-        assert any("fields is required" in item["message"] for item in report["errors"])
+        # Only fields was removed from the valid catalog. Check the structured
+        # root diagnostic without coupling this control to engine-specific prose.
+        assert any(
+            item.get("path") == "(root)"
+            and isinstance(item.get("message"), str)
+            and item["message"]
+            for item in report["errors"]
+        )
         print("[ok] catalog fields-required raw report: " + catalog_report.stderr)
         print("[ok] catalog pointer is OS-independent; valid/fields-required negative")
         for ref, schema in SCHEMAS.items():
