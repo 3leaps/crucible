@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Extend the independent TypeScript durable-index checker to all authored
+  logical scenario categories, including bindings, projection graphs, cutovers,
+  row ordering and strict parser controls.
+- Clarify that discovery compilers resolving partitions or path segments to
+  exact literal prefix unions emit canonical `unicode-prefix/v0` plans.
+
 ### Fixed
 
 - Reject blank and whitespace-only durable-record NDJSON lines as `ingest`

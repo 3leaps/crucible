@@ -29,10 +29,10 @@ count as data refusals.
 It was written from the standard's text, not from the Python checker, and shares
 no code with it. Its independence can be inspected:
 
-| Checker                                  | Language   | Author role | Model           | Dependencies                                              |
-| ---------------------------------------- | ---------- | ----------- | --------------- | --------------------------------------------------------- |
-| `scripts/test-durable-index-controls.py` | Python     | entarch     | GPT-6 (Codex)   | standard library; invokes goneat (Rule 2b subject matter) |
-| `scripts/durable-index-reader.ts`        | TypeScript | devlead     | Claude Opus 5.5 | `node:` standard modules only; invokes nothing            |
+| Checker                                  | Language   | Author role | Model                          | Dependencies                                              |
+| ---------------------------------------- | ---------- | ----------- | ------------------------------ | --------------------------------------------------------- |
+| `scripts/test-durable-index-controls.py` | Python     | entarch     | GPT-6 (Codex)                  | standard library; invokes goneat (Rule 2b subject matter) |
+| `scripts/durable-index-reader.ts`        | TypeScript | devlead     | Claude Opus 5.5; GPT-6.1 Terra | `node:` standard modules only; invokes nothing            |
 
 The commit attribution trailers record the author role and model of each. A
 different language and author reduce correlated implementation mistakes; they
@@ -58,10 +58,10 @@ differently or names no current fixture fails the run, so a fix or a renamed
 fixture is noticed. Each entry is an open finding that must be resolved before
 the next tagged release: the table is empty at tag.
 
-Current coverage is partial: plan vectors (canonicalization, framed digest,
-scope loss and membership), positive transition vectors with exact output rows,
-and transition rejects. Binding, graph, cutover, row and parsing scenarios are
-not yet independently checked by it.
+The reader checks all plan, transition, and semantic scenario entries in
+`cases.json`, including bindings, complete logical graphs, cutovers, cross-member
+rows and strict parsing. Fixed mutations exercise refusal guards. Structural
+`shape` entries are checked by the Python/goneat gate, not by this reader.
 
 Examples are standalone structural objects. Binding scenarios verify an index
 metadata/plan/coverage subgraph with actual pinned bytes and authored enumeration

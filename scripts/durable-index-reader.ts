@@ -24,8 +24,45 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const VECTORS = join(ROOT, "schemas/durable-index/v0/vectors");
 
 type Scope = { namespace: string; prefix: string };
+type JsonObject = Record<string, unknown>;
+type Binding = { id: string; ref: string; sha256: string; byte_length: number };
+type NumericToken = { [numericToken]: true; value: number; integral: boolean };
 
 const utf8 = new TextEncoder();
+// Binary64 alone cannot distinguish a rounded decimal fraction from an integer.
+// Preserve that property on each parsed object independently of its JS value.
+const numericIntegrality = new WeakMap<object, Map<string, boolean>>();
+const numericToken = Symbol("numeric token");
+function exactInteger(object: JsonObject, key: string): boolean {
+  return Number.isSafeInteger(object[key]) && numericIntegrality.get(object)?.get(key) !== false;
+}
+function clone<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  const result: JsonObject = Array.isArray(value) ? [] : {};
+  for (const key of Object.keys(value)) result[key] = clone((value as JsonObject)[key]);
+  const facts = numericIntegrality.get(value);
+  if (facts) numericIntegrality.set(result, new Map(facts));
+  return result;
+}
+function overlay(base: JsonObject, replacement: JsonObject): JsonObject {
+  const result = clone(base);
+  const facts = new Map(numericIntegrality.get(result));
+  const replacementFacts = numericIntegrality.get(replacement);
+  for (const key of Object.keys(replacement)) {
+    result[key] = clone(replacement[key]);
+    facts.delete(key);
+    const fact = replacementFacts?.get(key);
+    if (fact !== undefined) facts.set(key, fact);
+  }
+  numericIntegrality.set(result, facts);
+  return result;
+}
+function readJson(path: string): JsonObject {
+  return strictJSON(readFileSync(path));
+}
+function readJsonFromText(text: string): JsonObject {
+  return strictJSON(utf8.encode(text));
+}
 
 // Unsigned UTF-8 byte order (I2). JavaScript string comparison uses UTF-16 code
 // units, which disagrees with UTF-8 byte order for supplementary characters, so
@@ -121,11 +158,26 @@ function loses(previous: Scope[], next: Scope[]): boolean {
 type Result = { file: string; agree: boolean; detail?: string };
 
 function same(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b))
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((v, i) => same(v, b[i]))
+    );
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+  const left = a as Record<string, unknown>,
+    right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every((k) => Object.hasOwn(right, k) && same(left[k], right[k]))
+  );
 }
 
 function checkPlan(file: string): Result {
-  const v = JSON.parse(readFileSync(join(VECTORS, "plans", file), "utf8"));
+  const v = readJson(join(VECTORS, "plans", file));
   const canon = canonical(v.input);
   if (!same(canon, v.canonical)) return { file, agree: false, detail: "canonical" };
   const bytes = planBytes(v.set_id, canon);
@@ -222,17 +274,92 @@ function compareRows(a: { namespace: string; key: string }, b: { namespace: stri
 
 const rowId = (r: { namespace: string; key: string }) => JSON.stringify([r.namespace, r.key]);
 
+function checkScalar(value: string) {
+  for (let i = 0; i < value.length; i++) {
+    const n = value.charCodeAt(i);
+    if (n >= 0xd800 && n <= 0xdbff) {
+      const next = value.charCodeAt(++i);
+      refuse(next >= 0xdc00 && next <= 0xdfff, "invalid_unicode");
+    } else refuse(n < 0xdc00 || n > 0xdfff, "invalid_unicode");
+  }
+}
 function checkText(value: string) {
+  checkScalar(value);
   refuse(utf8.encode(value).length <= MAX_TEXT_BYTES, "capacity");
 }
 
+const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const KIND = /^[a-z][a-z0-9._-]{0,63}$/;
+const ATTRIBUTE_NAME = /^[a-z][a-z0-9._-]{0,127}$/;
+function closed(value: unknown, fields: string[]): value is JsonObject {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === fields.length &&
+    fields.every((f) => Object.hasOwn(value, f))
+  );
+}
+function checkRevision(value: unknown) {
+  refuse(
+    closed(value, ["kind", "value"]) &&
+      typeof value.kind === "string" &&
+      KIND.test(value.kind) &&
+      typeof value.value === "string" &&
+      value.value.length > 0 &&
+      Array.from(value.value).length <= 4096,
+    "invalid_shape",
+  );
+  checkScalar(value.value);
+}
+function checkStamp(value: unknown) {
+  refuse(
+    closed(value, ["snapshot_id", "at"]) &&
+      typeof value.snapshot_id === "string" &&
+      ID.test(value.snapshot_id),
+    "invalid_shape",
+  );
+  checkInstant(value.at);
+}
+function checkAttribute(value: unknown) {
+  refuse(
+    closed(value, ["name", "value", "operation", "observed_at", "against_revision"]) &&
+      typeof value.name === "string" &&
+      ATTRIBUTE_NAME.test(value.name) &&
+      (value.value === null ||
+        (typeof value.value === "string" && Array.from(value.value).length <= 65536)) &&
+      typeof value.operation === "string" &&
+      ID.test(value.operation),
+    "invalid_shape",
+  );
+  if (typeof value.value === "string") {
+    // Attribute values have a larger character ceiling than keys.
+    for (const c of value.value) {
+      const n = c.codePointAt(0);
+      refuse(n !== undefined && (n < 0xd800 || n > 0xdfff), "invalid_unicode");
+    }
+  }
+  checkRevision(value.against_revision);
+  checkInstant(value.observed_at);
+}
+
 function checkSource(o: Record<string, unknown>) {
-  refuse(typeof o.namespace === "string" && typeof o.key === "string", "invalid_shape");
+  refuse(
+    typeof o.namespace === "string" &&
+      ID.test(o.namespace) &&
+      typeof o.key === "string" &&
+      o.key.length > 0 &&
+      (o.storage_class === null ||
+        (typeof o.storage_class === "string" && Array.from(o.storage_class).length <= 4096)),
+    "invalid_shape",
+  );
+  if (o.revision !== null) checkRevision(o.revision);
+  if (typeof o.storage_class === "string") checkScalar(o.storage_class);
   checkText(o.namespace as string);
   checkText(o.key as string);
   const size = o.size_bytes;
   refuse(
-    Number.isInteger(size) && (size as number) >= 0 && (size as number) <= MAX_SIZE,
+    exactInteger(o, "size_bytes") && (size as number) >= 0 && (size as number) <= MAX_SIZE,
     "invalid_shape",
   );
   if (o.last_modified !== null) checkInstant(o.last_modified);
@@ -242,6 +369,8 @@ function checkSource(o: Record<string, unknown>) {
 // row's non-null revision, and only on an active row (I6). A repeated name on a
 // row is an ordering fault: names must be strictly increasing.
 function checkEnrichments(row: Row) {
+  refuse(Array.isArray(row.enrichments) && row.enrichments.length <= 256, "invalid_shape");
+  for (const attribute of row.enrichments) checkAttribute(attribute);
   const names = row.enrichments.map((e) => e.name);
   for (let i = 1; i < names.length; i++) {
     refuse(compareBytes(utf8.encode(names[i - 1]), utf8.encode(names[i])) < 0, "enrichment_order");
@@ -255,9 +384,8 @@ function checkEnrichments(row: Row) {
 
 // Internal consistency of one row's lineage (I4).
 function checkLineage(row: Row) {
-  for (const s of [row.first_seen, row.last_seen, row.last_changed, row.deleted]) {
-    if (s) checkInstant(s.at);
-  }
+  for (const s of [row.first_seen, row.last_seen, row.last_changed]) checkStamp(s);
+  if (row.deleted !== null) checkStamp(row.deleted);
   refuse(
     row.first_seen.at <= row.last_seen.at && row.first_seen.at <= row.last_changed.at,
     "lineage_order",
@@ -279,6 +407,7 @@ const ROW_FIELDS = [
 
 // Rows are closed objects: exactly the row fields, nothing more (I4).
 function checkRowShape(row: Row) {
+  refuse(row !== null && typeof row === "object" && !Array.isArray(row), "invalid_shape");
   const keys = Object.keys(row);
   refuse(
     keys.length === ROW_FIELDS.length && ROW_FIELDS.every((f) => keys.includes(f)),
@@ -328,6 +457,8 @@ type Outcome = {
 };
 
 function transition(t: Transition): Outcome {
+  refuse(exactInteger(t, "generation"), "invalid_shape");
+  if (t.parent) refuse(exactInteger(t.parent, "generation"), "invalid_shape");
   // Plan scopes are bounded in UTF-8 bytes (I2) before any use of them.
   for (const scope of t.scopes) {
     checkText(scope.namespace);
@@ -359,6 +490,12 @@ function transition(t: Transition): Outcome {
   }
 
   // Inherited rows: strictly ordered, unique, and individually valid (I4).
+  for (const row of parentRows) {
+    checkRowShape(row);
+    checkSource(row);
+    checkLineage(row);
+    checkEnrichments(row);
+  }
   for (let i = 1; i < parentRows.length; i++) {
     const c = compareRows(parentRows[i - 1], parentRows[i]);
     refuse(c !== 0, "duplicate_key_row");
@@ -366,10 +503,6 @@ function transition(t: Transition): Outcome {
   }
   const seenTimes = new Map<string, string>();
   for (const row of parentRows) {
-    checkRowShape(row);
-    checkSource(row);
-    checkLineage(row);
-    checkEnrichments(row);
     for (const s of [row.first_seen, row.last_seen, row.last_changed, row.deleted]) {
       if (!s) continue;
       refuse(s.snapshot_id !== t.snapshot_id, "fabricated_freshness");
@@ -497,6 +630,7 @@ function transition(t: Transition): Outcome {
 function applyEnrichments(rows: Row[], updates: Transition["enrichments"]) {
   const byId = new Map(rows.map((r) => [rowId(r), r]));
   // One update per row/attribute; a repeat is refused, never last-write-wins (I6).
+  for (const update of updates) checkAttribute(update.attribute);
   const targets = updates.map((u) => JSON.stringify([u.namespace, u.key, u.attribute.name]));
   refuse(new Set(targets).size === targets.length, "duplicate_enrichment");
   for (const u of updates) {
@@ -539,7 +673,7 @@ function enrich(
 
 function evaluate(t: Transition): Outcome | { refusal: string } {
   try {
-    return transition(structuredClone(t));
+    return transition(clone(t));
   } catch (e) {
     if (e instanceof Refusal) return { refusal: e.reason };
     throw e;
@@ -548,8 +682,660 @@ function evaluate(t: Transition): Outcome | { refusal: string } {
 
 const SCHEMAS = join(ROOT, "schemas/durable-index/v0");
 
+// A strict recursive descent parser detects duplicate names before object creation,
+// validates scalar Unicode, and limits nesting before the engine sees the input.
+function strictJSON(bytes: Uint8Array): unknown {
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Refusal("invalid_unicode");
+  }
+  let pos = 0;
+  const ws = () => {
+    while (/[\x20\t\r\n]/.test(text[pos] ?? "\0")) pos++;
+  };
+  const string = (): string => {
+    const start = pos++;
+    while (pos < text.length) {
+      const c = text[pos++];
+      if (c === '"') {
+        let value: string;
+        try {
+          value = JSON.parse(text.slice(start, pos));
+        } catch {
+          throw new Refusal("invalid_json");
+        }
+        for (let i = 0; i < value.length; i++) {
+          const n = value.charCodeAt(i);
+          if (n >= 0xd800 && n <= 0xdbff) {
+            const next = value.charCodeAt(++i);
+            refuse(next >= 0xdc00 && next <= 0xdfff, "invalid_unicode");
+          } else refuse(n < 0xdc00 || n > 0xdfff, "invalid_unicode");
+        }
+        return value;
+      }
+      if (c === "\\") {
+        pos++;
+      }
+    }
+    throw new Refusal("invalid_json");
+  };
+  const value = (depth: number): unknown => {
+    ws();
+    const c = text[pos];
+    if (c === '"') return string();
+    if (c === "{" || c === "[") {
+      refuse(depth < 256, "invalid_json");
+      pos++;
+      ws();
+      const object = c === "{";
+      const end = object ? "}" : "]";
+      const out: JsonObject = object ? Object.create(null) : [];
+      const keys = new Set<string>();
+      const assign = (key: string, item: unknown) => {
+        if (item && typeof item === "object" && numericToken in item) {
+          out[key] = (item as NumericToken).value;
+          let facts = numericIntegrality.get(out);
+          if (!facts) {
+            facts = new Map();
+            numericIntegrality.set(out, facts);
+          }
+          facts.set(key, (item as NumericToken).integral);
+        } else out[key] = item;
+      };
+      if (text[pos] === end) {
+        pos++;
+        return out;
+      }
+      while (true) {
+        if (object) {
+          refuse(text[pos] === '"', "invalid_json");
+          const key = string();
+          refuse(!keys.has(key), "duplicate_key");
+          keys.add(key);
+          ws();
+          refuse(text[pos++] === ":", "invalid_json");
+          assign(key, value(depth + 1));
+        } else assign(String(out.length), value(depth + 1));
+        ws();
+        if (text[pos] === end) {
+          pos++;
+          return out;
+        }
+        refuse(text[pos++] === ",", "invalid_json");
+        ws();
+      }
+    }
+    const match = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(
+      text.slice(pos),
+    );
+    refuse(match, "invalid_json");
+    pos += match[0].length;
+    const parsed = JSON.parse(match[0]);
+    refuse(typeof parsed !== "number" || Number.isFinite(parsed), "invalid_json");
+    if (typeof parsed === "number") {
+      const [coefficient, exponentText] = match[0].toLowerCase().split("e");
+      const parts = coefficient.replace(/^-/, "").split(".");
+      const digits = parts.join("");
+      const scale = (parts[1]?.length ?? 0) - Number(exponentText ?? 0);
+      const trailing = digits.length - digits.replace(/0+$/, "").length;
+      const integral = /^0+$/.test(digits) || scale <= 0 || trailing >= scale;
+      return { [numericToken]: true, value: parsed, integral };
+    }
+    return parsed;
+  };
+  const result = value(0);
+  ws();
+  refuse(pos === text.length, "invalid_json");
+  if (result && typeof result === "object" && numericToken in result)
+    return (result as NumericToken).value;
+  return result;
+}
+
+function readRows(members: Row[][]): { row_count: number } {
+  let previous: Row | undefined;
+  let count = 0;
+  const times = new Map<string, string>();
+  for (const member of members)
+    for (const row of member) {
+      checkRowShape(row);
+      checkSource(row);
+      checkLineage(row);
+      checkEnrichments(row);
+      if (previous) {
+        const order = compareRows(previous, row);
+        refuse(order !== 0, "duplicate_key_row");
+        refuse(order < 0, "row_order");
+      }
+      for (const stamp of [row.first_seen, row.last_seen, row.last_changed, row.deleted]) {
+        if (!stamp) continue;
+        const known = times.get(stamp.snapshot_id);
+        refuse(known === undefined || known === stamp.at, "stamp_conflict");
+        times.set(stamp.snapshot_id, stamp.at);
+      }
+      previous = row;
+      count++;
+    }
+  return { row_count: count };
+}
+
+function bound(pin: Binding, store: Record<string, string>, parse = true): JsonObject {
+  refuse(exactInteger(pin, "byte_length"), "invalid_shape");
+  const raw = store[pin.ref];
+  refuse(raw !== undefined, "binding_unavailable");
+  const bytes = utf8.encode(raw);
+  refuse(bytes.length === pin.byte_length && sha256(bytes) === pin.sha256, "binding_integrity");
+  return parse ? strictJSON(bytes) : raw;
+}
+
+function bindings(input: JsonObject): unknown {
+  const m = input.metadata;
+  const store = input.store;
+  refuse(
+    exactInteger(m, "generation") &&
+      exactInteger(m, "effective_scope_count") &&
+      exactInteger(m, "retained_unobserved_rows"),
+    "invalid_shape",
+  );
+  if (m.mode === "enrich") {
+    const parent = input.inherited_from.metadata;
+    refuse(
+      same(m.plan, parent.plan) &&
+        same(m.coverage, parent.coverage) &&
+        m.plan_digest === parent.plan_digest &&
+        m.effective_scope_count === parent.effective_scope_count,
+      "coverage_inheritance",
+    );
+    return { absence_authority: [] };
+  }
+  const plan = bound(m.plan, store);
+  refuse(
+    plan.set_id === m.selection.namespace_id &&
+      m.plan.id === plan.set_id &&
+      plan.kind === "index_plan" &&
+      plan.scope_profile === "unicode-prefix/v0" &&
+      plan.capabilities?.includes("contract: durable-index/v0"),
+    "plan_identity",
+  );
+  refuse(plan.scopes.length <= 65536, "capacity");
+  for (const scope of plan.scopes) {
+    checkText(scope.namespace);
+    checkText(scope.prefix);
+  }
+  refuse(same(plan.scopes, canonical(plan.scopes)), "noncanonical_plan");
+  refuse(m.effective_scope_count === plan.scopes.length, "scope_count");
+  refuse(m.plan_digest === sha256(planBytes(plan.set_id, plan.scopes)), "plan_digest");
+  refuse(m.coverage.length === plan.scopes.length, "coverage_count");
+  refuse(
+    new Set(m.coverage.map((p: Binding) => p.ref)).size === m.coverage.length,
+    "binding_alias",
+  );
+  refuse(
+    new Set(m.coverage.map((p: Binding) => p.id)).size === m.coverage.length,
+    "coverage_identity",
+  );
+  const authority: Scope[] = [];
+  const selection = m.selection;
+  const uri =
+    "snapshot:" +
+    sha256(
+      utf8.encode(
+        `segmented-snapshot/v0/subject\0${selection.namespace_id}\0${selection.snapshot_id}`,
+      ),
+    );
+  for (let i = 0; i < plan.scopes.length; i++) {
+    const pin = m.coverage[i],
+      scope = plan.scopes[i],
+      att = bound(pin, store);
+    refuse(pin.id === att.attestation_id, "coverage_identity");
+    const claim = att.claims[0];
+    const wireScope = {
+      partition: { namespace: scope.namespace },
+      ...(scope.prefix ? { prefix: scope.prefix } : {}),
+    };
+    refuse(att.claims.length === 1 && same(claim.scope, wireScope), "coverage_scope");
+    refuse(
+      att.subject.artifact_id === selection.artifact_id &&
+        att.subject.grain_id === input.grain_id &&
+        att.subject.subject_uri === uri,
+      "coverage_subject",
+    );
+    refuse(
+      att.emitter.relation === "producer" && att.emitter.run_id === selection.snapshot_id,
+      "coverage_emitter",
+    );
+    refuse(att.as_of === m.observation_at, "coverage_time");
+    const count = input.observations.filter((o: Row) => contains(scope, o.namespace, o.key)).length;
+    const volume = claim.volume;
+    refuse(
+      volume &&
+        volume.unit === "objects" &&
+        exactInteger(volume, "observed") &&
+        volume.observed === count &&
+        (volume.expected === undefined ||
+          (exactInteger(volume, "expected") && volume.expected >= count)),
+      "coverage_volume",
+    );
+    const gaps = att.gaps ?? [];
+    for (const gap of gaps) {
+      const gs = gap.scope;
+      refuse(
+        gs &&
+          gs.partition?.namespace === scope.namespace &&
+          typeof (gs.prefix ?? "") === "string" &&
+          covers(scope, { namespace: gs.partition.namespace, prefix: gs.prefix ?? "" }),
+        "coverage_gap",
+      );
+    }
+    refuse(att.coverage_state !== "complete" || gaps.length === 0, "coverage_complete_gap");
+    if (
+      att.coverage_state === "complete" &&
+      claim.basis === "confirmed" &&
+      ["enumerated", "reconciled"].includes(claim.method)
+    ) {
+      const observed = new Set(input.observations.map(rowId));
+      refuse(
+        input.enumerated.every(
+          (e: Row) => !contains(scope, e.namespace, e.key) || observed.has(rowId(e)),
+        ),
+        "enumerated_key_omitted",
+      );
+      authority.push(scope);
+    }
+  }
+  return { absence_authority: authority };
+}
+
+function metadataAck(metadata: JsonObject): Ack {
+  const ack = metadata.loss_acknowledgment;
+  if (ack === null) return null;
+  refuse(ack && metadata.parent && same(ack.parent, metadata.parent), "acknowledgment_mismatch");
+  return {
+    parent_sha256: ack.parent.publication.sha256,
+    plan_digest: ack.plan_sha256,
+    acknowledged_by: ack.acknowledged_by,
+    acknowledged_at: ack.acknowledged_at,
+  };
+}
+
+function boundTransition(input: JsonObject): unknown {
+  const evidence = input.evidence,
+    t = clone(input.transition),
+    m = evidence.metadata;
+  const plan = bound(m.plan, evidence.store);
+  const authority = bindings(evidence) as { absence_authority: Scope[] };
+  refuse(
+    m.mode === t.mode &&
+      m.generation === t.generation &&
+      m.selection.namespace_id === t.set_id &&
+      m.selection.snapshot_id === t.snapshot_id &&
+      m.observation_at === t.observation_at &&
+      same(metadataAck(m), t.acknowledgment) &&
+      same(plan.scopes, t.scopes) &&
+      same(evidence.observations, t.observations) &&
+      (t.parent === null
+        ? m.parent === null
+        : m.parent !== null &&
+          m.parent.selection.namespace_id === t.parent.set_id &&
+          m.parent.selection.snapshot_id === t.parent.snapshot_id &&
+          m.parent.publication.sha256 === t.parent.publication_sha256),
+    "metadata_transition",
+  );
+  t.absence_authority = authority.absence_authority;
+  const out = transition(t);
+  refuse(
+    m.admission === out.admission && m.retained_unobserved_rows === out.retained_unobserved_rows,
+    "metadata_transition",
+  );
+  return out;
+}
+
+function cutover(input: JsonObject): unknown {
+  const r = input.record;
+  refuse(r !== null, "cutover_required");
+  refuse(input.authorized_actors.includes(r.authorized_by), "cutover_actor");
+  refuse(same(r.rollback, r.old.publication), "cutover_rollback");
+  const old = bound(r.old.publication, input.store);
+  const next = bound(r.new.publication, input.store);
+  refuse(
+    old.publication_id === r.old.publication.id &&
+      next.publication_id === r.new.publication.id &&
+      same(old.selection, r.old.selection) &&
+      same(next.selection, r.new.selection) &&
+      !same(r.old.publication, r.new.publication) &&
+      r.old.selection.snapshot_id !== r.new.selection.snapshot_id,
+    "cutover_selection",
+  );
+  const manifest = bound(next.manifest, input.store);
+  const metadata = bound(manifest.profile_metadata, input.store);
+  refuse(
+    same(manifest.selection, r.new.selection) && same(metadata.selection, r.new.selection),
+    "cutover_selection",
+  );
+  refuse(
+    metadata.mode === "baseline" &&
+      exactInteger(metadata, "generation") &&
+      metadata.generation === 0 &&
+      metadata.parent === null,
+    "cutover_baseline",
+  );
+  refuse(checkInstant(r.accepted_at) >= checkInstant(metadata.observation_at), "cutover_time");
+  return { cutover: "explicit_baseline" };
+}
+
+function graph(input: JsonObject): JsonObject {
+  refuse(input.projection === "logical-only/v0", "graph_profile");
+  const store = input.store;
+  const seen = new Set<string>();
+  const snapshotIds = new Set<string>();
+  const visit = (pin: Binding, depth: number): JsonObject => {
+    refuse(depth < 64, "capacity");
+    refuse(!seen.has(pin.sha256), "parent_cycle");
+    seen.add(pin.sha256);
+    let metadataBytes = 0;
+    const refs = new Set<string>();
+    const fetch = (p: Binding, member = false, parse = true): JsonObject => {
+      refuse(p && typeof p.ref === "string", "graph_dependency");
+      if (!member && !refs.has(p.ref)) {
+        metadataBytes += p.byte_length;
+        refs.add(p.ref);
+      }
+      return bound(p, store, parse);
+    };
+    const pub = fetch(pin);
+    refuse(!snapshotIds.has(pub.selection.snapshot_id), "parent_cycle");
+    snapshotIds.add(pub.selection.snapshot_id);
+    refuse(pub.publication_id === pin.id, "graph_identity");
+    refuse(
+      pub.state === "committed" &&
+        pub.kind === "snapshot_publication" &&
+        pub.capabilities.includes("contract: segmented-snapshot/v0") &&
+        pub.capabilities.includes("contract: durable-index/v0"),
+      "graph_publication",
+    );
+    const manifest = fetch(pub.manifest),
+      profile = fetch(pub.profile),
+      descriptor = fetch(pub.descriptor);
+    refuse(
+      same(pub.selection, manifest.selection) &&
+        pub.manifest.id === pub.selection.snapshot_id &&
+        pub.descriptor.id === pub.selection.artifact_id,
+      "graph_identity",
+    );
+    refuse(
+      profile.profile_id === "example.index-logical/v0" &&
+        pub.profile.id === profile.profile_id &&
+        same(pub.profile, manifest.profile) &&
+        profile.operations.includes("full_verify") &&
+        manifest.count_relation === "equal" &&
+        manifest.physical_order === "manifest_order",
+      "graph_profile",
+    );
+    fetch(profile.semantic_spec, false, false);
+    refuse(
+      profile.semantic_spec.sha256 ===
+        sha256(readFileSync(join(SCHEMAS, "fixtures/logical-profile.md"))) &&
+        same(profile.capabilities, ["contract: segmented-snapshot/v0"]) &&
+        profile.kind === "snapshot_profile" &&
+        same(profile.operations, ["full_verify"]) &&
+        same(profile.count_relations, ["equal"]) &&
+        same(profile.physical_orders, ["manifest_order"]) &&
+        profile.empty_snapshots === true &&
+        profile.streaming === "unsupported" &&
+        profile.durability_claim === "none" &&
+        profile.retention === "unsupported",
+      "graph_profile",
+    );
+    refuse(["complete", "partial"].includes(descriptor.lifecycle), "graph_publication");
+    refuse(manifest.profile_metadata, "graph_dependency");
+    const metadata = fetch(manifest.profile_metadata);
+    refuse(
+      same(metadata.selection, pub.selection) &&
+        manifest.profile_metadata.id === pub.selection.snapshot_id,
+      "graph_identity",
+    );
+    refuse(
+      !manifest.members.some((m: Binding) => m.ref === manifest.profile_metadata.ref),
+      "binding_alias",
+    );
+    refuse(
+      exactInteger(profile.limits, "max_members") &&
+        exactInteger(profile.limits, "max_metadata_bytes") &&
+        exactInteger(profile.limits, "max_member_bytes") &&
+        profile.limits.max_members <= 16 &&
+        profile.limits.max_metadata_bytes <= 1048576 &&
+        profile.limits.max_member_bytes <= 1048576 &&
+        manifest.members.length <= profile.limits.max_members,
+      "capacity",
+    );
+    refuse(
+      new Set(manifest.members.map((m: Binding) => m.id)).size === manifest.members.length &&
+        new Set(manifest.members.map((m: Binding) => m.ref)).size === manifest.members.length,
+      "graph_members",
+    );
+    const schema = fetch(manifest.row_schema);
+    refuse(
+      manifest.row_schema.schema_id === "contract:durable-index/v0/index-row.schema.json" &&
+        schema.$id === manifest.row_schema.schema_id &&
+        manifest.row_schema.sha256 === sha256(readFileSync(join(SCHEMAS, "index-row.schema.json"))),
+      "graph_row_schema",
+    );
+    const catalog = fetch(manifest.field_catalog);
+    refuse(
+      catalog.id === manifest.field_catalog.id &&
+        catalog.grain === manifest.grain_id &&
+        Array.isArray(catalog.fields) &&
+        new Set(catalog.fields.map((f: JsonObject) => f.name)).size === catalog.fields.length &&
+        ROW_FIELDS.every((f, i) =>
+          catalog.fields.some(
+            (x: JsonObject) =>
+              x.name === f &&
+              x.required === true &&
+              x.type ===
+                [
+                  "string",
+                  "string",
+                  "object",
+                  "integer",
+                  "datetime",
+                  "string",
+                  "object",
+                  "object",
+                  "object",
+                  "object",
+                  "array",
+                ][i],
+          ),
+        ),
+      "graph_catalog",
+    );
+    const grain = descriptor.grains.find((g: JsonObject) => g.id === manifest.grain_id);
+    const rep = descriptor.representations.find(
+      (r: JsonObject) => r.id === manifest.representation_id,
+    );
+    refuse(
+      grain &&
+        rep &&
+        descriptor.artifact_id === pub.selection.artifact_id &&
+        descriptor.capabilities.includes("contract: data-artifact/v0") &&
+        descriptor.producer.profile === profile.profile_id &&
+        grain.record_kind === "object-inventory/v0" &&
+        rep.grain === manifest.grain_id &&
+        rep.format === "ndjson" &&
+        rep.profile === profile.profile_id &&
+        rep.uri === pub.manifest.ref &&
+        rep.read_path?.physical_ordering === "manifest_order" &&
+        rep.read_path?.sidecar_required === true &&
+        typeof rep.read_path?.sharded === "boolean" &&
+        typeof rep.read_path?.range_readable === "boolean" &&
+        typeof rep.read_path?.appendable === "boolean" &&
+        Array.isArray(rep.read_path?.scan_capabilities) &&
+        grain.field_catalog_ref === manifest.field_catalog.id &&
+        rep.field_catalog_ref === manifest.field_catalog.id,
+      "graph_descriptor",
+    );
+    refuse(descriptor.protection?.default_action === "block_export", "graph_descriptor");
+    refuse(!input.request_export, "protected_export");
+    fetch(metadata.plan);
+    for (const coverage of metadata.coverage) fetch(coverage);
+    refuse(metadataBytes <= profile.limits.max_metadata_bytes, "capacity");
+    const members: Row[][] = [];
+    for (const member of manifest.members) {
+      refuse(
+        exactInteger(member, "byte_length") &&
+          member.byte_length <= profile.limits.max_member_bytes,
+        "capacity",
+      );
+      const raw = store[member.ref];
+      refuse(raw !== undefined, "binding_unavailable");
+      const bytes = utf8.encode(raw);
+      refuse(
+        bytes.length === member.byte_length && sha256(bytes) === member.sha256,
+        "binding_integrity",
+      );
+      const lines = raw.split("\n");
+      refuse(lines.pop() === "", "invalid_json");
+      const rows = lines.map((line: string) => strictJSON(utf8.encode(line)) as Row);
+      refuse(exactInteger(member, "row_count") && rows.length === member.row_count, "graph_count");
+      members.push(rows);
+    }
+    const count = readRows(members).row_count;
+    refuse(
+      exactInteger(manifest, "physical_row_count") &&
+        exactInteger(grain, "row_count") &&
+        exactInteger(rep, "row_count") &&
+        count === manifest.physical_row_count &&
+        count === grain.row_count &&
+        count === rep.row_count,
+      "graph_count",
+    );
+    let parent: JsonObject | null = null;
+    if (metadata.parent) {
+      parent = visit(metadata.parent.publication, depth + 1);
+      refuse(same(metadata.parent.selection, parent.selection), "graph_identity");
+    }
+    const evidence = input.source_evidence[pub.selection.snapshot_id];
+    refuse(evidence, "graph_evidence");
+    const bindingInput = {
+      metadata,
+      store,
+      grain_id: manifest.grain_id,
+      observations: evidence.observations,
+      enumerated: evidence.enumerated,
+      inherited_from: parent ? { metadata: parent.metadata } : null,
+    };
+    const expectedUri =
+      "snapshot:" +
+      sha256(
+        utf8.encode(
+          `segmented-snapshot/v0/subject\0${pub.selection.namespace_id}\0${pub.selection.snapshot_id}`,
+        ),
+      );
+    refuse(manifest.coverage_subject_uri === expectedUri, "coverage_subject");
+    const authority = bindings(bindingInput) as { absence_authority: Scope[] };
+    const plan = bound(metadata.plan, store);
+    const t: Transition = {
+      mode: metadata.mode,
+      set_id: metadata.selection.namespace_id,
+      snapshot_id: metadata.selection.snapshot_id,
+      generation: metadata.generation,
+      observation_at: metadata.observation_at,
+      discovery_complete: evidence.discovery_complete,
+      parent: parent
+        ? {
+            publication_sha256: metadata.parent.publication.sha256,
+            set_id: parent.selection.namespace_id,
+            snapshot_id: parent.selection.snapshot_id,
+            generation: parent.metadata.generation,
+            scopes: parent.scopes,
+            rows: parent.rows,
+          }
+        : null,
+      admitted_parent_sha256: evidence.admitted_parent_sha256,
+      scopes: plan.scopes,
+      acknowledgment: metadataAck(metadata),
+      observations: evidence.observations,
+      absence_authority: authority.absence_authority,
+      enrichments: evidence.enrichments,
+    };
+    const out = transition(t);
+    const rows = members.flat();
+    refuse(
+      same(rows, out.rows) &&
+        metadata.admission === out.admission &&
+        metadata.retained_unobserved_rows === out.retained_unobserved_rows,
+      "graph_transition",
+    );
+    const classes = ["public", "internal", "controlled", "restricted", "unknown"];
+    const classifications = [
+      descriptor.protection.default_export_class,
+      ...catalog.fields.map((f: JsonObject) => f.sensitivity),
+      ...(parent ? [parent.classification] : []),
+    ];
+    refuse(
+      classifications.every((c: string) => classes.includes(c)),
+      "graph_catalog",
+    );
+    const classification =
+      classes[Math.max(...classifications.map((c: string) => classes.indexOf(c)))];
+    return { rows, metadata, selection: pub.selection, scopes: plan.scopes, classification };
+  };
+  const result = visit(input.publication, 0);
+  return {
+    rows: result.rows,
+    retained_unobserved_rows: result.metadata.retained_unobserved_rows,
+    generation: result.metadata.generation,
+    protection: { action: "block_export", class: result.classification },
+    evidence_scope: "logical_projection",
+  };
+}
+
+function independentOutcome(runner: string, input: JsonObject): unknown {
+  try {
+    if (runner === "parsing") {
+      strictJSON(Buffer.from(input.hex, "hex"));
+      return { valid: true };
+    }
+    if (runner === "rows") return readRows(input.members);
+    if (runner === "bindings") return bindings(input);
+    if (runner === "cutover") return cutover(input);
+    if (runner === "graphs") return graph(input);
+    if (runner === "cutover_graphs") {
+      const receipt = cutover(input) as { cutover: string };
+      refuse(
+        same(input.record.old.publication, input.old_graph.publication) &&
+          same(input.record.new.publication, input.new_graph.publication),
+        "cutover_selection",
+      );
+      graph(input.old_graph);
+      graph(input.new_graph);
+      return { ...receipt, evidence_scope: "logical_projection" };
+    }
+    if (runner === "bound_transitions") return boundTransition(input);
+    throw new Error(`unsupported runner ${runner}`);
+  } catch (e) {
+    if (e instanceof Refusal) return { refusal: e.reason };
+    throw e;
+  }
+}
+
+function checkIndependent(path: string): Result {
+  const c = readJson(join(SCHEMAS, path));
+  const base = c.baseline ? readJson(join(SCHEMAS, c.baseline)) : c;
+  const input = overlay(base.input, c.replace ?? {});
+  if (input.store) {
+    Object.assign(input.store, c.store_overlay ?? {});
+    for (const ref of c.omit_refs ?? []) delete input.store[ref];
+  }
+  const got = independentOutcome(c.runner, input);
+  return same(got, c.expected)
+    ? { file: path, agree: true }
+    : { file: path, agree: false, detail: describe(got, c.expected) };
+}
+
 function checkTransitionVector(file: string): Result {
-  const v = JSON.parse(readFileSync(join(VECTORS, "transitions", file), "utf8"));
+  const v = readJson(join(VECTORS, "transitions", file));
   const got = evaluate(v.input);
   return same(got, v.expected)
     ? { file: `transitions/${file}`, agree: true }
@@ -561,9 +1347,9 @@ function checkTransitionVector(file: string): Result {
 }
 
 function checkTransitionReject(dir: string): Result {
-  const c = JSON.parse(readFileSync(join(SCHEMAS, "rejects/semantic", dir, "case.json"), "utf8"));
-  const base = JSON.parse(readFileSync(join(SCHEMAS, c.baseline), "utf8"));
-  const got = evaluate({ ...base.input, ...c.replace });
+  const c = readJson(join(SCHEMAS, "rejects/semantic", dir, "case.json"));
+  const base = readJson(join(SCHEMAS, c.baseline));
+  const got = evaluate(overlay(base.input, c.replace));
   return same(got, c.expected)
     ? { file: dir, agree: true }
     : { file: dir, agree: false, detail: describe(got, c.expected) };
@@ -619,7 +1405,7 @@ function main(): number {
       .sort();
   const rejectDirs = readdirSync(join(SCHEMAS, "rejects/semantic"))
     .filter((d) => {
-      const c = JSON.parse(readFileSync(join(SCHEMAS, "rejects/semantic", d, "case.json"), "utf8"));
+      const c = readJson(join(SCHEMAS, "rejects/semantic", d, "case.json"));
       return c.runner === "transitions";
     })
     .sort();
@@ -631,6 +1417,359 @@ function main(): number {
     json(join(VECTORS, "transitions")).map(checkTransitionVector),
   );
   failures += report("transition rejects", rejectDirs.map(checkTransitionReject));
+  const cases = readJson(join(SCHEMAS, "cases.json"));
+  for (const runner of [
+    "rows",
+    "parsing",
+    "bindings",
+    "cutover",
+    "bound_transitions",
+    "graphs",
+    "cutover_graphs",
+  ]) {
+    const paths = cases.scenarios.filter((path: string) => {
+      const c = readJson(join(SCHEMAS, path));
+      return c.runner === runner;
+    });
+    failures += report(runner, paths.map(checkIndependent));
+  }
+  // Mutations of independently accepted inputs must reach the named refusal.
+  // These exercise the actual guards, not fixture-supplied expected outputs.
+  const fixture = (p: string) => readJson(join(SCHEMAS, p)).input;
+  const witnesses: [string, string, JsonObject, string][] = [];
+  const rows = fixture("vectors/rows/two-members.json");
+  rows.members[1][0] = clone(rows.members[0][0]);
+  witnesses.push(["cross-member duplicate", "rows", rows, "duplicate_key_row"]);
+  witnesses.push([
+    "duplicate JSON name (escaped)",
+    "parsing",
+    { hex: Buffer.from('{"a":1,"\\u0061":2}').toString("hex") },
+    "duplicate_key",
+  ]);
+  witnesses.push([
+    "duplicate JSON name",
+    "parsing",
+    { hex: Buffer.from('{"a":1,"a":2}').toString("hex") },
+    "duplicate_key",
+  ]);
+  const binding = fixture("vectors/bindings/baseline.json");
+  binding.enumerated.push({ namespace: "objects", key: "alpha/.hidden" });
+  witnesses.push(["omitted enumerated key", "bindings", binding, "enumerated_key_omitted"]);
+  const receipt = fixture("vectors/cutover/explicit-new-set.json");
+  receipt.record.rollback.sha256 = "0".repeat(64);
+  witnesses.push(["rollback pin", "cutover", receipt, "cutover_rollback"]);
+  const bt = fixture("vectors/bound_transitions/baseline.json");
+  bt.evidence.metadata.retained_unobserved_rows++;
+  witnesses.push(["retained count", "bound_transitions", bt, "metadata_transition"]);
+  const projection = fixture("vectors/graphs/baseline.json");
+  projection.request_export = true;
+  witnesses.push(["protected export", "graphs", projection, "protected_export"]);
+  const parent = fixture("vectors/graphs/observe.json");
+  parent.source_evidence["snapshot-1"].admitted_parent_sha256 = "0".repeat(64);
+  witnesses.push(["stale admission", "graphs", parent, "stale_parent"]);
+  for (const [name, runner, input, reason] of witnesses) {
+    const got = independentOutcome(runner, input) as { refusal?: string };
+    if (got.refusal !== reason) {
+      console.error(`[!!] mutation ${name}: got ${got.refusal ?? "accept"}, want ${reason}`);
+      failures++;
+    }
+  }
+  const reordered = fixture("vectors/bindings/baseline.json");
+  const reorderedPin = reordered.metadata.coverage[0];
+  const attestation = readJsonFromText(reordered.store[reorderedPin.ref]);
+  const originalScope = attestation.claims[0].scope;
+  attestation.claims[0].scope = {
+    prefix: originalScope.prefix,
+    partition: originalScope.partition,
+  };
+  const reorderedBytes = JSON.stringify(attestation);
+  reordered.store[reorderedPin.ref] = reorderedBytes;
+  reorderedPin.byte_length = utf8.encode(reorderedBytes).length;
+  reorderedPin.sha256 = sha256(utf8.encode(reorderedBytes));
+  const originalBinding = independentOutcome("bindings", fixture("vectors/bindings/baseline.json"));
+  if (!same(independentOutcome("bindings", reordered), originalBinding)) {
+    console.error("[!!] reordered coverage scope changed authority");
+    failures++;
+  }
+  // Exercise wire acknowledgments through both metadata-bound transitions and
+  // complete graphs, with each changed dependency explicitly re-pinned.
+  const repin = (store: Record<string, string>, pin: Binding, object: JsonObject) => {
+    const bytes = JSON.stringify(object);
+    store[pin.ref] = bytes;
+    pin.byte_length = utf8.encode(bytes).length;
+    pin.sha256 = sha256(utf8.encode(bytes));
+  };
+  const loss = fixture("vectors/transitions/ack-retains-omitted-row.json");
+  const boundLoss = fixture("vectors/bound_transitions/observe.json");
+  boundLoss.transition = clone(loss);
+  const bm = boundLoss.evidence.metadata;
+  const bp = readJsonFromText(boundLoss.evidence.store[bm.plan.ref]);
+  bp.scopes = clone(loss.scopes);
+  repin(boundLoss.evidence.store, bm.plan, bp);
+  bm.plan_digest = loss.acknowledgment.plan_digest;
+  bm.effective_scope_count = 1;
+  bm.coverage = bm.coverage.slice(0, 1);
+  bm.admission = "loss_acknowledged";
+  bm.loss_acknowledgment = {
+    parent: clone(bm.parent),
+    plan_sha256: bm.plan_digest,
+    acknowledged_by: loss.acknowledgment.acknowledged_by,
+    acknowledged_at: loss.acknowledgment.acknowledged_at,
+  };
+  const expectedLoss = readJson(
+    join(SCHEMAS, "vectors/transitions/ack-retains-omitted-row.json"),
+  ).expected;
+  if (!same(independentOutcome("bound_transitions", boundLoss), expectedLoss)) {
+    console.error("[!!] bound loss acknowledgment control");
+    failures++;
+  }
+  const badAck = clone(boundLoss);
+  badAck.evidence.metadata.loss_acknowledgment.parent.selection.snapshot_id = "wrong-parent";
+  const ackResult = independentOutcome("bound_transitions", badAck) as { refusal?: string };
+  if (ackResult.refusal !== "acknowledgment_mismatch") {
+    console.error("[!!] acknowledgment parent control");
+    failures++;
+  }
+
+  const graphLoss = fixture("vectors/graphs/observe.json");
+  const glPub = readJsonFromText(graphLoss.store[graphLoss.publication.ref]);
+  const glManifest = readJsonFromText(graphLoss.store[glPub.manifest.ref]);
+  const glMeta = readJsonFromText(graphLoss.store[glManifest.profile_metadata.ref]);
+  const glPlan = readJsonFromText(graphLoss.store[glMeta.plan.ref]);
+  glPlan.scopes = clone(loss.scopes);
+  glMeta.plan.ref = "artifact:loss-control-plan";
+  repin(graphLoss.store, glMeta.plan, glPlan);
+  glMeta.plan_digest = loss.acknowledgment.plan_digest;
+  glMeta.effective_scope_count = 1;
+  glMeta.coverage = glMeta.coverage.slice(0, 1);
+  glMeta.admission = "loss_acknowledged";
+  glMeta.loss_acknowledgment = {
+    parent: clone(glMeta.parent),
+    plan_sha256: glMeta.plan_digest,
+    acknowledged_by: loss.acknowledgment.acknowledged_by,
+    acknowledged_at: loss.acknowledgment.acknowledged_at,
+  };
+  const beta = graphLoss.store["artifact:g0-member-1"];
+  const betaPin = glManifest.members[1];
+  graphLoss.store[betaPin.ref] = beta;
+  betaPin.byte_length = utf8.encode(beta).length;
+  betaPin.sha256 = sha256(utf8.encode(beta));
+  repin(graphLoss.store, glManifest.profile_metadata, glMeta);
+  repin(graphLoss.store, glPub.manifest, glManifest);
+  repin(graphLoss.store, graphLoss.publication, glPub);
+  const graphLossResult = independentOutcome("graphs", graphLoss) as JsonObject;
+  if (!same(graphLossResult.rows, expectedLoss.rows)) {
+    console.error("[!!] graph loss acknowledgment control");
+    failures++;
+  }
+
+  const badRows: [string, unknown][] = [
+    ["empty key", ""],
+    ["invalid namespace", "bad namespace"],
+    ["numeric storage class", 1],
+    ["empty revision", {}],
+    ["null first stamp", null],
+    ["null enrichments", null],
+  ];
+  for (const [name, value] of badRows) {
+    const input = fixture("vectors/rows/two-members.json");
+    const field = (
+      {
+        "empty key": "key",
+        "invalid namespace": "namespace",
+        "numeric storage class": "storage_class",
+        "empty revision": "revision",
+        "null first stamp": "first_seen",
+        "null enrichments": "enrichments",
+      } as Record<string, string>
+    )[name];
+    input.members[0][0][field] = value;
+    const result = independentOutcome("rows", input) as { refusal?: string };
+    if (result.refusal !== "invalid_shape") {
+      console.error(`[!!] ${name}: got ${result.refusal ?? "accept"}`);
+      failures++;
+    }
+  }
+  const partialGraph = fixture("vectors/graphs/baseline.json");
+  const partialPub = readJsonFromText(partialGraph.store[partialGraph.publication.ref]);
+  const partialDescriptor = readJsonFromText(partialGraph.store[partialPub.descriptor.ref]);
+  partialDescriptor.lifecycle = "partial";
+  repin(partialGraph.store, partialPub.descriptor, partialDescriptor);
+  repin(partialGraph.store, partialGraph.publication, partialPub);
+  const partialResult = independentOutcome("graphs", partialGraph) as JsonObject;
+  const baselineExpected = readJson(join(SCHEMAS, "vectors/graphs/baseline.json")).expected;
+  if (!same(partialResult, baselineExpected)) {
+    console.error("[!!] partial descriptor control");
+    failures++;
+  }
+
+  for (const change of [
+    "profile streaming",
+    "profile spec",
+    "producer profile",
+    "read path",
+    "catalog type",
+  ]) {
+    const g = fixture("vectors/graphs/baseline.json");
+    const pub = readJsonFromText(g.store[g.publication.ref]);
+    const manifest = readJsonFromText(g.store[pub.manifest.ref]);
+    let reason = "graph_profile";
+    if (change === "profile streaming" || change === "profile spec") {
+      const profile = readJsonFromText(g.store[pub.profile.ref]);
+      if (change === "profile streaming") profile.streaming = "supported";
+      else {
+        const spec = profile.semantic_spec;
+        g.store[spec.ref] += "changed";
+        spec.byte_length = utf8.encode(g.store[spec.ref]).length;
+        spec.sha256 = sha256(utf8.encode(g.store[spec.ref]));
+      }
+      repin(g.store, pub.profile, profile);
+      manifest.profile = clone(pub.profile);
+      repin(g.store, pub.manifest, manifest);
+    } else if (change === "catalog type") {
+      const catalog = readJsonFromText(g.store[manifest.field_catalog.ref]);
+      catalog.fields[0].type = "integer";
+      repin(g.store, manifest.field_catalog, catalog);
+      repin(g.store, pub.manifest, manifest);
+      reason = "graph_catalog";
+    } else {
+      const descriptor = readJsonFromText(g.store[pub.descriptor.ref]);
+      if (change === "producer profile") descriptor.producer.profile = "unknown";
+      else descriptor.representations[0].read_path.physical_ordering = "unknown";
+      repin(g.store, pub.descriptor, descriptor);
+      reason = "graph_descriptor";
+    }
+    repin(g.store, g.publication, pub);
+    const got = independentOutcome("graphs", g) as { refusal?: string };
+    if (got.refusal !== reason) {
+      console.error(`[!!] ${change}: got ${got.refusal ?? "accept"}`);
+      failures++;
+    }
+  }
+
+  const repeated = fixture("vectors/graphs/observe.json");
+  const currentPub = readJsonFromText(repeated.store[repeated.publication.ref]);
+  const currentManifest = readJsonFromText(repeated.store[currentPub.manifest.ref]);
+  const currentMeta = readJsonFromText(repeated.store[currentManifest.profile_metadata.ref]);
+  const olderPub = readJsonFromText(repeated.store[currentMeta.parent.publication.ref]);
+  olderPub.selection.snapshot_id = currentPub.selection.snapshot_id;
+  repin(repeated.store, currentMeta.parent.publication, olderPub);
+  repin(repeated.store, currentManifest.profile_metadata, currentMeta);
+  repin(repeated.store, currentPub.manifest, currentManifest);
+  repin(repeated.store, repeated.publication, currentPub);
+  const repeatedResult = independentOutcome("graphs", repeated) as { refusal?: string };
+  if (repeatedResult.refusal !== "parent_cycle") {
+    console.error("[!!] repeated snapshot ancestry control");
+    failures++;
+  }
+
+  // JSON permits finite fractions, including values rounded by binary64. The
+  // integer predicate must instead use the exact token, even after cloning.
+  const source = fixture("vectors/rows/two-members.json").members[0][0];
+  const encoded = JSON.stringify(source);
+  for (const [literal, integral] of [
+    ["1.0000000000000001", false],
+    ["9007199254740990.5", false],
+    ["1e-400", false],
+    ["100e-2", true],
+    ["1.000e0", true],
+    ["0e-400", true],
+    ["9007199254740991", true],
+  ] as [string, boolean][]) {
+    const raw = encoded.replace('"size_bytes":12', `"size_bytes":${literal}`);
+    const row = clone(strictJSON(utf8.encode(raw))) as Row;
+    let accepted = true;
+    try {
+      checkSource(row);
+    } catch (e) {
+      if (e instanceof Refusal && e.reason === "invalid_shape") accepted = false;
+      else throw e;
+    }
+    if (accepted !== integral) {
+      console.error(`[!!] numeric integer control ${literal}: got ${accepted}`);
+      failures++;
+    }
+    // The same token is always legal JSON independently of the integer field.
+    strictJSON(utf8.encode(literal));
+  }
+  const decimalVolume = fixture("vectors/bindings/baseline.json");
+  const coveragePin = decimalVolume.metadata.coverage[0];
+  const alteredCoverage = decimalVolume.store[coveragePin.ref].replace(
+    '"observed": 1',
+    '"observed": 1.0000000000000001',
+  );
+  decimalVolume.store[coveragePin.ref] = alteredCoverage;
+  coveragePin.byte_length = utf8.encode(alteredCoverage).length;
+  coveragePin.sha256 = sha256(utf8.encode(alteredCoverage));
+  const volumeResult = independentOutcome("bindings", decimalVolume) as { refusal?: string };
+  if (volumeResult.refusal !== "coverage_volume") {
+    console.error(`[!!] numeric coverage control: got ${volumeResult.refusal ?? "accept"}`);
+    failures++;
+  }
+  const decimalTransition = strictJSON(utf8.encode('{"generation":0.00000000000000000001}'));
+  const transitionInput = overlay(
+    fixture("vectors/transitions/empty-baseline.json"),
+    decimalTransition,
+  );
+  const transitionResult = evaluate(transitionInput) as { refusal?: string };
+  if (transitionResult.refusal !== "invalid_shape") {
+    console.error(`[!!] numeric generation control: got ${transitionResult.refusal ?? "accept"}`);
+    failures++;
+  }
+  console.log(`  mutation witnesses: ${witnesses.length}; numeric controls: 9`);
+  // Every scenario must select a supported runner, and plan/transition files must
+  // be listed. This prevents a newly accepted fixture from silently going unused.
+  const supported = new Set([
+    "transitions",
+    "rows",
+    "parsing",
+    "bindings",
+    "cutover",
+    "bound_transitions",
+    "graphs",
+    "cutover_graphs",
+  ]);
+  for (const path of cases.scenarios) {
+    const c = readJson(join(SCHEMAS, path));
+    if (!supported.has(c.runner)) {
+      console.error(`[!!] unsupported scenario runner: ${path}`);
+      failures++;
+    }
+  }
+  const scenarioSet = new Set(cases.scenarios);
+  for (const dir of readdirSync(join(SCHEMAS, "rejects/semantic"))) {
+    const path = `rejects/semantic/${dir}/case.json`;
+    if (!scenarioSet.has(path)) {
+      console.error(`[!!] unlisted semantic case: ${path}`);
+      failures++;
+    }
+  }
+  for (const kind of ["bindings", "rows", "parsing", "cutover", "bound_transitions", "graphs"]) {
+    for (const file of json(join(VECTORS, kind))) {
+      const path = `vectors/${kind}/${file}`;
+      if (!scenarioSet.has(path)) {
+        console.error(`[!!] unlisted scenario: ${path}`);
+        failures++;
+      }
+    }
+  }
+  for (const kind of ["plans", "transitions"]) {
+    const listed = new Set(
+      [...cases[kind], ...cases.scenarios].filter((p: string) => p.startsWith(`vectors/${kind}/`)),
+    );
+    for (const file of json(join(VECTORS, kind))) {
+      if (!listed.has(`vectors/${kind}/${file}`)) {
+        console.error(`[!!] unlisted ${kind} fixture: ${file}`);
+        failures++;
+      }
+    }
+    for (const path of listed) {
+      if (!json(join(VECTORS, kind)).includes(path.split("/").pop())) {
+        console.error(`[!!] missing ${kind} fixture: ${path}`);
+        failures++;
+      }
+    }
+  }
   for (const entry of Object.keys(KNOWN_DISAGREEMENTS)) {
     if (!usedDisagreements.has(entry)) {
       console.error(`[!!] known disagreement matches no current fixture: ${entry}`);
