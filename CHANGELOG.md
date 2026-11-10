@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pin Goneat `v0.6.8` for schema validation and require its engine metadata
+  in contract checks.
 - Extend the independent TypeScript durable-index checker to all authored
   logical scenario categories, including bindings, projection graphs, cutovers,
   row ordering and strict parser controls.
