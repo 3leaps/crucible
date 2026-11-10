@@ -410,7 +410,7 @@ def parse_wire_lines(
     out = []
     for i, ln in enumerate(text.split("\n")[:-1], start=1):
         if not ln.strip():
-            continue
+            raise Reject("ingest", f"{where}:{i}: blank NDJSON line")
         out.append(parse_wire(ln, kind, f"{where}:{i}"))
     return out
 
@@ -1784,13 +1784,17 @@ def self_test() -> None:
                     f"[!!] self-test {pos_label} ({bad_ts!r}): accepted invalid timestamp"
                 )
 
-    # NDJSON framing: final line missing terminating newline or containing CR is rejected at ingest.
+    # NDJSON framing: empty or whitespace-only lines, a missing final newline, and CR
+    # framing are all rejected at ingest. Blank lines are entries in the physical
+    # append stream, not ignorable decoration.
     valid_line = json.dumps(base_entry, separators=(",", ":"))
     assert len(parse_wire_lines(valid_line + "\n", "ndjson-ok")) == 1
     for ndjson_label, bad_ndjson in [
         ("missing-trailing-newline", valid_line),
         ("second-line-missing-newline", valid_line + "\n" + valid_line),
         ("cr-in-framing", valid_line + "\r\n"),
+        ("blank-line", valid_line + "\n\n"),
+        ("whitespace-only-line", valid_line + "\n   \n"),
     ]:
         try:
             parse_wire_lines(bad_ndjson, ndjson_label)
