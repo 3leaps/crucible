@@ -2433,7 +2433,9 @@ def check_reason_table(rows, emitted, covered):
 def envelope_matches(original, amended):
     # A0: the v1 record schema equals the v0 record schema after changing v
     # from const 0 to const 1 and adding only the optional produced_at field
-    # (and the instant definition it references). Nothing else may differ.
+    # (and the instant definition it references). The latter owns the explicit
+    # seconds constraint that rejects leap seconds at Stage 3. Nothing else may
+    # differ.
     def structural(document):
         return {
             key: value
@@ -2456,7 +2458,10 @@ def envelope_matches(original, amended):
     record["properties"]["v"] = {"const": 0}
     if produced.get("properties", {}).get("instant") != {"$ref": "#/$defs/instant"}:
         return False
-    if instant_def.get("pattern") != "^" + CANONICAL_INSTANT.pattern + "$":
+    expected_instant_pattern = (
+        "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9]\\.[0-9]{6}Z$"
+    )
+    if instant_def.get("pattern") != expected_instant_pattern:
         return False
     return expected == candidate
 
@@ -4553,13 +4558,9 @@ def prewarm_shape_cache(cases, rejects, examples):
 
 
 def suite_error_controls():
-    """Verify batched goneat suite rejects parse/range/schema errors as RuntimeError."""
+    """Separate genuine suite failures from the validator's numeric-decoder profile."""
     for label, bad_item in (
         ("malformed_json", ("bad", "v1/record.schema.json", "{\n")),
-        (
-            "float64_overflow",
-            ("huge", "v1/record.schema.json", '{"v":1,"revision":1e400}\n'),
-        ),
         ("missing_schema", ("missing", "v1/nonexistent.schema.json", "{}\n")),
     ):
         try:
@@ -4568,6 +4569,20 @@ def suite_error_controls():
             pass
         else:
             raise AssertionError(f"suite_error_controls did not fail on {label}")
+
+    # Legacy float64 decoding fails before schema evaluation. Exact JSON decoding
+    # reaches the record's bounded revision check and returns an ordinary invalid
+    # verdict. Detect the profile from this behavior, never a version label.
+    try:
+        verdicts = legacy.shape_suite(
+            [("huge", "v1/record.schema.json", '{"v":1,"revision":1e400}\n')],
+            default_ver="v1",
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "1e400" in message and "float64" in message, message
+    else:
+        assert verdicts == {"huge": False}, verdicts
 
 
 class AbortWriter:
@@ -4936,9 +4951,9 @@ def timestamp_and_abort_controls():
             outcome,
         )
 
-    # 2. Pattern-only Stage 3 fallback control (F3 / E4): if a Stage 3 engine enforces
-    #    only pattern (not format: date-time), :60 and impossible calendar dates pass
-    #    Stage 3 and are deterministically refused at Stage 4 as instant_spelling.
+    # 2. The contract-owned seconds pattern makes leap seconds fail Stage 3; the
+    #    other calendar controls may be caught there by format enforcement. Force
+    #    each cached negative through Stage 4 as a defense-in-depth control.
     for vec_name, schema_rel, doc_fn in (
         (
             "instant-leap-second.json",

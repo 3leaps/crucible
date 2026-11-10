@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve durable-record schema-stage leap-second refusal across validator
+  engines. Update numeric validation controls for exact JSON decoding and
+  check format, decoder and report profiles.
 - Reject blank and whitespace-only durable-record NDJSON lines as `ingest`
   failures, including writer abort and reopen paths. Add standalone
   ancestor-seal refusal vectors for unauthenticated closers and non-current
