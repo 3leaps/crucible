@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject blank and whitespace-only durable-record NDJSON lines as `ingest`
+  failures, including writer abort and reopen paths. Add standalone
+  ancestor-seal refusal vectors for unauthenticated closers and non-current
+  live-ancestor journals.
+
 ## [0.2.9] - 2026-11-08
 
 ### Added
