@@ -10,6 +10,30 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.10 (2026-11-11)
+
+**Adds a physical Parquet fixture corpus and complete independent logical reader for `durable-index/v0`, and tightens durable-record framing and schema validation controls.**
+
+- **Durable-index physical and logical evidence:** binds 26 Parquet fixtures and
+  six NDJSON twins with byte pins, signed and absent size annotations, both
+  codecs and page versions, row-group and ordered member boundaries. Baseline
+  controls check inventory, hashes, raw row schemas and logical parity; physical
+  decoding and R2/W1/W2/W3 qualification remain separate. Extends the
+  independent reader to all authored logical scenario categories and clarifies
+  literal-prefix plan discovery.
+- **Durable-record and validator controls:** refuses blank or whitespace-only
+  journal lines at ingest, adds ancestor-seal refusals, and preserves
+  schema-stage leap-second refusal alongside semantic timestamp checks. Updates
+  exact-number, format, Unicode and validator-report controls; pins Goneat
+  `v0.6.8` and the `v0.5.15` glibc runner.
+
+`durable-index/v0` remains experimental. These fixtures do not qualify a
+physical reader, writer, or storage runtime.
+
+See [docs/releases/v0.2.10.md](docs/releases/v0.2.10.md).
+
+---
+
 ## v0.2.9 (2026-11-08)
 
 **Specifies the `durable-record/v1` retention policy for retired-record body reclamation, designated `body-removal` stream recovery, and detached canonical `stream-seal` artifacts; adds the draft `identity-evidence/v0` `native-process-observation:v0` provider profile; and hardens the RFC 8785 JCS and RFC 3339 instant helper scripts.**
@@ -100,37 +124,3 @@ See [docs/releases/v0.2.9.md](docs/releases/v0.2.9.md).
   shapes).
 
 See [docs/releases/v0.2.8.md](docs/releases/v0.2.8.md).
-
----
-
-## v0.2.7 (2026-11-02)
-
-**Adds proposed `identity-evidence/v0` and draft `seat-spheres/v0` contracts, extends `project-work/v0` with commitment and `agent`/`run` provenance fields, adds the draft `advisor` role, splits SPDX `MIT`/`CC0-1.0` license files, and enforces pre-sign tagger identity.**
-
-- **Identity evidence (`identity-evidence/v0`, proposed) and identity-assurance classifiers**:
-  adds `docs/standards/identity-evidence-contract.md`,
-  `docs/standards/identity-assurance-classification.md`, four categorical
-  classifier dimensions (`identity-binding`, `key-custody`,
-  `execution-isolation`, `platform-evidence`), and the
-  `schemas/identity-evidence/v0/` schema, profile (`local-process-session` and
-  `report-admission`), example and vector bundle with batched logical and wire
-  controls.
-- **Seat spheres (`seat-spheres/v0`, draft) and `project-work/v0` commitment/provenance**:
-  adds `docs/standards/seat-spheres-model.md` and `schemas/seat-spheres/v0/` for
-  seat `function`, `reports_to`, per-subject `spheres[]` (`lead`, `support`,
-  `advise`, `assure`, `interested`), read-time rollup rules and packet-to-subject
-  linking; extends `project-work/v0` with `requested_by`, `check_by`, `agent`
-  (requiring `role`) and `run` (requiring `parent`, `expires` and packet
-  `check_by`) party kinds, standardized `person-id` (`^[a-z][a-z0-9._-]{0,63}$`,
-  excluding `agent-` and `run-`), and `schemas/project-work/v0/semantic-validation.md`.
-- **Role catalog, licensing and release provenance**: adds supplemental draft
-  `config/agentic/roles/advisor.yaml` (`1.0.0`, category `consulting`); splits
-  root licensing into verbatim SPDX `LICENSE` (`MIT`), `LICENSE-CC0` (`CC0-1.0`)
-  and `NOTICE` (`package.json` `"(MIT AND CC0-1.0)"`); requires verified
-  `THREELEAPS_CRUCIBLE_TAGGER_NAME`, `THREELEAPS_CRUCIBLE_TAGGER_EMAIL` and
-  `THREELEAPS_CRUCIBLE_PGP_KEY_ID` (`^[0-9A-F]{40}!$`) before `gpg` signing in
-  `scripts/release-tag.sh`; and fixes `durable-record` (`v0` and `v1`) wire
-  preflight to catch `OverflowError` on large non-protocol integers and order
-  document-wide `ingest` checks ahead of `numeric_domain`.
-
-See [docs/releases/v0.2.7.md](docs/releases/v0.2.7.md).
