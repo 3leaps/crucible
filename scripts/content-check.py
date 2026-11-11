@@ -7,7 +7,8 @@ Scans tracked files (or explicit paths) for generic host-local path shapes:
   - Windows user home prefix
   - host devsecops home prefix
 
-Fails closed on NUL bytes in tracked files and uses line-level allowlisting so
+Allows binary Parquet fixtures in the byte-pinned durable-index corpus and
+fails closed on NUL bytes elsewhere. Uses line-level allowlisting so
 that new local-path occurrences inside files with existing documented examples
 are still caught.
 """
@@ -23,6 +24,10 @@ import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+# The physical-corpus gate enforces the exact inventory, hashes and lengths.
+# Local-path scanning still applies to the raw bytes of these fixtures.
+PARQUET_CORPUS = "schemas/durable-index/v0/fixtures/parquet-inventory"
+
 _MAC_PREFIX = "/" + "Users/"
 _LIN_PREFIX = "/" + "home/"
 _WIN_USERS = "Users"
@@ -35,6 +40,17 @@ LOCAL_PATH_RE = re.compile(
     + _WIN_USERS
     + r"(?:\\|/)+[A-Za-z0-9_.~-][A-Za-z0-9_.$~-]*)"
     r"|(?P<devsecops>" + _DEVSECOPS_PREFIX + r"\b)"
+)
+
+BINARY_PATH_START_RE = re.compile(
+    re.escape(_MAC_PREFIX)
+    + "|"
+    + re.escape(_LIN_PREFIX)
+    + "|"
+    + re.escape(_DEVSECOPS_PREFIX)
+    + r"|[A-Za-z]:(?:\\|/)+"
+    + _WIN_USERS
+    + r"(?:\\|/)+"
 )
 
 # Line-level allowlist: only lines containing one of the listed snippets in the
@@ -103,7 +119,11 @@ def scan_file(path: pathlib.Path, rel_posix: str) -> list[str]:
         raw = path.read_bytes()
     except OSError as exc:
         return [f"{rel_posix}: could not read file: {exc}"]
-    if b"\x00" in raw:
+    rel = pathlib.PurePosixPath(rel_posix)
+    binary_fixture = (
+        rel.parent.as_posix() == PARQUET_CORPUS and rel.suffix == ".parquet"
+    )
+    if b"\x00" in raw and not binary_fixture:
         return [f"{rel_posix}: unexpected NUL byte in tracked file"]
     text = raw.decode("utf-8", errors="replace")
     findings: list[str] = []
@@ -111,6 +131,13 @@ def scan_file(path: pathlib.Path, rel_posix: str) -> list[str]:
         if is_line_allowlisted(rel_posix, line):
             continue
         match = LOCAL_PATH_RE.search(line)
+        if match is None and binary_fixture and "\x00" in line:
+            # Padding can hide a token and the boundary before its prefix.
+            compact = line.replace("\x00", "")
+            for candidate in BINARY_PATH_START_RE.finditer(compact):
+                match = LOCAL_PATH_RE.match(compact[candidate.start() :])
+                if match:
+                    break
         if match:
             findings.append(
                 f"{rel_posix}:{lineno}: forbidden local path pattern '{match.group(0)}'"
@@ -192,6 +219,42 @@ def run_self_test() -> None:
         res_nul = scan_file(nul_file, "nul.md")
         if not res_nul or "unexpected NUL byte" not in res_nul[0]:
             raise SystemExit(f"error: self-test NUL-byte control failed: {res_nul}")
+
+        parquet_file = tmp_root / "member.parquet"
+        parquet_file.write_bytes(b"PAR1\x00fixed fixture")
+        allowed_ref = PARQUET_CORPUS + "/member.parquet"
+        if scan_file(parquet_file, allowed_ref):
+            raise SystemExit("error: self-test binary corpus allowance failed")
+        for rejected_ref in (
+            "schemas/durable-index/v0/fixtures/other/member.parquet",
+            PARQUET_CORPUS + "/nested/member.parquet",
+            PARQUET_CORPUS + "/member.ndjson",
+        ):
+            result = scan_file(parquet_file, rejected_ref)
+            if not result or "unexpected NUL byte" not in result[0]:
+                raise SystemExit("error: self-test binary allowance escaped its scope")
+        parquet_file.write_bytes(
+            ("PAR1\x00" + _MAC_PREFIX + "alice/secret\n").encode("utf-8")
+        )
+        if not scan_file(parquet_file, allowed_ref):
+            raise SystemExit("error: self-test binary fixture local path was skipped")
+
+        for label, sample, _ in negative_samples:
+            for position in range(len(sample) + 1):
+                interleaved = sample[:position] + "\x00" + sample[position:]
+                parquet_file.write_bytes(interleaved.encode("utf-8"))
+                if not scan_file(parquet_file, allowed_ref):
+                    raise SystemExit(
+                        f"error: self-test binary {label} path split at {position}"
+                    )
+        for label, sample, _ in negative_samples:
+            parquet_file.write_bytes(sample.encode("utf-16le"))
+            if not scan_file(parquet_file, allowed_ref):
+                raise SystemExit(f"error: self-test binary UTF-16 {label} path")
+        for label, _, token in negative_samples:
+            parquet_file.write_bytes(b"PAR1\x00" + "\x00".join(token).encode("utf-8"))
+            if not scan_file(parquet_file, allowed_ref):
+                raise SystemExit(f"error: self-test binary padded {label} prefix")
 
 
 def main() -> int:

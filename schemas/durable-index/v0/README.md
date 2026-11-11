@@ -1,7 +1,8 @@
 # durable-index/v0 — initial design bundle
 
 **Proposed, design review only.** This directory contains a structural candidate
-and logical controls, not a complete physical corpus or qualified implementation.
+logical controls, and a pinned physical fixture corpus. Implementation qualification
+requires the scoped evidence described below.
 The entry schema specializes segmented-snapshot's publication without creating a
 second publication record. That family's optional `profile_metadata` binding is
 mandatory for the index profile and carries `index-metadata.schema.json`.
@@ -90,10 +91,25 @@ index metadata names the intended production encoding, while its fixture profile
 and descriptor honestly identify NDJSON transport. No fake Parquet bytes or
 unresolvable placeholder member pins are used. The result is labeled
 `logical_projection`; it cannot establish R2 or qualify either cutover endpoint
-physically. Physical twins and independently implemented reader evidence remain
-post-publication adoption gates for a logical-only experimental release. Reviewed
+physically. Physical-to-logical parity and independently implemented reader evidence remain
+adoption gates for a logical-only experimental release. Reviewed
 integration and publication assent remain required. The checker does not
 authenticate actors, prove source completeness or qualify a storage backend.
+
+## Physical fixture corpus
+
+The [Parquet fixture corpus](fixtures/parquet-inventory/README.md) binds fixed
+physical members and authored logical NDJSON twins with exact SHA-256 and byte
+lengths. Its manifest records the encoder source and build provenance, encoding
+variants, row counts, physical refusal expectations, and ordered member sets.
+
+`python3 scripts/test-durable-index-physical-controls.py` checks the inventory,
+pins, strict logical rows and cross-member logical parity using the existing
+Python logical checker. Mutation controls exercise the binding and oracle
+guards. The baseline invocation uses Python standard library and goneat.
+Physical decoding and the named physical refusals require separately scoped
+adopter-reader evidence under PDR-0006. R2/W1/W2/W3 claims additionally require
+the complete graph and operation evidence in the conformance standard.
 
 ## Schema and pin composition
 

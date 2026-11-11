@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "profile": "parquet-inventory/v0",
+  "provenance": [
+    {
+      "repository": "https://github.com/3leaps/gonimbus",
+      "revision": "7513d2bb1d91f0bf9fd80a53846595e37dd92f93",
+      "generator": "pkg/durableindex/parquet.go: GenerateSliceDParquetTwins, ExportSliceDParquetTwins and WriteParquetInventoryMember",
+      "reader": "pkg/durableindex/parquet.go: ReadParquetInventoryMember",
+      "go_version": "go1.27.3 darwin/arm64",
+      "parquet_go_version": "v0.32.0",
+      "invocation": "ExportSliceDParquetTwins and WriteParquetInventoryMember with fixed authored NDJSON inputs; clear size_bytes LogicalType and ConvertedType in the Thrift footer for absent-annotation fixtures, preserving INT64 pages",
+      "oracle_sha256": "fd085dfa27e66cfa709aab53f53dde2657a549a5abb374f56d13c6c1bc864574"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "twin-zstd-v2-int64-signed",
+      "codec": "zstd",
+      "data_page_version": 2,
+      "size_bytes_annotation": "int64_signed",
+      "parquet_sha256": "92b8871b278b7ce9456b519072a8b15bb06e05e2e61a0d49971f2d3663573a3b",
+      "parquet_byte_length": 8002,
+      "logical_ndjson_sha256": "fd085dfa27e66cfa709aab53f53dde2657a549a5abb374f56d13c6c1bc864574",
+      "logical_ndjson_byte_length": 1793,
+      "row_count": 3
+    },
+    {
+      "id": "twin-zstd-v1-unannotated-size",
+      "codec": "zstd",
+      "data_page_version": 1,
+      "size_bytes_annotation": "absent",
+      "parquet_sha256": "7f9570e7f5d5aa2c4da2a6ff04523a9c19ef032a470c7d910da3d80b9409f4f3",
+      "parquet_byte_length": 7962,
+      "logical_ndjson_sha256": "fd085dfa27e66cfa709aab53f53dde2657a549a5abb374f56d13c6c1bc864574",
+      "logical_ndjson_byte_length": 1793,
+      "row_count": 3
+    },
+    {
+      "id": "twin-uncompressed-v1-int64-signed-multi-rg",
+      "codec": "uncompressed",
+      "data_page_version": 1,
+      "size_bytes_annotation": "int64_signed",
+      "parquet_sha256": "4e426aefd9dbdc2bedbb09c97d8057263c57e51b6d74d6a23ffbf51fcec256ad",
+      "parquet_byte_length": 17505,
+      "logical_ndjson_sha256": "fd085dfa27e66cfa709aab53f53dde2657a549a5abb374f56d13c6c1bc864574",
+      "logical_ndjson_byte_length": 1793,
+      "row_count": 3
+    },
+    {
+      "id": "reject-parquet-truncated",
+      "parquet_sha256": "e92969ca38bff7cd92d21d36131c51cf1e1b4895356be87cbb25d5f33f6d6d89",
+      "parquet_byte_length": 4001,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-bad-magic",
+      "parquet_sha256": "b2ec15154694737bfb18ec8195348f3c6478f7f4a94ae45cda01c6cd15c9a3d0",
+      "parquet_byte_length": 8002,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-empty-row-group-columns",
+      "parquet_sha256": "1b71e5e1bb5a1c247074ee8b7e6508354a657050ed8fe97989904b60b5bc9b0b",
+      "parquet_byte_length": 5483,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-unsupported-codec-snappy",
+      "parquet_sha256": "172eb64b45f2f6405d60ae0c35ce927d4676ff04c8126510e0346bc21be7c058",
+      "parquet_byte_length": 5554,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-unsigned-size-bytes",
+      "parquet_sha256": "f587a52dd31cca17636e3386be54b754a4629c0a8fec664a8c019f0631e91298",
+      "parquet_byte_length": 5339,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-conflicting-string-annotation",
+      "parquet_sha256": "d5a560a85365a93a4b4734a4f803364e45f896416e43c4b1d3fdbb412a95a6f4",
+      "parquet_byte_length": 8002,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-external-column-chunk",
+      "parquet_sha256": "2b448b7cbb8d03e20cd37064b0cdb4c9e1565acf3e1a56beff320f3d4f73f973",
+      "parquet_byte_length": 8020,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-encrypted-footer",
+      "parquet_sha256": "6d8aa0303dc5e442430d3a3b93df912c8afd8d78bf893a2f9b7e9b6ee5b8ad77",
+      "parquet_byte_length": 8007,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-encrypted-column-chunk",
+      "parquet_sha256": "ee5408b15c81ba767bea67dd32341f287641e7ea88b966d511670ded9f6d2a1a",
+      "parquet_byte_length": 8011,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-unsupported-encoding-delta",
+      "parquet_sha256": "3f02fac81666cf56006284c0b998d71eb209b79e8a50eb6b2e9e69de298a7dfc",
+      "parquet_byte_length": 5358,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-forged-footer-page-encoding",
+      "parquet_sha256": "37451daf86004db8c7194aae202f71a26d56c0137243c9e3ad2c1931186770d9",
+      "parquet_byte_length": 5082,
+      "expected_refusal": "graph_profile"
+    },
+    {
+      "id": "reject-parquet-forged-uncompressed-size",
+      "parquet_sha256": "bae67a0b3e45a40154834cb270ce490dcf2ae8c526e421fba51ce0aea5d5df88",
+      "parquet_byte_length": 8001,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-excessive-num-rows",
+      "parquet_sha256": "b45812aa8b45cff021657dbc410ac4d50c814fc855b212363e04f540dbc1c830",
+      "parquet_byte_length": 8006,
+      "expected_refusal": "capacity"
+    },
+    {
+      "id": "reject-parquet-row-group-count-mismatch",
+      "parquet_sha256": "ad05644070dbb4049f4be67c362159411007cbc77b5e1be5e9b54003962a04b7",
+      "parquet_byte_length": 8002,
+      "expected_refusal": "graph_count"
+    },
+    {
+      "id": "reject-parquet-row-order",
+      "parquet_sha256": "ff0f358f470141d5be4e82b1d58ec28d6588bc6e48413c82f096bd5f9ffbb2d0",
+      "parquet_byte_length": 6830,
+      "expected_refusal": "row_order"
+    },
+    {
+      "id": "reject-parquet-duplicate-key-across-row-groups",
+      "parquet_sha256": "15a9b6e7ff4fe57d733990de6c1193e86f4ea7899a34e2ecbdc6f0ad6098b305",
+      "parquet_byte_length": 10876,
+      "expected_refusal": "duplicate_key_row"
+    },
+    {
+      "id": "reject-parquet-negative-size-bytes",
+      "parquet_sha256": "641c240a816ec31938a38306387c61ab7ae372f88c4095bcc95a838d26fce663",
+      "parquet_byte_length": 5813,
+      "expected_refusal": "invalid_shape"
+    },
+    {
+      "id": "reject-parquet-tombstone-with-enrichment",
+      "parquet_sha256": "e825869b5360f20ac5c919875d9084998ea967efcf05d3fee9327335a61349dc",
+      "parquet_byte_length": 7603,
+      "expected_refusal": "enrichment_target"
+    },
+    {
+      "id": "reject-parquet-enrichment-revision-mismatch",
+      "parquet_sha256": "35c98a17f382cd4179102802293edce2ead0b3071499909f0b25ca44b1698864",
+      "parquet_byte_length": 7251,
+      "expected_refusal": "enrichment_revision"
+    },
+    {
+      "id": "reject-parquet-stamp-conflict",
+      "parquet_sha256": "8e34e2c93b8945c5b4b65cd6f632b0d61aa72982afccbf0c91f6d3f483864b3d",
+      "parquet_byte_length": 7532,
+      "expected_refusal": "stamp_conflict"
+    },
+    {
+      "id": "supplement-uncompressed-v2-full",
+      "parquet_sha256": "a2de51090df87b6423c059c03959a7820d8dd58b5e8bd400e40acd3aa3171193",
+      "parquet_byte_length": 7768,
+      "logical_ndjson_sha256": "fd085dfa27e66cfa709aab53f53dde2657a549a5abb374f56d13c6c1bc864574",
+      "logical_ndjson_byte_length": 1793,
+      "row_count": 3,
+      "codec": "uncompressed",
+      "data_page_version": 2,
+      "size_bytes_annotation": "absent"
+    },
+    {
+      "id": "supplement-ordered-member-0",
+      "parquet_sha256": "c5e9095436420adf3711e9bbc2078cf0d3a3f2df721aaf55cd2a9c74dd275c3d",
+      "parquet_byte_length": 5439,
+      "logical_ndjson_sha256": "8dfb0f894ab35f334de2983e57fc5a54f66af07f4fdbe68c01fba6c838b29457",
+      "logical_ndjson_byte_length": 397,
+      "row_count": 1,
+      "codec": "uncompressed",
+      "data_page_version": 2,
+      "size_bytes_annotation": "int64_signed"
+    },
+    {
+      "id": "supplement-ordered-member-1",
+      "parquet_sha256": "04fb4f095e38639103e4495051266160a29e9158427ae856e7d3e95b35d2495b",
+      "parquet_byte_length": 7675,
+      "logical_ndjson_sha256": "013dfe1a875c9aad52c2a938c48360b1c70dfa3f1592c994364b273714e06529",
+      "logical_ndjson_byte_length": 1396,
+      "row_count": 2,
+      "codec": "uncompressed",
+      "data_page_version": 2,
+      "size_bytes_annotation": "int64_signed"
+    }
+  ],
+  "member_sets": [
+    {
+      "id": "twin-zstd-v2-int64-signed",
+      "members": [
+        "twin-zstd-v2-int64-signed"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "twin-zstd-v1-unannotated-size",
+      "members": [
+        "twin-zstd-v1-unannotated-size"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "twin-uncompressed-v1-int64-signed-multi-rg",
+      "members": [
+        "twin-uncompressed-v1-int64-signed-multi-rg"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "supplement-uncompressed-v2-full",
+      "members": [
+        "supplement-uncompressed-v2-full"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "ordered-two-member-boundary",
+      "members": [
+        "supplement-ordered-member-0",
+        "supplement-ordered-member-1"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    }
+  ],
+  "logical_oracle": "twin-zstd-v2-int64-signed"
+}
