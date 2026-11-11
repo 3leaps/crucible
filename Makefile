@@ -471,6 +471,8 @@ lint-contracts-3: ## Contract controls for shard 3
 		sh scripts/test-durable-queue-controls.sh || exit 1; \
 		echo "    Durable-index design controls..."; \
 		python3 scripts/test-durable-index-controls.py || exit 1; \
+		echo "    Durable-index physical corpus binding controls..."; \
+		python3 scripts/test-durable-index-physical-controls.py || exit 1; \
 		echo "    Durable-index independent reader (Node)..."; \
 		node --experimental-strip-types scripts/durable-index-reader.ts || exit 1; \
 	else \

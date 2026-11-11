@@ -93,6 +93,22 @@ keys, metadata, diagnostics and parent state; a field-level allow cannot release
 an object whose effective action remains block_export. Actual authorization and
 storage enforcement still require adopter evidence.
 
+## Pinned physical fixtures
+
+The [physical fixture manifest](../../schemas/durable-index/v0/fixtures/parquet-inventory/manifest.json)
+records exact Parquet member and logical NDJSON twin bytes, physical-profile
+variants and expected refusals. Ordered member sets bind cross-member row
+expectations to a fixed logical twin. The corpus README records the source,
+encoding and evidence boundaries.
+
+The repository binding gate verifies the complete file inventory, hashes and
+lengths, strict logical row shape and semantics, row counts, and ordered
+logical member-set parity. It exercises changes to the pins, inventory and
+logical oracles as negative controls. Physical decoder execution is supplied
+as separate adopter evidence, with its source revision and exact input pins.
+R2/W1/W2/W3 adoption still requires complete physical publication graphs and the
+corresponding operation and authority evidence.
+
 ## Required transition matrix
 
 - Baseline: empty and nonempty; unknown baseline is explicitly not compared;

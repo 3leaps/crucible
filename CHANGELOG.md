@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Bind Parquet inventory fixtures to authored logical twins with exact byte
+  pins, source provenance, and baseline inventory and logical parity controls.
+
 ### Changed
 
 - Pin Goneat `v0.6.8` for schema validation and require its engine metadata
