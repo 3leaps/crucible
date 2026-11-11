@@ -146,7 +146,14 @@ def read_rows(path: Path) -> list[dict[str, Any]]:
     require(
         bool(lines) and all(line.strip() for line in lines), "logical_ndjson_framing"
     )
-    rows = [strict_json(line, "logical_ndjson_parse") for line in lines]
+    rows = []
+    for line in lines:
+        row = strict_json(line, "logical_ndjson_parse")
+        # JSON's default float materialization would round 9007199254740991.1
+        # and underflow 1e-400 before rows_valid reserializes the value. Validate
+        # the original numeric spelling against the row schema first.
+        require(CHECKER.shaped(line, "index-row.schema.json"), "invalid_shape")
+        rows.append(row)
     require(all(isinstance(row, dict) for row in rows), "logical_row_shape")
     try:
         CHECKER.rows_valid(rows)
@@ -321,6 +328,14 @@ def mutation_controls() -> None:
             else:
                 raise AssertionError(f"mutation accepted: {name}")
 
+    def accept(name: str, mutate) -> None:
+        with tempfile.TemporaryDirectory(prefix="durable-index-physical-") as directory:
+            target = Path(directory) / "corpus"
+            shutil.copytree(CORPUS, target)
+            mutate(target)
+            validate(target)
+            print(f"[ok] accepted spelling: {name}")
+
     manifest = strict_json((CORPUS / MANIFEST_NAME).read_bytes(), "manifest_parse")
     by_id = {artifact["id"]: artifact for artifact in manifest["artifacts"]}
     oracle_id = manifest["logical_oracle"]
@@ -492,6 +507,52 @@ def mutation_controls() -> None:
         )
 
     refuse("logical-twin-parity", "logical_twin_parity", logical_parity)
+
+    def repin_noncanonical(target: Path, old: bytes, new: bytes) -> None:
+        path = target / (noncanonical_full_id + ".ndjson")
+        raw = path.read_bytes()
+        assert raw.count(old) == 1
+        raw = raw.replace(old, new)
+        path.write_bytes(raw)
+        rewrite(
+            target,
+            lambda value: update_pin(
+                target_artifact(value, noncanonical_full_id), "logical_ndjson", raw
+            ),
+        )
+
+    refuse(
+        "fractional-safe-integer-repinned",
+        "invalid_shape",
+        lambda target: repin_noncanonical(
+            target, b"9007199254740991", b"9007199254740991.1"
+        ),
+    )
+    refuse(
+        "underflow-repinned",
+        "invalid_shape",
+        lambda target: repin_noncanonical(
+            target, b'"size_bytes":0', b'"size_bytes":1e-400'
+        ),
+    )
+    accept(
+        "safe-integer-decimal",
+        lambda target: repin_noncanonical(
+            target, b"9007199254740991", b"9007199254740991.0"
+        ),
+    )
+    accept(
+        "safe-integer-exponent",
+        lambda target: repin_noncanonical(
+            target, b"9007199254740991", b"9.007199254740991e15"
+        ),
+    )
+    accept(
+        "zero-decimal",
+        lambda target: repin_noncanonical(
+            target, b'"size_bytes":0', b'"size_bytes":0.0'
+        ),
+    )
 
     def reverse_boundary_order(value: dict[str, Any]) -> None:
         member_set = next(

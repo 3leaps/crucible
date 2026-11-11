@@ -42,6 +42,17 @@ LOCAL_PATH_RE = re.compile(
     r"|(?P<devsecops>" + _DEVSECOPS_PREFIX + r"\b)"
 )
 
+BINARY_PATH_START_RE = re.compile(
+    re.escape(_MAC_PREFIX)
+    + "|"
+    + re.escape(_LIN_PREFIX)
+    + "|"
+    + re.escape(_DEVSECOPS_PREFIX)
+    + r"|[A-Za-z]:(?:\\|/)+"
+    + _WIN_USERS
+    + r"(?:\\|/)+"
+)
+
 # Line-level allowlist: only lines containing one of the listed snippets in the
 # named file are exempted; all other lines in that file are still scanned.
 ALLOWLISTED_LINE_SNIPPETS: dict[str, tuple[str, ...]] = {
@@ -120,6 +131,13 @@ def scan_file(path: pathlib.Path, rel_posix: str) -> list[str]:
         if is_line_allowlisted(rel_posix, line):
             continue
         match = LOCAL_PATH_RE.search(line)
+        if match is None and binary_fixture and "\x00" in line:
+            # Padding can hide a token and the boundary before its prefix.
+            compact = line.replace("\x00", "")
+            for candidate in BINARY_PATH_START_RE.finditer(compact):
+                match = LOCAL_PATH_RE.match(compact[candidate.start() :])
+                if match:
+                    break
         if match:
             findings.append(
                 f"{rel_posix}:{lineno}: forbidden local path pattern '{match.group(0)}'"
@@ -220,6 +238,23 @@ def run_self_test() -> None:
         )
         if not scan_file(parquet_file, allowed_ref):
             raise SystemExit("error: self-test binary fixture local path was skipped")
+
+        for label, sample, _ in negative_samples:
+            for position in range(len(sample) + 1):
+                interleaved = sample[:position] + "\x00" + sample[position:]
+                parquet_file.write_bytes(interleaved.encode("utf-8"))
+                if not scan_file(parquet_file, allowed_ref):
+                    raise SystemExit(
+                        f"error: self-test binary {label} path split at {position}"
+                    )
+        for label, sample, _ in negative_samples:
+            parquet_file.write_bytes(sample.encode("utf-16le"))
+            if not scan_file(parquet_file, allowed_ref):
+                raise SystemExit(f"error: self-test binary UTF-16 {label} path")
+        for label, _, token in negative_samples:
+            parquet_file.write_bytes(b"PAR1\x00" + "\x00".join(token).encode("utf-8"))
+            if not scan_file(parquet_file, allowed_ref):
+                raise SystemExit(f"error: self-test binary padded {label} prefix")
 
 
 def main() -> int:
