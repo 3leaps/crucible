@@ -163,12 +163,19 @@ def validate(corpus: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any
         "corpus_layout",
     )
     names = {entry.name for entry in entries}
-    require(MANIFEST_NAME in names, "manifest_missing")
+    require(CONTROL_FILES <= names, "corpus_control_files")
     manifest = strict_json((corpus / MANIFEST_NAME).read_bytes(), "manifest_parse")
     require(isinstance(manifest, dict), "manifest_shape")
     require(
         set(manifest)
-        == {"version", "profile", "provenance", "artifacts", "member_sets"},
+        == {
+            "version",
+            "profile",
+            "provenance",
+            "artifacts",
+            "member_sets",
+            "logical_oracle",
+        },
         "manifest_shape",
     )
     require(
@@ -200,17 +207,19 @@ def validate(corpus: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any
         if "expected_refusal" not in item
     }
     require(positive, "artifacts")
-    positive_oracle_digests = {
-        item["logical_ndjson_sha256"] for item in positive.values()
-    }
+    require(
+        safe_id(manifest["logical_oracle"]) and manifest["logical_oracle"] in positive,
+        "logical_oracle",
+    )
+    logical_oracle = positive[manifest["logical_oracle"]]
     require(
         all(
-            item["oracle_sha256"] in positive_oracle_digests
+            item["oracle_sha256"] == logical_oracle["logical_ndjson_sha256"]
             for item in manifest["provenance"]
         ),
         "provenance_oracle",
     )
-    expected_files = set(CONTROL_FILES & names)
+    expected_files = set(CONTROL_FILES)
     rows_by_id: dict[str, list[dict[str, Any]]] = {}
     matrix = {"codec": set(), "page": set(), "annotation": set()}
     for artifact in manifest["artifacts"]:
@@ -251,6 +260,7 @@ def validate(corpus: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any
     )
     set_ids: set[str] = set()
     multi_member = False
+    covered_members: list[str] = []
     for member_set in manifest["member_sets"]:
         require(
             isinstance(member_set, dict)
@@ -272,7 +282,7 @@ def validate(corpus: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any
         require(len(members) == len(set(members)), "member_set_members")
         require(
             safe_id(member_set["logical_twin"])
-            and member_set["logical_twin"] in positive,
+            and member_set["logical_twin"] == manifest["logical_oracle"],
             "member_set_twin",
         )
         actual = [row for member in members for row in rows_by_id[member]]
@@ -280,9 +290,15 @@ def validate(corpus: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any
             CHECKER.rows_valid(actual)
         except CHECKER.Refusal as exc:
             raise Refusal(str(exc)) from exc
-        require(actual == rows_by_id[member_set["logical_twin"]], "logical_twin_parity")
+        require(actual == rows_by_id[manifest["logical_oracle"]], "logical_twin_parity")
+        covered_members.extend(members)
         multi_member = multi_member or len(members) >= 2
     require(multi_member, "member_set_coverage")
+    require(
+        len(covered_members) == len(set(covered_members))
+        and set(covered_members) == set(positive),
+        "member_set_coverage",
+    )
     return manifest, rows_by_id
 
 
@@ -306,17 +322,22 @@ def mutation_controls() -> None:
                 raise AssertionError(f"mutation accepted: {name}")
 
     manifest = strict_json((CORPUS / MANIFEST_NAME).read_bytes(), "manifest_parse")
-    first = next(
-        item for item in manifest["artifacts"] if "expected_refusal" not in item
-    )
+    by_id = {artifact["id"]: artifact for artifact in manifest["artifacts"]}
+    oracle_id = manifest["logical_oracle"]
+    first = by_id[oracle_id]
     boundary = next(
         member_set
         for member_set in manifest["member_sets"]
         if len(member_set["members"]) >= 2
     )
-    by_id = {artifact["id"]: artifact for artifact in manifest["artifacts"]}
     first_member = by_id[boundary["members"][0]]
     second_member = by_id[boundary["members"][1]]
+    noncanonical_full = next(
+        member_set
+        for member_set in manifest["member_sets"]
+        if len(member_set["members"]) == 1 and member_set["members"][0] != oracle_id
+    )
+    noncanonical_full_id = noncanonical_full["members"][0]
 
     def rewrite(target: Path, change) -> None:
         value = json.loads((target / MANIFEST_NAME).read_text())
@@ -325,6 +346,10 @@ def mutation_controls() -> None:
 
     def target_artifact(value: dict[str, Any], artifact_id: str) -> dict[str, Any]:
         return next(item for item in value["artifacts"] if item["id"] == artifact_id)
+
+    def update_provenance_oracle(value: dict[str, Any], raw: bytes) -> None:
+        for provenance in value["provenance"]:
+            provenance["oracle_sha256"] = sha256(raw)
 
     def manifest_mutation(name: str, expected: str, edit) -> None:
         def mutate(target: Path) -> None:
@@ -413,12 +438,12 @@ def mutation_controls() -> None:
         path = target / (first["id"] + ".ndjson")
         raw = b"{not-json}\n"
         path.write_bytes(raw)
-        rewrite(
-            target,
-            lambda value: update_pin(
-                target_artifact(value, first["id"]), "logical_ndjson", raw
-            ),
-        )
+
+        def edit(value: dict[str, Any]) -> None:
+            update_pin(target_artifact(value, first["id"]), "logical_ndjson", raw)
+            update_provenance_oracle(value, raw)
+
+        rewrite(target, edit)
 
     refuse("malformed-logical-twin-repinned", "logical_ndjson_parse", malformed_twin)
 
@@ -430,12 +455,12 @@ def mutation_controls() -> None:
             json.dumps(row, separators=(",", ":")).encode() + b"\n" for row in rows
         )
         path.write_bytes(raw)
-        rewrite(
-            target,
-            lambda value: update_pin(
-                target_artifact(value, first["id"]), "logical_ndjson", raw
-            ),
-        )
+
+        def edit(value: dict[str, Any]) -> None:
+            update_pin(target_artifact(value, first["id"]), "logical_ndjson", raw)
+            update_provenance_oracle(value, raw)
+
+        rewrite(target, edit)
 
     refuse("semantic-logical-twin-repinned", "invalid_shape", semantic_twin)
 
@@ -454,28 +479,50 @@ def mutation_controls() -> None:
     refuse("cross-member-duplicate", "duplicate_key_row", parity)
 
     def logical_parity(target: Path) -> None:
-        path = target / (first["id"] + ".ndjson")
-        rows = [json.loads(line) for line in path.read_text().splitlines()]
-        assert rows[0]["size_bytes"] == 0
-        rows[0]["size_bytes"] = 1
-        raw = b"".join(
-            json.dumps(row, separators=(",", ":")).encode() + b"\n" for row in rows
-        )
+        path = target / (noncanonical_full_id + ".ndjson")
+        raw = path.read_bytes()
+        assert raw.count(b"STANDARD") == 1
+        raw = raw.replace(b"STANDARD", b"COLD")
         path.write_bytes(raw)
         rewrite(
             target,
             lambda value: update_pin(
-                target_artifact(value, first["id"]), "logical_ndjson", raw
+                target_artifact(value, noncanonical_full_id), "logical_ndjson", raw
             ),
         )
 
     refuse("logical-twin-parity", "logical_twin_parity", logical_parity)
+
+    def reverse_boundary_order(value: dict[str, Any]) -> None:
+        member_set = next(
+            member_set
+            for member_set in value["member_sets"]
+            if member_set["id"] == boundary["id"]
+        )
+        member_set["members"] = list(reversed(member_set["members"]))
+
+    manifest_mutation("cross-member-order", "row_order", reverse_boundary_order)
+
+    def missing_coverage(value: dict[str, Any]) -> None:
+        value["member_sets"] = [
+            member_set
+            for member_set in value["member_sets"]
+            if member_set["id"] != noncanonical_full["id"]
+        ]
+
+    def duplicate_coverage(value: dict[str, Any]) -> None:
+        member_set = next(
+            member_set
+            for member_set in value["member_sets"]
+            if member_set["id"] == noncanonical_full["id"]
+        )
+        member_set["members"] = [oracle_id]
+
     manifest_mutation(
-        "cross-member-order",
-        "row_order",
-        lambda value: value["member_sets"][0].update(
-            members=list(reversed(value["member_sets"][0]["members"]))
-        ),
+        "missing-member-coverage", "member_set_coverage", missing_coverage
+    )
+    manifest_mutation(
+        "duplicate-member-coverage", "member_set_coverage", duplicate_coverage
     )
 
 

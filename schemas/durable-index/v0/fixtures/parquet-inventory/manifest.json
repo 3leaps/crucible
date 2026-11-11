@@ -203,6 +203,34 @@
   ],
   "member_sets": [
     {
+      "id": "twin-zstd-v2-int64-signed",
+      "members": [
+        "twin-zstd-v2-int64-signed"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "twin-zstd-v1-unannotated-size",
+      "members": [
+        "twin-zstd-v1-unannotated-size"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "twin-uncompressed-v1-int64-signed-multi-rg",
+      "members": [
+        "twin-uncompressed-v1-int64-signed-multi-rg"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
+      "id": "supplement-uncompressed-v2-full",
+      "members": [
+        "supplement-uncompressed-v2-full"
+      ],
+      "logical_twin": "twin-zstd-v2-int64-signed"
+    },
+    {
       "id": "ordered-two-member-boundary",
       "members": [
         "supplement-ordered-member-0",
@@ -210,5 +238,6 @@
       ],
       "logical_twin": "twin-zstd-v2-int64-signed"
     }
-  ]
+  ],
+  "logical_oracle": "twin-zstd-v2-int64-signed"
 }

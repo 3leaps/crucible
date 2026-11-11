@@ -19,7 +19,9 @@ expected refusal from the durable-index vocabulary.
 
 The multi-row-group member has three row groups. The ordered member set
 concatenates the one-row and two-row twins to the complete three-row oracle.
-Encoding variants preserve that complete logical row set. The profile's empty
+The manifest names `twin-zstd-v2-int64-signed` as the canonical logical
+oracle. Every positive artifact participates exactly once in a member set, and
+every member set must equal that complete logical row set. The profile's empty
 snapshot is represented by zero members and zero rows.
 
 ## Authored logical oracle
