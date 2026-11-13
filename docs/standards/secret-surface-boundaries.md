@@ -65,10 +65,13 @@ isolation.
 `SecretInputPort` names a trust boundary, not a prescribed wire schema or API.
 Plaintext secret input and unlock material MUST NOT be accepted through CLI
 flags or positional arguments, dedicated convenience environment variables
-for unlock material, control-plane payloads, any MCP message (including elicitation responses), or browser/WebView
+for unlock material read implicitly by product convention, control-plane
+payloads, any MCP message (including elicitation responses), or browser/WebView
 DOM input and keystroke event streams. Examples of prohibited environment
-channels are `<APP>_PASSPHRASE` and `<APP>_IDENTITY` carrying unlock bytes.
-An explicit non-secret descriptor or file path may select an input port; it
+channels are `<APP>_PASSPHRASE` and `<APP>_IDENTITY` automatically read as
+unlock bytes. An explicit opt-in caller-named variable reference is a distinct
+automation port below; the CLI argument carries only the variable identifier,
+never its value. An explicit non-secret descriptor or file path may select an input port; it
 MUST NOT itself contain the secret or be treated as proof of access authority.
 
 An implementation MAY accept the following ports, with custody documented for
@@ -77,6 +80,7 @@ each supported port:
 | Port | Required boundary |
 |---|---|
 | Controlling terminal | Interactive TTY, echo disabled while entering secrets and restored on exit; absent controlling TTY fails fast with a deterministic non-zero exit, never an unattended prompt or hang |
+| Caller-named environment variable | Explicit opt-in automation selection such as `--passphrase-env <VAR_NAME>`; never implicit product-convenience lookup or an unavailable-TTY fallback; document OS and same-user process-environment exposure and enforce §4 removal and value-equality refusal before any scoped child receives an environment |
 | Standard input or file descriptor | Explicit caller-supplied pipe; the caller controls both ends and prevents logging or forwarding into a control/MCP adapter |
 | Owner-only file | Outside every detected VCS repository root; POSIX mode `0600`, correct owner and no extended ACL grants; use equivalent owner-only access controls on other platforms |
 | Hardware or native OS input | Physical token gesture, token PIN entry or native credential dialog isolated from WebView DOM and model context |
@@ -152,8 +156,12 @@ MUST NOT execute untrusted command strings embedded in inputs. Only declared
 helper settings and explicitly selected custody-port descriptors may remain;
 unrelated ambient credentials and dynamic-loader/runtime injection settings
 MUST be excluded. A helper that requires secret material receives it only
-through its documented §2 port, never a convenience unlock environment
-variable. Ambient `PATH` lookup alone does not establish helper trust. Helper stdin, stdout, stderr and failure
+through an explicitly routed non-environment §2 port under its documented
+custody contract. The caller-named environment port selects input to the local
+tool; it does not authorize forwarding unlock material into a helper's
+environment. Helper environments MUST exclude unlock variables and
+value-equal aliases as well as unrelated credentials and loader settings. Ambient `PATH` lookup alone
+does not establish helper trust. Helper stdin, stdout, stderr and failure
 diagnostics MUST be explicitly routed and bounded within the same
 secret-custody boundary, never inherited ordinary terminal streams or logs
 by default. Only an allowlisted value-free projection may leave that
@@ -189,17 +197,31 @@ change storage protection.
 
 ### Explicit local data-plane output
 
-Ordinary CLI reporting, text/JSON metadata, stderr and diagnostics MUST remain
-value-free, including redirected or captured output. Local human plaintext
-display is limited to the explicit interactive TUI reveal boundary in §3.
-A separately authorized local data-plane export MAY write plaintext to a
-caller-selected owner-only file under this section or an explicit dedicated
-caller-owned output FD/pipe whose trust and capture boundary is documented.
-It MUST NOT silently use ordinary stdout/stderr, or switch to a dump when a
-TTY or output port is unavailable. It MUST fail closed unless the destination
-and authority are explicit. This export path is separate from metadata and
-TUI inspection and grants no new operation authority. Control-plane, MCP and
-graphical adapters MUST NOT use it to receive or forward secret bytes.
+Metadata, reporting and validation verbs, unflagged reads, and their text or
+JSON results MUST remain value-free. Stderr, diagnostics and logs MUST always
+remain value-free. A local CLI MAY write the requested plaintext payload to
+stdout only when the caller explicitly selects a data-plane secret-retrieval
+or export verb, a `--reveal` flag, or an explicit output destination such as
+`--output -`. This is intentional stdout data, subject to C5's data/diagnostic
+separation, not a metadata or automatic inspection result. The product MUST
+document that the caller owns the receiving terminal, pipe or output capture
+and its exposure. In-process TUI inspection still follows §3; the explicit
+one-shot CLI data-plane path does not create a listener or a graphical reveal
+path.
+
+A separately authorized local export MAY instead use an owner-only file under
+this section or an explicit caller-owned FD/pipe. Files opened by the tool,
+or identifiable file-backed output descriptors, MUST meet §5's repository,
+ownership and access controls before secret bytes are written. For a pipe or
+terminal the caller owns downstream custody; the tool MUST NOT claim that it
+has verified an unobservable downstream destination. Missing destination or
+authority MUST fail closed. An unavailable TTY MUST NOT trigger an implicit
+plaintext dump; explicit local export selection is required independently.
+
+Control-plane, `application-control/v0`, MCP and graphical adapters MUST NOT
+invoke or wrap these local data-plane verbs, or receive, capture or forward
+their secret stdout/FD payloads. Local export grants no new operation
+authority and never waives those adapter boundaries.
 
 ## 6. Observable conformance
 
@@ -208,6 +230,10 @@ or MCP adapters MUST include automated canary-secret non-disclosure controls.
 Known synthetic canaries MUST be absent from metadata stdout, JSON/MCP
 responses, ordinary text stdout, stderr, progress, errors and diagnostic
 logs, including redirected output, malformed-input and helper-failure paths.
+Explicitly selected local data-plane payload stdout or its dedicated output
+port is tested separately: only the requested payload may appear there, with
+no secret in stderr, logs or parallel metadata. Unflagged reads and metadata
+JSON modes MUST remain value-free, including redirection and capture.
 Every supported MCP method, including elicitation and sampling when present,
 MUST obey and exercise the same input/output refusal boundary. Authorized
 local TUI single-entry reveal is tested separately; it does not exempt the TUI's metadata, errors or logs.
@@ -220,7 +246,11 @@ where applicable. A synthetic-canary child control MUST demonstrate that an
 unlock port is not inherited even when the environment is empty. A helper
 environment sentinel MUST prove that undeclared ambient credentials and
 loader settings are excluded. Explicit data-plane export tests MUST verify
-authorized destination custody and refusal of implicit stdout/stderr dumps.
+authorized destination custody, explicit stdout selection, and refusal of
+implicit stdout or any secret stderr dump. Caller-named environment controls
+MUST prove that only the explicitly selected variable is read; when secret
+input is required, a missing selected port fails without fallback, and the unlock value cannot reach a scoped child's
+environment under its original name or an alias.
 Tests use synthetic material and MUST NOT collect real credentials. An
 adapter's schema validation alone does not establish this behavioral
 conformance. This document specifies controls for adopters; it does not claim
