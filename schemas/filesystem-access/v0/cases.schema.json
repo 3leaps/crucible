@@ -419,6 +419,23 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "open_root"
+              }
+            }
+          },
+          "then": {
+            "required": ["runtime"],
+            "properties": {
+              "runtime": {
+                "required": ["root_bindings"]
+              }
+            }
+          }
         }
       ]
     }

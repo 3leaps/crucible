@@ -402,6 +402,18 @@ def controls():
 
     indexed = {case["id"]: case for case in corpus["cases"]}
 
+    duplicate = copy.deepcopy(indexed["root-expected-identity"])
+    duplicate["runtime"]["root_bindings"].append(
+        copy.deepcopy(duplicate["runtime"]["root_bindings"][0])
+    )
+    try:
+        resolve(duplicate)
+    except AssertionError as error:
+        require(str(error) == "duplicate root reference", "wrong duplicate failure")
+        witnesses += 1
+    else:
+        raise AssertionError("duplicate root reference accepted")
+
     def collapsed(value, state):
         changed = copy.deepcopy(value)
         changed["name"] = posixpath.normpath(value["name"])

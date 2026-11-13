@@ -463,6 +463,18 @@ def run_schema_controls():
                         "root/held request source " + change,
                     )
         root_case = next(c for c in corpus["cases"] if c["operation"] == "open_root")
+        for missing in ("runtime", "root_bindings"):
+            bad_case = copy.deepcopy(root_case)
+            if missing == "runtime":
+                del bad_case["runtime"]
+            else:
+                del bad_case["runtime"]["root_bindings"]
+            check(
+                "cases",
+                {**corpus, "cases": [bad_case]},
+                False,
+                "missing root binding table " + missing,
+            )
         for key, invalid in (
             ("ref", "../root"),
             ("path", "../outside"),
