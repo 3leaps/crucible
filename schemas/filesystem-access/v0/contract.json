@@ -1,0 +1,13 @@
+{
+  "capability": "contract: filesystem-access/v0",
+  "entry_schema": "capability-report.schema.json",
+  "object_schemas": {
+    "access-request": "access-request.schema.json",
+    "access-result": "access-result.schema.json",
+    "common": "common.schema.json",
+    "root-relative-name": "root-relative-name.schema.json",
+    "observed-name": "observed-name.schema.json",
+    "cases": "cases.schema.json"
+  },
+  "status": "proposed"
+}

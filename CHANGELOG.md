@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add the experimental filesystem-access contract with held-root profiles,
+  operation and capability schemas, declarative cases and falsification controls.
+
 ## [0.2.10] - 2026-11-11
 
 ### Added

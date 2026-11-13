@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/observed-name.schema.json",
+  "title": "Observed Directory Entry Name",
+  "description": "One lossless UTF-8-scalar entry name. Observations retain names that portable admission would refuse; consumers never normalize or omit them.",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 255,
+  "pattern": "^[^/]+$",
+  "allOf": [{ "not": { "pattern": "\u0000" } }],
+  "not": { "enum": [".", ".."] }
+}

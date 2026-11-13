@@ -1,0 +1,1307 @@
+{
+  "capabilities": ["contract: filesystem-access/v0"],
+  "cases": [
+    {
+      "id": "basic-nolinks-read",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/file",
+      "max_symlink_hops": 40,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a/file"
+      }
+    },
+    {
+      "id": "basic-containment-read",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/file",
+      "max_symlink_hops": 40,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a/file"
+      }
+    },
+    {
+      "id": "empty-name",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "nul-name",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a\u0000b",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "backslash-name",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a\\b",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "rooted-name",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "/outside/file",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "windows-device-name",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "NUL.txt",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "windows-ads-name",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a:stream",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "nolinks-dotdot",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/../file",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "nolinks-leaf-link",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/link",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "file"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "link_refused"
+      }
+    },
+    {
+      "id": "containment-sibling-link",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/link",
+      "max_symlink_hops": 40,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "b",
+          "kind": "directory"
+        },
+        {
+          "path": "b/file",
+          "kind": "regular_file"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "../b/file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "b/file"
+      }
+    },
+    {
+      "id": "containment-link-dotdot",
+      "operation": "read_dir",
+      "profile": "containment/v0",
+      "name": "a/link/..",
+      "max_entries": 8,
+      "max_symlink_hops": 40,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "sub",
+          "kind": "directory"
+        },
+        {
+          "path": "sub/dir",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "../sub/dir"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "sub"
+      }
+    },
+    {
+      "id": "containment-escape-reentry",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/link",
+      "max_symlink_hops": 40,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "../../outside/reenter"
+        },
+        {
+          "path": "outside",
+          "kind": "directory",
+          "outside_root": true
+        },
+        {
+          "path": "outside/reenter",
+          "kind": "regular_file",
+          "outside_root": true
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "escape"
+      }
+    },
+    {
+      "id": "create-dangling-link",
+      "operation": "create_exclusive",
+      "profile": "containment/v0",
+      "name": "a/new",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/new",
+          "kind": "symlink",
+          "target": "missing"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "already_exists",
+        "preserves_nodes": ["a/new"]
+      }
+    },
+    {
+      "id": "read-dir-observes-link",
+      "operation": "read_dir",
+      "profile": "no-links/v0",
+      "name": "a",
+      "max_entries": 8,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "target"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a",
+        "entries": [
+          {
+            "name": "link",
+            "kind": "symlink"
+          }
+        ]
+      }
+    },
+    {
+      "id": "read-dir-bound",
+      "operation": "read_dir",
+      "profile": "no-links/v0",
+      "name": "a",
+      "max_entries": 1,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/one",
+          "kind": "regular_file"
+        },
+        {
+          "path": "a/two",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "bound_exceeded"
+      }
+    },
+    {
+      "id": "root-leaf-link",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "symlink",
+          "target": "real"
+        },
+        {
+          "path": "real",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "link_refused"
+      },
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:fixture"
+      }
+    },
+    {
+      "id": "fifo-root",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "fifo"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "special_file"
+      },
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:fixture"
+      }
+    },
+    {
+      "id": "fifo-component",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/fifo/file",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/fifo",
+          "kind": "fifo"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "special_file"
+      }
+    },
+    {
+      "id": "fifo-leaf-containment",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/fifo",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/fifo",
+          "kind": "fifo"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "special_file"
+      }
+    },
+    {
+      "id": "no-xdev-unavailable",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/file",
+      "request": {
+        "no_xdev": true
+      },
+      "runtime": {
+        "no_xdev_available": false
+      },
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "no-xdev-crossing",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "mnt/file",
+      "request": {
+        "no_xdev": true
+      },
+      "runtime": {
+        "no_xdev_available": true
+      },
+      "recipe": [
+        {
+          "path": "mnt",
+          "kind": "mount_boundary"
+        },
+        {
+          "path": "mnt/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "cross_device"
+      }
+    },
+    {
+      "id": "manual-concurrent-no-fallback",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/file",
+      "request": {
+        "adversary": "concurrent_rename_resistant"
+      },
+      "runtime": {
+        "kernel_atomic": false
+      },
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "trailing-slash",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "empty-segment",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a//b",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "drive-prefix",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "C:file",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "unc-prefix",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "//server/share",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "create-existing-file-nolinks",
+      "operation": "create_exclusive",
+      "profile": "no-links/v0",
+      "name": "a/file",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "already_exists",
+        "preserves_nodes": ["a/file"]
+      }
+    },
+    {
+      "id": "create-existing-file-containment",
+      "operation": "create_exclusive",
+      "profile": "containment/v0",
+      "name": "a/file",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "already_exists",
+        "preserves_nodes": ["a/file"]
+      }
+    },
+    {
+      "id": "create-dangling-link-nolinks",
+      "operation": "create_exclusive",
+      "profile": "no-links/v0",
+      "name": "a/new",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/new",
+          "kind": "symlink",
+          "target": "missing"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "already_exists",
+        "preserves_nodes": ["a/new"]
+      }
+    },
+    {
+      "id": "read-dir-containment",
+      "operation": "read_dir",
+      "profile": "containment/v0",
+      "name": "a",
+      "max_entries": 2,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a"
+      }
+    },
+    {
+      "id": "create-final-dotdot",
+      "operation": "create_exclusive",
+      "profile": "containment/v0",
+      "name": "..",
+      "recipe": [],
+      "expected": {
+        "outcome": "refused",
+        "category": "already_exists"
+      }
+    },
+    {
+      "id": "read-byte-bound",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/file",
+      "max_bytes": 4,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file",
+          "byte_length": 5
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "bound_exceeded"
+      }
+    },
+    {
+      "id": "read-byte-exact",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/file",
+      "max_bytes": 5,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/file",
+          "kind": "regular_file",
+          "byte_length": 5
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a/file",
+        "byte_length": 5
+      }
+    },
+    {
+      "id": "create-new-nolinks",
+      "operation": "create_exclusive",
+      "profile": "no-links/v0",
+      "name": "a/new",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a/new",
+        "mutation": "created"
+      }
+    },
+    {
+      "id": "create-new-containment",
+      "operation": "create_exclusive",
+      "profile": "containment/v0",
+      "name": "a/new",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a/new",
+        "mutation": "created"
+      }
+    },
+    {
+      "id": "nolinks-intermediate-link",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "a/link/file",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "b"
+        },
+        {
+          "path": "a/b",
+          "kind": "directory"
+        },
+        {
+          "path": "a/b/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "link_refused"
+      }
+    },
+    {
+      "id": "hop-loop",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/link",
+      "max_symlink_hops": 1,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "link"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "hop_limit"
+      }
+    },
+    {
+      "id": "malformed-link-target",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/link",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "bad\u0000target"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "invalid_name"
+      }
+    },
+    {
+      "id": "backslash-link-target",
+      "operation": "open_read",
+      "profile": "containment/v0",
+      "name": "a/link",
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/link",
+          "kind": "symlink",
+          "target": "\\outside"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "escape"
+      }
+    },
+    {
+      "id": "mount-without-noxdev",
+      "operation": "open_read",
+      "profile": "no-links/v0",
+      "name": "mnt/file",
+      "recipe": [
+        {
+          "path": "mnt",
+          "kind": "mount_boundary"
+        },
+        {
+          "path": "mnt/file",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "mnt/file"
+      }
+    },
+    {
+      "id": "read-dir-observes-fifo",
+      "operation": "read_dir",
+      "profile": "no-links/v0",
+      "name": "a",
+      "max_entries": 3,
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        },
+        {
+          "path": "a/fifo",
+          "kind": "fifo"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "a",
+        "entries": [
+          {
+            "name": "fifo",
+            "kind": "other"
+          }
+        ]
+      }
+    },
+    {
+      "id": "create-unknown-mutation",
+      "operation": "create_exclusive",
+      "profile": "containment/v0",
+      "name": "a/new",
+      "runtime": {
+        "fault_after_create": true
+      },
+      "recipe": [
+        {
+          "path": "a",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unknown_mutation_outcome"
+      }
+    },
+    {
+      "id": "stat-live",
+      "operation": "stat",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "stat",
+        "handle": "handle:held",
+        "lifetime_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:held",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      }
+    },
+    {
+      "id": "stat-stale",
+      "operation": "stat",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "stat",
+        "handle": "handle:held",
+        "lifetime_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:held",
+            "generation": 2,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "same-object-live",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "same_object",
+        "left_handle": "handle:left",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:left",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          },
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "same_object": true
+      }
+    },
+    {
+      "id": "same-object-different",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "same_object",
+        "left_handle": "handle:left",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:left",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          },
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "10"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "same_object": false
+      }
+    },
+    {
+      "id": "same-object-reopened-refused",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "same_object",
+        "left_handle": "handle:closed",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "root-expected-identity",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:fixture",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "accepted",
+        "resolved_path": "root"
+      }
+    },
+    {
+      "id": "root-identity-mismatch",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:fixture",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "10"
+        }
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "root-no-xdev-unsupported",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "no_xdev": true
+        },
+        "operation": "open_root",
+        "root_ref": "root:fixture",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "root-concurrent-unsupported",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "adversary": "concurrent_rename_resistant"
+        },
+        "operation": "open_root",
+        "root_ref": "root:fixture",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "stat-capability-unsupported",
+      "operation": "stat",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "no_xdev": true
+        },
+        "operation": "stat",
+        "handle": "handle:held",
+        "lifetime_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:held",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "same-object-capability-unsupported",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "adversary": "concurrent_rename_resistant"
+        },
+        "operation": "same_object",
+        "left_handle": "handle:left",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:left",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          },
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "unsupported_capability"
+      }
+    }
+  ]
+}

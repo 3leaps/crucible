@@ -1,0 +1,406 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/capability-report.schema.json",
+  "title": "Filesystem Access Capability Report",
+  "description": "A cell qualifies one operation at one observation point. It never certifies a larger operation assembled from separate observations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capabilities", "report_id", "cells"],
+  "properties": {
+    "capabilities": {
+      "const": ["contract: filesystem-access/v0"],
+      "contains": {
+        "const": "contract: filesystem-access/v0"
+      }
+    },
+    "report_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/cell"
+      }
+    }
+  },
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "arch",
+        "filesystem",
+        "backend",
+        "operation",
+        "profile",
+        "observation_point",
+        "adversary_level",
+        "enforcement",
+        "kernel_mechanism",
+        "evidence_refs"
+      ],
+      "properties": {
+        "os": {
+          "enum": ["linux", "darwin", "windows", "other"]
+        },
+        "arch": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
+        },
+        "filesystem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "operation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/operation"
+        },
+        "profile": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/profile"
+        },
+        "observation_point": {
+          "enum": [
+            "root_open",
+            "component_open",
+            "final_open",
+            "parent_admission",
+            "directory_enumeration",
+            "held_handle_stat",
+            "identity_comparison"
+          ]
+        },
+        "backend": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/backend"
+        },
+        "adversary_level": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/adversary"
+        },
+        "enforcement": {
+          "enum": ["manual_stepwise", "kernel_atomic"]
+        },
+        "kernel_mechanism": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/evidence_ref"
+          }
+        },
+        "no_xdev": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enforcement": {
+                "const": "manual_stepwise"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "adversary_level": {
+                "const": "concurrent_rename_resistant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "enforcement": {
+                "const": "kernel_atomic"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "adversary_level": {
+                "const": "concurrent_rename_resistant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "backend": {
+                "const": "linux-openat2"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend": {
+                "const": "linux-openat2"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "os": {
+                "const": "linux"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend": {
+                "const": "linux-openat2"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "enforcement": {
+                "const": "kernel_atomic"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend": {
+                "const": "darwin-openat-walk"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "os": {
+                "const": "darwin"
+              },
+              "enforcement": {
+                "const": "manual_stepwise"
+              },
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend": {
+                "const": "windows-ntcreatefile-walk"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "os": {
+                "const": "windows"
+              },
+              "enforcement": {
+                "const": "manual_stepwise"
+              },
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend": {
+                "const": "linux-openat-walk"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "os": {
+                "const": "linux"
+              },
+              "enforcement": {
+                "const": "manual_stepwise"
+              },
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "open_root"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "root_open"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "open_read"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "final_open"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "read_dir"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "directory_enumeration"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "stat"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "held_handle_stat"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "same_object"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "identity_comparison"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_point": {
+                "const": "parent_admission"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "create_exclusive"
+              },
+              "adversary_level": {
+                "const": "concurrent_rename_resistant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "const": "final_open"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "adversary_level": {
+                "const": "concurrent_rename_resistant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "operation": {
+                "enum": ["open_read", "create_exclusive"]
+              },
+              "observation_point": {
+                "const": "final_open"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "create_exclusive"
+              },
+              "adversary_level": {
+                "const": "stable_tree"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_point": {
+                "enum": ["parent_admission", "final_open"]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
