@@ -66,6 +66,7 @@ Examples:
 | [DDR-0003](DDR-0003-portable-path-serialization-at-tool-boundaries.md)     | Portable Path Serialization at Tool Boundaries                              | proposed | 2026-10-02 |
 | [DDR-0004](DDR-0004-durable-index-row-and-plan-encoding.md)                | Durable Index Row and Plan Encoding                                         | proposed | 2026-10-18 |
 | [SecDR-0001](SecDR-0001-application-controller-authority.md)               | Application Controller Authority                                            | proposed | 2026-09-06 |
+| [SecDR-0002](SecDR-0002-secret-surface-non-disclosure-and-input-isolation.md) | Secret Surface Non-Disclosure and Input Isolation | proposed | 2026-11-13 |
 | [PDR-0001](PDR-0001-adopt-data-pipeline-principles.md)                     | Adopt the Data-Pipeline Engineering Principles                              | accepted | 2026-06-29 |
 | [PDR-0002](PDR-0002-worktree-per-task.md)                                  | One git worktree per concurrent task                                        | accepted | 2026-06-29 |
 | [PDR-0003](PDR-0003-role-portfolio-tiering.md)                             | Role portfolio tiering: core, supplemental, deprecated                      | accepted | 2026-06-29 |

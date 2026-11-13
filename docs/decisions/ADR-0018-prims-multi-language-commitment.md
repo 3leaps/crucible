@@ -3,6 +3,7 @@ id: "ADR-0018"
 title: "Prims carry a multi-language commitment and may depend on sibling prims"
 status: "proposed"
 date: "2026-10-25"
+last_updated: "2026-11-13"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -40,12 +41,15 @@ is Rust-core-only?
    extension of fulmen's `library` category, which otherwise has no
    executables.
 2. **Two profiles.** Profile A is one Rust core; Go uses cgo over the prim's
-   JSON C ABI, TypeScript uses napi-rs, Python uses PyO3 and maturin, and no
-   binding re-implements logic. Profile B is locked parallel implementations in
+   JSON C ABI, TypeScript comes from Rust via napi-rs for native OS/syscall
+   capabilities or Rust-compiled WebAssembly (`wasm32-unknown-unknown` /
+   `wasm-bindgen`) for pure-compute deterministic libraries, Python uses PyO3
+   and maturin, and no binding re-implements logic. Profile B is locked parallel implementations in
    pure Go and Rust, in one repo, under one contract, one version and one tag,
    passing one shared conformance suite; TypeScript and Python come from the
-   Rust tree. Profile A is the default. Profile B is chosen when pure Go is a
-   requirement. A Profile B prim bootstraps one tree at a time: it declares
+   Rust tree using those same binding mechanisms. A hand-written second TypeScript
+   algorithm requires a declared extension. Profile A is the default. Profile B
+   is chosen when pure Go is a requirement. A Profile B prim bootstraps one tree at a time: it declares
    which tree operates, grades only that tree against the shared vectors, and
    authors vector expectations as data rather than snapshotting them from the
    operating tree. The same-PR lockstep rule for both trees starts when the
@@ -66,6 +70,31 @@ is Rust-core-only?
    dependent does not reimplement the sibling's logic to close it. The prim
    dependency graph is acyclic; a prim may declare itself a leaf, enforced by a
    dependency check, and foundation prims should be leaves.
+
+
+4. **Unsuffixed library+CLI toolkits may adopt the profiles.** They declare
+   their library and CLI surfaces (optionally TUI), with no daemon or HTTP
+   server under P5. This does not assign them a suffixed class. Profile B uses
+   the same Rust/pure-Go (`CGO_ENABLED=0`) shared-vector, bootstrap-to-locked,
+   root-module, single-version and single-tag rules. The full operator CLI/TUI
+   stays in one canonical host tree; a second CLI is not required. Unlike
+   prims' four-language commitment, Python and TypeScript bindings may be
+   on-demand (`optional`), or `planned`/`shipped`, produced from Rust and graded
+   against shared vectors when present, in either toolkit profile. In toolkit
+   Profile A, Go may also be optional and uses the Rust C ABI when offered;
+   a native pure-Go twin selects Profile B. Host-only interfaces do not exempt
+   shared library behavior from parity.
+5. **Legacy CGo modules have an explicit cutover.** Already-tagged nested
+   modules retain `scope: legacy-go-module` and their tag choreography for
+   maintenance patches on the old line. At a planned pre-1.0 minor or stable
+   major boundary, introduce an operating pure-Go root `go.mod` at the repo
+   URL (with Go's `/vN` module/import suffix for major versions N >= 2),
+   shared vectors and declared bootstrap/lock status; retire nested CGo
+   archives and secondary tags for the new line. Existing pure-Go sub-modules
+   may fold into the root or remain documented compatibility extensions.
+   Historical tags remain intact. The changelog and release notes document
+   import migration and retained compatibility versioning; repository-classes
+   §4.3 carries the observable cutover checks.
 
 ## Consequences
 

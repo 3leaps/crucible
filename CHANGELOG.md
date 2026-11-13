@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add draft secret-surface boundaries and a proposed security decision for
+  value-free control, MCP and graphical interfaces and isolated secret input.
+
+### Changed
+
+- Extend repository library profiles to unsuffixed toolkits, document legacy
+  Go module cutover and Rust-generated TypeScript delivery, and separate
+  qualification-harness verification authority and reporting axes.
+
 ## [0.2.11] - 2026-11-13
 
 ### Added
