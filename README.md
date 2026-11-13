@@ -345,6 +345,16 @@ protocol stacks, execution and context continuity, and distinct delivery,
 execution and cursor-commit signals. Values and profiles describe interfaces;
 they confer no authority.
 
+### Experimental filesystem access contract
+
+The [filesystem access contract](docs/standards/filesystem-access.md) defines
+root-relative names, held-root containment and no-links profiles, bounded
+operations, typed errors and per-operation capability claims. Its
+[schema bundle and declarative cases](schemas/filesystem-access/v0/README.md)
+provide logical controls; runtime enforcement and adversarial platform
+qualification remain the responsibility of adopters. See
+[ADR-0020](docs/decisions/ADR-0020-filesystem-access-contract.md).
+
 ### Published schema assets
 
 JSON schemas normally carry a canonical `$id` under the

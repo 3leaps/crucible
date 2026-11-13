@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/root-relative-name.schema.json",
+  "title": "Admitted Root-Relative Name",
+  "description": "Portable no-links/v0 name grammar. Containment/v0 uses the same scalar and alias refusals but admits dot segments for physical resolution. JSON Schema cannot detect unpaired surrogates; consumers MUST reject them before UTF-8 encoding.",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 4096,
+  "pattern": "^[^/\\\\:]+(/[^/\\\\:]+)*$",
+  "allOf": [
+    { "not": { "pattern": "\u0000" } },
+    { "not": { "pattern": "(^|/)[.][.]?(/|$)" } },
+    { "not": { "pattern": "(^|/)[^/]*[. ](/|$)" } },
+    {
+      "not": {
+        "pattern": "(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9¹²³]|[Ll][Pp][Tt][1-9¹²³])([. ][^/]*)?(/|$)"
+      }
+    }
+  ]
+}

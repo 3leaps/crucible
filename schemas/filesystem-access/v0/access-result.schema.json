@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/access-result.schema.json",
+  "title": "Filesystem Access Result",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "handle", "lifetime_generation", "identity"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "open_root"
+        },
+        "handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "lifetime_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        },
+        "identity": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "handle", "lifetime_generation", "byte_length"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "open_read"
+        },
+        "handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "lifetime_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "handle", "lifetime_generation", "mutation"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "create_exclusive"
+        },
+        "handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "lifetime_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        },
+        "mutation": {
+          "const": "created"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "entries"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "read_dir"
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind"],
+            "properties": {
+              "name": {
+                "$ref": "contract:filesystem-access/v0/observed-name.schema.json"
+              },
+              "kind": {
+                "enum": ["directory", "regular_file", "symlink", "reparse_point", "other"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "identity"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "stat"
+        },
+        "identity": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "same_object"],
+      "properties": {
+        "outcome": {
+          "const": "accepted"
+        },
+        "operation": {
+          "const": "same_object"
+        },
+        "same_object": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "operation", "error"],
+      "properties": {
+        "outcome": {
+          "const": "refused"
+        },
+        "operation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/operation"
+        },
+        "error": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/error"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "enum": ["stat", "same_object"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "enum": ["io_error", "unsupported_capability"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "const": "unknown_mutation_outcome"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "operation": {
+                "const": "create_exclusive"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

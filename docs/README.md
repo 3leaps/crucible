@@ -64,6 +64,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [classifiers-framework.md](standards/classifiers-framework.md) - How the classifiers system fits together (docs + config + schemas)
 - [data-acquisition-contract.md](standards/data-acquisition-contract.md) - Proposed upstream policy, acquisition scope, and shared-capacity registration contract
 - [data-artifact-contract.md](standards/data-artifact-contract.md) - Portable artifact, representation, catalog, provenance, and protection contract
+- [filesystem-access.md](standards/filesystem-access.md) - Proposed held-root filesystem access profiles, names, capabilities and recipe controls
 - [durable-index-contract.md](standards/durable-index-contract.md) - Proposed object-inventory snapshots, observation plans, and successor rules
 - [durable-index-conformance.md](standards/durable-index-conformance.md) - Durable-index design controls, physical corpus, and adoption gates
 - [durable-queue-contract.md](standards/durable-queue-contract.md) - Proposed at-least-once queue envelope, leases with fencing, ledger, and capability profiles

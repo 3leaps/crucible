@@ -402,6 +402,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 	@if command -v goneat >/dev/null 2>&1; then \
 		echo "    Schema validator profile controls..."; \
 		python3 scripts/test-schema-validator-controls.py --require-metadata || exit 1; \
+		echo "    Filesystem access controls..."; \
+		python3 scripts/test-filesystem-access-controls.py || exit 1; \
 		echo "    Identity evidence controls..."; \
 		python3 scripts/test-identity-evidence-controls.py || exit 1; \
 		python3 scripts/test-identity-wire-controls.py || exit 1; \
@@ -448,7 +450,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 			schemas/project-work/v0/contract.json \
 			schemas/seat-spheres/v0/contract.json \
 			schemas/inference-path-taxonomy/v0/contract.json \
-			schemas/forge-infra/v0/contract.json || exit 1; \
+			schemas/forge-infra/v0/contract.json \
+			schemas/filesystem-access/v0/contract.json || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi

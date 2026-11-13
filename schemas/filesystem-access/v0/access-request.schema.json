@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/access-request.schema.json",
+  "title": "Filesystem Access Request",
+  "description": "A portable operation request. root_ref and handle_ref are opaque capability references, never host paths.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "capabilities", "operation", "root_ref"],
+      "properties": {
+        "contract": { "const": "filesystem-access/v0" },
+        "capabilities": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/capabilities"
+        },
+        "operation": { "const": "open_root" },
+        "root_ref": { "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/root_ref" },
+        "expected_identity": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "capabilities",
+        "operation",
+        "root_handle",
+        "lifetime_generation",
+        "profile",
+        "name"
+      ],
+      "properties": {
+        "contract": { "const": "filesystem-access/v0" },
+        "capabilities": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/capabilities"
+        },
+        "operation": { "enum": ["open_read", "create_exclusive", "read_dir"] },
+        "root_handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "lifetime_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        },
+        "profile": { "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/profile" },
+        "name": { "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/raw_name" },
+        "max_bytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "max_entries": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "max_symlink_hops": { "type": "integer", "minimum": 1, "maximum": 40 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "const": "open_read" } } },
+          "then": { "required": ["max_bytes"], "not": { "required": ["max_entries"] } }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "read_dir" } } },
+          "then": { "required": ["max_entries"], "not": { "required": ["max_bytes"] } }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "create_exclusive" } } },
+          "then": {
+            "not": { "anyOf": [{ "required": ["max_bytes"] }, { "required": ["max_entries"] }] }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "capabilities", "operation", "handle", "lifetime_generation"],
+      "properties": {
+        "contract": { "const": "filesystem-access/v0" },
+        "capabilities": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/capabilities"
+        },
+        "operation": { "const": "stat" },
+        "handle": { "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref" },
+        "lifetime_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "capabilities",
+        "operation",
+        "left_handle",
+        "left_generation",
+        "right_handle",
+        "right_generation"
+      ],
+      "properties": {
+        "contract": { "const": "filesystem-access/v0" },
+        "capabilities": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/capabilities"
+        },
+        "operation": { "const": "same_object" },
+        "left_handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "left_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        },
+        "right_handle": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/handle_ref"
+        },
+        "right_generation": {
+          "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
+        }
+      }
+    }
+  ]
+}

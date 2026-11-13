@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:filesystem-access/v0/common.schema.json",
+  "title": "Filesystem Access v0 Shared Definitions",
+  "$defs": {
+    "contract": { "const": "contract: filesystem-access/v0" },
+    "root_ref": { "type": "string", "pattern": "^root:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "handle_ref": { "type": "string", "pattern": "^handle:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "lifetime_generation": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "raw_name": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Caller spelling before admission. It intentionally permits lexical refusals so results can report invalid_name."
+    },
+    "profile": { "enum": ["containment/v0", "no-links/v0"] },
+    "operation": {
+      "enum": ["open_root", "open_read", "create_exclusive", "read_dir", "stat", "same_object"]
+    },
+    "adversary": { "enum": ["stable_tree", "concurrent_rename_resistant"] },
+    "backend": {
+      "enum": [
+        "linux-openat2",
+        "linux-openat-walk",
+        "darwin-openat-walk",
+        "windows-ntcreatefile-walk",
+        "other-qualified"
+      ]
+    },
+    "object_identity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "device", "inode"],
+          "properties": {
+            "kind": { "const": "unix" },
+            "device": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+            "inode": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "volume_serial", "file_id_128"],
+          "properties": {
+            "kind": { "const": "windows" },
+            "volume_serial": { "type": "string", "pattern": "^[0-9A-F]{16}$" },
+            "file_id_128": { "type": "string", "pattern": "^[0-9A-F]{32}$" }
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category"],
+      "properties": {
+        "category": {
+          "enum": [
+            "invalid_name",
+            "policy_denied",
+            "unsupported_capability",
+            "not_found",
+            "already_exists",
+            "wrong_type",
+            "bound_exceeded",
+            "io_error",
+            "unknown_mutation_outcome"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "escape",
+            "link_refused",
+            "reparse_refused",
+            "special_file",
+            "cross_device",
+            "hop_limit"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "category": { "const": "policy_denied" } } },
+          "then": { "required": ["reason"] },
+          "else": { "not": { "required": ["reason"] } }
+        }
+      ]
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "no_xdev": { "type": "boolean" },
+        "adversary": { "$ref": "#/$defs/adversary" }
+      }
+    },
+    "evidence_ref": { "type": "string", "pattern": "^evidence:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+  }
+}
