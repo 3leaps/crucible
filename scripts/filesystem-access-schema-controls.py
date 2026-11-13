@@ -462,6 +462,20 @@ def run_schema_controls():
                         False,
                         "root/held request source " + change,
                     )
+        root_case = next(c for c in corpus["cases"] if c["operation"] == "open_root")
+        for key, invalid in (
+            ("ref", "../root"),
+            ("path", "../outside"),
+            ("host_path", "/outside"),
+        ):
+            bad_case = copy.deepcopy(root_case)
+            bad_case["runtime"]["root_bindings"][0][key] = invalid
+            check(
+                "cases",
+                {**corpus, "cases": [bad_case]},
+                False,
+                "invalid root binding " + key,
+            )
         path_case = next(c for c in corpus["cases"] if c["operation"] == "open_read")
         for guarantee in (
             {"no_xdev": True},

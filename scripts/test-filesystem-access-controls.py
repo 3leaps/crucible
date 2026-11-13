@@ -222,7 +222,15 @@ def resolve(case, state=None):
             or requested.get("adversary") == "concurrent_rename_resistant"
         ):
             raise Refusal("unsupported_capability")
-        node = tree.get(name)
+        bindings = {}
+        for binding in runtime.get("root_bindings", []):
+            require(binding["ref"] not in bindings, "duplicate root reference")
+            bindings[binding["ref"]] = binding
+        binding = bindings.get(embedded["root_ref"])
+        if binding is None:
+            raise Refusal("io_error")
+        root_path = binding["path"]
+        node = tree.get(root_path)
         if node is None:
             raise Refusal("not_found")
         if node["kind"] == "symlink":
@@ -234,10 +242,10 @@ def resolve(case, state=None):
         expected_identity = case.get("access_request", {}).get("expected_identity")
         if (
             expected_identity is not None
-            and runtime.get("root_identity") != expected_identity
+            and binding.get("identity") != expected_identity
         ):
             raise Refusal("io_error")
-        return {"outcome": "accepted", "resolved_path": name}
+        return {"outcome": "accepted", "resolved_path": root_path}
 
     components = admitted_components(name, profile)
     capabilities = case.get("request", {})
@@ -409,10 +417,18 @@ def controls():
         changed["request"]["no_xdev"] = False
         return resolve(changed, state)
 
+    def ignore_root_reference(value, state):
+        changed = copy.deepcopy(value)
+        changed["runtime"]["root_bindings"] = [
+            {"ref": changed["access_request"]["root_ref"], "path": changed["name"]}
+        ]
+        return resolve(changed, state)
+
     for name, broken in (
         ("containment-link-dotdot", collapsed),
         ("read-byte-bound", unbounded),
         ("no-xdev-crossing", ignore_mounts),
+        ("root-reference-selects-link", ignore_root_reference),
     ):
         try:
             check_case(indexed[name], broken)

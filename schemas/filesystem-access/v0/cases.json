@@ -341,6 +341,14 @@
         "capabilities": {},
         "operation": "open_root",
         "root_ref": "root:fixture"
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root"
+          }
+        ]
       }
     },
     {
@@ -364,6 +372,14 @@
         "capabilities": {},
         "operation": "open_root",
         "root_ref": "root:fixture"
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root"
+          }
+        ]
       }
     },
     {
@@ -1093,11 +1109,17 @@
         }
       },
       "runtime": {
-        "root_identity": {
-          "kind": "unix",
-          "device": "1",
-          "inode": "9"
-        }
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
       },
       "recipe": [
         {
@@ -1127,11 +1149,17 @@
         }
       },
       "runtime": {
-        "root_identity": {
-          "kind": "unix",
-          "device": "1",
-          "inode": "10"
-        }
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "10"
+            }
+          }
+        ]
       },
       "recipe": [
         {
@@ -1163,11 +1191,17 @@
         }
       },
       "runtime": {
-        "root_identity": {
-          "kind": "unix",
-          "device": "1",
-          "inode": "9"
-        }
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
       },
       "recipe": [
         {
@@ -1199,11 +1233,17 @@
         }
       },
       "runtime": {
-        "root_identity": {
-          "kind": "unix",
-          "device": "1",
-          "inode": "9"
-        }
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
       },
       "recipe": [
         {
@@ -1301,6 +1341,86 @@
       "expected": {
         "outcome": "refused",
         "category": "unsupported_capability"
+      }
+    },
+    {
+      "id": "root-unmapped-reference",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:unknown",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "root-reference-selects-link",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "decoy",
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "symlink",
+          "target": "real"
+        },
+        {
+          "path": "real",
+          "kind": "directory"
+        },
+        {
+          "path": "decoy",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "policy_denied",
+        "reason": "link_refused"
+      },
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {},
+        "operation": "open_root",
+        "root_ref": "root:fixture"
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root"
+          }
+        ]
       }
     }
   ]

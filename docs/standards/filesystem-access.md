@@ -338,10 +338,12 @@ Path-operation cases use the flat `name`, `profile`, bounds and `request`
 capability fields as their sole request source; an embedded `access_request` is
 forbidden. Root-admission and held-handle cases instead require an
 operation-matched `access_request` and forbid duplicate flat request/bound fields.
-For these cases, `name` selects a synthetic root fixture or labels the held
-fixture, and `profile` is descriptive only; neither drives a path re-lookup.
-Root `root_ref` maps to the named synthetic fixture. Capability requirements
-come only from the embedded request.
+For these cases, `name` and `profile` are descriptive fixture labels only;
+neither drives a path re-lookup. A root `root_ref` resolves through the case's
+explicit `runtime.root_bindings` table to a synthetic recipe location and its
+optional observed identity. An unmapped root reference yields `io_error`;
+duplicate bindings are invalid test data. Capability requirements come only
+from the embedded request.
 
 The Python controls exercise lexical admission, physical link resolution,
 exclusive-create non-mutation, bounded reads/listings, capability refusals and

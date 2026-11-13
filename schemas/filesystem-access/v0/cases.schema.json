@@ -242,9 +242,6 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "root_identity": {
-              "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
-            },
             "no_xdev_available": {
               "type": "boolean"
             },
@@ -272,6 +269,33 @@
                     "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/lifetime_generation"
                   },
                   "object": {
+                    "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
+                  }
+                }
+              }
+            },
+            "root_bindings": {
+              "type": "array",
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ref", "path"],
+                "properties": {
+                  "ref": {
+                    "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/root_ref"
+                  },
+                  "path": {
+                    "oneOf": [
+                      {
+                        "const": ""
+                      },
+                      {
+                        "$ref": "#/$defs/recipe_name"
+                      }
+                    ]
+                  },
+                  "identity": {
                     "$ref": "contract:filesystem-access/v0/common.schema.json#/$defs/object_identity"
                   }
                 }
