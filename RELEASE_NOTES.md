@@ -10,6 +10,25 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.11 (2026-11-13)
+
+**Adds the proposed, experimental `filesystem-access/v0` contract for portable access relative to a held directory object.**
+
+- Defines root-relative name admission, `containment/v0` and `no-links/v0`
+  profiles, held-handle identity, bounded reads and directory listings, and
+  exclusive creation without final-link following.
+- Adds request/result schemas, per-operation capability reports, 62 declarative
+  recipe cases, and logical, schema, mutation and bounded native availability
+  controls.
+
+The contract remains proposed/experimental. Schema validity, logical agreement
+and primitive availability do not qualify a production resolver or concurrent
+filesystem enforcement.
+
+See [docs/releases/v0.2.11.md](docs/releases/v0.2.11.md).
+
+---
+
 ## v0.2.10 (2026-11-11)
 
 **Adds a physical Parquet fixture corpus and complete independent logical reader for `durable-index/v0`, and tightens durable-record framing and schema validation controls.**
@@ -85,42 +104,3 @@ See [docs/releases/v0.2.10.md](docs/releases/v0.2.10.md).
 See [docs/releases/v0.2.9.md](docs/releases/v0.2.9.md).
 
 ---
-
-## v0.2.8 (2026-11-07)
-
-**Defines `durable-record` (`v0` and `v1`) RFC 3339 instant validation profiles and finite JSON Schema subset admission, deprecates `durable-record/v0` for new producers, specifies the `durable-record/v1` writer-owned incomplete-append abort boundary and `runtime.incarnation_allocation`, adds the draft `opslead` role, and adds workflow supply-chain, key-expiry, and local-path hygiene gates.**
-
-- **Durable-record (`v0` and `v1`) timestamp profiles, `v0` deprecation, and `v1` incomplete-append abort boundary**:
-  enforces ASCII-only RFC 3339 instant validation with year bounds `0001`–`9999`
-  (`0000` and UTC year underflow/overflow refused), proleptic Gregorian calendar
-  validation, unconditional `:60` leap-second refusal, per-position Stage 3 vs.
-  Stage 4 evaluation trace, and finite JSON Schema Draft 2020-12 keyword subset
-  admission (forbidding sibling assertion keywords alongside `$ref`). Marks
-  `schemas/durable-record/v0/contract.json` as `"status": "deprecated"`
-  (`"superseded_by": "contract: durable-record/v1"`) for new stream production
-  while keeping historical `v0` validation intact. Specifies the
-  `durable-record/v1` writer-owned incomplete-append abort boundary (`0 <= k < L`
-  under continuous reader and writer exclusion, `SameFile` descriptor identity
-  on the truncate handle, `fsync` of file and directory, post-truncate `fstat`
-  size match, prior-cut `1..cut_seq` re-validation, and fail-closed in-process
-  handle poisoning on indeterminate commits or gate failures) and adds optional
-  `runtime.incarnation_allocation` (`"effect_dependent"` |
-  `"prewrite_durable_ledger"`) to `stratum-profile.schema.json`.
-- **Agentic role catalog (`opslead` `1.0.0`, draft)**: adds supplemental
-  `config/agentic/roles/opslead.yaml` (category `governance`, domains
-  `governance`, `coordination`, and `automation`) and
-  `docs/catalog/roles/opslead.md` for accountable stewardship of estate
-  operating procedures, seat and identity lifecycle records, and operating
-  baselines, with explicit boundary separation from `dispatch`, `secops`,
-  `devsecops`, `projectmgr`, and `cxotech`.
-- **Workflow supply-chain pinning, signing-key expiration horizon, and local-path hygiene**:
-  adds `scripts/test-workflow-pins.sh` (enforcing 40-hex commit SHA pins with
-  version comments on `uses:`, `@sha256:` digests on `container` images, and
-  workflow permission boundaries), `check_release_key_expiry` in
-  `scripts/release-env.sh` wired into `scripts/release-derive-anchors.sh` and
-  `scripts/release-verify-anchors.sh` (failing closed on expired primary or
-  signing subkeys and warning within 30 days of expiration), and
-  `scripts/content-check.py` (scanning tracked files for generic local OS path
-  shapes).
-
-See [docs/releases/v0.2.8.md](docs/releases/v0.2.8.md).
