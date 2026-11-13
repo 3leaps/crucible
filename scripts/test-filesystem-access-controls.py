@@ -167,12 +167,6 @@ def held_result(case):
     request = case.get("access_request")
     require(isinstance(request, dict), "held operation needs access_request")
     require(request["operation"] == case["operation"], "request/operation mismatch")
-    requested = request.get("capabilities", {})
-    if (
-        requested.get("no_xdev")
-        or requested.get("adversary") == "concurrent_rename_resistant"
-    ):
-        raise Refusal("unsupported_capability")
     table = {}
     for item in case.get("runtime", {}).get("live_handles", []):
         require(item["handle"] not in table, "duplicate live handle reference")
@@ -185,10 +179,19 @@ def held_result(case):
         return item["object"]
 
     if case["operation"] == "stat":
-        identity = lookup(request["handle"], request["lifetime_generation"])
-        return {"outcome": "accepted", "identity": identity}
-    left = lookup(request["left_handle"], request["left_generation"])
-    right = lookup(request["right_handle"], request["right_generation"])
+        left = lookup(request["handle"], request["lifetime_generation"])
+    else:
+        left = lookup(request["left_handle"], request["left_generation"])
+        right = lookup(request["right_handle"], request["right_generation"])
+    # Reference validity precedes capability selection even in mixed-fault cases.
+    requested = request.get("capabilities", {})
+    if (
+        requested.get("no_xdev")
+        or requested.get("adversary") == "concurrent_rename_resistant"
+    ):
+        raise Refusal("unsupported_capability")
+    if case["operation"] == "stat":
+        return {"outcome": "accepted", "identity": left}
     if left["kind"] != right["kind"]:
         raise Refusal("unsupported_capability")
     return {"outcome": "accepted", "same_object": left == right}
@@ -216,12 +219,6 @@ def resolve(case, state=None):
     name, profile = case["name"], case["profile"]
     runtime = case.get("runtime", {})
     if operation == "open_root":
-        requested = embedded["capabilities"]
-        if (
-            requested.get("no_xdev")
-            or requested.get("adversary") == "concurrent_rename_resistant"
-        ):
-            raise Refusal("unsupported_capability")
         bindings = {}
         for binding in runtime.get("root_bindings", []):
             require(binding["ref"] not in bindings, "duplicate root reference")
@@ -229,6 +226,12 @@ def resolve(case, state=None):
         binding = bindings.get(embedded["root_ref"])
         if binding is None:
             raise Refusal("io_error")
+        requested = embedded["capabilities"]
+        if (
+            requested.get("no_xdev")
+            or requested.get("adversary") == "concurrent_rename_resistant"
+        ):
+            raise Refusal("unsupported_capability")
         root_path = binding["path"]
         node = tree.get(root_path)
         if node is None:
@@ -436,11 +439,23 @@ def controls():
         ]
         return resolve(changed, state)
 
+    def capabilities_before_references(value, state):
+        requested = value["access_request"]["capabilities"]
+        if (
+            requested.get("no_xdev")
+            or requested.get("adversary") == "concurrent_rename_resistant"
+        ):
+            raise Refusal("unsupported_capability")
+        return resolve(value, state)
+
     for name, broken in (
         ("containment-link-dotdot", collapsed),
         ("read-byte-bound", unbounded),
         ("no-xdev-crossing", ignore_mounts),
         ("root-reference-selects-link", ignore_root_reference),
+        ("stat-stale-no-xdev", capabilities_before_references),
+        ("same-stale-concurrent", capabilities_before_references),
+        ("root-unmapped-no-xdev", capabilities_before_references),
     ):
         try:
             check_case(indexed[name], broken)

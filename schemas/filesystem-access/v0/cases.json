@@ -1422,6 +1422,264 @@
           }
         ]
       }
+    },
+    {
+      "id": "stat-stale-no-xdev",
+      "operation": "stat",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "no_xdev": true
+        },
+        "operation": "stat",
+        "handle": "handle:held",
+        "lifetime_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:held",
+            "generation": 2,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "stat-stale-concurrent",
+      "operation": "stat",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "adversary": "concurrent_rename_resistant"
+        },
+        "operation": "stat",
+        "handle": "handle:held",
+        "lifetime_generation": 1
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:held",
+            "generation": 2,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "same-stale-no-xdev",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "no_xdev": true
+        },
+        "operation": "same_object",
+        "left_handle": "handle:left",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 999
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:left",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          },
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "same-stale-concurrent",
+      "operation": "same_object",
+      "profile": "no-links/v0",
+      "name": "held",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "adversary": "concurrent_rename_resistant"
+        },
+        "operation": "same_object",
+        "left_handle": "handle:left",
+        "left_generation": 1,
+        "right_handle": "handle:right",
+        "right_generation": 999
+      },
+      "runtime": {
+        "live_handles": [
+          {
+            "handle": "handle:left",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          },
+          {
+            "handle": "handle:right",
+            "generation": 1,
+            "object": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "held",
+          "kind": "regular_file"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "root-unmapped-no-xdev",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "no_xdev": true
+        },
+        "operation": "open_root",
+        "root_ref": "root:unknown",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
+    },
+    {
+      "id": "root-unmapped-concurrent",
+      "operation": "open_root",
+      "profile": "no-links/v0",
+      "name": "root",
+      "access_request": {
+        "contract": "filesystem-access/v0",
+        "capabilities": {
+          "adversary": "concurrent_rename_resistant"
+        },
+        "operation": "open_root",
+        "root_ref": "root:unknown",
+        "expected_identity": {
+          "kind": "unix",
+          "device": "1",
+          "inode": "9"
+        }
+      },
+      "runtime": {
+        "root_bindings": [
+          {
+            "ref": "root:fixture",
+            "path": "root",
+            "identity": {
+              "kind": "unix",
+              "device": "1",
+              "inode": "9"
+            }
+          }
+        ]
+      },
+      "recipe": [
+        {
+          "path": "root",
+          "kind": "directory"
+        }
+      ],
+      "expected": {
+        "outcome": "refused",
+        "category": "io_error"
+      }
     }
   ]
 }
