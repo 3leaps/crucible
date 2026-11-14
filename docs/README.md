@@ -75,6 +75,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [inference-path-taxonomy/v0](../schemas/inference-path-taxonomy/v0/) - Parties, model pins, and declared inference paths (proposed)
 - [repository-classes.md](standards/repository-classes.md) - Repository classes (prims, bolts, wits, voys, pressers): who calls it, per-class checks, prim profiles and sibling dependencies (draft)
 - [recurrence-rule-contract.md](standards/recurrence-rule-contract.md) - Proposed RFC 5545 recurrence rule subset, expansion semantics, and pinned conformance corpus
+- [secret-surface-boundaries.md](standards/secret-surface-boundaries.md) - Value-free control, MCP and graphical surfaces, isolated secret input and local custody (draft)
 - [service-job-contract.md](standards/service-job-contract.md) - Portable catalog, digest-bound submit, and job lifecycle contract
 - [project-work-contract.md](standards/project-work-contract.md) - Portable ready-packet, project-state, control-record, and progress-ledger contract
 - [seat-spheres-model.md](standards/seat-spheres-model.md) - Seat function and per-subject spheres: relations, default decision rights, rollup rules, RACI mapping, and relation to project-work (draft)
@@ -106,6 +107,7 @@ Decision and governance records (ADR / PDR / …) — see the [decisions index](
 - [ADR-0010](decisions/ADR-0010-application-control-contract.md) - Portable application control and observation contract (proposed)
 - [DDR-0001](decisions/DDR-0001-application-control-data-contract.md) - Application control data contract (proposed)
 - [SecDR-0001](decisions/SecDR-0001-application-controller-authority.md) - Application controller authority (proposed)
+- [SecDR-0002](decisions/SecDR-0002-secret-surface-non-disclosure-and-input-isolation.md) - Secret surface non-disclosure and input isolation (proposed)
 - [PDR-0001](decisions/PDR-0001-adopt-data-pipeline-principles.md) - Adopt the data-pipeline engineering principles
 
 ### [Catalog](catalog/)

@@ -3,7 +3,7 @@ title: "Portable Application Control and Observation Contract"
 description: "Transport-neutral discovery, control, observation, and evidence for operating an application without driving the content sessions it hosts"
 status: proposed
 date: "2026-09-06"
-last_updated: "2026-09-06"
+last_updated: "2026-11-13"
 tags:
   - application-control
   - automation
@@ -49,6 +49,16 @@ An adopting product owns:
 
 The shared contract standardizes the seam. It does not publish a global list of
 application operations or information sources.
+
+## Secret surface boundary
+
+Operation results, information sources and evidence facts MUST obey
+[Secret Surface Boundaries](secret-surface-boundaries.md) and
+[SecDR-0002](../decisions/SecDR-0002-secret-surface-non-disclosure-and-input-isolation.md).
+They MUST NOT carry plaintext secret values, private keys, passphrases or
+other unlock material. Request payloads likewise MUST NOT accept secret
+input; an isolated input port is required. Authorization, classification or
+redaction metadata does not waive this value-free boundary.
 
 ## Discovery and pinned artifacts
 

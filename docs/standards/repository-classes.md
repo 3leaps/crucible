@@ -3,8 +3,8 @@ title: "Repository Classes: prims, bolts, wits and voys"
 description: "Pick a repo's class by who calls it; per-class MUST characteristics with observable checks, a repo declaration and a new-repo template; pressers as an adjacent class"
 category: "standards"
 status: "draft"
-version: "0.1.1"
-lastUpdated: "2026-10-26"
+version: "0.1.2"
+lastUpdated: "2026-11-13"
 maintainer: "core-standards"
 reviewers: ["devlead", "entarch", "cxotech"]
 approvers: ["lead-maintainer"]
@@ -39,6 +39,8 @@ Pick the class by its **primary caller**, not by language, size or how the brand
 
 A repo has exactly one class. A thin CLI over a prim does not make it a bolt. A one-shot mode of a voy does not make it a
 bolt. Unsuffixed operator CLIs are outside these classes. Choose unsuffixed on its merits, never to dodge a class decision.
+An unsuffixed dual-surface library+CLI toolkit MAY adopt Profile A or B without becoming a suffixed class (§4.2).
+Profile selection describes library delivery; it does not assign a class or require a second operator CLI.
 
 ## 2. Repo declaration
 
@@ -50,14 +52,14 @@ manual convention: a reviewer reads the file against the shape below, and nothin
 # .fulmen/repo.yaml: what this repo claims to be. The class check validates against this file.
 schema: "contract:taxonomy/v0/repo-declaration.schema.json"
 class: prims            # prims | bolt | wit | voy | presser
-profile: B              # prims only: A (Rust core) | B (dual Go + Rust)
+profile: B              # prims or §4.2 toolkit: A (Rust core) | B (dual Go + Rust)
 profile_status: bootstrapping   # B only: bootstrapping (operating tree named in README) | locked
 leaf: false             # prims only: true = depends on no other prim, enforced by a CI dependency check (§4.1)
 category: library       # fulmen repository-categories key; MUST equal .fulmen/app.yaml metadata.repository_category if present
 env_prefix: EXAMPLEPRIMS_
 umbrella_prefix: null   # optional, e.g. LANYTE_ for family-shared variables only
 surfaces: [library, cli]            # any of: library, cli, daemon, pane, tui, http
-bindings: {rust: shipped, go: shipped, typescript: planned, python: planned}   # prims only
+bindings: {rust: shipped, go: shipped, typescript: planned, python: planned}   # prims or §4.2 toolkit
 extensions:             # anything beyond the class or fulmen base; each one is named and justified
   - id: go-mmap-reader
     scope: go-only
@@ -66,6 +68,12 @@ extensions:             # anything beyond the class or fulmen base; each one is 
 
 `.fulmen/` is used because fulmen app identity (`.fulmen/app.yaml`) already lives there. `.crucible/` is not used: it
 holds generated SSOT sync metadata in consumer repos.
+
+For an unsuffixed toolkit adopting §4.2, omit `class` rather than claim one of the suffixed classes. Declare
+`category: cli` for its operator executables and exported library, `surfaces: [library, cli]` (optionally `tui`),
+and the selected `profile`, `profile_status` (B only), `bindings` and applicable extensions. The manual review checks
+C2–C8 and §4.2; C1's suffix/class check and other per-class tables do not apply. This is an explicit adoption path,
+not an additional class or a shipped schema alternative.
 
 ## 3. Common MUST characteristics (all classes)
 
@@ -76,7 +84,7 @@ holds generated SSOT sync metadata in consumer repos.
 | C3 | Env vars use `<NAME>_` | every env var name read in source, including test-only and harness variables, starts with `env_prefix` or the declared `umbrella_prefix` |
 | C4 | Minimum Make targets | `make -n` succeeds for the targets in `docs/repository/makefile-minimum.md`. A repo whose release ceremony needs host tools SHOULD also provide `make doctor`, which checks those tools against declared minimums; it is not in the minimum set |
 | C5 | Any CLI separates data and diagnostics, and offers JSON | `<bin> version --extended` exits 0 (a `version` subcommand is required; a `--version` flag alone does not satisfy C5); for each reporting verb, `<bin> <verb> --format json 2>/dev/null` or, when JSON is that verb's only output, `<bin> <verb> 2>/dev/null` parses and validates against `schemas/`. A verb whose stdout is the transformed artifact (e.g. canonical bytes) is exempt from `--format json` if the CLI has at least one reporting verb that emits JSON |
-| C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL, so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged. Repos that have **already tagged** a nested Go module (a cgo `bindings/go/<name>` module beside a root module, or a pure-Go tree under `go/<pkg>` with its own tag prefix) keep that layout as a declared extension (`scope: legacy-go-module`) until their migration is decided; C6 does not block their releases in the meantime. The exception does not apply to an untagged repo: a Profile B prim that has not yet tagged puts its Go tree at the root before its first tag, while the move is cheap |
+| C6 | Go module root | if the repo contains a Go module that consumers import, `go.mod` is at the repo root and its module path is the repo URL (with `/vN` for Go major versions N >= 2), so one `VERSION` and one `vX.Y.Z` tag resolve (fulmen ADR-0009). A nested `go.mod` is flagged unless it is an already-tagged compatibility path declared with `scope: legacy-go-module`. Such paths retain patch continuity until the documented cutover (§4.3); C6 does not block those maintenance releases. A new Profile B Go entry point MUST be at the root before its first tag. At cutover the root is primary; declared existing pure-Go compatibility sub-modules MAY remain (§4.3) |
 | C7 | Signed release | *(pre-release only)* `CHANGELOG.md`, `RELEASE_NOTES.md` and `RELEASE_CHECKLIST.md` present; the tag is annotated and signed (`git tag -v`); assets carry checksums, a detached signature and an SBOM |
 | C8 | No secrets in the repo | no tracked `.env*` other than `.env.example`; the secret scan passes |
 
@@ -94,16 +102,20 @@ four is not.
 
 **Profile A: Rust core (default).** One Rust core. Go uses cgo over the prims JSON C-ABI (error code return, JSON
 string out, thread-local last error, caller-freed strings, options as JSON), with prebuilt static libraries per platform.
-TypeScript uses napi-rs. Python uses **PyO3/maturin**. All bindings come from the core and MUST NOT re-implement logic.
+TypeScript is generated from Rust via **napi-rs** for native OS/syscall capabilities or Rust-compiled
+**WebAssembly** (`wasm32-unknown-unknown` / `wasm-bindgen`) for pure-compute deterministic libraries.
+Python uses **PyO3/maturin**. All bindings come from the core and MUST NOT re-implement logic. A hand-written second TypeScript algorithm
+implementation requires an explicit extension; choosing WebAssembly alone is not such an extension.
 Choose A whenever consumers can live with cgo.
 
 **Profile B: dual implementation.** Choose B when pure Go is required (no cgo). Use ONE repo with **locked parallel
 native implementations** in pure Go and Rust, under the same contract, docs and decision records, passing one shared
 conformance suite. A language-only capability is allowed only as a declared **extension** (§2), and it MUST NOT change
-shared behaviour. TypeScript (napi-rs) and Python (PyO3/maturin) come from the Rust implementation. Both implementations
+shared behaviour. TypeScript (napi-rs or Rust-compiled WebAssembly as above) and Python (PyO3/maturin)
+come from the Rust implementation. Both implementations
 share **one version and one tag** (C6). Layout: root `go.mod` + Go packages, `crates/`, `conformance/`
-(language-neutral vectors) and `contract/` (pinned crucible schemas). The first Profile B prim is a planned record-store
-prim implementing `durable-record/v1`.
+(language-neutral vectors) and `contract/` (pinned crucible schemas). Profile B applies to pure-compute and systems libraries alike; the choice follows consumer needs,
+not a particular subject area. Pure-Go builds and their dependency graph MUST work with `CGO_ENABLED=0`.
 
 A Profile B prim bootstraps one tree at a time. Until both native trees pass the shared suite, the repo declares
 `profile_status: bootstrapping` with the operating tree named, and only the operating tree is graded against
@@ -116,7 +128,7 @@ release-notes entry, not a silent change.
 | # | MUST | Observable check |
 |---|---|---|
 | P1 | Four-language commitment | `bindings` in repo.yaml lists rust, go, typescript and python as `shipped` or `planned`; each `planned` one has a reserved package name in the README. On npm the `@3leaps/` org scope is the reservation. PyPI cannot reserve a name without an upload, so the README names the intended distribution name and the roadmap entry suffices |
-| P2 | A: bindings generated from the core | `ffi/` has a C header; TS `package.json` builds with napi-rs; `pyproject.toml` has `build-backend = "maturin"` |
+| P2 | A: bindings generated from the core | `ffi/` has a C header; TS `package.json` builds from the Rust tree with napi-rs or wasm-pack/wasm-bindgen; `pyproject.toml` has `build-backend = "maturin"` |
 | P3 | B: shared conformance | `conformance/` exists; CI runs it under every operating tree; once `profile_status: locked`, CI runs both `go test` and `cargo test` and a PR changing `contract/` or `conformance/` touches both trees |
 | P4 | Contract pin | `contract/PIN` (or equivalent) names the crucible schema version when a crucible contract is implemented |
 | P5 | No daemon, no server | no `serve` verb; `surfaces` excludes daemon and http |
@@ -158,6 +170,56 @@ Example: a record store prim that adds an object-storage stratum depends on stor
 tree ships the filesystem stratum and declares object storage as a Go-side gap until a pure-Go storageprims exists.
 How that stratum is named on the wire belongs to the contract the prim implements (for durable-record, the
 `runtime.stratum` field of its stratum profile), not to this standard.
+
+### 4.2 Unsuffixed dual-surface toolkits
+
+An unsuffixed toolkit whose library is imported in-process across languages and whose `surfaces` include `library`
+and `cli` (optionally `tui`) MAY adopt Profile A or B. It MUST satisfy P5: no daemon, HTTP server or `serve` verb.
+It records the declarations from §2 and the chosen profile's delivery rules without claiming the `prims` class.
+
+For Profile B the Rust and pure-Go library trees MUST satisfy P3: one shared `conformance/` vector suite,
+bootstrap-to-locked lifecycle, same-PR contract changes once locked, and one root `go.mod`, `VERSION` and `vX.Y.Z`
+tag under C6. P4 applies when a Crucible contract is implemented. Two differences from the prims commitment are
+explicit:
+
+- **Canonical operator host.** The full CLI and any TUI are shipped from one declared canonical host tree, such as
+  Rust. A second Go CLI/TUI is not required. Host-only interfaces are declared as such and are outside library
+  parity; they MUST NOT silently exempt library behavior from P3.
+- **On-demand bindings.** Rust and Go remain the native twin commitment. Python (PyO3/maturin) and TypeScript
+  (napi-rs or Rust-compiled WebAssembly) MAY be `shipped`, `planned` or `optional`; `optional` means on-demand when
+  consumers require them, with no package reservation obligation. This differs from P1's four-language requirement
+  for prims. When present, bindings MUST be graded against the same shared vectors for their declared capability
+  set. A per-tree capability gap MUST be declared and tested as an explicit `unsupported` refusal as in §4.1;
+  optional bindings do not weaken parity between the native trees.
+
+Profile A uses one Rust library core and generated bindings as described above; the canonical-host allowance also
+applies. Its Go, Python and TypeScript bindings MAY each be `shipped`, `planned` or `optional`, with the same
+on-demand meaning and shared-vector grading requirement as above. Go, if offered, uses the Profile A C ABI;
+a native pure-Go twin selects Profile B. Neither toolkit profile inherits P1's mandatory four-language commitment.
+Any deliberate delivery departure is a declared extension.
+
+### 4.3 Cutting over from a legacy Go module
+
+A repository with an already-tagged nested CGo module MAY retain `scope: legacy-go-module` and its existing nested
+module/tag choreography for maintenance patches on the prior minor line. Planning Profile B does not invalidate
+those releases. The repository MUST record the cutover in its decision record and release documentation:
+
+1. Choose a planned `0.y.0` minor boundary for a pre-1.0 product or an `X.0.0` major boundary for a stable product.
+   Introduce root `go.mod` with `module github.com/<org>/<repo>` for v0/v1 or
+   `module github.com/<org>/<repo>/vN` for major versions N >= 2, following
+   [Go semantic import versioning](https://go.dev/ref/mod#major-version-suffixes), and pure-Go dependencies that build with
+   `CGO_ENABLED=0`; establish the shared `conformance/` suite and declare the operating tree during bootstrap.
+2. Lock only after both native trees pass P3. The cutover release MUST ship an operating pure-Go root entry point;
+   a scaffold marked planned is not a replacement for the released CGo module. If Rust is not yet operating, declare
+   `bootstrapping` and that limitation explicitly rather than claim locked parity.
+3. At cutover retire the nested `bindings/go/<name>` CGo static archives and secondary
+   `bindings/go/<name>/vX.Y.Z` tags for the new line. Historical tags remain intact, and maintenance on the old line
+   may retain its old choreography. Root Go and Rust use the one version and root tag for the new line.
+4. Existing independently published **pure-Go** sub-modules MAY fold into the root or remain declared
+   `legacy-go-module` compatibility paths. If retained, document their import paths and version/tag policy;
+   they do not replace the primary root entry point or create a second native implementation.
+5. Record import-path migration, retired delivery artifacts, compatibility paths, and bootstrap/lock status in
+   `CHANGELOG.md` and `docs/releases/vX.Y.Z.md`. Verify a consumer import from the root tag with `CGO_ENABLED=0`.
 
 ## 5. bolts: one fast do
 
@@ -221,9 +283,27 @@ independent `<subject>presser` repo. It names the subject, not one backend, and 
 |---|---|---|
 | R1 | Deterministic packs | two runs with the same `--seed` produce the same pack digest |
 | R2 | Independent oracle | the oracle package's dependency graph does not include the system under test |
-| R3 | Offline evidence | `<bin> verify <pack>` succeeds with the network disabled |
+| R3 | Independent offline evidence verification | `<bin> verify --pack <pack> --run <run>` and `summarize` accept retained run evidence plus independently selected pack authority (or a caller-pinned pack digest), work with the network disabled, and reject a pack/run digest mismatch; a run directory never selects its own input authority |
+| R4 | Contained subject execution | stress/adversarial subjects run out-of-process with explicit wall-clock and memory/resource budgets; the harness survives and records subject crash (including SIGSEGV/SIGABRT), OOM termination and timeout controls |
+| R5 | Separate outcome axes | reports have distinct `correctness`, `containment`, `migration_divergence` and `telemetry` results as defined below, with explicit unavailable/not-applicable states rather than an aggregate winner score |
 
-SHOULD: report profiles, not a universal winner score.
+The pack authority in R3 comes from the caller's independent selection or digest pin, never solely from a path or
+digest reported inside `--run`. Both `verify` and `summarize` MUST enforce the binding before issuing a verdict.
+A digest pin requires independently available pack bytes or a trusted resolver whose returned bytes match it.
+
+The four axes have separate meanings:
+
+- **`correctness`:** graded against the format/contract oracle. An incumbent library's output MUST NOT be the oracle.
+- **`containment`:** bounded refusal versus crash, OOM, timeout or amplification; an output mismatch is not itself a
+  containment failure. Evidence records the actual enforced budgets and observed termination; unavailable OS
+  enforcement is explicit, never a claimed successful contained trial.
+- **`migration_divergence`:** structured comparison with incumbents where applicable; differences do not imply that
+  the incumbent or the subject is correct.
+- **`telemetry`:** throughput, latency and RSS bound to host identity/configuration and subject/harness binary digests.
+
+Containment MUST cover the subject's process tree and captured output, with bounded collection and cleanup after
+failure. Reports MUST preserve independent outcomes; a correctness pass does not override a containment failure.
+Performance comparisons SHOULD report profiles rather than collapse these axes into a universal winner score.
 
 ## 9. When the check runs
 
