@@ -10,6 +10,25 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.12 (2026-11-14)
+
+**Adds draft secret-surface boundaries and extends library implementation profiles and qualification-harness rules.**
+
+- Defines value-free control, observation, MCP and graphical surfaces; explicit
+  secret input and local CLI/TUI output boundaries; child/helper hygiene; and
+  protected file custody with adopter non-disclosure controls.
+- Extends library profiles to unsuffixed toolkits, documents legacy Go module
+  cutover and Rust-generated native/WebAssembly TypeScript delivery, and
+  separates qualification-harness verification authority and reporting axes.
+
+The standards remain draft and their companion decisions proposed. Repository
+class checks remain manual; these documentation changes do not qualify an
+existing product, binding or harness implementation.
+
+See [docs/releases/v0.2.12.md](docs/releases/v0.2.12.md).
+
+---
+
 ## v0.2.11 (2026-11-13)
 
 **Adds the proposed, experimental `filesystem-access/v0` contract for portable access relative to a held directory object.**
@@ -50,57 +69,5 @@ See [docs/releases/v0.2.11.md](docs/releases/v0.2.11.md).
 physical reader, writer, or storage runtime.
 
 See [docs/releases/v0.2.10.md](docs/releases/v0.2.10.md).
-
----
-
-## v0.2.9 (2026-11-08)
-
-**Specifies the `durable-record/v1` retention policy for retired-record body reclamation, designated `body-removal` stream recovery, and detached canonical `stream-seal` artifacts; adds the draft `identity-evidence/v0` `native-process-observation:v0` provider profile; and hardens the RFC 8785 JCS and RFC 3339 instant helper scripts.**
-
-- **Durable-record `v1` retention policy, designated `body-removal` recovery, and detached stream seals**:
-  specifies deterministic Precedence `1 -> 2 -> 2b -> 3 -> 4 -> 5` eligibility
-  evaluation for removing external body bytes referenced only by retired records
-  under a store-wide exclusion fence (designated-stream placement and target
-  `incarnation` `body_removal_stream` / `body_lifecycle` state, store-wide stream
-  and continuation coverage `protection_unavailable`, same-store
-  `decision_time >= e["at"]` `journal_time` ordering, conservative
-  continuation/sealed-ancestor `protected_use` hold blocking, `still_referenced`
-  on unretired referencing records, and `{id, version}` policy-bound
-  `removal_authorization` verification), paired with
-  `schemas/durable-record/v1/removal-eligibility-request.schema.json`. Adds
-  designated `body-removal` stream recovery via `stream_opened.recovery` and
-  `runtime.quarantined_designated_streams` under
-  `runtime.incarnation_allocation: "prewrite_durable_ledger"`, the 19-row
-  per-`(digest, length)` reconciliation table (`R1`–`R19`, `recovery_incomplete`),
-  and sticky `publishing` / `integrity_loss` carry-forward across clean cuts and
-  multi-hop predecessor replay. Adds `schemas/durable-record/v1/stream-seal.schema.json`
-  for detached canonical RFC 8785 JCS stream seals with canonical
-  `effective_restriction_manifest_digest` preimages, transitive `ancestor_seals`
-  finality verification, zero trailing bytes at `cut_seq`, and conservative
-  sealed-ancestor hold dominance, backed by 183 new conformance vectors (395
-  total), 17 new schema reject fixtures (66 total), and 107 new AST mutation
-  witnesses (187 total).
-- **Identity evidence (`native-process-observation:v0`, draft)**: adds
-  `schemas/identity-evidence/v0/profiles/native-process-observation/`
-  (`profile.json`, `evidence.schema.json`, `README.md`, and platform examples)
-  plus `schemas/identity-evidence/v0/examples/native-process-observation.json`
-  for standalone native process incarnation and context observation without
-  requiring launch or possession evidence, defining the seven-state fact
-  visibility vocabulary mapped 1:1 to report capability status, host-scope and
-  clock/user/PID-namespace descriptor semantics, three-class Linux `/proc`
-  `openat2` and magic-link resolution rules, `u32`/`u64` integer bounds,
-  incarnation bracketing, and fail-closed projection into
-  `local-process-session:v0`.
-- **RFC 8785 canonicalization and RFC 3339 instant helper hardening**: replaces
-  recursive JSON parsing and serialization in `scripts/rfc8785-canonicalize.py`
-  with an iterative implementation enforcing explicit input bounds, rejecting all
-  66 RFC 7493 §2.1 Unicode noncharacters across planes `0..16` and out-of-domain
-  integer tokens before arbitrary-precision expansion, and adding `--check`,
-  `--digest`, `--vector`, `--ndjson-array` (`--head N`), and `--sort-set` CLI
-  modes (`scripts/test-rfc8785-controls.py`); extends `scripts/rfc3339-instant.py`
-  with `max_fraction_digits`, `reject_submicrosecond_nonzero`, and exact
-  arbitrary-precision fractional ordering in `compare`.
-
-See [docs/releases/v0.2.9.md](docs/releases/v0.2.9.md).
 
 ---
