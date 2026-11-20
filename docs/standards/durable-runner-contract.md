@@ -80,13 +80,18 @@ over the network.
   committed attempt-start intent. `attempt_id` is
   `sha256(JCS({"attempt_n": N, "task_id": T, "v": 0}))`. Start intent may
   commit before dispatch, and evidence must not claim dispatch is proven.
-- Scheduled invocation keys are the digest of a domain-tagged canonical
-  object. A slot key is `sha256(JCS({"domain": "slot", "instant": I, "rule": R,
-  "scope": S, "v": 0}))`, where `R` is the rule pin digest, `S` the task scope
-  and `I` the occurrence instant, and the authority namespace is `S`. A
-  catch-up key is `sha256(JCS({"catch_up_of": M, "domain": "catch_up", "v":
-  0}))`, where `M` is the missed task's `task_id`, in the missed task's
-  authority namespace. Identity conflicts apply to these keys exactly as to a
+- Scheduled invocation keys are a reserved prefix plus the digest of a
+  domain-tagged canonical object. A slot key is `slot:` followed by
+  `sha256(JCS({"domain": "slot", "instant": I, "rule": R, "scope": S, "v":
+  0}))`, where `R` is the rule pin digest, `S` the task scope and `I` the
+  occurrence instant, and the authority namespace is `S`. A catch-up key is
+  `catchup:` followed by `sha256(JCS({"catch_up_of": M, "domain": "catch_up",
+  "v": 0}))`, where `M` is the missed task's `task_id`, in the missed task's
+  authority namespace. The `slot:` and `catchup:` prefixes are reserved: an
+  ordinary caller registration in that space is refused (`reserved_key`), so a
+  caller cannot squat a derived identity, while inspecting or reconciling an
+  already derived task by its identifier stays possible. The `task_id` preimage
+  is unchanged. Identity conflicts apply to these keys exactly as to a
   caller-supplied key: the same key with a different specification digest is a
   conflict and is never silently observed. A changed schedule or policy needs a
   new explicitly submitted definition, never silent mutation. A duration's
@@ -123,7 +128,15 @@ accounted for by the checkpoint or reconciliation rule, not merely known),
 attempts remain, the retry horizon and task deadline have not expired, and the
 pinned task-kind profile grants `retry_after_abandonment` (default false).
 No failure code is required for an abandonment, and the absence of one never
-bypasses retry policy. Otherwise the task is `abandoned`. A `pending` task
+bypasses retry policy. The retry uses the same bounded backoff as any other
+retry: the consumed attempt number feeds the formula below, anchored at the
+validated recovery decision instant, and the selected next-eligible instant is
+persisted in the recovery transition, so a replayed or repeated recovery reads
+it and cannot move the anchor or draw again. The same feasible-band
+intersection and every deadline, horizon, slot, lag and admission bound apply,
+and an immediate retry is legal only when the pinned backoff permits a zero
+delay. If no retry is feasible, the task is `abandoned`. Otherwise the task is
+`abandoned`. A `pending` task
 fails only on a terminal pre-execution refusal or an elapsed task deadline,
 and a waiting task fails only when retries or the deadline are exhausted.
 Normal slot expiry before any attempt is `missed`, never a generic failure. A
@@ -185,8 +198,17 @@ and every running-to-waiting retry is refused (`cancellation_precedes_start`),
 only, because cancellation won (`cancellation_precedes_success`,
 `cancellation_precedes_failure`). Quiescence then becomes terminal `cancelled`;
 if effects or cleanup cannot be resolved the task is explicitly `abandoned`.
-Confirmation for a pending or waiting task with no live work may be immediate
-but remains explicit evidence. A request against a succeeded task is a no-op
+Once a request commits on a pending or waiting task, normal admission progress
+is frozen as well: starts, ordinary admission waiting and pre-execution failed
+transitions are refused, while state-preserving cancellation facts and explicit
+confirmed cancellation remain allowed. A valid, authorized recovery that proves
+quiescence and effects none or resolved records the confirming fact itself and
+finishes `cancelled`, with no second confirmation call and never returning to
+`waiting`; a recovery with unresolved effects commits an abandonment only when
+the operation explicitly selects it with the required authority, and a refused,
+malformed, stale or unauthorized recovery commits nothing. Confirmation for a
+pending or waiting task with no live work may be immediate but remains explicit
+evidence. A request against a succeeded task is a no-op
 `too_late`, and against any other terminal task is refused `task_terminal`; a
 confirmation never resurrects a terminal task, and an exact repeat of a recorded
 request returns the original result. If final success commits first,
@@ -194,6 +216,44 @@ cancellation is too late. A lost or indeterminate cancellation-write reply
 requires reconciliation before either order is assumed. A journal failure does
 not forbid emergency process termination, and the runner reports the unresolved
 evidence instead of falsely claiming durable cancellation.
+
+## Shared gates
+
+Every path that creates a task or changes its state passes the same gates, so a
+rule cannot be satisfied on one path and bypassed on another.
+
+- **Registration.** A caller submission, a supplied slot, a coverage-recorded
+  miss and a catch-up all register through one path. It validates the
+  definition (including an unsupported durability requirement, outcome mapping
+  with no duplicate codes and at least one success code, positive deadlines and
+  horizon, closed phases and backoff with `I <= C`), the mode, the identity
+  expiry and history, and the specification conflict. A scheduled task can
+  therefore never carry a definition a submission would be refused.
+- **Task deadline anchor.** `timeouts.task_deadline` is a duration budget. An
+  ordinary submission anchors it at first acceptance. A task derived from a
+  supplied slot anchors it at that slot's pinned `not_before`, not at delivery.
+  A catch-up task anchors its own budget at its first acceptance and
+  independently satisfies the lag limit. The anchor and absolute deadline are
+  persisted, so a duplicate submission, restart, recovery or late receipt cannot
+  reset them, a task supplied after its fixed deadline gains no new budget, and
+  an overflowing sum is refused.
+- **Finish.** A finish names the live attempt (a different attempt number is
+  refused), carries an effects statement, and has a result that matches the
+  target state. A `succeeded` or `failed` domain result requires a known outcome
+  code and the pinned mapping, and the retry reason is taken from that mapping,
+  never from the caller. A runtime failure before a domain result exists uses
+  one of a closed set of framework reasons (`timeout`, `process_failure`). The
+  lifecycle dispositions `cancelled` and `abandoned` rest on control evidence
+  and fabricate no outcome code.
+- **Start.** An attempt-start intent never claims dispatch is confirmed. A catch-up
+  task is also bound to its lag at every new attempt start, not only at
+  registration, and does not inherit the missed slot's expired window.
+- **Crash.** After a runner crash and before recovery, every runner operation
+  except replay and the recovery itself is refused.
+- **Boundary.** Wire tokens, integers and civil times are validated as written,
+  and an unrecognized predecessor-proof or effects value fails closed. A supplied
+  slot repeated after its window closed observes the existing task and keeps the
+  key.
 
 ## Journal, authority and recovery
 

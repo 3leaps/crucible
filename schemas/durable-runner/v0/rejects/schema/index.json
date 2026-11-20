@@ -11,6 +11,9 @@
   "coverage-expected-without-window": {
     "schema": "supplied-slot.schema.json"
   },
+  "coverage-missing-expected": {
+    "schema": "supplied-slot.schema.json"
+  },
   "definition-abandonment-permission-not-boolean": {
     "schema": "task-definition.schema.json"
   },
@@ -128,13 +131,28 @@
   "transition-blocked-state": {
     "schema": "transition.schema.json"
   },
+  "transition-cancel-request-with-start-phase": {
+    "schema": "transition.schema.json"
+  },
   "transition-cancellation-requested-on-terminal": {
     "schema": "transition.schema.json"
   },
   "transition-cancelled-request-only": {
     "schema": "transition.schema.json"
   },
+  "transition-cancelled-with-succeeded-result": {
+    "schema": "transition.schema.json"
+  },
+  "transition-carry-without-cancellation": {
+    "schema": "transition.schema.json"
+  },
+  "transition-confirmed-on-running": {
+    "schema": "transition.schema.json"
+  },
   "transition-extra-field": {
+    "schema": "transition.schema.json"
+  },
+  "transition-failed-with-succeeded-result": {
     "schema": "transition.schema.json"
   },
   "transition-first-not-pending": {
@@ -152,6 +170,12 @@
   "transition-missed-with-attempt": {
     "schema": "transition.schema.json"
   },
+  "transition-next-eligible-on-running": {
+    "schema": "transition.schema.json"
+  },
+  "transition-pending-with-attempt": {
+    "schema": "transition.schema.json"
+  },
   "transition-prior-missing": {
     "schema": "transition.schema.json"
   },
@@ -161,10 +185,16 @@
   "transition-running-without-attempt": {
     "schema": "transition.schema.json"
   },
+  "transition-start-dispatch-confirmed": {
+    "schema": "transition.schema.json"
+  },
   "transition-start-with-result": {
     "schema": "transition.schema.json"
   },
   "transition-succeeded-effects-unknown": {
+    "schema": "transition.schema.json"
+  },
+  "transition-succeeded-outputs-unverified": {
     "schema": "transition.schema.json"
   },
   "transition-succeeded-result-failed": {

@@ -17,7 +17,8 @@
     "dispatch": "confirmed",
     "result": "failed",
     "outcome_code": "captured_verified",
-    "effects": "resolved"
+    "effects": "resolved",
+    "outputs_verified": true
   },
   "authority_generation": 1,
   "run_id": "run-0001",

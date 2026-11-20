@@ -99,12 +99,8 @@
     {
       "op": "transition",
       "task": "t1",
-      "to": "running",
-      "attempt": {
-        "n": 1,
-        "phase": "start",
-        "dispatch": "intended"
-      },
+      "to": "waiting",
+      "reason": "blocked",
       "expect": {
         "refused": "terminal_resurrection"
       }
@@ -130,7 +126,7 @@
   },
   "notes": [
     {
-      "competing": "attempt 1 within max 3; deadline 09:00 not reached at 07:00; only the terminal rule applies"
+      "competing": "the task is missed (terminal); an admission wait carries no attempt and no slot-window start check, so only the terminal state refuses it"
     }
   ]
 }

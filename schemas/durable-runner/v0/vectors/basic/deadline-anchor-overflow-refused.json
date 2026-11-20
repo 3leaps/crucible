@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "deadline-anchor-overflow-refused",
+  "mode": "basic",
+  "covers": [
+    "deadline"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "timeouts.task_deadline": "PT9007199254.740991S"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "counter_exhausted"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the definition is valid on its own; only the acceptance instant plus the deadline exceeds the safe-integer ceiling"
+    }
+  ]
+}

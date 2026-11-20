@@ -1,0 +1,104 @@
+{
+  "v": 0,
+  "id": "occurrence-set-label-count-mismatch-refused",
+  "mode": "scheduled",
+  "covers": [
+    "schedule.supplied-coverage"
+  ],
+  "requires_clock": "2026-01-03T00:30:00.000000Z",
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "supply_slot",
+      "occurrence_set": [
+        {
+          "rule": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "scope": "example-scope",
+          "instant": "2026-01-03T00:00:00.000000Z",
+          "window": {
+            "not_before": "2026-01-03T00:00:00.000000Z",
+            "not_after": "2026-01-03T06:00:00.000000Z"
+          }
+        },
+        {
+          "rule": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "scope": "example-scope",
+          "instant": "2026-01-04T00:00:00.000000Z",
+          "window": {
+            "not_before": "2026-01-04T00:00:00.000000Z",
+            "not_after": "2026-01-04T06:00:00.000000Z"
+          }
+        }
+      ],
+      "as": [
+        "t1"
+      ],
+      "definition": "d1",
+      "expect": {
+        "refused": "malformed"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "both slots are valid; only one label is supplied for two slots, so none is silently dropped"
+    }
+  ]
+}

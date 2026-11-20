@@ -1,0 +1,180 @@
+{
+  "v": 0,
+  "id": "backoff-multiplier-exact-rational-refused",
+  "mode": "retrying",
+  "covers": [
+    "retry.persisted-jitter"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 6,
+      "retry.backoff": {
+        "initial": "PT0.00001S",
+        "max": "PT1S",
+        "multiplier_milli": 1100,
+        "jitter_milli": 0
+      },
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T00:00:01.000010Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT0.000010S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 2,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T00:00:02.000022Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "refused": "backoff_out_of_band"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          },
+          {
+            "n": 2,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 2,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin: 12us is what a binary float product 10*1.1 would round up to"
+    }
+  ]
+}

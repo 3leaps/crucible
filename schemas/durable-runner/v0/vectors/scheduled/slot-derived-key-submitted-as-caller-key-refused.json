@@ -1,0 +1,78 @@
+{
+  "v": 0,
+  "id": "slot-derived-key-submitted-as-caller-key-refused",
+  "mode": "scheduled",
+  "covers": [
+    "identity.reuse-conflict"
+  ],
+  "requires_clock": "2026-01-03T00:30:00.000000Z",
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "example-scope",
+      "key": "slot:sha256:4288a395f429cf3a924f56e408258ac1451d5bd0d9011cfc31e2133f8f6eea26",
+      "definition": "d1",
+      "expect": {
+        "refused": "reserved_key"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the authority and definition are valid; only the invocation key is the exact derived slot key, so a caller cannot squat a derived identity"
+    }
+  ]
+}

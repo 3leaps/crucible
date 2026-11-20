@@ -56,24 +56,24 @@ bind labels with `as` or `labels` and pick a definition.
 | Op | Result members | Refusals |
 | --- | --- | --- |
 | `profile_admit` | | `sealed_mode_reserved`, `mode_not_cumulative`, `remote_coverage_claimed`, `replication_claimed`, `journal_ack_insufficient`, `journal_ack_exceeds_failure_model`, `journal_contract_not_v1`, `authority_scope_unsupported`, `store_window_too_short`, `window_out_of_range` |
-| `submit` | `disposition`, `task_id`, `state` | `identity_conflict`, `identity_unresolved`, `definition_invalid`, `unsupported_requirement`, `mode_unsupported` |
-| `transition` | `revision`, `state` | `predecessor_mismatch`, `first_not_pending`, `illegal_transition`, `terminal_resurrection`, `attempt_not_contiguous`, `attempt_limit_exhausted`, `retry_not_permitted`, `unknown_outcome_code`, `outcome_mapping_mismatch`, `attempt_required`, `retry_required`, `next_eligible_in_past`, `success_effects_unresolved`, `cancellation_precedes_start`, `cancellation_precedes_failure`, `backoff_out_of_band`, `unknown_effects_not_retryable`, `success_unverified_outputs`, `cancellation_not_confirmed`, `cancellation_precedes_success`, `generation_stale`, `deadline_exceeded`, `horizon_exceeded`, `jitter_not_persisted` |
+| `submit` | `disposition`, `task_id`, `state` | `identity_conflict`, `identity_unresolved`, `definition_invalid`, `unsupported_requirement`, `reserved_key`, `counter_exhausted`, `mode_unsupported`, `recovery_required`, `malformed` |
+| `transition` | `revision`, `state` | `predecessor_mismatch`, `first_not_pending`, `illegal_transition`, `terminal_resurrection`, `attempt_not_contiguous`, `attempt_limit_exhausted`, `retry_not_permitted`, `unknown_outcome_code`, `outcome_mapping_mismatch`, `attempt_required`, `attempt_mismatch`, `outcome_required`, `result_state_mismatch`, `effects_required`, `dispatch_not_provable`, `lag_exceeded`, `recovery_required`, `retry_required`, `next_eligible_in_past`, `success_effects_unresolved`, `cancellation_precedes_start`, `cancellation_precedes_failure`, `backoff_out_of_band`, `unknown_effects_not_retryable`, `success_unverified_outputs`, `cancellation_not_confirmed`, `cancellation_precedes_success`, `generation_stale`, `deadline_exceeded`, `horizon_exceeded`, `jitter_not_persisted` |
 | `request_cancel`, `confirm_cancel` | `effect`, `state` | `task_terminal`, `quiescence_not_established`, `cancel_not_requested` |
 | `advance_clock`, `parse_duration`, `parse_instant`, `format_instant` | `now`, `us`, `canonical` | `duration_invalid`, `syntax`, `overflow`, `fractional_loss`, `format`, `nonrepresentable` |
-| `crash`, `recover`, `replay`, `checkpoint`, `reconcile`, `retire_output` | `task_states`, `heads`, `outcomes`, `effects_performed`, `status` | `mode_unsupported`, `predecessor_not_quiescent`, `counter_exhausted`, `generation_stale`, `body_unverified`, `body_after_record`, `cursor_not_in_chain`, `checkpoint_not_eligible`, `checkpoint_body_held`, `hold_active`, `retirement_refused` |
+| `crash`, `recover`, `replay`, `checkpoint`, `reconcile`, `retire_output` | `task_states`, `heads`, `outcomes`, `effects_performed`, `status` | `mode_unsupported`, `recovery_required`, `recovery_disposition_required`, `effects_required`, `predecessor_not_quiescent`, `counter_exhausted`, `generation_stale`, `body_unverified`, `body_after_record`, `cursor_not_in_chain`, `checkpoint_not_eligible`, `checkpoint_body_held`, `hold_active`, `retirement_refused` |
 | `admission` | `reserved` | `rate_denied`, `shared_quota_needs_shared_authority`, `unsettled_reservation` |
-| `supply_slot`, `evaluate_slots`, `catch_up` | `slot_id`, `eligible`, `missed`, `task_id` | `mode_unsupported`, `slot_identity_mismatch`, `slot_window_invalid`, `slot_outside_window`, `dst_non_slot`, `coverage_not_supplied`, `coverage_invalid`, `identity_conflict`, `format`, `lag_exceeded`, `catch_up_not_permitted`, `missed_not_terminal` |
+| `supply_slot`, `evaluate_slots`, `catch_up` | `slot_id`, `eligible`, `missed`, `task_id` | `mode_unsupported`, `slot_identity_mismatch`, `slot_window_invalid`, `slot_outside_window`, `zone_unavailable`, `ambiguous_local_time`, `dst_non_slot`, `coverage_not_supplied`, `coverage_invalid`, `identity_conflict`, `format`, `lag_exceeded`, `catch_up_not_permitted`, `missed_not_terminal` |
 
 `scripts/validate-durable-runner-vectors.py` executes each script against a
 reference consistency model: an in-memory fold of the standard's rules under
 the virtual clock. It requires every authored result, the final projection and
 the exact history to match, so a fabricated receipt, an invented transition or
 a missing guard is a mismatch. Every rule it enforces is a named guard, and
-`--disable <guard>` removes one. `scripts/test-durable-runner-vector-controls.py`
+`--disable <guard>` removes one. Time-zone and recurrence validation use a fixture-limited table (America/New_York, 2026); anything the table cannot judge is refused as `zone_unavailable`, never guessed. `scripts/test-durable-runner-vector-controls.py`
 (in `make check`) runs the suite, disables each guard in turn and requires a
 checker verdict from at least one vector (a crash does not count), requires
 each `rejects/semantic/` fixture to fail for its labeled reason with its
-baseline passing, and checks the inventory.
+baseline passing, and checks the inventory. It also checks that every refusal is isolated (removing some single guard turns that refusal into acceptance, so a vector's `competing` note is true; grammar and boundary refusals are exempt because the parser itself refuses them), that every transition any vector commits is a valid `transition.schema.json` record, that every definition, slot, occurrence set and coverage a vector supplies is valid against its schema, and that schema-shaped runner profiles are admitted or refused by the same rules as the vectors.
 
 **Assurance boundary.** The model is a checker for fixtures. It is not a
 conformance oracle for an implementation, which is why the expected histories

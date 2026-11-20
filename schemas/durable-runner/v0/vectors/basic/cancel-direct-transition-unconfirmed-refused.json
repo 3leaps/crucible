@@ -46,7 +46,8 @@
       "attempt": {
         "n": 1,
         "phase": "finish",
-        "result": "cancelled"
+        "result": "cancelled",
+        "effects": "none"
       },
       "expect": {
         "refused": "cancellation_not_confirmed"
@@ -83,7 +84,7 @@
   },
   "notes": [
     {
-      "competing": "only missing durable request and quiescence; deadline and chain fine"
+      "competing": "the finish names the live attempt, a cancelled result and none effects, so every attempt-level rule is satisfied; only the cancellation was never requested and confirmed"
     }
   ]
 }

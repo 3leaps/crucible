@@ -1,0 +1,122 @@
+{
+  "v": 0,
+  "id": "recover-after-cancel-request-cancelled",
+  "mode": "journaled",
+  "covers": [
+    "cancel.quiescence",
+    "crash.after-effect-before-finish"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "cancelled"
+          },
+          "executed_effects": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "cancelled",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "cancelled",
+            "effects": "resolved",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
+        "to": "cancelled",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "cancelled"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "predecessor quiescence is proved and effects are resolved, which is confirmed quiescence under a committed cancellation request; the task never returns to waiting"
+    }
+  ]
+}

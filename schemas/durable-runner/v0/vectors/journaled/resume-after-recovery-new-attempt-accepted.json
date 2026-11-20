@@ -58,6 +58,14 @@
           },
           "executed_effects": 0
         }
+      },
+      "next_eligible_at": "2026-01-02T00:01:00.000000Z"
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1M",
+      "expect": {
+        "ok": {}
       }
     },
     {

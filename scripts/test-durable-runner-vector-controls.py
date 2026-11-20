@@ -128,9 +128,57 @@ for g in guards:
     elif not verdicts:
         fail(f"guard {g}: only unexecutable ops failed, no checker verdict")
 
+print("    durable-runner: every refusal is isolated (its competing note is true)...")
+_golden_iso = model.load_golden()
+# Grammar and boundary refusals are the parser's own rules: there is no guard whose
+# removal would "accept" an unparseable token, so isolation is not defined for them.
+# first_not_pending has no task state in which an acceptance could be modeled.
+INTRINSIC_REASONS = {
+    "format",
+    "syntax",
+    "overflow",
+    "fractional_loss",
+    "nonrepresentable",
+    "duration_invalid",
+    "malformed",
+    "zone_unavailable",
+    "first_not_pending",
+}
+ISOLATION_EXEMPT: set[str] = set()
+_acc = re.compile(r"^op (\d+) \S+: accepted, expected refusal")
+_iso_vectors = {
+    p_.stem: json.loads(p_.read_text(encoding="utf-8"))
+    for p_ in sorted((BASE / "vectors").rglob("*.json"))
+    if p_.name != "INVENTORY.json"
+}
+for vid, d in sorted(_iso_vectors.items()):
+    refusal_ops = {
+        i
+        for i, op in enumerate(d["ops"])
+        if "refused" in op.get("expect", {})
+        and op["expect"]["refused"] not in INTRINSIC_REASONS
+    }
+    if not refusal_ops or vid in ISOLATION_EXEMPT:
+        continue
+    covered: set[int] = set()
+    for g in guards:
+        for err in model.run_vector(d, _golden_iso, {g}):
+            hit = _acc.match(err)
+            if hit:
+                covered.add(int(hit.group(1)))
+    missing = refusal_ops - covered
+    if missing:
+        fail(
+            f"{vid}: refusal at op {sorted(missing)} is not isolated: no single guard removal "
+            "turns it into acceptance, so a competing limit also refuses it"
+        )
+
 print("    durable-runner: guards used equal guards declared...")
 used = set(
-    re.findall(r'self\.on\("([a-z_]+\.[a-z_]+)"\)', TOOL.read_text(encoding="utf-8"))
+    re.findall(
+        r'self\.on\(\s*"([a-z0-9_]+\.[a-z0-9_]+)"\s*\)',
+        TOOL.read_text(encoding="utf-8"),
+    )
 )
 if used != set(guards):
     fail(
@@ -208,11 +256,102 @@ with tempfile.TemporaryDirectory(prefix="drv-defs-") as tmp:
                 f"{vid}: a definition submitted by this vector is not valid against task-definition.schema.json"
             )
 
+print("    durable-runner: every committed transition is a valid wire record...")
+
+
+def _wire_doc(mo, op, entry, idx):
+    label = entry["task"]
+    t = mo.tasks[label]
+    tid = t["id"]
+    prev = [e for e in mo.history[:idx] if e["task"] == label]
+    doc = {
+        "v": 0,
+        "kind": "task_transition",
+        "task_id": tid,
+        "task_spec_digest": t["spec"],
+        "prior": (
+            None
+            if not prev
+            else {
+                "stream": "s",
+                "record_id": "r",
+                "revision": len(prev),
+                "digest": "sha256:" + "0" * 64,
+            }
+        ),
+        "to_state": entry["to"],
+        "authority_generation": mo.generation,
+        "run_id": "run-1",
+        "at": model.fmt_instant(mo.clock),
+    }
+    ha = entry.get("attempt")
+    live = t["attempts"][-1]["n"] if t["attempts"] else None
+    op_att = op.get("attempt") or {}
+    if ha:
+        att = {
+            "attempt_n": ha["n"],
+            "attempt_id": model.dig({"attempt_n": ha["n"], "task_id": tid, "v": 0}),
+            "phase": ha["phase"],
+        }
+        if ha["phase"] == "start":
+            att["dispatch"] = "intended"
+        if ha["phase"] == "finish":
+            att["result"] = ha["result"]
+            att["effects"] = op_att.get("effects") or op.get("effects") or "none"
+            if ha["result"] == "succeeded":
+                att["outputs_verified"] = True
+            if op_att.get("outcome"):
+                att["outcome_code"] = op_att["outcome"]
+        doc["attempt"] = att
+    if entry.get("cancellation") == "requested":
+        doc["cancellation"] = "requested"
+        if entry["to"] == "running" and live is not None:
+            doc["attempt"] = {
+                "attempt_n": live,
+                "attempt_id": model.dig({"attempt_n": live, "task_id": tid, "v": 0}),
+                "phase": "carry",
+            }
+    if entry["to"] == "cancelled":
+        doc["cancellation"] = "confirmed"
+    if entry["to"] == "waiting" and ha:
+        doc["next_eligible_at"] = op.get("next_eligible_at") or model.fmt_instant(
+            mo.clock
+        )
+    if entry["to"] == "missed":
+        doc["slot"] = model.dig({"slot": label})
+    return doc
+
+
+wire_docs: dict[str, tuple[dict, str]] = {}
+for vid, d in sorted(_iso_vectors.items()):
+    mo = model.Model(d, golden, set())
+    for op in d["ops"]:
+        before = len(mo.history)
+        try:
+            mo.preflight(op["op"])
+            getattr(mo, "op_" + op["op"])(op)
+        except (model.Refuse, KeyError, TypeError, ValueError, IndexError):
+            continue
+        for k, entry in enumerate(mo.history[before:]):
+            doc = _wire_doc(mo, op, entry, before + k)
+            wire_docs.setdefault(model.dig(doc), (doc, vid))
+with tempfile.TemporaryDirectory(prefix="drv-wire-") as tmp:
+    for i, (_dg, (doc, vid)) in enumerate(sorted(wire_docs.items())):
+        f = pathlib.Path(tmp) / f"wire-{i}.json"
+        f.write_text(json.dumps(doc), encoding="utf-8")
+        if not valid_schema("transition.schema.json", f):
+            fail(
+                f"{vid}: a committed {doc['to_state']} transition is not a valid wire record "
+                f"(attempt={doc.get('attempt', {}).get('phase')}, cancellation={doc.get('cancellation')})"
+            )
+
 print("    durable-runner: supplied slots and coverage are schema-valid...")
 supplied: dict[str, tuple[dict, str]] = {}
 for vid, d in sorted(vectors.items()):
     for op in d["ops"]:
         docs = []
+        if op.get("expect", {}).get("refused") in INTRINSIC_REASONS:
+            continue  # a wire-format refusal feeds an input the schema itself rejects
         if "slot" in op:
             docs.append({"v": 0, "kind": "slot", "slot": op["slot"]})
         if "occurrence_set" in op:
@@ -296,6 +435,24 @@ with tempfile.TemporaryDirectory(prefix="drv-prof-") as tmp:
         except model.Refuse as r:
             if r.reason != reason:
                 fail(f"profile reject {name}: refused {r.reason}, expected {reason}")
+
+doc = json.loads(
+    (examples / "runner-profile.basic.example.json").read_text(encoding="utf-8")
+)
+mutate(doc, ["runtime", "durability", "attempt_journal_ack"], "survives_power_loss")
+with tempfile.TemporaryDirectory(prefix="drv-prof2-") as tmp:
+    f = pathlib.Path(tmp) / "ack-without-journal.json"
+    f.write_text(json.dumps(doc), encoding="utf-8")
+    if not valid_schema("runner-profile.schema.json", f):
+        fail("profile reject ack-without-journal: must be schema-valid")
+    try:
+        pm.admit_profile_doc(doc)
+        fail(
+            "profile reject ack-without-journal: admitted, expected journal_ack_exceeds_failure_model"
+        )
+    except model.Refuse as r:
+        if r.reason != "journal_ack_exceeds_failure_model":
+            fail(f"profile reject ack-without-journal: refused {r.reason}")
 
 if failures:
     print(

@@ -14,7 +14,8 @@
         "max": "PT30M",
         "multiplier_milli": 2000,
         "jitter_milli": 0
-      }
+      },
+      "timeouts.task_deadline": "P1D"
     }
   },
   "ops": [
@@ -115,7 +116,7 @@
   },
   "notes": [
     {
-      "competing": "the slot was supplied while open; at 07:30 the window (to 06:00) has ended, and the only exit is missed. attempt 1 is otherwise startable"
+      "competing": "the slot was supplied while open and the clock (07:30) is past not_after; the task deadline is P1D and the horizon is unset, so only the slot window refuses attempt 1"
     }
   ]
 }

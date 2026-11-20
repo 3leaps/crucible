@@ -64,7 +64,8 @@
           },
           "executed_effects": 0
         }
-      }
+      },
+      "disposition": "abandon"
     }
   ],
   "expected": {

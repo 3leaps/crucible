@@ -63,7 +63,7 @@
               "$ref": "#/$defs/instant"
             }
           },
-          "description": "Semantic rule: not_before <= instant <= not_after."
+          "description": "Half-open window [not_before, not_after). Semantic rules: not_before < not_after and not_before <= instant < not_after."
         }
       },
       "oneOf": [
@@ -146,7 +146,7 @@
                 "$ref": "#/$defs/instant"
               }
             },
-            "description": "Semantic rule: not_before <= instant <= not_after."
+            "description": "Half-open window [not_before, not_after). Semantic rules: not_before < not_after and not_before <= instant < not_after."
           }
         },
         "oneOf": [
@@ -190,7 +190,8 @@
         "rule",
         "scope",
         "from",
-        "to"
+        "to",
+        "expected"
       ],
       "properties": {
         "rule": {
@@ -281,24 +282,6 @@
         }
       },
       "description": "Reconciliation over the half-open span [from, to): expected occurrences supplied by the caller. Coverage describes what was supplied; it does not replace slot windows."
-    },
-    "catch_up": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "missed_task_id",
-        "invocation_key"
-      ],
-      "properties": {
-        "missed_task_id": {
-          "$ref": "#/$defs/digest"
-        },
-        "invocation_key": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-        }
-      },
-      "description": "Catch-up is a distinct key plus the original missed-task pin, permitted only within the kind's configured max_lag."
     }
   },
   "allOf": [

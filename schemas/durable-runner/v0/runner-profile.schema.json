@@ -260,8 +260,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "rule_contract",
-            "max_lag"
+            "rule_contract"
           ],
           "properties": {
             "rule_contract": {
@@ -271,7 +270,7 @@
               "$ref": "#/$defs/duration"
             }
           },
-          "description": "Required for scheduled mode."
+          "description": "Required for scheduled mode. An absent max_lag means catch-up is not offered."
         }
       }
     }

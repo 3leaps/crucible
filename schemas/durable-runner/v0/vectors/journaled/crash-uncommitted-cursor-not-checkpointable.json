@@ -48,9 +48,23 @@
       }
     },
     {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
       "op": "checkpoint",
       "task": "t1",
-      "cursor_revision": 3,
+      "cursor_revision": 4,
       "body": {
         "verified": true,
         "staged": "before_record"
@@ -63,11 +77,12 @@
   "expected": {
     "tasks": {
       "t1": {
-        "state": "running",
+        "state": "abandoned",
         "attempts": [
           {
             "n": 1,
-            "result": "running",
+            "result": "abandoned",
+            "effects": "none",
             "dispatch": "intended"
           }
         ]
@@ -85,12 +100,21 @@
           "n": 1,
           "phase": "start"
         }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
       }
     ]
   },
   "notes": [
     {
-      "competing": "body verified and staged before the record; only the cursor revision 3 does not exist (chain has revisions 1 and 2)"
+      "competing": "recovery has completed and the body is verified and staged before its record; only revision 4 does not exist (the chain holds revisions 1 to 3), so no cursor from the lost commit can be bound"
     }
   ]
 }

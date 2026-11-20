@@ -14,8 +14,7 @@
   "attempt": {
     "attempt_n": 1,
     "attempt_id": "sha256:b46080674cdbdb58819b7819c5aaf9b9f1fe7f36977925e6c979e1b0b33c219d",
-    "phase": "start",
-    "dispatch": "intended"
+    "phase": "carry"
   },
   "authority_generation": 1,
   "run_id": "run-0001",

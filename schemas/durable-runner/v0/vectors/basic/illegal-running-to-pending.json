@@ -45,6 +45,13 @@
       "to": "pending",
       "expect": {
         "refused": "illegal_transition"
+      },
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "abandoned",
+        "effects": "none",
+        "dispatch": "intended"
       }
     }
   ],
@@ -78,7 +85,7 @@
   },
   "notes": [
     {
-      "competing": "no state returns to pending; terminal rule not applicable since task is running"
+      "competing": "the attempt fact is complete (live attempt, abandoned result, none effects); only running to pending is not a permitted pair"
     }
   ]
 }

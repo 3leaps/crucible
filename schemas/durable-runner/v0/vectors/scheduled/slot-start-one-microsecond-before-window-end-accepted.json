@@ -13,7 +13,8 @@
         "max": "PT30M",
         "multiplier_milli": 2000,
         "jitter_milli": 0
-      }
+      },
+      "timeouts.task_deadline": "P1D"
     }
   },
   "ops": [

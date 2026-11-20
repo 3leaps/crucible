@@ -40,6 +40,46 @@ sys.modules["jcs"] = jcs
 _spec.loader.exec_module(jcs)
 
 SAFE_MAX = 9007199254740991
+TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+AUTH_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
+LOCAL_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")
+RESERVED_KEY_PREFIXES = ("slot:", "catchup:")
+KIND_PHASES = {"stall"}
+FRAMEWORK_REASONS = {"timeout", "process_failure"}
+EFFECTS = ("none", "resolved", "unknown")
+RES_FOR = {
+    "succeeded": {"succeeded"},
+    "failed": {"failed"},
+    "waiting": {"failed", "abandoned"},
+    "abandoned": {"abandoned"},
+}
+CRASH_BLOCKED = {
+    "transition",
+    "checkpoint",
+    "submit",
+    "confirm_cancel",
+    "request_cancel",
+    "supply_slot",
+    "evaluate_slots",
+    "catch_up",
+    "retire_output",
+}
+
+
+def _tok(v, pat=TOKEN_RE):
+    if not isinstance(v, str) or not pat.fullmatch(v):
+        raise Refuse("malformed")
+    return v
+
+
+def _int(v, lo=0, hi=SAFE_MAX):
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise Refuse("malformed")
+    if (lo is not None and v < lo) or (hi is not None and v > hi):
+        raise Refuse("malformed")
+    return v
+
+
 MODES = ["basic", "retrying", "journaled", "scheduled"]
 TERMINAL = {"succeeded", "failed", "cancelled", "abandoned", "missed"}
 ALLOWED = {
@@ -113,6 +153,7 @@ GUARDS = [
     "outcome.class_failure",
     "transition.attempt_required",
     "cancel.blocks_start",
+    "cancel.blocks_retry",
     "cancel.terminal",
     "success.effects_resolved",
     "transition.retryable_failure",
@@ -126,9 +167,30 @@ GUARDS = [
     "retry.backoff_band",
     "retry.slot_end",
     "slot.window_valid",
-    "slot.coverage_window",
     "slot.missed_precedence",
     "identity.backoff_valid",
+    "identity.reserved_key",
+    "identity.mapping_valid",
+    "identity.deadline_positive",
+    "identity.phase_closed",
+    "attempt.bind_live",
+    "transition.result_matches",
+    "outcome.required",
+    "outcome.reason_match",
+    "effects.required",
+    "transition.start_dispatch",
+    "cancel.blocks_prefailure",
+    "recover.cancel_wins",
+    "crash.requires_recovery",
+    "slot.fold",
+    "retry.feasibility_cap",
+    "profile.journal_v1",
+    "cancel.terminal_request",
+    "retire.terminal_only",
+    "recover.explicit_abandon",
+    "cancel.blocks_admission",
+    "time.deadline_overflow",
+    "catchup.start_lag",
 ]
 
 
@@ -203,7 +265,10 @@ def parse_instant_us(text: str, on: bool = True) -> int:
 
 def fmt_instant(us: int) -> str:
     dt = datetime.fromtimestamp(us // 1_000_000, tz=timezone.utc)
-    return dt.strftime("%Y-%m-%dT%H:%M:%S") + f".{us % 1_000_000:06d}Z"
+    return (
+        f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
+        f".{us % 1_000_000:06d}Z"
+    )
 
 
 # ---------------------------------------------------------------- model
@@ -273,12 +338,20 @@ class Model:
         for key in ("attempt", "task_deadline", "grace"):
             if key in t:
                 try:
-                    parse_duration_us(t[key])
+                    v = parse_duration_us(t[key])
                 except Refuse:
                     raise Refuse("definition_invalid")
-        if d["retry"]["max_attempts"] < 1:
+                if key != "grace" and v <= 0 and self.on("identity.deadline_positive"):
+                    raise Refuse("definition_invalid")
+        if self.on("identity.phase_closed") and set(t.get("phases", {})) - KIND_PHASES:
             raise Refuse("definition_invalid")
-        bo = d["retry"].get("backoff")
+        rc = d["retry"]
+        if rc["max_attempts"] < 1:
+            raise Refuse("definition_invalid")
+        if rc.get("horizon") is not None and self.on("identity.deadline_positive"):
+            if parse_duration_us(rc["horizon"]) <= 0:
+                raise Refuse("definition_invalid")
+        bo = rc.get("backoff")
         if (
             bo is not None
             and self.on("identity.backoff_valid")
@@ -293,10 +366,16 @@ class Model:
                 raise Refuse("definition_invalid")
             if not (self.kind_min_us <= wu <= self.kind_max_us):
                 raise Refuse("definition_invalid")
-        if not d.get("outcome_mapping"):
+        mapping = d.get("outcome_mapping")
+        if not mapping:
             raise Refuse("definition_invalid")
+        if self.on("identity.mapping_valid"):
+            codes = [m["code"] for m in mapping]
+            if len(set(codes)) != len(codes) or not any(
+                m["result"] == "success" for m in mapping
+            ):
+                raise Refuse("definition_invalid")
 
-    # -- ops
     ACK_ORDER = {"none": 0, "survives_process_loss": 1, "survives_power_loss": 2}
 
     @staticmethod
@@ -341,7 +420,8 @@ class Model:
         dur = rt["durability"]
         if self.on("profile.sealed_reserved") and "sealed" in modes:
             raise Refuse("sealed_mode_reserved")
-        if self.on("profile.mode_prefix") and modes != MODES[: len(modes)]:
+        core = [x for x in modes if x != "sealed"]
+        if self.on("profile.mode_prefix") and (not modes or core != MODES[: len(core)]):
             raise Refuse("mode_not_cumulative")
         if (
             self.on("profile.remote_coverage")
@@ -361,12 +441,12 @@ class Model:
                 raise Refuse("journal_contract_not_v1")
             if self.on("profile.journal_ack") and ack == "none":
                 raise Refuse("journal_ack_insufficient")
-        j = rt.get("journal")
-        if (
-            j
-            and self.on("profile.ack_model")
-            and self.ACK_ORDER[ack] > self.ACK_ORDER[j.get("failure_model", "none")]
-        ):
+        j = rt.get("journal") or {}
+        # A missing journal stratum is failure model none; an unknown ack value is
+        # treated as stronger than anything declared, so both fail closed.
+        if self.on("profile.ack_model") and self.ACK_ORDER.get(
+            ack, 99
+        ) > self.ACK_ORDER.get(j.get("failure_model", "none"), -1):
             raise Refuse("journal_ack_exceeds_failure_model")
         if (
             self.on("profile.authority_scope")
@@ -443,15 +523,33 @@ class Model:
         if self.on("mode.supported") and MODES.index(mode) > MODES.index(self.mode):
             raise Refuse("mode_unsupported")
 
-    def op_submit(self, a):
-        d = self.defs[a["definition"]]
+    def preflight(self, name: str):
+        if name in self.OP_MODE:
+            self._need(self.OP_MODE[name])
+        if (
+            self.crashed
+            and name in CRASH_BLOCKED
+            and self.on("crash.requires_recovery")
+        ):
+            raise Refuse("recovery_required")
+
+    def _register(self, label, authority, key, defname, derived=False, anchor_us=None):
+        """The one path that creates a task: submit, slot, coverage-missed and catch-up."""
+        d = self.defs[defname]
         self._validate_def(d)
         if d["retry"]["max_attempts"] > 1:
             self._need("retrying")
+        _tok(authority, AUTH_RE)
+        _tok(key)
+        if (
+            not derived
+            and self.on("identity.reserved_key")
+            and key.startswith(RESERVED_KEY_PREFIXES)
+        ):
+            raise Refuse("reserved_key")
         spec = dig(d)
-        k = (a["authority"], a["key"])
-        tid = dig({"authority": a["authority"], "invocation_key": a["key"], "v": 0})
-        rec = self.identity.get(k)
+        tid = dig({"authority": authority, "invocation_key": key, "v": 0})
+        rec = self.identity.get((authority, key))
         if rec:
             expired = self.clock - rec["accepted_us"] > self.store_window_us
             if (
@@ -460,15 +558,20 @@ class Model:
                 and self.on("identity.expired_unresolved")
             ):
                 raise Refuse("identity_unresolved")
-            if rec["spec"] != spec:
-                if self.on("identity.conflict"):
-                    raise Refuse("identity_conflict")
-            else:
-                label = self.ids.get(tid)
-                t = self.tasks[label]
-                return {"disposition": "observed", "task_id": tid, "state": t["state"]}
-        label = a["as"]
-        self.identity[k] = {"spec": spec, "accepted_us": self.clock}
+            if rec["spec"] != spec and self.on("identity.conflict"):
+                raise Refuse("identity_conflict")
+            if rec["spec"] == spec:
+                return tid, False
+        tl = d["timeouts"].get("task_deadline")
+        if (
+            tl is not None
+            and self.on("time.deadline_overflow")
+            and (anchor_us if anchor_us is not None else self.clock)
+            + parse_duration_us(tl)
+            > SAFE_MAX
+        ):
+            raise Refuse("counter_exhausted")
+        self.identity[(authority, key)] = {"spec": spec, "accepted_us": self.clock}
         self.ids[tid] = label
         self.tasks[label] = {
             "id": tid,
@@ -480,12 +583,23 @@ class Model:
             "started": 0,
             "cancel_req": False,
             "next_eligible": None,
-            "accepted_us": self.clock,
+            "accepted_us": self.clock if anchor_us is None else anchor_us,
             "first_start_us": None,
-            "catch_up_of": None,
+            "authority": authority,
         }
         self._commit(label, "pending", None)
-        return {"disposition": "created", "task_id": tid, "state": "pending"}
+        return tid, True
+
+    def op_submit(self, a):
+        tid, created = self._register(
+            a["as"], a["authority"], a["key"], a["definition"]
+        )
+        t = self.tasks[self.ids[tid]]
+        return {
+            "disposition": "created" if created else "observed",
+            "task_id": tid,
+            "state": t["state"],
+        }
 
     def _commit(self, label, to, attempt):
         t = self.tasks[label]
@@ -498,18 +612,17 @@ class Model:
         return t["rev"]
 
     def op_transition(self, a):
-        if a["task"] not in self.tasks:
+        label = a["task"]
+        if label not in self.tasks:
             if self.on("transition.first_pending") and a["to"] != "pending":
                 raise Refuse("first_not_pending")
             raise Refuse("predecessor_mismatch")
-        t = self.tasks[a["task"]]
+        t = self.tasks[label]
         d = t["def"]
         to = a["to"]
         at = a.get("attempt")
-        if (
-            self.on("generation.stale")
-            and a.get("generation", self.generation) < self.generation
-        ):
+        gen = a.get("generation", self.generation)
+        if self.on("generation.stale") and _int(gen, 0, None) < self.generation:
             raise Refuse("generation_stale")
         prior = a.get("prior", "head")
         if self.on("transition.predecessor") and prior != "head":
@@ -517,7 +630,11 @@ class Model:
         cur = t["state"]
         if self.on("transition.terminal") and cur in TERMINAL:
             raise Refuse("terminal_resurrection")
-        if self.on("transition.table") and to not in ALLOWED.get(cur, set()):
+        if (
+            self.on("transition.table")
+            and cur not in TERMINAL
+            and to not in ALLOWED.get(cur, set())
+        ):
             raise Refuse("illegal_transition")
         if to == "missed" and self.on("transition.table"):
             hi = t.get("slot_hi")
@@ -527,21 +644,31 @@ class Model:
             raise Refuse("illegal_transition")
         if to == "cancelled" and self.on("cancel.confirmed"):
             raise Refuse("cancellation_not_confirmed")
-        if cur == "running" and at is None and self.on("transition.attempt_required"):
+        if (
+            cur == "running"
+            and not isinstance(at, dict)
+            and self.on("transition.attempt_required")
+        ):
             raise Refuse("attempt_required")
-        if (
-            to in ("running", "waiting")
-            and t["cancel_req"]
-            and self.on("cancel.blocks_start")
-        ):
-            raise Refuse("cancellation_precedes_start")
-        if (
-            to == "failed"
-            and cur == "running"
-            and t["cancel_req"]
-            and self.on("cancel.blocks_failure")
-        ):
-            raise Refuse("cancellation_precedes_failure")
+        if t["cancel_req"]:
+            if to == "running" and self.on("cancel.blocks_start"):
+                raise Refuse("cancellation_precedes_start")
+            if (
+                cur == "pending"
+                and to == "waiting"
+                and self.on("cancel.blocks_admission")
+            ):
+                raise Refuse("cancellation_precedes_start")
+            if cur == "running" and to == "waiting" and self.on("cancel.blocks_retry"):
+                raise Refuse("cancellation_precedes_start")
+            if cur == "running" and to == "failed" and self.on("cancel.blocks_failure"):
+                raise Refuse("cancellation_precedes_failure")
+            if (
+                cur in ("pending", "waiting")
+                and to == "failed"
+                and self.on("cancel.blocks_prefailure")
+            ):
+                raise Refuse("cancellation_precedes_failure")
         if (
             to == "failed"
             and cur in ("pending", "waiting")
@@ -568,160 +695,182 @@ class Model:
                 ok = False
             if not ok:
                 raise Refuse("illegal_transition")
-        retry_cfg = d["retry"]
-        mapping = {m["code"]: m for m in d["outcome_mapping"]}
         if to == "running":
-            if at is None and self.on("transition.attempt_required"):
+            return self._start(label, t, d, a, at)
+        if cur == "running" and isinstance(at, dict):
+            return self._finish(label, t, d, a, at, to)
+        rev = self._commit(label, to, None)
+        return {"revision": rev, "state": to}
+
+    def _start(self, label, t, d, a, at):
+        if not isinstance(at, dict):
+            if self.on("transition.attempt_required"):
                 raise Refuse("attempt_required")
-            lo_s, hi_s = t.get("slot_lo"), t.get("slot_hi")
-            if lo_s is not None and self.on("slot.start_window"):
-                if self.clock < lo_s or self.clock >= hi_s:
-                    raise Refuse("illegal_transition")
-            n = at["n"]
-            if self.on("attempt.contiguous") and n != t["started"] + 1:
-                raise Refuse("attempt_not_contiguous")
-            if self.on("attempt.limit") and n > retry_cfg["max_attempts"]:
-                raise Refuse("attempt_limit_exhausted")
-            if self.on("retry.deadline") and self._past_deadline(t, d):
-                raise Refuse("deadline_exceeded")
-            if self.on("start.horizon") and self._past_horizon(t, d, self.clock):
-                raise Refuse("horizon_exceeded")
-            cp = at.get("checkpoint")
-            if cp is not None:
-                rec = (
-                    self.checkpoints[cp - 1]
-                    if 1 <= cp <= len(self.checkpoints)
-                    else None
-                )
-                if self.on("checkpoint.eligible") and (
-                    rec is None or rec["task"] != a["task"] or rec["attempt"] >= n
-                ):
-                    raise Refuse("checkpoint_not_eligible")
-                if self.on("checkpoint.held_body") and rec is not None and rec["held"]:
-                    raise Refuse("checkpoint_body_held")
-            if (
-                t["next_eligible"] is not None
-                and self.clock < t["next_eligible"]
-                and self.on("transition.table")
-            ):
+            at = {
+                "n": t["started"] + 1
+            }  # guard removed: a start without an attempt fact
+        n = _int(at.get("n"), 1)
+        if at.get("dispatch", "intended") != "intended" and self.on(
+            "transition.start_dispatch"
+        ):
+            raise Refuse("dispatch_not_provable")
+        cu = t.get("catchup_instant")
+        if (
+            cu is not None
+            and self.max_lag_us is not None
+            and self.on("catchup.start_lag")
+            and not (0 <= self.clock - cu <= self.max_lag_us)
+        ):
+            raise Refuse("lag_exceeded")
+        lo_s, hi_s = t.get("slot_lo"), t.get("slot_hi")
+        if lo_s is not None and self.on("slot.start_window"):
+            if self.clock < lo_s or self.clock >= hi_s:
                 raise Refuse("illegal_transition")
-            t["started"] = n
-            t["attempts"].append(
-                {
-                    "n": n,
-                    "result": "running",
-                    "effects": None,
-                    "dispatch": at.get("dispatch", "intended"),
-                }
-            )
-            if t["first_start_us"] is None:
-                t["first_start_us"] = self.clock
-            t["next_eligible"] = None
-            rev = self._commit(a["task"], "running", {"n": n, "phase": "start"})
-            return {"revision": rev, "state": "running"}
-        if cur == "running" and at:
-            att = t["attempts"][-1]
-            code = at.get("outcome")
-            if (
-                code is not None
-                and code not in mapping
-                and self.on("outcome.known_code")
+        if self.on("attempt.contiguous") and n != t["started"] + 1:
+            raise Refuse("attempt_not_contiguous")
+        if self.on("attempt.limit") and n > d["retry"]["max_attempts"]:
+            raise Refuse("attempt_limit_exhausted")
+        if self.on("retry.deadline") and self._past_deadline(t, d):
+            raise Refuse("deadline_exceeded")
+        if self.on("start.horizon") and self._past_horizon(t, d, self.clock):
+            raise Refuse("horizon_exceeded")
+        cp = at.get("checkpoint")
+        if cp is not None:
+            rec = self.checkpoints[cp - 1] if 1 <= cp <= len(self.checkpoints) else None
+            if self.on("checkpoint.eligible") and (
+                rec is None or rec["task"] != label or rec["attempt"] >= n
             ):
-                raise Refuse("unknown_outcome_code")
-            if code in mapping:
-                claimed_ok = at.get("result") == "succeeded" or (
-                    at.get("result") is None and to == "succeeded"
-                )
-                claimed_bad = at.get("result") == "failed" or (
-                    at.get("result") is None and to in ("failed", "waiting")
-                )
-                is_ok = mapping[code]["result"] == "success"
-                if claimed_ok and not is_ok and self.on("outcome.class_success"):
-                    raise Refuse("outcome_mapping_mismatch")
-                if claimed_bad and is_ok and self.on("outcome.class_failure"):
-                    raise Refuse("outcome_mapping_mismatch")
-            if to == "succeeded":
-                if self.on("success.after_cancel") and t["cancel_req"]:
-                    raise Refuse("cancellation_precedes_success")
-                if (
-                    self.on("success.effects_resolved")
-                    and at.get("effects") != "resolved"
-                ):
-                    raise Refuse("success_effects_unresolved")
-                if self.on("success.verified") and not at.get(
-                    "outputs_verified", False
-                ):
-                    raise Refuse("success_unverified_outputs")
+                raise Refuse("checkpoint_not_eligible")
+            if self.on("checkpoint.held_body") and rec is not None and rec["held"]:
+                raise Refuse("checkpoint_body_held")
+        if (
+            t["next_eligible"] is not None
+            and self.clock < t["next_eligible"]
+            and self.on("transition.table")
+        ):
+            raise Refuse("illegal_transition")
+        t["started"] = n
+        t["attempts"].append(
+            {"n": n, "result": "running", "effects": None, "dispatch": "intended"}
+        )
+        if t["first_start_us"] is None:
+            t["first_start_us"] = self.clock
+        t["next_eligible"] = None
+        rev = self._commit(label, "running", {"n": n, "phase": "start"})
+        return {"revision": rev, "state": "running"}
+
+    def _finish(self, label, t, d, a, at, to):
+        rc = d["retry"]
+        mapping = {m["code"]: m for m in d["outcome_mapping"]}
+        live = t["attempts"][-1]
+        n = _int(at.get("n"), 1)
+        if self.on("attempt.bind_live") and n != live["n"]:
+            raise Refuse("attempt_mismatch")
+        res = at.get("result")
+        if (
+            self.on("transition.result_matches")
+            and to in RES_FOR
+            and res not in RES_FOR[to]
+        ):
+            raise Refuse("result_state_mismatch")
+        code = at.get("outcome")
+        runner_timeout = (
+            res == "failed" and code is None and at.get("reason") in FRAMEWORK_REASONS
+        )
+        if (
+            res in ("succeeded", "failed")
+            and code is None
+            and not runner_timeout
+            and self.on("outcome.required")
+        ):
+            raise Refuse("outcome_required")
+        if code is not None and code not in mapping and self.on("outcome.known_code"):
+            raise Refuse("unknown_outcome_code")
+        # The retry reason comes from the pinned mapping; the one runner-owned
+        # reason is a detected timeout, which has no outcome code.
+        m_reason = (
+            at.get("reason") if runner_timeout else mapping.get(code, {}).get("reason")
+        )
+        if code in mapping:
+            is_ok = mapping[code]["result"] == "success"
+            if res == "succeeded" and not is_ok and self.on("outcome.class_success"):
+                raise Refuse("outcome_mapping_mismatch")
+            if res == "failed" and is_ok and self.on("outcome.class_failure"):
+                raise Refuse("outcome_mapping_mismatch")
             if (
-                to == "failed"
-                and at.get("result") == "failed"
+                at.get("reason") is not None
+                and at["reason"] != m_reason
+                and self.on("outcome.reason_match")
+            ):
+                raise Refuse("outcome_mapping_mismatch")
+        eff = at.get("effects")
+        if eff not in EFFECTS and self.on("effects.required"):
+            raise Refuse("effects_required")
+        if to == "succeeded":
+            if self.on("success.after_cancel") and t["cancel_req"]:
+                raise Refuse("cancellation_precedes_success")
+            if self.on("success.effects_resolved") and eff != "resolved":
+                raise Refuse("success_effects_unresolved")
+            if self.on("success.verified") and at.get("outputs_verified") is not True:
+                raise Refuse("success_unverified_outputs")
+        if to == "failed":
+            if (
+                res == "failed"
                 and self.on("transition.retryable_failure")
+                and m_reason in rc["retryable_reasons"]
+                and t["started"] < rc["max_attempts"]
+                and self._retry_band(t, d, live["n"])[3]
             ):
-                m_reason = mapping.get(code, {}).get("reason")
-                if (
-                    m_reason in retry_cfg["retryable_reasons"]
-                    and t["started"] < retry_cfg["max_attempts"]
-                    and self._retry_band(t, d, at["n"])[2]
-                ):
-                    raise Refuse("retry_required")
-            if to == "waiting":
-                if at.get("effects") == "unknown" and self.on("retry.unknown_effects"):
-                    raise Refuse("unknown_effects_not_retryable")
-                reason = at.get("reason")
-                if at.get("result") == "abandoned":
-                    if self.on("transition.abandon_gate") and not retry_cfg.get(
-                        "retry_after_abandonment", False
-                    ):
-                        raise Refuse("retry_not_permitted")
-                elif (
-                    self.on("retry.reason")
-                    and reason not in retry_cfg["retryable_reasons"]
+                raise Refuse("retry_required")
+        if to == "waiting":
+            if eff == "unknown" and self.on("retry.unknown_effects"):
+                raise Refuse("unknown_effects_not_retryable")
+            if res == "abandoned":
+                if self.on("transition.abandon_gate") and not rc.get(
+                    "retry_after_abandonment", False
                 ):
                     raise Refuse("retry_not_permitted")
-                if (
-                    self.on("attempt.limit")
-                    and t["started"] >= retry_cfg["max_attempts"]
-                ):
-                    raise Refuse("attempt_limit_exhausted")
-                ne = a.get("next_eligible_at")
-                if self.on("retry.jitter_persisted") and ne is None:
-                    raise Refuse("jitter_not_persisted")
-                if ne is not None:
-                    neu = parse_instant_us(ne)
-                    if self.on("retry.next_eligible_future") and neu < self.clock:
-                        raise Refuse("next_eligible_in_past")
-                    lo_b, hi_b, feasible, binding = self._retry_band(t, d, at["n"])
-                    if not feasible:
-                        if self.on("retry.deadline") and binding == "deadline":
-                            raise Refuse("deadline_exceeded")
-                        if self.on("retry.horizon") and binding == "horizon":
-                            raise Refuse("horizon_exceeded")
-                        if self.on("retry.slot_end") and binding == "slot":
-                            raise Refuse("illegal_transition")
-                    delay = neu - self.clock
-                    if self.on("retry.backoff_band") and not (lo_b <= delay <= hi_b):
-                        raise Refuse("backoff_out_of_band")
-                    t["next_eligible"] = neu
-            att["result"] = at.get(
-                "result",
-                {
-                    "succeeded": "succeeded",
-                    "failed": "failed",
-                    "waiting": "failed",
-                    "abandoned": "abandoned",
-                }.get(to, "failed"),
-            )
-            att["effects"] = at.get("effects")
-            att["outcome"] = code
-            att["dispatch"] = at.get("dispatch", att["dispatch"])
-            rev = self._commit(
-                a["task"],
-                to,
-                {"n": att["n"], "phase": "finish", "result": att["result"]},
-            )
-            return {"revision": rev, "state": to}
-        rev = self._commit(a["task"], to, None)
+            elif self.on("retry.reason") and m_reason not in rc["retryable_reasons"]:
+                raise Refuse("retry_not_permitted")
+            if self.on("attempt.limit") and t["started"] >= rc["max_attempts"]:
+                raise Refuse("attempt_limit_exhausted")
+            ne = a.get("next_eligible_at")
+            if self.on("retry.jitter_persisted") and ne is None:
+                raise Refuse("jitter_not_persisted")
+            if ne is not None:
+                self._check_wait(t, d, live["n"], parse_instant_us(ne))
+                t["next_eligible"] = parse_instant_us(ne)
+        live["result"] = res
+        live["effects"] = eff
+        live["outcome"] = code
+        live["dispatch"] = at.get("dispatch", live["dispatch"])
+        rev = self._commit(
+            label, to, {"n": live["n"], "phase": "finish", "result": res}
+        )
         return {"revision": rev, "state": to}
+
+    def _check_wait(self, t, d, n, neu):
+        delay = neu - self.clock
+        if delay < 0 and self.on("retry.next_eligible_future"):
+            raise Refuse("next_eligible_in_past")
+        lo, hi, hi_f, feasible, binding = self._retry_band(t, d, n)
+        if not feasible and binding is not None:
+            if binding == "deadline" and self.on("retry.deadline"):
+                raise Refuse("deadline_exceeded")
+            if binding == "horizon" and self.on("retry.horizon"):
+                raise Refuse("horizon_exceeded")
+            if binding == "slot" and self.on("retry.slot_end"):
+                raise Refuse("illegal_transition")
+            return
+        if delay < 0:
+            return
+        if feasible:
+            if self.on("retry.backoff_band") and not (lo <= delay <= hi):
+                raise Refuse("backoff_out_of_band")
+            if self.on("retry.feasibility_cap") and hi_f < hi and delay > hi_f:
+                raise Refuse("backoff_out_of_band")
+        elif self.on("retry.backoff_band") and not (lo <= delay <= hi):
+            raise Refuse("backoff_out_of_band")
 
     def _past_deadline(self, t, d, at_us=None):
         tl = d["timeouts"].get("task_deadline")
@@ -752,8 +901,8 @@ class Model:
         return min(cands, key=lambda c: c[0])
 
     def _retry_band(self, t, d, n):
-        """Exact integer-microsecond backoff band for a retry after attempt n,
-        intersected with the feasibility cap. Returns (lo, hi, feasible, binding)."""
+        """Exact integer-microsecond backoff band for a retry after attempt n.
+        Returns (lo, hi, hi_capped, feasible, binding_bound_name)."""
         bo = d["retry"].get("backoff")
         if bo is None:
             initial = ceiling = 0
@@ -765,23 +914,21 @@ class Model:
             m = Fraction(bo.get("multiplier_milli", 1000), 1000)
             j = Fraction(bo["jitter_milli"], 1000)
         val = Fraction(initial)
-        for _ in range(max(n - 1, 0)):
-            val *= m
-            if val >= ceiling:
-                val = Fraction(ceiling)
-                break
+        if initial != 0 and m != 1:
+            for _ in range(max(n - 1, 0)):
+                val *= m
+                if val >= ceiling:
+                    val = Fraction(ceiling)
+                    break
         nominal = min(ceiling, math.ceil(val))
         lo = math.ceil(nominal * (1 - j))
         hi = min(ceiling, math.floor(nominal * (1 + j)))
         end, name = self._bound_end(t, d)
-        if end is not None:
-            cap = end - self.clock - 1
-            hi_f = min(hi, cap)
-        else:
-            hi_f = hi
+        hi_f = hi if end is None else min(hi, end - self.clock - 1)
         feasible = lo <= hi_f and hi_f >= 0
         return (
             lo,
+            hi,
             hi_f,
             feasible,
             (name if (end is not None and not feasible) else None),
@@ -792,7 +939,9 @@ class Model:
         if t["state"] in TERMINAL:
             if t["state"] == "succeeded":
                 return {"effect": "too_late"}
-            raise Refuse("task_terminal")
+            if self.on("cancel.terminal_request"):
+                raise Refuse("task_terminal")
+            return {"effect": "recorded"}
         if t["cancel_req"]:
             return {"effect": "recorded"}
         t["cancel_req"] = True
@@ -836,48 +985,80 @@ class Model:
         return {"journal_head": len(self.history)}
 
     def op_recover(self, a):
-        pred = a["predecessor"]
-        if self.on("counters.safe_integer") and a["generation"] > SAFE_MAX:
+        gen = a["generation"]
+        if isinstance(gen, bool) or not isinstance(gen, int):
+            raise Refuse("malformed")
+        if self.on("counters.safe_integer") and gen > SAFE_MAX:
             raise Refuse("counter_exhausted")
-        owner = a.get("owner", f"owner-{a['generation']}")
-        same_claim = a["generation"] == self.generation and owner == self.owner
+        owner = a.get("owner", f"owner-{gen}")
+        _tok(owner)
+        same_claim = gen == self.generation and owner == self.owner
         if (
             self.on("recover.generation_monotonic")
-            and a["generation"] <= self.generation
+            and gen <= self.generation
             and not same_claim
         ):
             raise Refuse("generation_stale")
-        if self.on("recover.quiescence") and pred == "unproven":
+        pred = a["predecessor"]
+        if self.on("recover.quiescence") and pred not in (
+            "quiescent_proved",
+            "reconciled_by_kind_rule",
+        ):
             raise Refuse("predecessor_not_quiescent")
-        self.generation = a["generation"]
-        self.owner = owner
-        self.crashed = False
-        out = {}
+        eff = a.get("effects", "none")
+        if eff not in EFFECTS and self.on("effects.required"):
+            raise Refuse("effects_required")
+        disposition = a.get("disposition")
+        plan = []
         for label, t in self.tasks.items():
-            if t["state"] == "running":
-                eff = a.get("effects", "none")
-                att = t["attempts"][-1]
-                att["result"] = "abandoned"
-                att["effects"] = eff
-                rc = t["def"]["retry"]
-                end_b, _nm = self._bound_end(t, t["def"])
-                expired = end_b is not None and self.clock >= end_b
+            if t["state"] != "running":
+                continue
+            att = t["attempts"][-1]
+            rc = t["def"]["retry"]
+            unresolved = eff == "unknown"
+            if (
+                unresolved
+                and disposition != "abandon"
+                and self.on("recover.explicit_abandon")
+            ):
+                raise Refuse("recovery_disposition_required")
+            if t["cancel_req"] and self.on("recover.cancel_wins"):
+                nxt = "abandoned" if unresolved else "cancelled"
+                ne = None
+            else:
                 can_wait = (
-                    eff != "unknown"
+                    not unresolved
                     and t["started"] < rc["max_attempts"]
                     and (
                         not self.on("recover.abandon_gate")
-                        or (rc.get("retry_after_abandonment", False) and not expired)
+                        or rc.get("retry_after_abandonment", False)
                     )
+                    and self._retry_band(t, t["def"], att["n"])[3]
                 )
                 nxt = "waiting" if can_wait else "abandoned"
-                self._commit(
-                    label,
-                    nxt,
-                    {"n": att["n"], "phase": "finish", "result": "abandoned"},
-                )
+                ne = None
                 if nxt == "waiting":
-                    t["next_eligible"] = self.clock
+                    if a.get("next_eligible_at") is None and self.on(
+                        "retry.jitter_persisted"
+                    ):
+                        raise Refuse("jitter_not_persisted")
+                    if a.get("next_eligible_at") is not None:
+                        ne = parse_instant_us(a["next_eligible_at"])
+                        self._check_wait(t, t["def"], att["n"], ne)
+            plan.append((label, t, att, nxt, ne))
+        self.generation = gen
+        self.owner = owner
+        self.crashed = False
+        out = {}
+        for label, t, att, nxt, ne in plan:
+            att["result"] = "cancelled" if nxt == "cancelled" else "abandoned"
+            att["effects"] = eff
+            self._commit(
+                label, nxt, {"n": att["n"], "phase": "finish", "result": att["result"]}
+            )
+            if nxt == "waiting":
+                t["next_eligible"] = ne if ne is not None else self.clock
+        for label, t in self.tasks.items():
             out[label] = t["state"]
         return {"task_states": out, "executed_effects": 0}
 
@@ -925,7 +1106,9 @@ class Model:
     def op_retire_output(self, a):
         if self.on("retire.hold") and a.get("hold") == "active":
             raise Refuse("hold_active")
-        if self.tasks[a["task"]]["state"] not in TERMINAL:
+        if self.tasks[a["task"]]["state"] not in TERMINAL and self.on(
+            "retire.terminal_only"
+        ):
             raise Refuse("retirement_refused")
         return {}
 
@@ -940,9 +1123,10 @@ class Model:
             ):
                 raise Refuse("shared_quota_needs_shared_authority")
             if self.reserved >= limit:
-                if self.on("admission.unsettled") and self.carried > 0:
-                    raise Refuse("unsettled_reservation")
-                if self.on("admission.rate"):
+                if self.carried > 0:
+                    if self.on("admission.unsettled"):
+                        raise Refuse("unsettled_reservation")
+                elif self.on("admission.rate"):
                     raise Refuse("rate_denied")
             self.reserved += 1
             return {"reserved": self.reserved}
@@ -974,10 +1158,20 @@ class Model:
         return {"canonical": fmt_instant(a["unix_us"])}
 
     def _local_to_utc(self, local: str, tz: str, check_gap: bool = True) -> str:
-        """Fixture-limited tz table: America/New_York, 2026 (spring gap 02:00-03:00 on 2026-03-08)."""
-        if tz != "America/New_York":
-            raise ValueError(f"model has no rule table for {tz}")
-        naive = datetime.strptime(local, "%Y-%m-%dT%H:%M:%S")
+        """Fixture-limited zone table: America/New_York in 2026 only. Anything this
+        table cannot judge is refused as unavailable, never guessed."""
+        if not isinstance(local, str) or not LOCAL_RE.fullmatch(local):
+            raise Refuse("format")
+        if tz != "America/New_York" or not local.startswith("2026-"):
+            raise Refuse("zone_unavailable")
+        try:
+            naive = datetime.strptime(local, "%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            raise Refuse("format")
+        if self.on("slot.fold") and datetime(2026, 11, 1, 1, 0) <= naive < datetime(
+            2026, 11, 1, 2, 0
+        ):
+            raise Refuse("ambiguous_local_time")
         if (
             check_gap
             and naive.date().isoformat() == "2026-03-08"
@@ -991,79 +1185,75 @@ class Model:
         )
         return fmt_instant(us)
 
-    def _create(self, label, authority, key_obj, d):
-        spec = dig(d)
-        key = dig(key_obj)
-        tid = dig({"authority": authority, "invocation_key": key, "v": 0})
-        prior = self.identity.get((authority, key))
-        if prior is not None:
-            if prior["spec"] != spec and self.on("identity.conflict"):
-                raise Refuse("identity_conflict")
-            return tid, False
-        self.identity[(authority, key)] = {"spec": spec, "accepted_us": self.clock}
-        self.ids[tid] = label
-        self.tasks[label] = {
-            "id": tid,
-            "spec": spec,
-            "def": d,
-            "state": "pending",
-            "rev": 0,
-            "attempts": [],
-            "started": 0,
-            "cancel_req": False,
-            "next_eligible": None,
-            "accepted_us": self.clock,
-            "first_start_us": None,
-            "authority": authority,
-        }
-        self._commit(label, "pending", None)
-        return tid, True
-
-    def _one_slot(self, s, label, defname):
-        if "local" in s:
+    def _slot_entry(self, e, whole_window_checks=True):
+        """Validate one slot or coverage entry; return (instant, lo, hi)."""
+        if "local" in e:
             instant = self._local_to_utc(
-                s["local"], s["tz"], check_gap=self.on("slot.dst")
+                e["local"], e["tz"], check_gap=self.on("slot.dst")
             )
         else:
-            instant = s["instant"]
-        digest = s["rule"]["digest"]
+            instant = e["instant"]
+        win = e.get("window")
+        if not win:
+            raise Refuse(
+                "coverage_invalid" if not whole_window_checks else "slot_window_invalid"
+            )
+        lo, hi, at = (
+            parse_instant_us(win["not_before"]),
+            parse_instant_us(win["not_after"]),
+            parse_instant_us(instant),
+        )
+        if self.on("slot.window_valid") and not lo < hi:
+            raise Refuse(
+                "slot_window_invalid" if whole_window_checks else "coverage_invalid"
+            )
+        if lo < hi and self.on("slot.window_instant") and not (lo <= at < hi):
+            raise Refuse(
+                "slot_outside_window" if whole_window_checks else "coverage_invalid"
+            )
+        return instant, lo, hi
+
+    def _slot_key(self, scope, instant, digest):
+        key_obj = {
+            "domain": "slot",
+            "instant": instant,
+            "rule": digest,
+            "scope": scope,
+            "v": 0,
+        }
+        return "slot:" + dig(key_obj)
+
+    def _one_slot(self, s_, label, defname):
+        instant, lo, hi = self._slot_entry(s_)
+        digest = s_["rule"]["digest"]
         if (
             self.on("slot.identity_rule")
             and self.schedule_rule
             and digest != self.schedule_rule
         ):
             raise Refuse("slot_identity_mismatch")
-        lo, hi, at = (
-            parse_instant_us(s["window"]["not_before"]),
-            parse_instant_us(s["window"]["not_after"]),
-            parse_instant_us(instant),
-        )
-        if self.on("slot.window_valid") and not lo < hi:
-            raise Refuse("slot_window_invalid")
-        ident = (s["scope"], instant)
+        scope = s_["scope"]
+        ident = (scope, instant)
         prev = self.slots.get(ident)
         if (
             prev
             and self.on("slot.identity_changed")
-            and (prev["rule"] != digest or prev["window"] != s["window"])
+            and (prev["rule"] != digest or prev["window"] != s_["window"])
         ):
             raise Refuse("slot_identity_mismatch")
-        if self.on("slot.window_instant") and not (lo <= at < hi):
+        key = self._slot_key(scope, instant, digest)
+        exists = (scope, key) in self.identity
+        if not exists and self.on("slot.window_clock") and self.clock >= hi:
             raise Refuse("slot_outside_window")
-        if self.on("slot.window_clock") and self.clock >= hi:
-            raise Refuse("slot_outside_window")
-        key_obj = {
-            "domain": "slot",
-            "instant": instant,
-            "rule": digest,
-            "scope": s["scope"],
-            "v": 0,
-        }
-        self.slots[ident] = {"rule": digest, "window": s["window"]}
-        tid, created = self._create(label, s["scope"], key_obj, self.defs[defname])
+        tid, created = self._register(
+            label, scope, key, defname, derived=True, anchor_us=lo
+        )
+        self.slots[ident] = {"rule": digest, "window": s_["window"]}
         if created:
-            self.tasks[label].update(slot_lo=lo, slot_hi=hi, slot_instant=at)
-        return dig(key_obj), self.clock >= lo
+            self.tasks[label].update(
+                slot_lo=lo, slot_hi=hi, slot_instant=parse_instant_us(instant)
+            )
+        return key, lo <= self.clock < hi
 
     def op_supply_slot(self, a):
         if "coverage" in a:
@@ -1071,9 +1261,11 @@ class Model:
             return {}
         if "occurrence_set" in a:
             labels = a["as"] if isinstance(a["as"], list) else [a["as"]]
+            if len(labels) != len(a["occurrence_set"]):
+                raise Refuse("malformed")
             ids, elig = [], []
-            for s, label in zip(a["occurrence_set"], labels):
-                sid, e = self._one_slot(s, label, a["definition"])
+            for s_, label in zip(a["occurrence_set"], labels):
+                sid, e = self._one_slot(s_, label, a["definition"])
                 ids.append(sid)
                 elig.append(e)
             return {"slot_ids": ids, "eligible": all(elig)}
@@ -1081,9 +1273,11 @@ class Model:
         return {"slot_id": sid, "eligible": e}
 
     def op_evaluate_slots(self, a):
-        if self.on("slot.coverage") and a.get("coverage") is None:
-            raise Refuse("coverage_not_supplied")
-        cov = a.get("coverage") or {"expected": [], "rule": {"digest": ""}, "scope": ""}
+        if a.get("coverage") is None:
+            if self.on("slot.coverage"):
+                raise Refuse("coverage_not_supplied")
+            return {"missed": []}
+        cov = a["coverage"]
         digest = cov["rule"]["digest"]
         if (
             self.on("slot.coverage_rule")
@@ -1091,46 +1285,50 @@ class Model:
             and digest != self.schedule_rule
         ):
             raise Refuse("slot_identity_mismatch")
+        expected = cov.get("expected")
+        if self.on("slot.coverage_bounds") and expected is None:
+            raise Refuse("coverage_invalid")
         frm = parse_instant_us(cov["from"]) if cov.get("from") else 0
         to = parse_instant_us(cov["to"]) if cov.get("to") else 0
-        if self.on("slot.coverage_bounds") and cov.get("expected") and to > self.clock:
+        if self.on("slot.coverage_bounds") and (not frm < to or to > self.clock):
             raise Refuse("coverage_invalid")
         entries = []
-        for e in cov["expected"]:
-            if "local" in e:
-                inst = self._local_to_utc(
-                    e["local"], e["tz"], check_gap=self.on("slot.dst")
-                )
-            else:
-                inst = e["instant"]
-            win = e.get("window")
-            if self.on("slot.coverage_window") and (
-                not win
-                or not parse_instant_us(win["not_before"])
-                < parse_instant_us(win["not_after"])
-            ):
-                raise Refuse("coverage_invalid")
+        for e in expected or []:
+            inst, lo, hi = self._slot_entry(e, whole_window_checks=False)
             if self.on("slot.coverage_bounds") and not (
                 frm <= parse_instant_us(inst) < to
             ):
                 raise Refuse("coverage_invalid")
-            entries.append((inst, win))
+            entries.append((inst, e["window"], hi))
         missed = []
-        for inst, win in entries:
-            key_obj = {
-                "domain": "slot",
-                "instant": inst,
-                "rule": digest,
-                "scope": cov["scope"],
-                "v": 0,
-            }
-            if (cov["scope"], dig(key_obj)) in self.identity:
+        for inst, win, hi in entries:
+            scope = cov["scope"]
+            prev = self.slots.get((scope, inst))
+            if (
+                prev
+                and self.on("slot.identity_changed")
+                and (prev["rule"] != digest or prev["window"] != win)
+            ):
+                raise Refuse("slot_identity_mismatch")
+            key = self._slot_key(scope, inst, digest)
+            if (scope, key) in self.identity:
+                self._register(
+                    a["labels"][inst], scope, key, a["definition"], derived=True
+                )
                 continue
-            if win and self.clock < parse_instant_us(win["not_after"]):
+            if self.clock < hi:
                 continue  # a past instant whose window is still open is not missed
             label = a["labels"][inst]
-            self._create(label, cov["scope"], key_obj, self.defs[a["definition"]])
-            self.tasks[label]["slot_instant"] = parse_instant_us(inst)
+            self._register(
+                label,
+                scope,
+                key,
+                a["definition"],
+                derived=True,
+                anchor_us=parse_instant_us(win["not_before"]),
+            )
+            self.slots[(scope, inst)] = {"rule": digest, "window": win}
+            self.tasks[label].update(slot_instant=parse_instant_us(inst))
             self._commit(label, "missed", None)
             missed.append(inst)
         return {"missed": missed}
@@ -1142,18 +1340,19 @@ class Model:
         if self.on("catchup.permitted") and self.max_lag_us is None:
             raise Refuse("catch_up_not_permitted")
         lag = self.clock - m.get("slot_instant", self.clock)
-        if self.on("catchup.lag") and lag > (self.max_lag_us or 0):
+        if (
+            self.on("catchup.lag")
+            and self.max_lag_us is not None
+            and not (0 <= lag <= self.max_lag_us)
+        ):
             raise Refuse("lag_exceeded")
-        key_obj = {"catch_up_of": m["id"], "domain": "catch_up", "v": 0}
-        tid, _ = self._create(
-            a["as"], m_authority(m), key_obj, self.defs[a["definition"]]
+        key = "catchup:" + dig({"catch_up_of": m["id"], "domain": "catch_up", "v": 0})
+        tid, created = self._register(
+            a["as"], m["authority"], key, a["definition"], derived=True
         )
+        if created:
+            self.tasks[a["as"]]["catchup_instant"] = m.get("slot_instant")
         return {"task_id": tid}
-
-
-def m_authority(missed: dict) -> str:
-    """Catch-up tasks live in the authority namespace of the missed task."""
-    return missed["authority"]
 
 
 def load_golden() -> dict:
@@ -1173,11 +1372,11 @@ def run_vector(vector: dict, golden: dict, disabled: set[str]) -> list[str]:
         name = op["op"]
         fn = getattr(m, f"op_{name}", None)
         exp = op["expect"]
-        if name in Model.OP_MODE:
+        if fn is not None:
             _orig = fn
 
             def fn(a, _orig=_orig, _name=name):
-                m._need(Model.OP_MODE[_name])
+                m.preflight(_name)
                 return _orig(a)
 
         if fn is None:

@@ -77,9 +77,10 @@
         "phase": {
           "enum": [
             "start",
-            "finish"
+            "finish",
+            "carry"
           ],
-          "description": "Start intent may commit before dispatch; evidence must not pretend dispatch is proven."
+          "description": "start: attempt-start intent; dispatch is only ever intended, never proven. finish: the attempt's single result. carry: the existing live attempt identity, preserved unchanged by a cancellation-request record."
         },
         "dispatch": {
           "enum": [
@@ -111,6 +112,10 @@
             "unknown"
           ],
           "description": "unknown is never a routine retryable failure."
+        },
+        "outputs_verified": {
+          "type": "boolean",
+          "description": "Required outputs were verified; a success without it is not representable."
         }
       },
       "allOf": [
@@ -126,6 +131,11 @@
             "required": [
               "dispatch"
             ],
+            "properties": {
+              "dispatch": {
+                "const": "intended"
+              }
+            },
             "not": {
               "anyOf": [
                 {
@@ -136,6 +146,21 @@
                 {
                   "required": [
                     "outcome_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "failure_reason"
+                  ]
+                },
+                {
+                  "required": [
+                    "effects"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs_verified"
                   ]
                 }
               ]
@@ -155,6 +180,46 @@
               "result",
               "effects"
             ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "carry"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "result"
+                  ]
+                },
+                {
+                  "required": [
+                    "outcome_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "failure_reason"
+                  ]
+                },
+                {
+                  "required": [
+                    "effects"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs_verified"
+                  ]
+                }
+              ]
+            }
           }
         }
       ]
@@ -206,7 +271,23 @@
       "then": {
         "required": [
           "attempt"
-        ],
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "running"
+          }
+        },
+        "not": {
+          "required": [
+            "cancellation"
+          ]
+        }
+      },
+      "then": {
         "properties": {
           "attempt": {
             "properties": {
@@ -214,6 +295,61 @@
                 "const": "start"
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
+            "const": "requested"
+          },
+          "to_state": {
+            "const": "running"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "carry"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "attempt"
+        ],
+        "properties": {
+          "attempt": {
+            "required": [
+              "phase"
+            ],
+            "properties": {
+              "phase": {
+                "const": "carry"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
+            "const": "requested"
           }
         }
       }
@@ -254,26 +390,33 @@
       "if": {
         "properties": {
           "to_state": {
-            "enum": [
-              "succeeded",
-              "failed",
-              "cancelled",
-              "abandoned"
-            ]
+            "const": "waiting"
           }
         },
+        "not": {
+          "required": [
+            "attempt"
+          ]
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "next_eligible_at"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
         "required": [
-          "attempt"
+          "next_eligible_at"
         ]
       },
       "then": {
         "properties": {
-          "attempt": {
-            "properties": {
-              "phase": {
-                "const": "finish"
-              }
-            }
+          "to_state": {
+            "const": "waiting"
           }
         }
       }
@@ -293,11 +436,98 @@
         "properties": {
           "attempt": {
             "properties": {
+              "phase": {
+                "const": "finish"
+              },
               "result": {
                 "const": "succeeded"
               },
               "effects": {
                 "const": "resolved"
+              },
+              "outputs_verified": {
+                "const": true
+              }
+            },
+            "required": [
+              "outputs_verified"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "failed"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              },
+              "result": {
+                "const": "failed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "cancelled"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              },
+              "result": {
+                "const": "cancelled"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "abandoned"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              },
+              "result": {
+                "const": "abandoned"
               }
             }
           }
@@ -330,6 +560,25 @@
         ],
         "properties": {
           "cancellation": {
+            "const": "confirmed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_state": {
+            "const": "cancelled"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
             "const": "requested"
           }
         }
@@ -348,6 +597,22 @@
               "type": "null"
             }
           }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "pending"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "attempt"
+          ]
         }
       }
     },
