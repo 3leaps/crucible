@@ -68,6 +68,7 @@ Cross-cutting classification standards for data and artifacts, plus contract sta
 - [durable-index-contract.md](standards/durable-index-contract.md) - Proposed object-inventory snapshots, observation plans, and successor rules
 - [durable-index-conformance.md](standards/durable-index-conformance.md) - Durable-index design controls, physical corpus, and adoption gates
 - [durable-queue-contract.md](standards/durable-queue-contract.md) - Proposed at-least-once queue envelope, leases with fencing, ledger, and capability profiles
+- [durable-runner-contract.md](standards/durable-runner-contract.md) - Proposed task identity, closed transitions, single-authority journaled recovery, independent durability properties and supplied schedules
 - [durable-record-contract.md](standards/durable-record-contract.md) - Proposed revisioned record and journal semantics, keyed idempotent writes, and stratum profiles
 - [durable-record-v1-contract.md](standards/durable-record-v1-contract.md) - Experimental retained-record tombstoning and export restrictions
 - [forge-infrastructure-contract.md](standards/forge-infrastructure-contract.md) - Seven-lane forge capability, authority, resolution, and assurance contract
