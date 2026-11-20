@@ -55,7 +55,11 @@ def fail(msg: str) -> None:
 
 def run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "-B", str(TOOL), *args], capture_output=True, text=True
+        [sys.executable, "-B", str(TOOL), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
 
