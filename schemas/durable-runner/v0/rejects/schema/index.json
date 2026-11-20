@@ -1,0 +1,161 @@
+{
+  "checkpoint-cursor-no-digest": {
+    "schema": "checkpoint.schema.json"
+  },
+  "checkpoint-missing-state-pin": {
+    "schema": "checkpoint.schema.json"
+  },
+  "checkpoint-unverified": {
+    "schema": "checkpoint.schema.json"
+  },
+  "definition-calendar-duration": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-empty-outcomes": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-extra-field": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-float-multiplier": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-lossy-duration": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-network-schema-ref": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-no-finite-bound": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-outcome-neither": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-unknown-version": {
+    "schema": "task-definition.schema.json"
+  },
+  "definition-zero-attempts": {
+    "schema": "task-definition.schema.json"
+  },
+  "profile-authority-without-orphan-cleanup": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-conformance-deterministic": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-journaled-ack-none": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-journaled-missing-journal": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-journaled-v0-record": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-multihost-authority": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-noncumulative-modes": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-ordinal-durability": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-remote-coverage-claimed": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-replication-claimed": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-scheduled-missing-schedule": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-scheduled-wrong-rule-contract": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-sealed-mode": {
+    "schema": "runner-profile.schema.json"
+  },
+  "profile-unknown-origin": {
+    "schema": "runner-profile.schema.json"
+  },
+  "slot-both-forms": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-coverage-no-range": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-dst-skipped": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-empty-set": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-kind-mismatch": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-window-missing-bound": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "submission-embedded-definition-invalid": {
+    "schema": "task-submission.schema.json"
+  },
+  "submission-malformed-task-id": {
+    "schema": "task-submission.schema.json"
+  },
+  "submission-missing-key": {
+    "schema": "task-submission.schema.json"
+  },
+  "transition-attempt-n-zero": {
+    "schema": "transition.schema.json"
+  },
+  "transition-blocked-state": {
+    "schema": "transition.schema.json"
+  },
+  "transition-cancelled-request-only": {
+    "schema": "transition.schema.json"
+  },
+  "transition-extra-field": {
+    "schema": "transition.schema.json"
+  },
+  "transition-first-not-pending": {
+    "schema": "transition.schema.json"
+  },
+  "transition-generation-negative": {
+    "schema": "transition.schema.json"
+  },
+  "transition-instant-five-digits": {
+    "schema": "transition.schema.json"
+  },
+  "transition-instant-no-fraction": {
+    "schema": "transition.schema.json"
+  },
+  "transition-missed-with-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-prior-missing": {
+    "schema": "transition.schema.json"
+  },
+  "transition-running-with-finish-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-running-without-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-start-with-result": {
+    "schema": "transition.schema.json"
+  },
+  "transition-succeeded-effects-unknown": {
+    "schema": "transition.schema.json"
+  },
+  "transition-succeeded-result-failed": {
+    "schema": "transition.schema.json"
+  },
+  "transition-waiting-from-succeeded-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-waiting-without-next-eligible": {
+    "schema": "transition.schema.json"
+  }
+}

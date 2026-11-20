@@ -1,0 +1,12 @@
+{
+  "capability": "contract: durable-runner/v0",
+  "entry_schema": "runner-profile.schema.json",
+  "object_schemas": {
+    "task_definition": "task-definition.schema.json",
+    "task_submission": "task-submission.schema.json",
+    "transition": "transition.schema.json",
+    "checkpoint": "checkpoint.schema.json",
+    "supplied_slot": "supplied-slot.schema.json"
+  },
+  "status": "proposed"
+}

@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-runner/v0/transition.schema.json",
+  "title": "Durable Runner Transition",
+  "description": "Experimental durable-runner/v0 companion. Payload of a single-revision durable-record/v1 record (payload_contract: contract: durable-runner/v0). One immutable record atomically carries the resulting task state and any attempt fact. Task and attempt indexes are derived projections, not a second authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "kind",
+    "task_id",
+    "task_spec_digest",
+    "prior",
+    "to_state",
+    "authority_generation",
+    "run_id",
+    "at"
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "kind": {
+      "const": "task_transition"
+    },
+    "task_id": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_spec_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "prior": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/revisionPin"
+        }
+      ],
+      "description": "null only for the first accepted transition; later transitions name the exact preceding transition record."
+    },
+    "to_state": {
+      "enum": [
+        "pending",
+        "waiting",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "abandoned",
+        "missed"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "blocked is a reason on pending or waiting, never a state."
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_n",
+        "attempt_id",
+        "phase"
+      ],
+      "properties": {
+        "attempt_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/digest"
+        },
+        "phase": {
+          "enum": [
+            "start",
+            "finish"
+          ],
+          "description": "Start intent may commit before dispatch; evidence must not pretend dispatch is proven."
+        },
+        "dispatch": {
+          "enum": [
+            "intended",
+            "confirmed",
+            "unproven"
+          ]
+        },
+        "result": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled",
+            "abandoned"
+          ]
+        },
+        "outcome_code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "failure_reason": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "effects": {
+          "enum": [
+            "none",
+            "resolved",
+            "unknown"
+          ],
+          "description": "unknown is never a routine retryable failure."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "start"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "dispatch"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "result"
+                  ]
+                },
+                {
+                  "required": [
+                    "outcome_code"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result",
+              "effects"
+            ]
+          }
+        }
+      ]
+    },
+    "authority_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Evidence only. It does not claim to fence a running child or remote request."
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    },
+    "next_eligible_at": {
+      "$ref": "#/$defs/instant",
+      "description": "Persisted draw for a retry wait; replay never redraws jitter."
+    },
+    "cancellation": {
+      "enum": [
+        "requested",
+        "confirmed"
+      ],
+      "description": "A durable request precedes stopping; terminal cancelled follows confirmed quiescence."
+    },
+    "slot": {
+      "$ref": "#/$defs/digest"
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/bodyPin"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "running"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "attempt"
+        ],
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "start"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "waiting"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              },
+              "result": {
+                "enum": [
+                  "failed",
+                  "abandoned"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "next_eligible_at"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "cancelled",
+              "abandoned"
+            ]
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "phase": {
+                "const": "finish"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "succeeded"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "attempt"
+        ],
+        "properties": {
+          "attempt": {
+            "properties": {
+              "result": {
+                "const": "succeeded"
+              },
+              "effects": {
+                "const": "resolved"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "cancelled"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
+            "const": "confirmed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "missed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "slot"
+        ],
+        "not": {
+          "required": [
+            "attempt"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "prior": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_state": {
+            "const": "pending"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9]\\.[0-9]{6}Z$",
+      "description": "Canonical v1 operational instant: UTC, Z, exactly six fractional digits. Any other spelling is refused, never rounded or padded."
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "revisionPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "record_id",
+        "revision",
+        "digest"
+      ],
+      "description": "Exact durable-record/v1 revision pin.",
+      "properties": {
+        "stream": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "record_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "bodyPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "length"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

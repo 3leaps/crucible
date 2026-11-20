@@ -1,0 +1,53 @@
+{
+  "capabilities": [
+    "contract: durable-runner/v0"
+  ],
+  "origin": "measured",
+  "conformance": "benchmark_only",
+  "modes": [
+    "basic",
+    "retrying",
+    "journaled"
+  ],
+  "build": {
+    "name": "example-runner",
+    "version": "0.0.0"
+  },
+  "runtime": {
+    "task_kinds": [
+      "contract: data-acquisition/v0"
+    ],
+    "authority": {
+      "scope": "single_host_exclusive",
+      "spans": [
+        "recovery",
+        "child_containment",
+        "execution",
+        "effects",
+        "orphan_cleanup"
+      ]
+    },
+    "durability": {
+      "attempt_journal_ack": "survives_power_loss",
+      "remote_sealed_coverage": "none",
+      "replication": "none"
+    },
+    "idempotency": {
+      "window": {
+        "min": "P7D",
+        "default": "P14D",
+        "max": "P35D"
+      },
+      "store_window": "P35D",
+      "identity_history": "retained"
+    },
+    "journal": {
+      "record_contract": {
+        "contract": "contract: durable-record/v1",
+        "digest": "sha256:1336b189cc804663cfb0a2e2152a8967a7a5617e5760f05e85f2f573ea68e282"
+      },
+      "failure_model": "survives_power_loss",
+      "commit_strategy": "fsync_file_and_dir"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "v": 0,
+  "kind": "occurrence_set",
+  "slot": {
+    "rule": {
+      "contract": "contract: recurrence/v0",
+      "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+    },
+    "scope": "example-scope",
+    "instant": "2026-01-03T00:00:00.000000Z",
+    "window": {
+      "not_before": "2026-01-03T00:00:00.000000Z",
+      "not_after": "2026-01-03T06:00:00.000000Z"
+    }
+  }
+}

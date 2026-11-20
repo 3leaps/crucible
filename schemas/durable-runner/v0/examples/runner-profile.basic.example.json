@@ -1,0 +1,43 @@
+{
+  "capabilities": [
+    "contract: durable-runner/v0"
+  ],
+  "origin": "declared",
+  "conformance": "none",
+  "modes": [
+    "basic"
+  ],
+  "build": {
+    "name": "example-runner",
+    "version": "0.0.0"
+  },
+  "runtime": {
+    "task_kinds": [
+      "contract: data-acquisition/v0"
+    ],
+    "authority": {
+      "scope": "single_host_exclusive",
+      "spans": [
+        "recovery",
+        "child_containment",
+        "execution",
+        "effects",
+        "orphan_cleanup"
+      ]
+    },
+    "durability": {
+      "attempt_journal_ack": "none",
+      "remote_sealed_coverage": "none",
+      "replication": "none"
+    },
+    "idempotency": {
+      "window": {
+        "min": "P7D",
+        "default": "P14D",
+        "max": "P35D"
+      },
+      "store_window": "P35D",
+      "identity_history": "retained"
+    }
+  }
+}

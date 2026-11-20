@@ -234,7 +234,7 @@ check-contracts: $(addprefix check-contracts-shard-,$(CONTRACT_SHARDS)) ## Valid
 
 check-contracts-shard-1: contract-tools lint-schemas lint-role-prompts lint-coverage-attestation lint-inference-path-taxonomy lint-config-data lint-contracts-1 test-portability ## Contract shard 1: schemas, config data, smaller contract controls
 
-check-contracts-shard-2: contract-tools lint-contracts-2 ## Contract shard 2: agent-wait and service-job controls
+check-contracts-shard-2: contract-tools lint-contracts-2 ## Contract shard 2: agent-wait, service-job and durable-runner controls
 
 check-contracts-shard-3: contract-tools lint-contracts-3 ## Contract shard 3: durable-queue and durable-index controls and independent reader
 
@@ -442,6 +442,7 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 			schemas/durable-record/v1/contract.json \
 			schemas/data-acquisition/v0/contract.json \
 			schemas/recurrence/v0/contract.json \
+			schemas/durable-runner/v0/contract.json \
 			schemas/coverage-attestation/v0/contract.json \
 			schemas/process-run/v0/contract.json \
 			schemas/review-journal/v0/contract.json \
@@ -464,6 +465,8 @@ lint-contracts-2: ## Contract controls for shard 2
 		sh scripts/test-agent-wait-controls.sh || exit 1; \
 		echo "    Service-job controls..."; \
 		sh scripts/test-service-job-controls.sh || exit 1; \
+		echo "    Durable-runner controls..."; \
+		python3 scripts/test-durable-runner-controls.py || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi
