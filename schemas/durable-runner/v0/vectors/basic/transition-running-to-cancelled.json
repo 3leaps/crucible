@@ -1,0 +1,104 @@
+{
+  "v": 0,
+  "id": "transition-running-to-cancelled",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted",
+    "cancel.quiescence"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "expect": {
+        "ok": {
+          "state": "cancelled"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "cancelled",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "cancelled"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "cancelled",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "cancelled"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "request committed then quiescence confirmed; attempt dispatch and effects are not asserted"
+    }
+  ]
+}

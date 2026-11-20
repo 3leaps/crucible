@@ -1,0 +1,47 @@
+{
+  "v": 0,
+  "id": "profile-authority-advisory-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.authority-scope"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "advisory_only",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "refused": "authority_scope_unsupported"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "all other members equal the admitted baseline"
+    }
+  ]
+}

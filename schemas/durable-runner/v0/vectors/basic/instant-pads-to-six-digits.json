@@ -1,0 +1,38 @@
+{
+  "v": 0,
+  "id": "instant-pads-to-six-digits",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00Z",
+      "expect": {
+        "ok": {
+          "canonical": "2026-01-02T00:00:00.000000Z"
+        }
+      }
+    },
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.5Z",
+      "expect": {
+        "ok": {
+          "canonical": "2026-01-02T00:00:00.500000Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "both values are exactly representable; padding does not claim extra precision"
+    }
+  ]
+}

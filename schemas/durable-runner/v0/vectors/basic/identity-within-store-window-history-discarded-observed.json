@@ -1,0 +1,97 @@
+{
+  "v": 0,
+  "id": "identity-within-store-window-history-discarded-observed",
+  "mode": "basic",
+  "covers": [
+    "identity.expired-key"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    },
+    "d2": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "discarded"
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "P20D",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d2",
+      "expect": {
+        "ok": {
+          "disposition": "observed",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "P20D is past the default P14D window but inside the P35D store window so the store still resolves identity; a finite window alone does not expire identity"
+    }
+  ]
+}

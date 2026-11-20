@@ -1,0 +1,27 @@
+{
+  "v": 0,
+  "id": "instant-seven-digits-nonrepresentable-refused",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.1234567Z",
+      "expect": {
+        "refused": "nonrepresentable"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "well-formed; only the seventh digit differs from the accepted twin; must refuse, never round"
+    }
+  ]
+}

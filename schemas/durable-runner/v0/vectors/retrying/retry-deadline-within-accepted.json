@@ -1,0 +1,122 @@
+{
+  "v": 0,
+  "id": "retry-deadline-within-accepted",
+  "mode": "retrying",
+  "covers": [
+    "retry.horizon-deadline",
+    "deadline"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT2H",
+        "max": "PT2H",
+        "multiplier_milli": 1000,
+        "jitter_milli": 0
+      },
+      "retry.horizon": "P1D",
+      "timeouts.task_deadline": "PT6H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT10M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "reason": "source_unavailable",
+        "outcome": "source_unavailable"
+      },
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      },
+      "next_eligible_at": "2026-01-02T02:10:00.000000Z",
+      "reason": "retry_scheduled"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "horizon P1D is not reached; attempts and reason fine; only task_deadline differs"
+    }
+  ]
+}

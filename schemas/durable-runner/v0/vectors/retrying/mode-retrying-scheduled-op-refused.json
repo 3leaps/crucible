@@ -1,0 +1,42 @@
+{
+  "v": 0,
+  "id": "mode-retrying-scheduled-op-refused",
+  "mode": "retrying",
+  "covers": [
+    "mode.gating"
+  ],
+  "definitions": {
+    "d1": {}
+  },
+  "ops": [
+    {
+      "op": "supply_slot",
+      "slot": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "instant": "2026-01-03T00:00:00.000000Z",
+        "window": {
+          "not_before": "2026-01-03T00:00:00.000000Z",
+          "not_after": "2026-01-03T06:00:00.000000Z"
+        }
+      },
+      "as": "t1",
+      "definition": "d1",
+      "expect": {
+        "refused": "mode_unsupported"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the slot is valid and inside its window at the supplied clock instant; only the missing scheduled mode applies. Twin: slot-supplied-eligible under scheduled"
+    }
+  ]
+}

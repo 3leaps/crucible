@@ -1,0 +1,108 @@
+{
+  "v": 0,
+  "id": "crash-after-start-before-dispatch-abandoned",
+  "mode": "journaled",
+  "covers": [
+    "crash.after-start-before-dispatch",
+    "orphan.refusal"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_start_before_dispatch",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "none",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "max_attempts 1 so the attempt that committed start intent counts and no retry remains; the dispatch stays intended, not confirmed. Twin of the unproven refusal with predecessor proved"
+    }
+  ]
+}

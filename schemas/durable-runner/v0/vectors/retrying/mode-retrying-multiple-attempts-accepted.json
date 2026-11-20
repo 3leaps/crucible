@@ -1,0 +1,45 @@
+{
+  "v": 0,
+  "id": "mode-retrying-multiple-attempts-accepted",
+  "mode": "retrying",
+  "covers": [
+    "mode.gating"
+  ],
+  "definitions": {
+    "d1": {}
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the basic refusal: same definition under a retrying runner"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "v": 0,
+  "id": "duration-fractional-loss-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "PT0.0005S",
+      "target": "ms_interface",
+      "expect": {
+        "refused": "fractional_loss"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "same text as the accepted twin; only the millisecond-only target differs"
+    }
+  ]
+}

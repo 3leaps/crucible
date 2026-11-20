@@ -1,0 +1,77 @@
+{
+  "v": 0,
+  "id": "cancel-on-cancelled-task-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "expect": {
+        "ok": {
+          "state": "cancelled"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "refused": "task_terminal"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "cancelled",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "cancelled"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "only terminal check applies"
+    }
+  ]
+}

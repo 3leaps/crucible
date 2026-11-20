@@ -1,0 +1,59 @@
+{
+  "v": 0,
+  "id": "profile-sealed-reserved-refused",
+  "mode": "scheduled",
+  "covers": [
+    "profile.sealed-reserved"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled",
+          "sealed"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "refused": "sealed_mode_reserved"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "sealed is last in an otherwise cumulative list; remote coverage and replication none; journal and schedule valid"
+    }
+  ]
+}

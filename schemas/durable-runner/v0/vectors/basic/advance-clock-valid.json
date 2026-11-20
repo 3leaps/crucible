@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "advance-clock-valid",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "advance_clock",
+      "by": "PT1M",
+      "expect": {
+        "ok": {
+          "now": "2026-01-02T00:01:00.000000Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "baseline"
+    }
+  ]
+}

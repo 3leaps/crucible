@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "reconcile-receipt-not-committed",
+  "mode": "journaled",
+  "covers": [
+    "reconcile.unknown-receipt"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "reconcile",
+      "receipt": "not_committed",
+      "expect": {
+        "ok": {
+          "status": "not_committed"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "single reconcile"
+    }
+  ]
+}

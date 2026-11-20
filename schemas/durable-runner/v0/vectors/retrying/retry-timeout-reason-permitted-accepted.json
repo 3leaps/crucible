@@ -1,0 +1,122 @@
+{
+  "v": 0,
+  "id": "retry-timeout-reason-permitted-accepted",
+  "mode": "retrying",
+  "covers": [
+    "retry.reason"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      },
+      "retry.retryable_reasons": [
+        "source_unavailable",
+        "timeout"
+      ]
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT31M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "reason": "timeout"
+      },
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      },
+      "next_eligible_at": "2026-01-02T00:32:00.000000Z",
+      "reason": "retry_scheduled"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "attempt timeout PT30M elapsed (PT31M); timeout is a failed-attempt reason, retryable only if listed; attempts, horizon and deadline fine"
+    }
+  ]
+}

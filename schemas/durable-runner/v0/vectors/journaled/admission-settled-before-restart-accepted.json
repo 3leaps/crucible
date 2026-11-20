@@ -1,0 +1,72 @@
+{
+  "v": 0,
+  "id": "admission-settled-before-restart-accepted",
+  "mode": "journaled",
+  "covers": [
+    "admission.unsettled"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "settle",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 0
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "restart",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 0
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "twin of the unsettled refusal with a settle before restart"
+    }
+  ]
+}

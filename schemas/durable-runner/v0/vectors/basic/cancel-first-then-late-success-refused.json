@@ -1,0 +1,120 @@
+{
+  "v": 0,
+  "id": "cancel-first-then-late-success-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "expect": {
+        "ok": {
+          "state": "cancelled"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "succeeded",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "succeeded",
+        "outcome": "captured_verified",
+        "effects": "resolved",
+        "dispatch": "confirmed",
+        "outputs_verified": true
+      },
+      "expect": {
+        "refused": "terminal_resurrection"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "cancelled",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "cancelled"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "cancelled",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "cancelled"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "success evidence arrives after terminal cancelled"
+    }
+  ]
+}

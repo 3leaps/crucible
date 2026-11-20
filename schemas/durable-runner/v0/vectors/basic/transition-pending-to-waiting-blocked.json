@@ -1,0 +1,62 @@
+{
+  "v": 0,
+  "id": "transition-pending-to-waiting-blocked",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "waiting"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "blocked is a reason on waiting, not a state; no attempt consumed"
+    }
+  ]
+}

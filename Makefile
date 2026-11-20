@@ -467,6 +467,7 @@ lint-contracts-2: ## Contract controls for shard 2
 		sh scripts/test-service-job-controls.sh || exit 1; \
 		echo "    Durable-runner controls..."; \
 		python3 scripts/test-durable-runner-controls.py || exit 1; \
+		python3 scripts/test-durable-runner-vector-controls.py || exit 1; \
 	else \
 		echo "[!!] goneat not found, skipping contract validation"; \
 	fi

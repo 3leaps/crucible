@@ -1,0 +1,44 @@
+{
+  "v": 0,
+  "id": "identity-created-pending",
+  "mode": "basic",
+  "covers": [
+    "identity.accept",
+    "transition.permitted"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": []
+}

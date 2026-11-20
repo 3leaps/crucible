@@ -1,0 +1,80 @@
+{
+  "v": 0,
+  "id": "generation-stale-refused",
+  "mode": "journaled",
+  "covers": [
+    "generation.stale"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "pending"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "generation": 1,
+      "expect": {
+        "refused": "generation_stale"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "recovery bumped the authority to generation 2 with nothing running; attempt, deadline and chain fine; only the transition generation differs"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "v": 0,
+  "id": "identity-all-timeouts-omitted-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.timeout-bound"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "timeouts.attempt": null,
+      "timeouts.task_deadline": null,
+      "timeouts.phases": null
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "only difference from the accepted pair is that task_deadline and phases are also removed"
+    }
+  ]
+}

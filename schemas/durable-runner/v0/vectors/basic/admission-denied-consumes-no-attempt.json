@@ -1,0 +1,86 @@
+{
+  "v": 0,
+  "id": "admission-denied-consumes-no-attempt",
+  "mode": "basic",
+  "covers": [
+    "admission.denial"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "refused": "rate_denied"
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "waiting"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "shared scope with declared limit so shared_quota_needs_shared_authority cannot fire; no restart so no unsettled reservation from a prior process"
+    }
+  ]
+}

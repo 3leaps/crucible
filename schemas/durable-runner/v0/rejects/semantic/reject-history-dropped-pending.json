@@ -1,0 +1,124 @@
+{
+  "v": 0,
+  "id": "reject-history-dropped-pending",
+  "mode": "journaled",
+  "covers": [
+    "replay.zero-effects"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "succeeded",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "succeeded",
+        "outcome": "captured_verified",
+        "effects": "resolved",
+        "dispatch": "confirmed",
+        "outputs_verified": true
+      },
+      "expect": {
+        "ok": {
+          "state": "succeeded"
+        }
+      }
+    },
+    {
+      "op": "replay",
+      "expect": {
+        "ok": {
+          "heads": {
+            "t1": "succeeded"
+          },
+          "outcomes": {
+            "t1": "captured_verified"
+          },
+          "effects_performed": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "succeeded",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "succeeded",
+            "effects": "resolved",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "succeeded",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "succeeded"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "pure replay"
+    },
+    {
+      "propose": "attempt.outputs_verified (bool) on a finish transition",
+      "why": "the record requires success only with verified required outputs but the format has no field to state whether outputs verified"
+    },
+    {
+      "open_question": "shape of the outcomes member of replay is not defined; mapping of label to outcome code assumed"
+    }
+  ],
+  "baseline": "journaled/replay-folds-to-same-heads-zero-effects.json",
+  "expect_reject": "history mismatch"
+}

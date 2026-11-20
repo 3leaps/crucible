@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "definition-requires-replication-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.unsupported-task-durability"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "durability.replication": "required"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "only the replication requirement differs from the golden definition"
+    }
+  ]
+}

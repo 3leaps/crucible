@@ -1,0 +1,112 @@
+{
+  "v": 0,
+  "id": "crash-after-effect-before-finish-unknown-effects-abandoned",
+  "mode": "journaled",
+  "covers": [
+    "crash.after-effect-before-finish",
+    "retry.unknown-effects"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "unknown",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "unknown"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "max_attempts 3 with 2 remaining and a retryable policy, deadline fine; only the unknown effects force abandonment"
+    }
+  ]
+}

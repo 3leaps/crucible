@@ -1,0 +1,65 @@
+{
+  "v": 0,
+  "id": "reject-acceptance-expected-but-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.reuse-conflict"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    },
+    "d2": {
+      "retry.max_attempts": 1,
+      "idempotency_window": "P10D"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d2",
+      "expect": {
+        "ok": {
+          "disposition": "created"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "d2 is a valid definition (P10D inside P7D..P35D); same authority and key; only the digest differs from the identity-same-digest-observed pair"
+    }
+  ],
+  "baseline": "basic/identity-digest-conflict-refused.json",
+  "expect_reject": "refused 'identity_conflict', expected"
+}

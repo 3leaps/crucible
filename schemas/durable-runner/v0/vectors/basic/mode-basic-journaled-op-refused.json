@@ -1,0 +1,53 @@
+{
+  "v": 0,
+  "id": "mode-basic-journaled-op-refused",
+  "mode": "basic",
+  "covers": [
+    "mode.gating"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "replay",
+      "expect": {
+        "refused": "mode_unsupported"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "replay is a journaled-mode operation; nothing else could refuse it. Twin: replay-folds-to-same-heads-zero-effects under journaled"
+    }
+  ]
+}

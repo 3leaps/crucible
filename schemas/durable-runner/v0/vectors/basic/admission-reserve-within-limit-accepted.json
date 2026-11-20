@@ -1,0 +1,46 @@
+{
+  "v": 0,
+  "id": "admission-reserve-within-limit-accepted",
+  "mode": "basic",
+  "covers": [
+    "admission.denial"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 2,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 2,
+      "expect": {
+        "ok": {
+          "reserved": 2
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "limit 2 allows both reservations; twin of the denial vector with limit raised"
+    }
+  ]
+}

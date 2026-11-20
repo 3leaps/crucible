@@ -1,0 +1,62 @@
+{
+  "v": 0,
+  "id": "reject-refusal-expected-but-accepted",
+  "mode": "basic",
+  "covers": [
+    "identity.reuse-observed"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    },
+    "d2": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d2",
+      "expect": {
+        "refused": "identity_conflict"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "definitions d1 and d2 have identical content so digests match; definition valid; no window or store limit involved"
+    }
+  ],
+  "baseline": "basic/identity-same-digest-observed.json",
+  "expect_reject": "accepted, expected refusal"
+}

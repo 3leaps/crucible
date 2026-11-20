@@ -1,0 +1,48 @@
+{
+  "v": 0,
+  "id": "profile-basic-retrying-admitted",
+  "mode": "retrying",
+  "covers": [
+    "profile.mode-cumulative"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "ok": {}
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "cumulative modes"
+    }
+  ]
+}

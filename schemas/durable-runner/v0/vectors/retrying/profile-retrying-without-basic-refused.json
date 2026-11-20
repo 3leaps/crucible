@@ -1,0 +1,47 @@
+{
+  "v": 0,
+  "id": "profile-retrying-without-basic-refused",
+  "mode": "retrying",
+  "covers": [
+    "profile.mode-cumulative"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "retrying"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "refused": "mode_not_cumulative"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "no journal claimed, so journal checks cannot fire; only the missing basic. Twin accepts [basic, retrying]"
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "v": 0,
+  "id": "coverage-slot-with-attempt-not-missed",
+  "mode": "scheduled",
+  "covers": [
+    "schedule.missed"
+  ],
+  "requires_clock": "2026-01-03T01:00:00.000000Z",
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "supply_slot",
+      "slot": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "instant": "2026-01-03T00:00:00.000000Z",
+        "window": {
+          "not_before": "2026-01-03T00:00:00.000000Z",
+          "not_after": "2026-01-03T06:00:00.000000Z"
+        }
+      },
+      "as": "t1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "eligible": true
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT8H",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "supply_slot",
+      "coverage": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "from": "2026-01-03T00:00:00.000000Z",
+        "to": "2026-01-04T00:00:00.000000Z",
+        "expected": [
+          "2026-01-03T00:00:00.000000Z"
+        ]
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "evaluate_slots",
+      "coverage": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "from": "2026-01-03T00:00:00.000000Z",
+        "to": "2026-01-04T00:00:00.000000Z",
+        "expected": [
+          "2026-01-03T00:00:00.000000Z"
+        ]
+      },
+      "labels": {
+        "2026-01-03T00:00:00.000000Z": "m1"
+      },
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "missed": []
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "window elapsed during the attempt but an attempt started, so missed is forbidden"
+    }
+  ]
+}

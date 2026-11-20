@@ -1,0 +1,112 @@
+{
+  "v": 0,
+  "id": "recover-within-deadline-accepted",
+  "mode": "journaled",
+  "covers": [
+    "deadline",
+    "crash.before-record-commit"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT5H",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "crash",
+      "at": "before_record_commit",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "pending"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT30M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "elapsed time PT5H persists across recovery; totals PT7H vs PT5H30M against the PT6H deadline; attempt limits fine"
+    }
+  ]
+}
