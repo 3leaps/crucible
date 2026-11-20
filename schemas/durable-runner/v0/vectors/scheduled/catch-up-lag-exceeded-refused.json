@@ -5,7 +5,7 @@
   "covers": [
     "schedule.catch-up"
   ],
-  "requires_clock": "2026-01-03T07:00:00.000000Z",
+  "requires_clock": "2026-01-03T13:00:00.000000Z",
   "definitions": {
     "d1": {
       "retry.backoff": {
@@ -64,7 +64,7 @@
         },
         "scope": "example-scope",
         "from": "2026-01-03T00:00:00.000000Z",
-        "to": "2026-01-04T00:00:00.000000Z",
+        "to": "2026-01-03T06:00:00.000000Z",
         "expected": [
           "2026-01-03T00:00:00.000000Z"
         ]
@@ -82,7 +82,7 @@
         },
         "scope": "example-scope",
         "from": "2026-01-03T00:00:00.000000Z",
-        "to": "2026-01-04T00:00:00.000000Z",
+        "to": "2026-01-03T06:00:00.000000Z",
         "expected": [
           "2026-01-03T00:00:00.000000Z"
         ]
@@ -102,7 +102,6 @@
     {
       "op": "catch_up",
       "missed_task": "m1",
-      "lag": "PT13H",
       "as": "c1",
       "definition": "d1",
       "expect": {

@@ -64,7 +64,7 @@ def valid(schema: str, data: pathlib.Path) -> bool:
 
 
 def load(p: pathlib.Path):
-    return json.loads(p.read_text())
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 PREFIX_SCHEMA = {
@@ -179,7 +179,7 @@ pat = re.compile(
     r"(/Users/|/home/|C:\\\\|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,})"
 )
 for p in sorted(BASE.rglob("*.json")):
-    if pat.search(p.read_text()):
+    if pat.search(p.read_text(encoding="utf-8")):
         fail(f"{p.relative_to(ROOT)}: machine-local path or credential-shaped string")
 
 if failures:

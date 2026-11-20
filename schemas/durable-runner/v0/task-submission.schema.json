@@ -278,6 +278,26 @@
         },
         "idempotency_window": {
           "$ref": "#/$defs/duration"
+        },
+        "durability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "remote_sealed_coverage": {
+              "enum": [
+                "none",
+                "required"
+              ]
+            },
+            "replication": {
+              "enum": [
+                "none",
+                "required"
+              ]
+            }
+          },
+          "description": "Durability the task requires of the runner. Anything other than none is a valid definition that this release refuses as an unsupported requirement."
         }
       },
       "description": "Canonical task definition whose RFC 8785 digest is task_spec_digest. Excludes runtime identifiers, evidence timestamps and derived state."

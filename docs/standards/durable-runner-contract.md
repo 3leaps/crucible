@@ -80,10 +80,18 @@ over the network.
   committed attempt-start intent. `attempt_id` is
   `sha256(JCS({"attempt_n": N, "task_id": T, "v": 0}))`. Start intent may
   commit before dispatch, and evidence must not claim dispatch is proven.
-- Scheduled invocation keys derive from a canonical object holding the exact
-  rule pin, task scope and occurrence instant. Catch-up uses a distinct key and
-  the original missed-task pin. A changed schedule or policy needs a new
-  explicitly submitted definition, never silent mutation.
+- Scheduled invocation keys are the digest of a domain-tagged canonical
+  object. A slot key is `sha256(JCS({"domain": "slot", "instant": I, "rule": R,
+  "scope": S, "v": 0}))`, where `R` is the rule pin digest, `S` the task scope
+  and `I` the occurrence instant, and the authority namespace is `S`. A
+  catch-up key is `sha256(JCS({"catch_up_of": M, "domain": "catch_up", "v":
+  0}))`, where `M` is the missed task's `task_id`, in the missed task's
+  authority namespace. Identity conflicts apply to these keys exactly as to a
+  caller-supplied key: the same key with a different specification digest is a
+  conflict and is never silently observed. A changed schedule or policy needs a
+  new explicitly submitted definition, never silent mutation. A duration's
+  spelling is part of the definition digest, so equal durations spelled
+  differently are different definitions.
 
 Counters use durable-record's safe-integer ceiling with checked arithmetic, and
 exhaustion refuses before effects. A finite store idempotency window does not
@@ -137,9 +145,14 @@ not consume it, though the independent task deadline still applies. Both
 bounds are exclusive: no new attempt starts at or after either expiry. The selected
 next-eligible instant is persisted so replay never draws jitter again.
 Core timeouts are attempt, task deadline and termination grace. Named phases
-are closed by the kind profile, and an omitted whole-attempt timeout requires a
-finite task deadline. Elapsed timers use monotonic time, and recovery rechecks
-persisted deadlines without resetting elapsed budgets.
+are closed by the kind profile. In this release an omitted whole-attempt timeout
+requires a finite task deadline; a kind profile may later name other controlling
+bounds. A failure whose mapped reason is retryable is not final while attempts
+remain and the horizon and deadline are open, so it moves to `waiting`; `failed`
+is legal only for a non-retryable mapped failure or when retry is exhausted.
+A retry's persisted next-eligible instant is not before the clock. Elapsed
+timers use monotonic time, and recovery rechecks persisted deadlines without
+resetting elapsed budgets.
 
 **Cancellation** is a durable request before an intentional stop, and it
 becomes terminal `cancelled` only after quiescence is established. If final
@@ -253,12 +266,17 @@ re-execution.
 `recurrence/v0` owns rule normalization, expansion and tzdb identity. The
 caller supplies one slot or a bounded occurrence set with exact rule, scope,
 instant and window pins, and the executor validates identity and eligibility
-without discovering unspecified slots. A reconciliation invocation may supply
-past expected slots so missed work can be recorded, and no claim of detecting
-all misses exists without that supplied coverage. A DST-skipped candidate is a
-non-slot. `missed` is terminal, and a catch-up is a separate task linked to it,
-allowed only within the kind's configured maximum lag. `requires` checks pins
-and never schedules an edge.
+without discovering unspecified slots. A task created from a slot may start only
+inside its window (not before `not_before`, not after `not_after`), and after
+the window the only exit is `missed`. A reconciliation invocation may supply
+past expected slots so missed work can be recorded: its rule pin must be the
+profile's, its expected instants must lie inside the supplied span and the span
+must lie wholly in the past. No claim of detecting all misses exists without
+that supplied coverage. A DST-skipped candidate is a non-slot. `missed` is
+terminal, and a catch-up is a separate task linked to it, allowed only within
+the kind's configured maximum lag. The lag is computed from the clock and the
+stored missed instant and is never supplied by the caller. `requires` checks
+pins and never schedules an edge.
 
 ## Reserved: sealed
 
@@ -281,8 +299,8 @@ the final task projection and the exact committed history. A reference
 consistency model executes each script against the rules above, so a
 fabricated receipt, an invented transition or a missing guard is detected as a
 mismatch. The authored histories are independent of the model, and mutation
-controls remove one guard at a time and must change the verdict of the vector
-that targets it.
+controls remove one guard at a time and at least one vector must fail with a
+checker verdict.
 
 The minimum inventory covers identity reuse, conflict and expired keys; every
 permitted transition and forbidden terminal resurrection; cancellation races;
@@ -296,4 +314,7 @@ state stays separate from caller knowledge.
 
 **Assurance boundary.** The model checks fixtures; it is not a conformance
 oracle for an implementation. Runtime proof, crash and power-loss behavior on
-real storage, cloud qualification and language parity need adopter tests.
+real storage, cloud qualification and language parity need adopter tests. The
+model does not enforce attempt-timeout or deadline expiry while an attempt is
+running, does not bind admission to a task, and does not bound the backoff
+draw; those are runtime behaviors.

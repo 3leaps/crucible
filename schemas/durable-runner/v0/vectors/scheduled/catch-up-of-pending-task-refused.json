@@ -80,7 +80,6 @@
     {
       "op": "catch_up",
       "missed_task": "m1",
-      "lag": "PT7H",
       "as": "c1",
       "definition": "d1",
       "expect": {

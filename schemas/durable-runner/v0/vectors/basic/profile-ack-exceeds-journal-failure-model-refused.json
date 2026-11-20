@@ -1,0 +1,51 @@
+{
+  "v": 0,
+  "id": "profile-ack-exceeds-journal-failure-model-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.journal-ack"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "journal_failure_model": "survives_process_loss"
+      },
+      "expect": {
+        "refused": "journal_ack_exceeds_failure_model"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "journaled mode with a v1 journal and a non-none acknowledgement; only the power-loss claim over a process-loss stratum is wrong"
+    }
+  ]
+}

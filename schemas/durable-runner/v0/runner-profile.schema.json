@@ -249,7 +249,8 @@
             "identity_history": {
               "enum": [
                 "retained",
-                "reconstructable"
+                "reconstructable",
+                "discarded"
               ],
               "description": "Expiry never grants a new execution; it falls back to retained replay or refusal."
             }

@@ -17,14 +17,16 @@
     "transition-running-to-cancelled",
     "cancel-quiescence-not-established-refused",
     "cancel-confirm-without-request-refused",
-    "cancel-direct-transition-unconfirmed-refused"
+    "cancel-direct-transition-unconfirmed-refused",
+    "cancel-confirm-on-terminal-task-refused"
   ],
   "cancel.race": [
     "cancel-request-recorded-keeps-running",
     "cancel-after-success-too-late",
     "cancel-first-then-late-success-refused",
     "cancel-on-cancelled-task-refused",
-    "cancel-requested-then-success-refused"
+    "cancel-requested-then-success-refused",
+    "cancel-requested-then-start-refused"
   ],
   "checkpoint.ordering": [
     "crash-uncommitted-cursor-not-checkpointable",
@@ -67,7 +69,9 @@
   ],
   "generation.stale": [
     "generation-stale-refused",
-    "generation-current-accepted"
+    "generation-current-accepted",
+    "recover-generation-not-increasing-refused",
+    "recover-generation-counter-exhausted-refused"
   ],
   "hold.retirement": [
     "retire-output-hold-active-refused",
@@ -82,7 +86,8 @@
     "identity-expired-key-history-retained-observed",
     "identity-expired-key-history-discarded-refused",
     "identity-expired-key-new-authority-created",
-    "identity-within-store-window-history-discarded-observed"
+    "identity-within-store-window-history-discarded-observed",
+    "identity-expired-key-reconstructable-observed"
   ],
   "identity.invalid-definition": [
     "identity-definition-invalid-refused"
@@ -90,7 +95,9 @@
   "identity.reuse-conflict": [
     "identity-digest-conflict-refused",
     "identity-other-key-created",
-    "identity-other-authority-created"
+    "identity-other-authority-created",
+    "slot-resupplied-different-definition-refused",
+    "catch-up-resubmitted-different-definition-refused"
   ],
   "identity.reuse-observed": [
     "identity-same-digest-observed",
@@ -134,7 +141,9 @@
   "profile.journal-ack": [
     "profile-journaled-admitted",
     "profile-journal-ack-process-loss-accepted",
-    "profile-journal-ack-none-refused"
+    "profile-journal-ack-none-refused",
+    "profile-ack-exceeds-journal-failure-model-refused",
+    "profile-ack-equals-journal-failure-model-accepted"
   ],
   "profile.journal-contract": [
     "profile-journaled-admitted",
@@ -174,7 +183,8 @@
     "profile-basic-admitted",
     "profile-window-min-out-of-range-refused",
     "profile-window-max-out-of-range-refused",
-    "profile-effective-window-outside-kind-range-refused"
+    "profile-effective-window-outside-kind-range-refused",
+    "profile-window-inverted-refused"
   ],
   "reconcile.unknown-receipt": [
     "reconcile-receipt-missing",
@@ -218,20 +228,25 @@
     "attempt-start-skipping-number-refused",
     "attempt-start-repeating-number-refused",
     "crash-recovery-abandonment-retry-not-permitted-abandoned",
-    "resume-attempts-exhausted-refused"
+    "resume-attempts-exhausted-refused",
+    "retryable-failure-with-attempts-exhausted-failed-accepted",
+    "transition-running-to-waiting-abandoned-not-permitted-refused",
+    "transition-running-to-waiting-abandoned-permitted-accepted"
   ],
   "retry.persisted-jitter": [
     "retry-wait-then-second-attempt-succeeds",
     "retry-jitter-not-persisted-refused",
     "retry-start-before-next-eligible-refused",
-    "replay-preserves-persisted-next-eligible"
+    "replay-preserves-persisted-next-eligible",
+    "retry-next-eligible-in-past-refused"
   ],
   "retry.reason": [
     "retry-reason-not-permitted-refused",
     "retry-reason-permitted-accepted",
     "retry-timeout-reason-not-permitted-refused",
     "retry-timeout-reason-permitted-accepted",
-    "retry-timeout-failure-terminal-when-not-retryable"
+    "retry-timeout-failure-terminal-when-not-retryable",
+    "retryable-failure-with-attempts-remaining-refused"
   ],
   "retry.unknown-effects": [
     "retry-unknown-effects-refused",
@@ -243,7 +258,10 @@
     "catch-up-lag-exceeded-refused",
     "catch-up-not-configured-refused",
     "catch-up-of-pending-task-refused",
-    "catch-up-retry-preserves-key"
+    "catch-up-retry-preserves-key",
+    "catch-up-resubmitted-different-definition-refused",
+    "catch-up-lag-at-limit-accepted",
+    "catch-up-lag-just-over-limit-refused"
   ],
   "schedule.dst-non-slot": [
     "dst-gap-candidate-non-slot-refused",
@@ -257,7 +275,8 @@
     "transition-pending-to-missed-before-window-end-refused",
     "transition-waiting-to-missed-no-attempt",
     "transition-waiting-to-missed-after-attempt-refused",
-    "terminal-resurrection-missed-refused"
+    "terminal-resurrection-missed-refused",
+    "slot-start-after-window-refused"
   ],
   "schedule.supplied-coverage": [
     "profile-scheduled-admitted",
@@ -269,7 +288,14 @@
     "occurrence-set-supplied",
     "coverage-evaluate-records-missed",
     "coverage-not-supplied-refused",
-    "coverage-does-not-discover-unlisted-slots"
+    "coverage-does-not-discover-unlisted-slots",
+    "slot-start-before-window-refused",
+    "slot-start-inside-window-accepted",
+    "slot-start-after-window-refused",
+    "slot-instant-outside-own-window-refused",
+    "coverage-rule-mismatch-refused",
+    "coverage-span-in-future-refused",
+    "coverage-expected-outside-span-refused"
   ],
   "time.duration-bounds": [
     "duration-day-microseconds",
@@ -279,7 +305,8 @@
     "duration-fractional-loss-refused",
     "duration-whole-milliseconds-accepted",
     "advance-clock-invalid-refused",
-    "advance-clock-valid"
+    "advance-clock-valid",
+    "duration-trailing-newline-refused"
   ],
   "time.exact-instant": [
     "instant-six-digits-accepted",
@@ -288,7 +315,8 @@
     "instant-short-fraction-refused",
     "instant-canonical-wire-accepted",
     "instant-typed-format-canonical",
-    "instant-typed-submicrosecond-refused"
+    "instant-typed-submicrosecond-refused",
+    "instant-trailing-newline-refused"
   ],
   "transition.first-not-pending": [
     "first-transition-not-pending-refused"
@@ -303,7 +331,9 @@
     "transition-pending-to-missed-before-window-end-refused",
     "transition-waiting-to-missed-after-attempt-refused",
     "transition-pending-to-failed-generic-refused",
-    "transition-waiting-to-failed-generic-refused"
+    "transition-waiting-to-failed-generic-refused",
+    "transition-running-without-attempt-refused",
+    "success-effects-unresolved-refused"
   ],
   "transition.permitted": [
     "identity-created-pending",
@@ -330,7 +360,8 @@
     "terminal-late-evidence-cannot-change-result",
     "terminal-resurrection-after-success-new-attempt-refused",
     "terminal-resurrection-after-failure-new-attempt-refused",
-    "terminal-resurrection-missed-refused"
+    "terminal-resurrection-missed-refused",
+    "cancel-confirm-on-terminal-task-refused"
   ],
   "mode.gating": [
     "mode-basic-multiple-attempts-refused",

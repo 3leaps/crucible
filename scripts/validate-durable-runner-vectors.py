@@ -51,9 +51,11 @@ GUARDS = [
     "profile.remote_coverage",
     "profile.replication",
     "profile.journal_ack",
-    "profile.journal_v1",
     "profile.authority_scope",
-    "profile.store_window",
+    "profile.store_effective",
+    "profile.store_horizon",
+    "profile.window_order",
+    "profile.ack_model",
     "profile.window_range",
     "identity.conflict",
     "identity.expired_unresolved",
@@ -83,15 +85,12 @@ GUARDS = [
     "admission.shared",
     "admission.unsettled",
     "time.duration",
-    "slot.identity",
-    "slot.window",
     "slot.dst",
     "slot.coverage",
     "catchup.lag",
     "catchup.permitted",
     "catchup.terminal",
     "mode.supported",
-    "outcome.class_match",
     "requirement.supported",
     "wire.instant_strict",
     "time.typed_format",
@@ -101,6 +100,24 @@ GUARDS = [
     "checkpoint.eligible",
     "checkpoint.held_body",
     "profile.effective_window",
+    "slot.identity_rule",
+    "slot.identity_changed",
+    "slot.window_instant",
+    "slot.window_clock",
+    "slot.start_window",
+    "slot.coverage_rule",
+    "slot.coverage_bounds",
+    "outcome.class_success",
+    "outcome.class_failure",
+    "transition.attempt_required",
+    "cancel.blocks_start",
+    "cancel.terminal",
+    "success.effects_resolved",
+    "transition.retryable_failure",
+    "transition.abandon_gate",
+    "retry.next_eligible_future",
+    "counters.safe_integer",
+    "recover.generation_monotonic",
 ]
 
 
@@ -127,7 +144,7 @@ _INSTANT = re.compile(
 def parse_duration_us(text: str, target: str = "us", on: bool = True) -> int:
     if not isinstance(text, str) or len(text) > 64:
         raise Refuse("syntax")
-    m = _DUR.match(text)
+    m = _DUR.fullmatch(text)
     if not m or text in ("P", "PT") or text.endswith("T"):
         raise Refuse("syntax")
     if not any(m.group(g) for g in "wdhms"):
@@ -151,7 +168,7 @@ def parse_duration_us(text: str, target: str = "us", on: bool = True) -> int:
 def parse_instant_us(text: str, on: bool = True) -> int:
     if not isinstance(text, str):
         raise Refuse("format")
-    m = _INSTANT.match(text)
+    m = _INSTANT.fullmatch(text)
     if not m:
         raise Refuse("format")
     y, mo, d, h, mi, s, frac = m.groups()
@@ -261,76 +278,128 @@ class Model:
             raise Refuse("definition_invalid")
 
     # -- ops
-    def op_profile_admit(self, a):
-        p = a["profile"]
-        modes = p.get("modes", [])
+    ACK_ORDER = {"none": 0, "survives_process_loss": 1, "survives_power_loss": 2}
+
+    @staticmethod
+    def flat_to_doc(p: dict) -> dict:
+        """Adapt a vector's flat profile to the runner-profile schema shape, so
+        one admission function serves vectors and schema-shaped documents."""
+        ack = p.get("attempt_journal_ack", "none")
+        idem = {}
+        if p.get("window"):
+            idem["window"] = p["window"]
+        for k in (
+            "store_window",
+            "effective_window",
+            "retry_horizon",
+            "identity_history",
+        ):
+            if p.get(k) is not None:
+                idem[k] = p[k]
+        runtime = {
+            "authority": {"scope": p.get("authority_scope", "single_host_exclusive")},
+            "durability": {
+                "attempt_journal_ack": ack,
+                "remote_sealed_coverage": p.get("remote_sealed_coverage", "none"),
+                "replication": p.get("replication", "none"),
+            },
+            "journal": {
+                "record_contract": {
+                    "contract": p.get("journal_contract", "contract: durable-record/v1")
+                },
+                "failure_model": p.get("journal_failure_model", ack),
+            },
+            "idempotency": idem,
+        }
+        if p.get("schedule"):
+            runtime["schedule"] = p["schedule"]
+        return {"modes": p.get("modes", []), "runtime": runtime}
+
+    def admit_profile_doc(self, doc: dict) -> dict:
+        """Semantic admission of a schema-shaped runner profile document."""
+        modes = doc.get("modes", [])
+        rt = doc["runtime"]
+        dur = rt["durability"]
         if self.on("profile.sealed_reserved") and "sealed" in modes:
             raise Refuse("sealed_mode_reserved")
         if self.on("profile.mode_prefix") and modes != MODES[: len(modes)]:
             raise Refuse("mode_not_cumulative")
         if (
             self.on("profile.remote_coverage")
-            and p.get("remote_sealed_coverage", "none") != "none"
+            and dur.get("remote_sealed_coverage", "none") != "none"
         ):
             raise Refuse("remote_coverage_claimed")
-        if self.on("profile.replication") and p.get("replication", "none") != "none":
+        if self.on("profile.replication") and dur.get("replication", "none") != "none":
             raise Refuse("replication_claimed")
+        ack = dur.get("attempt_journal_ack", "none")
         if "journaled" in modes:
+            j = rt.get("journal", {})
             if (
                 self.on("profile.journal_v1")
-                and p.get("journal_contract", "contract: durable-record/v1")
+                and j.get("record_contract", {}).get("contract")
                 != "contract: durable-record/v1"
             ):
                 raise Refuse("journal_contract_not_v1")
-            if (
-                self.on("profile.journal_ack")
-                and p.get("attempt_journal_ack", "none") == "none"
-            ):
+            if self.on("profile.journal_ack") and ack == "none":
                 raise Refuse("journal_ack_insufficient")
+        j = rt.get("journal")
+        if (
+            j
+            and self.on("profile.ack_model")
+            and self.ACK_ORDER[ack] > self.ACK_ORDER[j.get("failure_model", "none")]
+        ):
+            raise Refuse("journal_ack_exceeds_failure_model")
         if (
             self.on("profile.authority_scope")
-            and p.get("authority_scope", "single_host_exclusive")
-            != "single_host_exclusive"
+            and rt["authority"].get("scope") != "single_host_exclusive"
         ):
             raise Refuse("authority_scope_unsupported")
-        win = p.get("window")
+        idem = rt.get("idempotency", {})
+        win = idem.get("window")
         if win:
             lo, df, hi = (parse_duration_us(win[k]) for k in ("min", "default", "max"))
-            rng = p.get("task_kind_window_range")
-            klo, khi = (
-                (parse_duration_us(rng["min"]), parse_duration_us(rng["max"]))
-                if rng
-                else (0, SAFE_MAX)
-            )
-            if self.on("profile.window_range") and rng:
-                if lo < klo or hi > khi or not (lo <= df <= hi):
-                    raise Refuse("window_out_of_range")
-            sw = p.get("store_window")
+            if self.on("profile.window_order") and not (lo <= df <= hi):
+                raise Refuse("window_out_of_range")
+            if self.on("profile.window_range") and (
+                lo < self.kind_min_us or hi > self.kind_max_us
+            ):
+                raise Refuse("window_out_of_range")
             eff = (
-                parse_duration_us(p["effective_window"])
-                if p.get("effective_window")
+                parse_duration_us(idem["effective_window"])
+                if idem.get("effective_window")
                 else df
             )
-            if self.on("profile.effective_window") and rng:
-                if not (klo <= eff <= khi):
-                    raise Refuse("window_out_of_range")
-            need = max(
-                eff,
-                parse_duration_us(p["retry_horizon"]) if p.get("retry_horizon") else 0,
-            )
-            if self.on("profile.store_window") and sw and parse_duration_us(sw) < need:
-                raise Refuse("store_window_too_short")
-        sw = p.get("store_window")
-        if sw:
-            self.store_window_us = parse_duration_us(sw)
-        if p.get("identity_history") == "discarded":
-            self.history_retained = False
+            if self.on("profile.effective_window") and not (
+                self.kind_min_us <= eff <= self.kind_max_us
+            ):
+                raise Refuse("window_out_of_range")
+            sw = idem.get("store_window")
+            if sw:
+                swu = parse_duration_us(sw)
+                if self.on("profile.store_effective") and swu < eff:
+                    raise Refuse("store_window_too_short")
+                if (
+                    self.on("profile.store_horizon")
+                    and idem.get("retry_horizon")
+                    and swu < parse_duration_us(idem["retry_horizon"])
+                ):
+                    raise Refuse("store_window_too_short")
+        return {}
+
+    def op_profile_admit(self, a):
+        p = a["profile"]
         rng = p.get("task_kind_window_range")
         if rng:
             self.kind_min_us, self.kind_max_us = (
                 parse_duration_us(rng["min"]),
                 parse_duration_us(rng["max"]),
             )
+        self.admit_profile_doc(self.flat_to_doc(p))
+        sw = p.get("store_window")
+        if sw:
+            self.store_window_us = parse_duration_us(sw)
+        if p.get("identity_history") == "discarded":
+            self.history_retained = False
         sch = p.get("schedule")
         if sch:
             self.schedule_rule = sch["rule_contract"]["digest"]
@@ -437,6 +506,14 @@ class Model:
                 raise Refuse("illegal_transition")
         if to == "cancelled" and self.on("cancel.confirmed"):
             raise Refuse("cancellation_not_confirmed")
+        if cur == "running" and at is None and self.on("transition.attempt_required"):
+            raise Refuse("attempt_required")
+        if (
+            to in ("running", "waiting")
+            and t["cancel_req"]
+            and self.on("cancel.blocks_start")
+        ):
+            raise Refuse("cancellation_precedes_start")
         if (
             to == "failed"
             and cur in ("pending", "waiting")
@@ -458,6 +535,12 @@ class Model:
         retry_cfg = d["retry"]
         mapping = {m["code"]: m for m in d["outcome_mapping"]}
         if to == "running":
+            if at is None and self.on("transition.attempt_required"):
+                raise Refuse("attempt_required")
+            lo_s, hi_s = t.get("slot_lo"), t.get("slot_hi")
+            if lo_s is not None and self.on("slot.start_window"):
+                if self.clock < lo_s or self.clock > hi_s:
+                    raise Refuse("illegal_transition")
             n = at["n"]
             if self.on("attempt.contiguous") and n != t["started"] + 1:
                 raise Refuse("attempt_not_contiguous")
@@ -509,7 +592,7 @@ class Model:
                 and self.on("outcome.known_code")
             ):
                 raise Refuse("unknown_outcome_code")
-            if code in mapping and self.on("outcome.class_match"):
+            if code in mapping:
                 claimed_ok = at.get("result") == "succeeded" or (
                     at.get("result") is None and to == "succeeded"
                 )
@@ -517,20 +600,45 @@ class Model:
                     at.get("result") is None and to in ("failed", "waiting")
                 )
                 is_ok = mapping[code]["result"] == "success"
-                if (claimed_ok and not is_ok) or (claimed_bad and is_ok):
+                if claimed_ok and not is_ok and self.on("outcome.class_success"):
+                    raise Refuse("outcome_mapping_mismatch")
+                if claimed_bad and is_ok and self.on("outcome.class_failure"):
                     raise Refuse("outcome_mapping_mismatch")
             if to == "succeeded":
                 if self.on("success.after_cancel") and t["cancel_req"]:
                     raise Refuse("cancellation_precedes_success")
+                if (
+                    self.on("success.effects_resolved")
+                    and at.get("effects") != "resolved"
+                ):
+                    raise Refuse("success_effects_unresolved")
                 if self.on("success.verified") and not at.get(
                     "outputs_verified", False
                 ):
                     raise Refuse("success_unverified_outputs")
+            if (
+                to == "failed"
+                and at.get("result") == "failed"
+                and self.on("transition.retryable_failure")
+            ):
+                m_reason = mapping.get(code, {}).get("reason")
+                if (
+                    m_reason in retry_cfg["retryable_reasons"]
+                    and t["started"] < retry_cfg["max_attempts"]
+                    and not self._past_deadline(t, d)
+                    and not self._past_horizon(t, d, self.clock)
+                ):
+                    raise Refuse("retry_required")
             if to == "waiting":
                 if at.get("effects") == "unknown" and self.on("retry.unknown_effects"):
                     raise Refuse("unknown_effects_not_retryable")
                 reason = at.get("reason")
-                if (
+                if at.get("result") == "abandoned":
+                    if self.on("transition.abandon_gate") and not retry_cfg.get(
+                        "retry_after_abandonment", False
+                    ):
+                        raise Refuse("retry_not_permitted")
+                elif (
                     self.on("retry.reason")
                     and reason not in retry_cfg["retryable_reasons"]
                 ):
@@ -545,6 +653,8 @@ class Model:
                     raise Refuse("jitter_not_persisted")
                 if ne is not None:
                     neu = parse_instant_us(ne)
+                    if self.on("retry.next_eligible_future") and neu < self.clock:
+                        raise Refuse("next_eligible_in_past")
                     if self.on("retry.deadline") and self._past_deadline(t, d, neu):
                         raise Refuse("deadline_exceeded")
                     if self.on("retry.horizon") and self._past_horizon(t, d, neu):
@@ -595,6 +705,8 @@ class Model:
 
     def op_confirm_cancel(self, a):
         t = self.tasks[a["task"]]
+        if t["state"] in TERMINAL and self.on("cancel.terminal"):
+            raise Refuse("task_terminal")
         if self.on("cancel.confirmed") and not t["cancel_req"]:
             raise Refuse("cancel_not_requested")
         if self.on("cancel.confirmed") and not a.get("quiescent", False):
@@ -624,6 +736,13 @@ class Model:
 
     def op_recover(self, a):
         pred = a["predecessor"]
+        if self.on("counters.safe_integer") and a["generation"] > SAFE_MAX:
+            raise Refuse("counter_exhausted")
+        if (
+            self.on("recover.generation_monotonic")
+            and a["generation"] <= self.generation
+        ):
+            raise Refuse("generation_stale")
         if self.on("recover.quiescence") and pred == "unproven":
             raise Refuse("predecessor_not_quiescent")
         self.generation = a["generation"]
@@ -772,7 +891,10 @@ class Model:
         spec = dig(d)
         key = dig(key_obj)
         tid = dig({"authority": authority, "invocation_key": key, "v": 0})
-        if (authority, key) in self.identity:
+        prior = self.identity.get((authority, key))
+        if prior is not None:
+            if prior["spec"] != spec and self.on("identity.conflict"):
+                raise Refuse("identity_conflict")
             return tid, False
         self.identity[(authority, key)] = {"spec": spec, "accepted_us": self.clock}
         self.ids[tid] = label
@@ -788,6 +910,7 @@ class Model:
             "next_eligible": None,
             "accepted_us": self.clock,
             "first_start_us": None,
+            "authority": authority,
         }
         self._commit(label, "pending", None)
         return tid, True
@@ -798,12 +921,10 @@ class Model:
                 s["local"], s["tz"], check_gap=self.on("slot.dst")
             )
         else:
-            if self.on("slot.dst") and s.get("dst_skipped"):
-                raise Refuse("dst_non_slot")
             instant = s["instant"]
         digest = s["rule"]["digest"]
         if (
-            self.on("slot.identity")
+            self.on("slot.identity_rule")
             and self.schedule_rule
             and digest != self.schedule_rule
         ):
@@ -817,16 +938,25 @@ class Model:
         prev = self.slots.get(ident)
         if (
             prev
-            and self.on("slot.identity")
+            and self.on("slot.identity_changed")
             and (prev["rule"] != digest or prev["window"] != s["window"])
         ):
             raise Refuse("slot_identity_mismatch")
-        if self.on("slot.window") and (not (lo <= at <= hi) or self.clock > hi):
+        if self.on("slot.window_instant") and not (lo <= at <= hi):
             raise Refuse("slot_outside_window")
-        key_obj = {"instant": instant, "rule": digest, "scope": s["scope"]}
+        if self.on("slot.window_clock") and self.clock > hi:
+            raise Refuse("slot_outside_window")
+        key_obj = {
+            "domain": "slot",
+            "instant": instant,
+            "rule": digest,
+            "scope": s["scope"],
+            "v": 0,
+        }
         self.slots[ident] = {"rule": digest, "window": s["window"]}
-        tid, _ = self._create(label, s["scope"], key_obj, self.defs[defname])
-        self.tasks[label]["slot_hi"] = hi
+        tid, created = self._create(label, s["scope"], key_obj, self.defs[defname])
+        if created:
+            self.tasks[label].update(slot_lo=lo, slot_hi=hi, slot_instant=at)
         return dig(key_obj), self.clock >= lo
 
     def op_supply_slot(self, a):
@@ -848,21 +978,35 @@ class Model:
         if self.on("slot.coverage") and a.get("coverage") is None:
             raise Refuse("coverage_not_supplied")
         cov = a.get("coverage") or {"expected": [], "rule": {"digest": ""}, "scope": ""}
+        digest = cov["rule"]["digest"]
+        if (
+            self.on("slot.coverage_rule")
+            and self.schedule_rule
+            and digest != self.schedule_rule
+        ):
+            raise Refuse("slot_identity_mismatch")
+        if self.on("slot.coverage_bounds") and cov.get("expected"):
+            frm, to = parse_instant_us(cov["from"]), parse_instant_us(cov["to"])
+            inside = all(frm <= parse_instant_us(i) <= to for i in cov["expected"])
+            if not inside or to > self.clock:
+                raise Refuse("coverage_invalid")
         missed = []
         for inst in cov["expected"]:
             key_obj = {
+                "domain": "slot",
                 "instant": inst,
-                "rule": cov["rule"]["digest"],
+                "rule": digest,
                 "scope": cov["scope"],
+                "v": 0,
             }
             if (cov["scope"], dig(key_obj)) in self.identity or parse_instant_us(
                 inst
             ) > self.clock:
                 continue
-            self._create(
-                a["labels"][inst], cov["scope"], key_obj, self.defs[a["definition"]]
-            )
-            self._commit(a["labels"][inst], "missed", None)
+            label = a["labels"][inst]
+            self._create(label, cov["scope"], key_obj, self.defs[a["definition"]])
+            self.tasks[label]["slot_instant"] = parse_instant_us(inst)
+            self._commit(label, "missed", None)
             missed.append(inst)
         return {"missed": missed}
 
@@ -872,22 +1016,25 @@ class Model:
             raise Refuse("missed_not_terminal")
         if self.on("catchup.permitted") and self.max_lag_us is None:
             raise Refuse("catch_up_not_permitted")
-        if self.on("catchup.lag") and parse_duration_us(a["lag"]) > (
-            self.max_lag_us or 0
-        ):
+        lag = self.clock - m.get("slot_instant", self.clock)
+        if self.on("catchup.lag") and lag > (self.max_lag_us or 0):
             raise Refuse("lag_exceeded")
+        key_obj = {"catch_up_of": m["id"], "domain": "catch_up", "v": 0}
         tid, _ = self._create(
-            a["as"],
-            "catch-up",
-            {"catch_up_of": m["id"], "v": 0},
-            self.defs[a["definition"]],
+            a["as"], m_authority(m), key_obj, self.defs[a["definition"]]
         )
         return {"task_id": tid}
 
 
-# ---------------------------------------------------------------- driver
+def m_authority(missed: dict) -> str:
+    """Catch-up tasks live in the authority namespace of the missed task."""
+    return missed["authority"]
+
+
 def load_golden() -> dict:
-    return json.loads((BASE / "examples/task-definition.example.json").read_text())
+    return json.loads(
+        (BASE / "examples/task-definition.example.json").read_text(encoding="utf-8")
+    )
 
 
 def match(expect_ok: dict, got: dict) -> bool:
@@ -962,7 +1109,7 @@ def load_vectors(files: list[str] | None = None) -> list[tuple[pathlib.Path, dic
     for p in paths:
         if p.name == "INVENTORY.json":
             continue
-        out.append((p, json.loads(p.read_text())))
+        out.append((p, json.loads(p.read_text(encoding="utf-8"))))
     return out
 
 
