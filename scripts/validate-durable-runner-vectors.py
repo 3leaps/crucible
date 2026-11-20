@@ -664,7 +664,7 @@ class Model:
             "heads": heads,
             "effects_performed": 0,
             "outcomes": {
-                l: next(
+                label: next(
                     (
                         x.get("outcome")
                         for x in reversed(t["attempts"])
@@ -672,7 +672,7 @@ class Model:
                     ),
                     None,
                 )
-                for l, t in self.tasks.items()
+                for label, t in self.tasks.items()
             },
         }
 
