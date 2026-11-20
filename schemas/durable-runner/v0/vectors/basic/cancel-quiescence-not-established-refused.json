@@ -54,7 +54,8 @@
       "quiescent": false,
       "expect": {
         "refused": "quiescence_not_established"
-      }
+      },
+      "effects": "none"
     }
   ],
   "expected": {

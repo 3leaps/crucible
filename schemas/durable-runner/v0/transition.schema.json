@@ -195,6 +195,11 @@
               "anyOf": [
                 {
                   "required": [
+                    "dispatch"
+                  ]
+                },
+                {
+                  "required": [
                     "result"
                   ]
                 },
@@ -226,7 +231,7 @@
     },
     "authority_generation": {
       "type": "integer",
-      "minimum": 0,
+      "minimum": 1,
       "maximum": 9007199254740991,
       "description": "Evidence only. It does not claim to fence a running child or remote request."
     },
@@ -647,6 +652,150 @@
         "properties": {
           "to_state": {
             "const": "pending"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "succeeded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "required": [
+              "outcome_code"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "enum": [
+              "abandoned",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "outcome_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "failure_reason"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "enum": [
+              "waiting",
+              "failed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attempt": {
+            "properties": {
+              "effects": {
+                "enum": [
+                  "none",
+                  "resolved"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "to_state": {
+            "const": "pending"
+          },
+          "prior": {
+            "not": {
+              "type": "null"
+            }
+          }
+        },
+        "required": [
+          "prior"
+        ]
+      },
+      "then": {
+        "required": [
+          "cancellation"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
+            "const": "requested"
+          },
+          "to_state": {
+            "enum": [
+              "pending",
+              "waiting"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "attempt"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "slot"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_state": {
+            "const": "missed"
           }
         }
       }

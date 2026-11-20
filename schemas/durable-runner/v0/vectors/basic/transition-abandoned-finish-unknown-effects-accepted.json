@@ -1,0 +1,103 @@
+{
+  "v": 0,
+  "id": "transition-abandoned-finish-unknown-effects-accepted",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "abandoned",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "abandoned",
+        "effects": "unknown",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "abandoned"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "unknown",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "an explicit abandonment by the current authority retains its unresolved-effect evidence and needs no recovery; recovery is required only for abandonment-to-retry"
+    }
+  ]
+}

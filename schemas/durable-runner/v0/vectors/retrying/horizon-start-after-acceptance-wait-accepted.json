@@ -1,0 +1,161 @@
+{
+  "v": 0,
+  "id": "horizon-start-after-acceptance-wait-accepted",
+  "mode": "retrying",
+  "covers": [
+    "retry.horizon-deadline"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      },
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT2H",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T02:01:01.000000Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT61S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          },
+          {
+            "n": 2,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 2,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the task waited 2h pending; the horizon runs from the first start (02:00) so the second start at about 02:02 is inside it, whereas an acceptance anchor would have expired at 01:00"
+    }
+  ]
+}

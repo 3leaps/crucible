@@ -1,0 +1,92 @@
+{
+  "v": 0,
+  "id": "cancel-waiting-then-failed-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT7H",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "reason": "deadline_expired",
+      "expect": {
+        "refused": "cancellation_precedes_failure"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "waiting"
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "cancellation": "requested"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the task deadline (PT6H) has elapsed so a deadline failure is otherwise legal; only the committed cancellation request freezes the waiting task"
+    }
+  ]
+}

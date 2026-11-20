@@ -113,38 +113,70 @@ print("    durable-runner: mutation controls (every guard must be tested)...")
 guards = run("--list-guards").stdout.split()
 if not guards:
     fail("model lists no guards")
+golden = model.load_golden()
+_all_vectors = {
+    p_.stem: json.loads(p_.read_text(encoding="utf-8"))
+    for p_ in sorted((BASE / "vectors").rglob("*.json"))
+    if p_.name != "INVENTORY.json"
+}
+# One baseline pass records which guards each vector consults; a guard can only change
+# the verdict of a vector that reads it, so only those vectors are re-run per guard.
+seen_by_vector: dict[str, set[str]] = {}
+for _vid, _vec in _all_vectors.items():
+    _seen: set[str] = set()
+    if model.run_vector(_vec, golden, set(), _seen):
+        fail(f"{_vid}: fails with every guard enabled")
+    seen_by_vector[_vid] = _seen
 for g in guards:
-    r = run("--disable", g)
-    lines = [ln for ln in r.stderr.splitlines() if ln.startswith("[!!]")]
-    verdicts = [
-        ln
-        for ln in lines
-        if "could not execute" not in ln and "vectors failed" not in ln
-    ]
-    if "Traceback" in r.stderr or r.returncode not in (0, 1):
-        fail(f"guard {g}: model crashed when the guard was disabled")
-    elif r.returncode == 0:
-        fail(f"guard {g}: NOT KILLED, every vector still passes without it")
-    elif not verdicts:
-        fail(f"guard {g}: only unexecutable ops failed, no checker verdict")
+    affected = [v for v in _all_vectors if g in seen_by_vector[v]]
+    if not affected:
+        fail(f"guard {g}: no vector ever consults it")
+        continue
+    killed = False
+    for v in affected:
+        errs = model.run_vector(_all_vectors[v], golden, {g})
+        if any("could not execute" not in e for e in errs):
+            killed = True
+            break
+    if not killed:
+        fail(
+            f"guard {g}: NOT KILLED by a checker verdict in any of {len(affected)} vectors that consult it"
+        )
 
 print("    durable-runner: every refusal is isolated (its competing note is true)...")
 _golden_iso = model.load_golden()
-# Grammar and boundary refusals are the parser's own rules: there is no guard whose
+# Grammar refusals of the four parser operations are the parser's own rules: no guard's
 # removal would "accept" an unparseable token, so isolation is not defined for them.
-# first_not_pending has no task state in which an acceptance could be modeled.
-INTRINSIC_REASONS = {
+PARSER_OPS = {"parse_instant", "parse_duration", "format_instant", "advance_clock"}
+PARSER_REASONS = {
     "format",
     "syntax",
     "overflow",
     "fractional_loss",
     "nonrepresentable",
     "duration_invalid",
-    "malformed",
-    "zone_unavailable",
-    "first_not_pending",
 }
-ISOLATION_EXEMPT: set[str] = set()
+# Refusals where the model has no state in which an acceptance could be expressed. Each
+# entry is a vector name; the type-fuzz control below covers argument shape for every op.
+ISOLATION_EXEMPT = {
+    "first-transition-not-pending-refused",  # no task exists to accept the transition on
+    "slot-civil-time-noncanonical-refused",  # the raw civil-time grammar
+    "slot-civil-time-year-unavailable-refused",  # the zone table cannot compute an instant
+    # The refusal is an injected harness fault (commit_indeterminate), not a rule guard.
+    "occurrence-set-commit-failure-reports-partial-progress",
+    "occurrence-set-failure-after-first-item-leaves-prefix",
+    "coverage-commit-failure-leaves-committed-prefix",
+    "recover-missing-effects-refused",  # argument shape, covered by the type-fuzz control
+    "recover-missing-owner-refused",
+    "recover-unrecognized-disposition-refused",
+    "occurrence-set-label-count-mismatch-refused",
+}
+
+
+def _exempt_op(op) -> bool:
+    return op["op"] in PARSER_OPS and op["expect"]["refused"] in PARSER_REASONS
+
+
 _acc = re.compile(r"^op (\d+) \S+: accepted, expected refusal")
 _iso_vectors = {
     p_.stem: json.loads(p_.read_text(encoding="utf-8"))
@@ -155,13 +187,12 @@ for vid, d in sorted(_iso_vectors.items()):
     refusal_ops = {
         i
         for i, op in enumerate(d["ops"])
-        if "refused" in op.get("expect", {})
-        and op["expect"]["refused"] not in INTRINSIC_REASONS
+        if "refused" in op.get("expect", {}) and not _exempt_op(op)
     }
     if not refusal_ops or vid in ISOLATION_EXEMPT:
         continue
     covered: set[int] = set()
-    for g in guards:
+    for g in seen_by_vector[vid]:
         for err in model.run_vector(d, _golden_iso, {g}):
             hit = _acc.match(err)
             if hit:
@@ -297,9 +328,11 @@ def _wire_doc(mo, op, entry, idx):
             att["dispatch"] = "intended"
         if ha["phase"] == "finish":
             att["result"] = ha["result"]
-            att["effects"] = op_att.get("effects") or op.get("effects") or "none"
-            if ha["result"] == "succeeded":
-                att["outputs_verified"] = True
+            eff = op_att.get("effects") or op.get("effects")
+            if eff is not None:
+                att["effects"] = eff
+            if op_att.get("outputs_verified") is not None:
+                att["outputs_verified"] = op_att["outputs_verified"]
             if op_att.get("outcome"):
                 att["outcome_code"] = op_att["outcome"]
         doc["attempt"] = att
@@ -314,22 +347,22 @@ def _wire_doc(mo, op, entry, idx):
     if entry["to"] == "cancelled":
         doc["cancellation"] = "confirmed"
     if entry["to"] == "waiting" and ha:
-        doc["next_eligible_at"] = op.get("next_eligible_at") or model.fmt_instant(
-            mo.clock
-        )
+        if op.get("next_eligible_at") is not None:
+            doc["next_eligible_at"] = op["next_eligible_at"]
     if entry["to"] == "missed":
-        doc["slot"] = model.dig({"slot": label})
+        if t.get("slot_key") is not None:
+            doc["slot"] = model.dig({"slot_key": t["slot_key"]})
     return doc
 
 
 wire_docs: dict[str, tuple[dict, str]] = {}
 for vid, d in sorted(_iso_vectors.items()):
-    mo = model.Model(d, golden, set())
+    drv = model.Driver(d, golden, set())
+    mo = drv.m
     for op in d["ops"]:
         before = len(mo.history)
         try:
-            mo.preflight(op["op"])
-            getattr(mo, "op_" + op["op"])(op)
+            drv.step(op)
         except (model.Refuse, KeyError, TypeError, ValueError, IndexError):
             continue
         for k, entry in enumerate(mo.history[before:]):
@@ -350,7 +383,10 @@ supplied: dict[str, tuple[dict, str]] = {}
 for vid, d in sorted(vectors.items()):
     for op in d["ops"]:
         docs = []
-        if op.get("expect", {}).get("refused") in INTRINSIC_REASONS:
+        if op.get("expect", {}).get("refused") in PARSER_REASONS | {
+            "malformed",
+            "zone_unavailable",
+        }:
             continue  # a wire-format refusal feeds an input the schema itself rejects
         if "slot" in op:
             docs.append({"v": 0, "kind": "slot", "slot": op["slot"]})
@@ -453,6 +489,191 @@ with tempfile.TemporaryDirectory(prefix="drv-prof2-") as tmp:
     except model.Refuse as r:
         if r.reason != "journal_ack_exceeds_failure_model":
             fail(f"profile reject ack-without-journal: refused {r.reason}")
+
+
+print("    durable-runner: source-level mutants (arithmetic, anchors, boundaries)...")
+import types
+
+SRC = TOOL.read_text(encoding="utf-8")
+SOURCE_MUTANTS = [
+    ("nominal-rounds-down", "math.ceil(val)", "math.floor(val)"),
+    ("lower-bound-rounds-down", "math.ceil(nominal", "math.floor(nominal"),
+    ("upper-bound-rounds-up", "math.floor(nominal", "math.ceil(nominal"),
+    (
+        "multiplier-through-float",
+        'bo.get("multiplier_milli", 1000), 1000)',
+        'bo.get("multiplier_milli", 1000) / 1000)',
+    ),
+    (
+        "slot-start-lower-bound-exclusive",
+        "self.clock < lo_s or self.clock >= hi_s",
+        "self.clock <= lo_s or self.clock >= hi_s",
+    ),
+    (
+        "catch-up-start-lag-exclusive",
+        "0 <= self.clock - cu <= self.max_lag_us",
+        "0 <= self.clock - cu < self.max_lag_us",
+    ),
+    (
+        "horizon-anchored-at-acceptance",
+        'return at_us - t["first_start_us"]',
+        'return at_us - t["accepted_us"]',
+    ),
+    (
+        "identity-expiry-inclusive",
+        'rec["accepted_us"] > self.store_window_us',
+        'rec["accepted_us"] >= self.store_window_us',
+    ),
+    (
+        "coverage-missed-at-window-end-late",
+        "if self.clock < hi:",
+        "if self.clock <= hi:",
+    ),
+    ("catch-up-key-without-domain", '"domain": "catch_up", ', ""),
+    (
+        "slot-key-without-scope",
+        '            "scope": scope,\n            "v": 0,\n        }\n        return "slot:"',
+        '            "v": 0,\n        }\n        return "slot:"',
+    ),
+    (
+        "cancel-on-failed-too-late",
+        'if t["state"] == "succeeded":',
+        'if t["state"] in ("succeeded", "failed"):',
+    ),
+    (
+        "catch-up-deadline-anchored-at-missed-instant",
+        'a["as"], m["authority"], key, a["definition"], derived=True',
+        'a["as"], m["authority"], key, a["definition"], derived=True, anchor_us=m.get("slot_instant")',
+    ),
+    (
+        "deadline-bound-inclusive",
+        'return when - t["accepted_us"] >= parse_duration_us(tl)',
+        'return when - t["accepted_us"] > parse_duration_us(tl)',
+    ),
+    ("feasibility-cap-off-by-one", "end - self.clock - 1", "end - self.clock"),
+    (
+        "missed-before-window-end",
+        't["started"] > 0 or hi is None or self.clock < hi',
+        't["started"] > 0 or hi is None or self.clock <= hi',
+    ),
+]
+_mut_vectors = sorted(
+    (p_.stem, json.loads(p_.read_text(encoding="utf-8")))
+    for p_ in (BASE / "vectors").rglob("*.json")
+    if p_.name != "INVENTORY.json"
+)
+for name, old, new in SOURCE_MUTANTS:
+    if SRC.count(old) != 1:
+        fail(
+            f"source mutant {name}: anchor occurs {SRC.count(old)} times (want 1); the model changed, update the mutant"
+        )
+        continue
+    mod = types.ModuleType("drv_mutant")
+    mod.__file__ = str(TOOL)
+    try:
+        exec(compile(SRC.replace(old, new, 1), str(TOOL), "exec"), mod.__dict__)
+        golden_m = mod.load_golden()
+        killed = any(mod.run_vector(vec, golden_m, set()) for _vid, vec in _mut_vectors)
+    except (
+        Exception
+    ) as exc:  # a mutant that crashes the whole checker is still a kill, but say so
+        killed = True
+    if not killed:
+        fail(f"source mutant {name}: SURVIVES, every vector still passes")
+
+print("    durable-runner: type-fuzz of every operation's arguments...")
+import copy as _copy
+
+FUZZ_JUNK = {
+    bool: ["false", "true", 1, 0, None, []],
+    int: [None, True, "1", 1.5, -1, 10**30],
+    str: [None, True, 1, 1.5, [], {}, "", "a b", "A" * 300],
+    dict: [None, "x", 1, [], ["a"]],
+    list: [None, "x", 1, {}],
+}
+# Genuinely free-form fields: any string is a legal value.
+FUZZ_FREEFORM = {
+    ("transition", "reason"),
+    ("transition", "attempt.reason"),
+    ("admission", "source"),
+}
+
+
+def _sites(op):
+    for k, v in op.items():
+        if k in ("op", "expect"):
+            continue
+        yield (k,), v
+        if isinstance(v, dict):
+            for k2, v2 in v.items():
+                yield (k, k2), v2
+
+
+def _set(op, site, val):
+    o = _copy.deepcopy(op)
+    cur = o
+    for k in site[:-1]:
+        cur = cur[k]
+    cur[site[-1]] = val
+    return o
+
+
+def _run_tail(vec, idx, op):
+    drv = model.Driver(vec, golden, set())
+    for prior in vec["ops"][:idx]:
+        try:
+            drv.step(prior)
+        except (
+            model.Refuse,
+            KeyError,
+            TypeError,
+            ValueError,
+            IndexError,
+            OverflowError,
+            AttributeError,
+        ):
+            pass
+    try:
+        drv.step(op)
+        return "accepted"
+    except model.Refuse:
+        return "refused"
+    except Exception as exc:
+        return type(exc).__name__
+
+
+reps = {}
+for vid, d in sorted(vectors.items()):
+    for i, op in enumerate(d["ops"]):
+        if "ok" in op.get("expect", {}) and op["op"] != "profile_admit":
+            n_keys = sum(1 for _ in _sites(op))
+            if op["op"] not in reps or n_keys > reps[op["op"]][2]:
+                reps[op["op"]] = (vid, i, n_keys)
+        if op["op"] == "profile_admit" and "ok" in op.get("expect", {}):
+            n_keys = sum(1 for _ in _sites(op))
+            if op["op"] not in reps or n_keys > reps[op["op"]][2]:
+                reps[op["op"]] = (vid, i, n_keys)
+trials = 0
+for opname, (vid, idx, _n) in sorted(reps.items()):
+    vec = vectors[vid]
+    op = vec["ops"][idx]
+    for site, val in _sites(op):
+        pool = FUZZ_JUNK.get(bool if isinstance(val, bool) else type(val), [])
+        for junk in pool:
+            if junk == val and type(junk) is type(val):
+                continue
+            trials += 1
+            res = _run_tail(vec, idx, _set(op, site, junk))
+            label = ".".join(site)
+            if res == "accepted" and (opname, label) not in FUZZ_FREEFORM:
+                fail(
+                    f"fuzz {opname}.{label} = {junk!r}: accepted junk (fail-open) in {vid}"
+                )
+            elif res not in ("accepted", "refused"):
+                fail(
+                    f"fuzz {opname}.{label} = {junk!r}: model raised {res} instead of refusing ({vid})"
+                )
+print(f"    durable-runner: {trials} fuzz trials over {len(reps)} operations")
 
 if failures:
     print(

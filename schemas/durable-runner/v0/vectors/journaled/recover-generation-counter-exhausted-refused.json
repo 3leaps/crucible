@@ -53,7 +53,8 @@
       "effects": "none",
       "expect": {
         "refused": "counter_exhausted"
-      }
+      },
+      "owner": "owner-9007199254740992"
     }
   ],
   "expected": {

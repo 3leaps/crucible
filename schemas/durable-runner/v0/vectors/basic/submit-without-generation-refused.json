@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "submit-without-generation-refused",
+  "mode": "basic",
+  "covers": [
+    "generation.stale"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "generation_required"
+      },
+      "no_handle": true
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the definition and identity are valid; only the operation presents no generation, and absent never means current"
+    }
+  ]
+}

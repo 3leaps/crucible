@@ -1,19 +1,13 @@
 {
   "v": 0,
-  "id": "transition-running-to-waiting-abandoned-permitted-accepted",
-  "mode": "retrying",
+  "id": "transition-failed-finish-effects-unknown-refused",
+  "mode": "basic",
   "covers": [
-    "retry.limits"
+    "outcome.mapping"
   ],
   "definitions": {
     "d1": {
-      "retry.backoff": {
-        "initial": "PT1M",
-        "max": "PT30M",
-        "multiplier_milli": 2000,
-        "jitter_milli": 0
-      },
-      "retry.retry_after_abandonment": true
+      "retry.max_attempts": 1
     }
   },
   "ops": [
@@ -48,32 +42,28 @@
     {
       "op": "transition",
       "task": "t1",
-      "to": "waiting",
+      "to": "failed",
       "attempt": {
         "n": 1,
         "phase": "finish",
-        "result": "abandoned",
-        "effects": "none",
-        "dispatch": "intended"
+        "dispatch": "confirmed",
+        "result": "failed",
+        "effects": "unknown",
+        "outcome": "integrity_mismatch"
       },
-      "next_eligible_at": "2026-01-02T00:01:00.000000Z",
-      "reason": "retry_scheduled",
       "expect": {
-        "ok": {
-          "state": "waiting"
-        }
+        "refused": "unresolved_effects_not_failed"
       }
     }
   ],
   "expected": {
     "tasks": {
       "t1": {
-        "state": "waiting",
+        "state": "running",
         "attempts": [
           {
             "n": 1,
-            "result": "abandoned",
-            "effects": "none",
+            "result": "running",
             "dispatch": "intended"
           }
         ]
@@ -91,21 +81,12 @@
           "n": 1,
           "phase": "start"
         }
-      },
-      {
-        "task": "t1",
-        "to": "waiting",
-        "attempt": {
-          "n": 1,
-          "phase": "finish",
-          "result": "abandoned"
-        }
       }
     ]
   },
   "notes": [
     {
-      "competing": "twin of the not-permitted refusal with retry_after_abandonment granted"
+      "competing": "a non-retryable mapped failure; only the unresolved effects mean it cannot end as an ordinary failed result"
     }
   ]
 }

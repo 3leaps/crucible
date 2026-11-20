@@ -8,7 +8,7 @@
   ],
   "definitions": {
     "d1": {
-      "retry.max_attempts": 1
+      "retry.retry_after_abandonment": true
     }
   },
   "ops": [
@@ -68,7 +68,8 @@
           },
           "executed_effects": 0
         }
-      }
+      },
+      "owner": "owner-2"
     }
   ],
   "expected": {
@@ -116,7 +117,7 @@
   },
   "notes": [
     {
-      "competing": "predecessor quiescence is proved and effects are resolved, which is confirmed quiescence under a committed cancellation request; the task never returns to waiting"
+      "competing": "predecessor quiescence is proved and effects are resolved, which is confirmed quiescence under a committed cancellation request; the task never returns to waiting; the definition permits three attempts and retry after abandonment, so a return to waiting is possible and the committed cancellation request is what prevents it"
     }
   ]
 }

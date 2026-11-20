@@ -53,7 +53,8 @@
       "effects": "partial",
       "expect": {
         "refused": "effects_required"
-      }
+      },
+      "owner": "owner-2"
     }
   ],
   "expected": {

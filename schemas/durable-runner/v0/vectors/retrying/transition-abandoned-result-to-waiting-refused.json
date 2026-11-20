@@ -1,0 +1,99 @@
+{
+  "v": 0,
+  "id": "transition-abandoned-result-to-waiting-refused",
+  "mode": "retrying",
+  "covers": [
+    "retry.limits"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true,
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "abandoned",
+        "effects": "resolved",
+        "dispatch": "intended"
+      },
+      "next_eligible_at": "2026-01-02T00:01:00.000000Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "refused": "result_state_mismatch"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "retry after abandonment is granted, effects are resolved and the delay is the exact 60s band; only an abandoned result is not a permitted finish into waiting, because abandonment retry is a recovery decision"
+    }
+  ]
+}

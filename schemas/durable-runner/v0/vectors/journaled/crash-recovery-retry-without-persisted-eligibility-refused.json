@@ -54,7 +54,8 @@
       "effects": "resolved",
       "expect": {
         "refused": "jitter_not_persisted"
-      }
+      },
+      "owner": "owner-2"
     }
   ],
   "expected": {

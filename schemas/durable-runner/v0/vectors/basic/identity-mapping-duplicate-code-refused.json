@@ -23,7 +23,8 @@
           "result": "failure",
           "reason": "x"
         }
-      ]
+      ],
+      "retry.retryable_reasons": []
     }
   },
   "ops": [

@@ -1,0 +1,50 @@
+{
+  "v": 0,
+  "id": "profile-durability-unknown-member-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.replication"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "durability_extra": {
+          "sealed": true
+        }
+      },
+      "expect": {
+        "refused": "profile_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the three named durability properties are none and the ack is none; only an unknown durability member is claimed, so no claim outside the independent properties is accepted"
+    }
+  ]
+}

@@ -1,18 +1,13 @@
 {
   "v": 0,
-  "id": "transition-running-to-waiting-abandoned-not-permitted-refused",
-  "mode": "retrying",
+  "id": "transition-abandoned-finish-with-outcome-code-refused",
+  "mode": "basic",
   "covers": [
-    "retry.limits"
+    "outcome.mapping"
   ],
   "definitions": {
     "d1": {
-      "retry.backoff": {
-        "initial": "PT1M",
-        "max": "PT30M",
-        "multiplier_milli": 2000,
-        "jitter_milli": 0
-      }
+      "retry.max_attempts": 1
     }
   },
   "ops": [
@@ -47,18 +42,17 @@
     {
       "op": "transition",
       "task": "t1",
-      "to": "waiting",
+      "to": "abandoned",
       "attempt": {
         "n": 1,
         "phase": "finish",
+        "dispatch": "confirmed",
         "result": "abandoned",
         "effects": "none",
-        "dispatch": "intended"
+        "outcome": "captured_verified"
       },
-      "next_eligible_at": "2026-01-02T00:01:00.000000Z",
-      "reason": "retry_scheduled",
       "expect": {
-        "refused": "retry_not_permitted"
+        "refused": "outcome_not_allowed"
       }
     }
   ],
@@ -92,7 +86,7 @@
   },
   "notes": [
     {
-      "competing": "effects none, attempts remain, next eligible persisted; only the kind does not permit retry after abandonment"
+      "competing": "abandonment is a lifecycle disposition with none effects; only it carries a domain outcome code, which it never fabricates"
     }
   ]
 }

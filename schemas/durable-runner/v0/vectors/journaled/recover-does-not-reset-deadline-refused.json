@@ -51,7 +51,8 @@
           },
           "executed_effects": 0
         }
-      }
+      },
+      "owner": "owner-2"
     },
     {
       "op": "advance_clock",

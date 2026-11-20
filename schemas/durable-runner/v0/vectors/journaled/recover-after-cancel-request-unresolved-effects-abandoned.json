@@ -8,7 +8,7 @@
   ],
   "definitions": {
     "d1": {
-      "retry.max_attempts": 1
+      "retry.retry_after_abandonment": true
     }
   },
   "ops": [
@@ -69,7 +69,8 @@
           "executed_effects": 0
         }
       },
-      "disposition": "abandon"
+      "disposition": "abandon",
+      "owner": "owner-2"
     }
   ],
   "expected": {
@@ -117,7 +118,7 @@
   },
   "notes": [
     {
-      "competing": "twin of the cancelled recovery: effects are unknown, so cleanup cannot be resolved and the task is explicitly abandoned"
+      "competing": "twin of the cancelled recovery: effects are unknown, so cleanup cannot be resolved and the task is explicitly abandoned; the definition permits three attempts and retry after abandonment, so a return to waiting is possible and the committed cancellation request is what prevents it"
     }
   ]
 }

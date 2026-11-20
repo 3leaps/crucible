@@ -53,7 +53,8 @@
         "ok": {
           "state": "cancelled"
         }
-      }
+      },
+      "effects": "none"
     }
   ],
   "expected": {

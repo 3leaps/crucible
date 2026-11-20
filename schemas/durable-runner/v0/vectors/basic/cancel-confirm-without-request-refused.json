@@ -45,7 +45,8 @@
       "quiescent": true,
       "expect": {
         "refused": "cancel_not_requested"
-      }
+      },
+      "effects": "none"
     }
   ],
   "expected": {

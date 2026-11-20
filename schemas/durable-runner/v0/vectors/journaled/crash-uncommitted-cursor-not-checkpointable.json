@@ -59,7 +59,8 @@
           },
           "executed_effects": 0
         }
-      }
+      },
+      "owner": "owner-2"
     },
     {
       "op": "checkpoint",

@@ -23,7 +23,11 @@
     },
     "invocation_key": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "not": {
+        "pattern": "^(slot|catchup):"
+      },
+      "description": "The slot: and catchup: prefixes are reserved for derived keys."
     },
     "task_id": {
       "$ref": "#/$defs/digest"

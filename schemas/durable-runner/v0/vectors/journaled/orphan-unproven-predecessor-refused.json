@@ -54,7 +54,8 @@
       "effects": "none",
       "expect": {
         "refused": "predecessor_not_quiescent"
-      }
+      },
+      "owner": "owner-2"
     }
   ],
   "expected": {

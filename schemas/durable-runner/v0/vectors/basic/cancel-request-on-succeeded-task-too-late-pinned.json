@@ -1,0 +1,114 @@
+{
+  "v": 0,
+  "id": "cancel-request-on-succeeded-task-too-late-pinned",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "succeeded",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "dispatch": "confirmed",
+        "result": "succeeded",
+        "outcome": "captured_verified",
+        "effects": "resolved",
+        "outputs_verified": true
+      },
+      "expect": {
+        "ok": {
+          "state": "succeeded"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "too_late"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "succeeded",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "succeeded",
+            "effects": "resolved",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "succeeded",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "succeeded"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the failed-task refusal: after a committed success a request is a no-op too_late"
+    }
+  ]
+}

@@ -16,7 +16,6 @@
     "phase": "finish",
     "dispatch": "confirmed",
     "result": "cancelled",
-    "outcome_code": "captured_verified",
     "effects": "none"
   },
   "authority_generation": 1,

@@ -53,6 +53,9 @@
   "definition-zero-attempts": {
     "schema": "task-definition.schema.json"
   },
+  "occurrence-set-duplicate-slot": {
+    "schema": "supplied-slot.schema.json"
+  },
   "profile-authority-without-orphan-cleanup": {
     "schema": "runner-profile.schema.json"
   },
@@ -125,6 +128,12 @@
   "submission-missing-key": {
     "schema": "task-submission.schema.json"
   },
+  "submission-reserved-invocation-key": {
+    "schema": "task-submission.schema.json"
+  },
+  "transition-abandoned-with-outcome-code": {
+    "schema": "transition.schema.json"
+  },
   "transition-attempt-n-zero": {
     "schema": "transition.schema.json"
   },
@@ -141,6 +150,9 @@
     "schema": "transition.schema.json"
   },
   "transition-cancelled-with-succeeded-result": {
+    "schema": "transition.schema.json"
+  },
+  "transition-carry-with-dispatch": {
     "schema": "transition.schema.json"
   },
   "transition-carry-without-cancellation": {
@@ -161,6 +173,9 @@
   "transition-generation-negative": {
     "schema": "transition.schema.json"
   },
+  "transition-generation-zero": {
+    "schema": "transition.schema.json"
+  },
   "transition-instant-five-digits": {
     "schema": "transition.schema.json"
   },
@@ -176,6 +191,9 @@
   "transition-pending-with-attempt": {
     "schema": "transition.schema.json"
   },
+  "transition-pending-with-prior-and-no-cancellation": {
+    "schema": "transition.schema.json"
+  },
   "transition-prior-missing": {
     "schema": "transition.schema.json"
   },
@@ -183,6 +201,9 @@
     "schema": "transition.schema.json"
   },
   "transition-running-without-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-slot-on-running": {
     "schema": "transition.schema.json"
   },
   "transition-start-dispatch-confirmed": {
@@ -200,7 +221,16 @@
   "transition-succeeded-result-failed": {
     "schema": "transition.schema.json"
   },
+  "transition-succeeded-without-outcome-code": {
+    "schema": "transition.schema.json"
+  },
+  "transition-waiting-cancel-request-with-attempt": {
+    "schema": "transition.schema.json"
+  },
   "transition-waiting-from-succeeded-attempt": {
+    "schema": "transition.schema.json"
+  },
+  "transition-waiting-with-unknown-effects": {
     "schema": "transition.schema.json"
   },
   "transition-waiting-without-next-eligible": {

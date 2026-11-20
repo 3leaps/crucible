@@ -56,7 +56,8 @@
         "ok": {
           "state": "cancelled"
         }
-      }
+      },
+      "effects": "none"
     },
     {
       "op": "transition",

@@ -1,0 +1,56 @@
+{
+  "v": 0,
+  "id": "request-cancel-without-generation-refused",
+  "mode": "basic",
+  "covers": [
+    "generation.stale",
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "no_handle": true,
+      "expect": {
+        "refused": "generation_required"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the task is cancellable; only the operation presents no generation"
+    }
+  ]
+}

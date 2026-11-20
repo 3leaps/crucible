@@ -41,7 +41,8 @@
         "ok": {
           "state": "cancelled"
         }
-      }
+      },
+      "effects": "none"
     },
     {
       "op": "request_cancel",

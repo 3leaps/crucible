@@ -65,7 +65,8 @@
           "executed_effects": 0
         }
       },
-      "disposition": "abandon"
+      "disposition": "abandon",
+      "owner": "owner-2"
     }
   ],
   "expected": {

@@ -41,15 +41,30 @@
     },
     {
       "op": "crash",
-      "at": "after_start_before_dispatch",
+      "at": "before_record_commit",
       "expect": {
         "ok": {}
       }
     },
     {
       "op": "recover",
-      "generation": 1,
-      "owner": "owner-1",
+      "generation": 2,
+      "owner": "owner-2",
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "owner": "owner-2",
       "predecessor": "quiescent_proved",
       "effects": "none",
       "expect": {
@@ -102,7 +117,7 @@
   },
   "notes": [
     {
-      "competing": "twin of the not-increasing refusal: the same owner repeats its already-recorded claim, so the generation may be retained"
+      "competing": "twin of the not-increasing refusal: the same owner repeats its already recorded generation-2 claim, which may be retained; the repeat changes nothing"
     }
   ]
 }

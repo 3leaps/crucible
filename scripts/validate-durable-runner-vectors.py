@@ -50,7 +50,7 @@ EFFECTS = ("none", "resolved", "unknown")
 RES_FOR = {
     "succeeded": {"succeeded"},
     "failed": {"failed"},
-    "waiting": {"failed", "abandoned"},
+    "waiting": {"failed"},
     "abandoned": {"abandoned"},
 }
 CRASH_BLOCKED = {
@@ -63,6 +63,8 @@ CRASH_BLOCKED = {
     "evaluate_slots",
     "catch_up",
     "retire_output",
+    "admission",
+    "reconcile",
 }
 
 
@@ -147,7 +149,6 @@ GUARDS = [
     "slot.window_instant",
     "slot.window_clock",
     "slot.start_window",
-    "slot.coverage_rule",
     "slot.coverage_bounds",
     "outcome.class_success",
     "outcome.class_failure",
@@ -157,7 +158,6 @@ GUARDS = [
     "cancel.terminal",
     "success.effects_resolved",
     "transition.retryable_failure",
-    "transition.abandon_gate",
     "retry.next_eligible_future",
     "counters.safe_integer",
     "recover.generation_monotonic",
@@ -191,6 +191,22 @@ GUARDS = [
     "cancel.blocks_admission",
     "time.deadline_overflow",
     "catchup.start_lag",
+    "op.args_valid",
+    "generation.unclaimed",
+    "identity.durability_closed",
+    "identity.retry_reasons_known",
+    "outcome.lifecycle",
+    "failed.effects_known",
+    "recover.abandon_disposition",
+    "retry.lag_end",
+    "time.anchor_overflow",
+    "slot.schedule_pinned",
+    "slot.set_unique",
+    "coverage.marks_existing",
+    "profile.durability_closed",
+    "profile.schedule_required",
+    "profile.identity_history_closed",
+    "generation.required",
 ]
 
 
@@ -272,6 +288,374 @@ def fmt_instant(us: int) -> str:
 
 
 # ---------------------------------------------------------------- model
+
+_fmt_raw = fmt_instant
+
+
+def fmt_instant(us):
+    try:
+        if us < 0:
+            raise ValueError("negative")
+        return _fmt_raw(us)
+    except (OverflowError, ValueError, OSError):
+        raise Refuse("nonrepresentable")
+
+
+# ---------------------------------------------------------------- op argument validation
+LABEL_RE = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
+DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
+STATE_NAMES = (
+    "pending",
+    "waiting",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "abandoned",
+    "missed",
+)
+
+
+def _bad():
+    raise Refuse("malformed")
+
+
+def _v_label(v):
+    if not isinstance(v, str) or not LABEL_RE.fullmatch(v):
+        _bad()
+
+
+def _v_str(v):
+    if not isinstance(v, str) or len(v) > 256:
+        _bad()
+
+
+def _v_any_str(v):
+    if not isinstance(v, str):
+        _bad()
+
+
+def _v_bool(v):
+    if not isinstance(v, bool):
+        _bad()
+
+
+def _v_int(lo=0, hi=SAFE_MAX):
+    def check(v):
+        if isinstance(v, bool) or not isinstance(v, int):
+            _bad()
+        if (lo is not None and v < lo) or (hi is not None and v > hi):
+            _bad()
+
+    return check
+
+
+def _v_enum(*vals):
+    def check(v):
+        if not isinstance(v, str) or v not in vals:
+            _bad()
+
+    return check
+
+
+def _v_dict(v):
+    if not isinstance(v, dict):
+        _bad()
+
+
+def _closed(v, req, opt):
+    if not isinstance(v, dict):
+        _bad()
+    for k in v:
+        if k not in req and k not in opt:
+            _bad()
+    for k, f in req.items():
+        if k not in v:
+            _bad()
+        f(v[k])
+    for k, f in opt.items():
+        if k in v:
+            f(v[k])
+
+
+def _v_rule(v):
+    _closed(v, {"digest": _v_str, "contract": _v_str}, {})
+    if not DIGEST_RE.fullmatch(v["digest"]):
+        _bad()
+
+
+def _v_window(v):
+    _closed(v, {"not_before": _v_any_str, "not_after": _v_any_str}, {})
+
+
+def _v_when(v, extra_req, extra_opt):
+    """A slot or coverage entry: exactly one of instant or (local and tz)."""
+    has_i, has_l, has_t = "instant" in v, "local" in v, "tz" in v
+    if has_i == (has_l or has_t) or (has_l != has_t):
+        _bad()
+    opt = {"instant": _v_any_str, "local": _v_any_str, "tz": _v_str}
+    opt.update(extra_opt)
+    _closed(v, dict(extra_req), opt)
+
+
+def _v_slot(v):
+    if not isinstance(v, dict):
+        _bad()
+    _v_when(v, {"rule": _v_rule, "scope": _v_str, "window": _v_window}, {})
+
+
+def _v_slots(v):
+    if not isinstance(v, list) or not v:
+        _bad()
+    for e in v:
+        _v_slot(e)
+
+
+def _v_entry(v):
+    if not isinstance(v, dict):
+        _bad()
+    _v_when(v, {"window": _v_window}, {})
+
+
+def _v_coverage(v):
+    _closed(
+        v,
+        {"rule": _v_rule, "scope": _v_str, "from": _v_any_str, "to": _v_any_str},
+        {
+            "expected": lambda e: (
+                [_v_entry(x) for x in e] if isinstance(e, list) else _bad()
+            )
+        },
+    )
+
+
+def _v_coverage_or_none(v):
+    if v is not None:
+        _v_coverage(v)
+
+
+def _v_attempt(v):
+    _closed(
+        v,
+        {"n": _v_int(1)},
+        {
+            "phase": _v_enum("start", "finish"),
+            "dispatch": _v_enum("intended", "confirmed", "unproven"),
+            "result": _v_enum("succeeded", "failed", "cancelled", "abandoned"),
+            "outcome": _v_str,
+            "effects": _v_enum("none", "resolved", "unknown"),
+            "reason": _v_str,
+            "outputs_verified": _v_bool,
+            "checkpoint": _v_int(1),
+        },
+    )
+
+
+def _v_body(v):
+    _closed(
+        v,
+        {},
+        {
+            "verified": _v_bool,
+            "staged": _v_enum("before_record", "after_record"),
+            "held": _v_bool,
+        },
+    )
+
+
+def _v_labels(v):
+    if not isinstance(v, dict):
+        _bad()
+    for k, x in v.items():
+        _v_any_str(k)
+        _v_label(x)
+
+
+def _v_label_or_list(v):
+    if isinstance(v, list):
+        for x in v:
+            _v_label(x)
+    else:
+        _v_label(v)
+
+
+def _v_profile(v):
+    strs = {
+        k: _v_any_str
+        for k in (
+            "store_window",
+            "effective_window",
+            "retry_horizon",
+            "attempt_journal_ack",
+            "remote_sealed_coverage",
+            "replication",
+            "authority_scope",
+            "identity_history",
+            "journal_contract",
+            "journal_failure_model",
+        )
+    }
+    strs.update(
+        {
+            "modes": lambda m: (
+                [_v_any_str(x) for x in m] if isinstance(m, list) else _bad()
+            ),
+            "window": _v_dict,
+            "durability_extra": _v_dict,
+            "task_kind_window_range": _v_dict,
+            "schedule": lambda sc: _closed(
+                sc, {"rule_contract": _v_rule}, {"max_lag": _v_any_str}
+            ),
+        }
+    )
+    _closed(v, {}, strs)
+
+
+_GEN = _v_int(1)
+OPSPEC = {
+    "profile_admit": ({"profile": _v_profile}, {}, ()),
+    "submit": (
+        {"as": _v_label, "authority": _v_str, "key": _v_str, "definition": _v_label},
+        {"generation": _GEN},
+        (),
+    ),
+    "transition": (
+        {"task": _v_label, "to": _v_enum(*STATE_NAMES)},
+        {
+            "attempt": _v_attempt,
+            "prior": _v_enum("head", "stale", "absent"),
+            "generation": _GEN,
+            "reason": _v_str,
+            "next_eligible_at": _v_any_str,
+        },
+        (),
+    ),
+    "request_cancel": ({"task": _v_label}, {"generation": _GEN}, ()),
+    "confirm_cancel": (
+        {"task": _v_label},
+        {
+            "quiescent": _v_bool,
+            "effects": _v_enum("none", "resolved"),
+            "generation": _GEN,
+        },
+        (),
+    ),
+    "advance_clock": ({"by": _v_any_str}, {}, ()),
+    "inject_fault": ({"after": _v_int(0)}, {}, ()),
+    "crash": (
+        {
+            "at": _v_enum(
+                "after_start_before_dispatch",
+                "after_effect_before_finish",
+                "before_record_commit",
+            )
+        },
+        {},
+        (),
+    ),
+    "recover": (
+        {
+            "generation": _v_int(1, None),  # above the ceiling is counter_exhausted
+            "owner": _v_str,
+            "predecessor": _v_any_str,
+            "effects": _v_any_str,
+        },
+        {"disposition": _v_enum("abandon"), "next_eligible_at": _v_any_str},
+        (),
+    ),
+    "replay": ({}, {}, ()),
+    "checkpoint": (
+        {"task": _v_label, "cursor_revision": _v_int(1), "body": _v_body},
+        {"generation": _GEN},
+        (),
+    ),
+    "reconcile": (
+        {"receipt": _v_enum("missing", "committed", "not_committed")},
+        {},
+        (),
+    ),
+    "retire_output": ({"task": _v_label}, {"hold": _v_enum("active", "none")}, ()),
+    "admission": (
+        {
+            "source": _v_str,
+            "scope": _v_enum("stream_local", "shared"),
+            "limit_scope_declared": _v_bool,
+            "action": _v_enum("reserve", "settle", "restart"),
+        },
+        {"limit": _v_int(0)},
+        (),
+    ),
+    "parse_duration": (
+        {"text": _v_any_str},
+        {"target": _v_enum("us", "ms_interface")},
+        (),
+    ),
+    "parse_instant": ({"text": _v_any_str}, {}, ()),
+    "format_instant": (
+        {},
+        {"unix_us": _v_int(None, None), "unix_ns": _v_int(None, None)},
+        (("unix_us", "unix_ns"),),
+    ),
+    "supply_slot": (
+        {},
+        {
+            "slot": _v_slot,
+            "occurrence_set": _v_slots,
+            "coverage": _v_coverage,
+            "as": _v_label_or_list,
+            "definition": _v_label,
+            "generation": _GEN,
+        },
+        (("slot", "occurrence_set", "coverage"),),
+    ),
+    "evaluate_slots": (
+        {"definition": _v_label, "labels": _v_labels, "coverage": _v_coverage_or_none},
+        {"generation": _GEN},
+        (),
+    ),
+    "catch_up": (
+        {"missed_task": _v_label, "as": _v_label, "definition": _v_label},
+        {"generation": _GEN},
+        (),
+    ),
+}
+
+
+def validate_op(name, a):
+    spec = OPSPEC.get(name)
+    if spec is None:
+        return
+    req, opt, groups = spec
+    if not isinstance(a, dict):
+        _bad()
+    for k in a:
+        if k not in req and k not in opt and k not in ("op", "expect"):
+            _bad()
+    for k, f in req.items():
+        if k not in a:
+            _bad()
+        f(a[k])
+    for k, f in opt.items():
+        if k in a:
+            f(a[k])
+    for group in groups:
+        if sum(1 for k in group if k in a) != 1:
+            _bad()
+    if name == "supply_slot":
+        if "slot" in a and (
+            "as" not in a or "definition" not in a or isinstance(a["as"], list)
+        ):
+            _bad()
+        if "occurrence_set" in a:
+            if "as" not in a or "definition" not in a:
+                _bad()
+            labels = a["as"] if isinstance(a["as"], list) else [a["as"]]
+            if len(labels) != len(a["occurrence_set"]) or len(set(labels)) != len(
+                labels
+            ):
+                _bad()
+
+
 class Model:
     def __init__(self, vector: dict, golden: dict, disabled: set[str]):
         self.dis = disabled
@@ -305,8 +689,14 @@ class Model:
         self.crashed = False
         self.checkpoints: list[dict] = []
         self.holds: set[str] = set()
+        self.seen: set[str] | None = None
+        self.fault_after: int | None = None
 
     def on(self, g: str) -> bool:
+        if self.seen is not None:
+            self.seen.add(
+                g
+            )  # which guards a run consults: only those can change its verdict
         return g not in self.dis
 
     # -- definitions
@@ -325,6 +715,13 @@ class Model:
 
     def _validate_def(self, d: dict):
         dur = d.get("durability", {})
+        if not isinstance(dur, dict):
+            raise Refuse("definition_invalid")
+        if self.on("identity.durability_closed") and set(dur) - {
+            "remote_sealed_coverage",
+            "replication",
+        }:
+            raise Refuse("definition_invalid")
         if self.on("requirement.supported") and (
             dur.get("remote_sealed_coverage", "none") != "none"
             or dur.get("replication", "none") != "none"
@@ -346,18 +743,33 @@ class Model:
         if self.on("identity.phase_closed") and set(t.get("phases", {})) - KIND_PHASES:
             raise Refuse("definition_invalid")
         rc = d["retry"]
-        if rc["max_attempts"] < 1:
+        ma = rc["max_attempts"]
+        if isinstance(ma, bool) or not isinstance(ma, int) or not 1 <= ma <= 1000:
             raise Refuse("definition_invalid")
-        if rc.get("horizon") is not None and self.on("identity.deadline_positive"):
-            if parse_duration_us(rc["horizon"]) <= 0:
-                raise Refuse("definition_invalid")
-        bo = rc.get("backoff")
-        if (
-            bo is not None
-            and self.on("identity.backoff_valid")
-            and parse_duration_us(bo["initial"]) > parse_duration_us(bo["max"])
-        ):
-            raise Refuse("definition_invalid")
+        try:
+            for pv in t.get("phases", {}).values():
+                if parse_duration_us(pv) <= 0:
+                    raise Refuse("definition_invalid")
+            if rc.get("horizon") is not None and self.on("identity.deadline_positive"):
+                if parse_duration_us(rc["horizon"]) <= 0:
+                    raise Refuse("definition_invalid")
+            bo = rc.get("backoff")
+            if bo is not None:
+                bi, bm = parse_duration_us(bo["initial"]), parse_duration_us(bo["max"])
+                if self.on("identity.backoff_valid") and bi > bm:
+                    raise Refuse("definition_invalid")
+                jm, mm = bo["jitter_milli"], bo.get("multiplier_milli", 1000)
+                for x in (jm, mm):
+                    if isinstance(x, bool) or not isinstance(x, int):
+                        raise Refuse("definition_invalid")
+                if not (0 <= jm <= 1000 and 1000 <= mm <= 10000):
+                    raise Refuse("definition_invalid")
+        except Refuse as r:
+            raise (
+                Refuse("definition_invalid")
+                if r.reason in ("syntax", "overflow", "fractional_loss")
+                else r
+            )
         w = d.get("idempotency_window")
         if w is not None:
             try:
@@ -374,6 +786,14 @@ class Model:
             if len(set(codes)) != len(codes) or not any(
                 m["result"] == "success" for m in mapping
             ):
+                raise Refuse("definition_invalid")
+        if self.on("identity.retry_reasons_known"):
+            known = {
+                m.get("reason")
+                for m in mapping
+                if m["result"] == "failure" and m.get("reason")
+            } | FRAMEWORK_REASONS
+            if set(rc["retryable_reasons"]) - known:
                 raise Refuse("definition_invalid")
 
     ACK_ORDER = {"none": 0, "survives_process_loss": 1, "survives_power_loss": 2}
@@ -400,6 +820,7 @@ class Model:
                 "attempt_journal_ack": ack,
                 "remote_sealed_coverage": p.get("remote_sealed_coverage", "none"),
                 "replication": p.get("replication", "none"),
+                **p.get("durability_extra", {}),
             },
             "journal": {
                 "record_contract": {
@@ -420,6 +841,7 @@ class Model:
         dur = rt["durability"]
         if self.on("profile.sealed_reserved") and "sealed" in modes:
             raise Refuse("sealed_mode_reserved")
+        idem_h = rt.get("idempotency", {}).get("identity_history")
         core = [x for x in modes if x != "sealed"]
         if self.on("profile.mode_prefix") and (not modes or core != MODES[: len(core)]):
             raise Refuse("mode_not_cumulative")
@@ -430,6 +852,25 @@ class Model:
             raise Refuse("remote_coverage_claimed")
         if self.on("profile.replication") and dur.get("replication", "none") != "none":
             raise Refuse("replication_claimed")
+        if self.on("profile.identity_history_closed") and idem_h not in (
+            None,
+            "retained",
+            "reconstructable",
+            "discarded",
+        ):
+            raise Refuse("profile_invalid")
+        if self.on("profile.durability_closed") and set(dur) - {
+            "attempt_journal_ack",
+            "remote_sealed_coverage",
+            "replication",
+        }:
+            raise Refuse("profile_invalid")
+        if (
+            self.on("profile.schedule_required")
+            and "scheduled" in modes
+            and not rt.get("schedule")
+        ):
+            raise Refuse("schedule_not_configured")
         ack = dur.get("attempt_journal_ack", "none")
         if "journaled" in modes:
             j = rt.get("journal", {})
@@ -465,7 +906,7 @@ class Model:
                 raise Refuse("window_out_of_range")
             eff = (
                 parse_duration_us(idem["effective_window"])
-                if idem.get("effective_window")
+                if idem.get("effective_window") is not None
                 else df
             )
             if self.on("profile.effective_window") and not (
@@ -473,13 +914,13 @@ class Model:
             ):
                 raise Refuse("window_out_of_range")
             sw = idem.get("store_window")
-            if sw:
+            if sw is not None:
                 swu = parse_duration_us(sw)
                 if self.on("profile.store_effective") and swu < eff:
                     raise Refuse("store_window_too_short")
                 if (
                     self.on("profile.store_horizon")
-                    and idem.get("retry_horizon")
+                    and idem.get("retry_horizon") is not None
                     and swu < parse_duration_us(idem["retry_horizon"])
                 ):
                     raise Refuse("store_window_too_short")
@@ -488,12 +929,19 @@ class Model:
     def op_profile_admit(self, a):
         p = a["profile"]
         rng = p.get("task_kind_window_range")
+        saved = (self.kind_min_us, self.kind_max_us)
         if rng:
             self.kind_min_us, self.kind_max_us = (
                 parse_duration_us(rng["min"]),
                 parse_duration_us(rng["max"]),
             )
-        self.admit_profile_doc(self.flat_to_doc(p))
+        try:
+            self.admit_profile_doc(self.flat_to_doc(p))
+        except Refuse:
+            self.kind_min_us, self.kind_max_us = (
+                saved  # a refused admission changes nothing
+            )
+            raise
         sw = p.get("store_window")
         if sw:
             self.store_window_us = parse_duration_us(sw)
@@ -523,7 +971,30 @@ class Model:
         if self.on("mode.supported") and MODES.index(mode) > MODES.index(self.mode):
             raise Refuse("mode_unsupported")
 
-    def preflight(self, name: str):
+    GEN_OPS = {
+        "submit",
+        "transition",
+        "request_cancel",
+        "confirm_cancel",
+        "checkpoint",
+        "supply_slot",
+        "evaluate_slots",
+        "catch_up",
+    }
+
+    def preflight(self, name: str, a=None):
+        if a is not None and self.on("op.args_valid"):
+            validate_op(name, a)
+        if a is not None and name in self.GEN_OPS:
+            if "generation" not in a:
+                if self.on("generation.required"):
+                    raise Refuse("generation_required")  # absent never means current
+            else:
+                g = a["generation"]
+                if self.on("generation.stale") and g < self.generation:
+                    raise Refuse("generation_stale")
+                if self.on("generation.unclaimed") and g > self.generation:
+                    raise Refuse("generation_unclaimed")
         if name in self.OP_MODE:
             self._need(self.OP_MODE[name])
         if (
@@ -533,7 +1004,9 @@ class Model:
         ):
             raise Refuse("recovery_required")
 
-    def _register(self, label, authority, key, defname, derived=False, anchor_us=None):
+    def _register(
+        self, label, authority, key, defname, derived=False, anchor_us=None, dry=False
+    ):
         """The one path that creates a task: submit, slot, coverage-missed and catch-up."""
         d = self.defs[defname]
         self._validate_def(d)
@@ -560,8 +1033,7 @@ class Model:
                 raise Refuse("identity_unresolved")
             if rec["spec"] != spec and self.on("identity.conflict"):
                 raise Refuse("identity_conflict")
-            if rec["spec"] == spec:
-                return tid, False
+            return tid, False  # same spec, or the conflict guard removed: observe
         tl = d["timeouts"].get("task_deadline")
         if (
             tl is not None
@@ -571,6 +1043,10 @@ class Model:
             > SAFE_MAX
         ):
             raise Refuse("counter_exhausted")
+        if label in self.tasks:
+            raise Refuse("malformed")  # a label names one task; never overwritten
+        if dry:
+            return tid, True
         self.identity[(authority, key)] = {"spec": spec, "accepted_us": self.clock}
         self.ids[tid] = label
         self.tasks[label] = {
@@ -621,9 +1097,6 @@ class Model:
         d = t["def"]
         to = a["to"]
         at = a.get("attempt")
-        gen = a.get("generation", self.generation)
-        if self.on("generation.stale") and _int(gen, 0, None) < self.generation:
-            raise Refuse("generation_stale")
         prior = a.get("prior", "head")
         if self.on("transition.predecessor") and prior != "head":
             raise Refuse("predecessor_mismatch")
@@ -806,6 +1279,14 @@ class Model:
         eff = at.get("effects")
         if eff not in EFFECTS and self.on("effects.required"):
             raise Refuse("effects_required")
+        if (
+            res in ("cancelled", "abandoned")
+            and (code is not None or at.get("reason") is not None)
+            and self.on("outcome.lifecycle")
+        ):
+            raise Refuse("outcome_not_allowed")
+        if to == "failed" and eff == "unknown" and self.on("failed.effects_known"):
+            raise Refuse("unresolved_effects_not_failed")
         if to == "succeeded":
             if self.on("success.after_cancel") and t["cancel_req"]:
                 raise Refuse("cancellation_precedes_success")
@@ -825,12 +1306,11 @@ class Model:
         if to == "waiting":
             if eff == "unknown" and self.on("retry.unknown_effects"):
                 raise Refuse("unknown_effects_not_retryable")
-            if res == "abandoned":
-                if self.on("transition.abandon_gate") and not rc.get(
-                    "retry_after_abandonment", False
-                ):
-                    raise Refuse("retry_not_permitted")
-            elif self.on("retry.reason") and m_reason not in rc["retryable_reasons"]:
+            if (
+                self.on("retry.reason")
+                and res == "failed"
+                and m_reason not in rc["retryable_reasons"]
+            ):
                 raise Refuse("retry_not_permitted")
             if self.on("attempt.limit") and t["started"] >= rc["max_attempts"]:
                 raise Refuse("attempt_limit_exhausted")
@@ -851,6 +1331,8 @@ class Model:
 
     def _check_wait(self, t, d, n, neu):
         delay = neu - self.clock
+        if neu > SAFE_MAX and self.on("time.anchor_overflow"):
+            raise Refuse("counter_exhausted")
         if delay < 0 and self.on("retry.next_eligible_future"):
             raise Refuse("next_eligible_in_past")
         lo, hi, hi_f, feasible, binding = self._retry_band(t, d, n)
@@ -861,6 +1343,8 @@ class Model:
                 raise Refuse("horizon_exceeded")
             if binding == "slot" and self.on("retry.slot_end"):
                 raise Refuse("illegal_transition")
+            if binding == "lag" and self.on("retry.lag_end"):
+                raise Refuse("lag_exceeded")
             return
         if delay < 0:
             return
@@ -894,6 +1378,10 @@ class Model:
         hz = d["retry"].get("horizon")
         if hz is not None and t["first_start_us"] is not None:
             cands.append((t["first_start_us"] + parse_duration_us(hz), "horizon"))
+        if t.get("catchup_instant") is not None and self.max_lag_us is not None:
+            cands.append((t["catchup_instant"] + self.max_lag_us + 1, "lag"))
+        if self.on("time.anchor_overflow") and any(c[0] > SAFE_MAX for c in cands):
+            raise Refuse("counter_exhausted")
         if t.get("slot_hi") is not None:
             cands.append((t["slot_hi"], "slot"))
         if not cands:
@@ -915,11 +1403,9 @@ class Model:
             j = Fraction(bo["jitter_milli"], 1000)
         val = Fraction(initial)
         if initial != 0 and m != 1:
-            for _ in range(max(n - 1, 0)):
-                val *= m
-                if val >= ceiling:
-                    val = Fraction(ceiling)
-                    break
+            val = val * m ** max(n - 1, 0)
+            if val >= ceiling:
+                val = Fraction(ceiling)
         nominal = min(ceiling, math.ceil(val))
         lo = math.ceil(nominal * (1 - j))
         hi = min(ceiling, math.floor(nominal * (1 + j)))
@@ -962,8 +1448,15 @@ class Model:
         if self.on("cancel.confirmed") and live and not a.get("quiescent", False):
             raise Refuse("quiescence_not_established")
         att = None
+        if (
+            live
+            and a.get("effects") not in ("none", "resolved")
+            and self.on("effects.required")
+        ):
+            raise Refuse("effects_required")
         if t["attempts"] and t["attempts"][-1]["result"] == "running":
             t["attempts"][-1]["result"] = "cancelled"
+            t["attempts"][-1]["effects"] = a.get("effects")
             att = {
                 "n": t["attempts"][-1]["n"],
                 "phase": "finish",
@@ -977,8 +1470,22 @@ class Model:
             by = parse_duration_us(a["by"])
         except Refuse:
             raise Refuse("duration_invalid")
+        if self.clock + by > SAFE_MAX and self.on("time.anchor_overflow"):
+            raise Refuse("counter_exhausted")
         self.clock += by
         return {"now": fmt_instant(self.clock)}
+
+    def op_inject_fault(self, a):
+        """Test harness fault: the next batch commit fails after this many items."""
+        self.fault_after = a["after"]
+        return {}
+
+    def _batch_fault(self, committed: int):
+        if self.fault_after is not None and committed == self.fault_after:
+            self.fault_after = None
+            raise Refuse(
+                "commit_indeterminate"
+            )  # committed prefix stays; the rest is unattempted
 
     def op_crash(self, a):
         self.crashed = True
@@ -990,7 +1497,7 @@ class Model:
             raise Refuse("malformed")
         if self.on("counters.safe_integer") and gen > SAFE_MAX:
             raise Refuse("counter_exhausted")
-        owner = a.get("owner", f"owner-{gen}")
+        owner = a["owner"]
         _tok(owner)
         same_claim = gen == self.generation and owner == self.owner
         if (
@@ -1005,7 +1512,7 @@ class Model:
             "reconciled_by_kind_rule",
         ):
             raise Refuse("predecessor_not_quiescent")
-        eff = a.get("effects", "none")
+        eff = a["effects"]
         if eff not in EFFECTS and self.on("effects.required"):
             raise Refuse("effects_required")
         disposition = a.get("disposition")
@@ -1022,7 +1529,10 @@ class Model:
                 and self.on("recover.explicit_abandon")
             ):
                 raise Refuse("recovery_disposition_required")
-            if t["cancel_req"] and self.on("recover.cancel_wins"):
+            if disposition == "abandon" and self.on("recover.abandon_disposition"):
+                nxt = "abandoned"
+                ne = None
+            elif t["cancel_req"] and self.on("recover.cancel_wins"):
                 nxt = "abandoned" if unresolved else "cancelled"
                 ne = None
             else:
@@ -1223,15 +1733,19 @@ class Model:
         }
         return "slot:" + dig(key_obj)
 
-    def _one_slot(self, s_, label, defname):
-        instant, lo, hi = self._slot_entry(s_)
-        digest = s_["rule"]["digest"]
-        if (
-            self.on("slot.identity_rule")
-            and self.schedule_rule
-            and digest != self.schedule_rule
+    def _check_rule(self, rule):
+        if self.on("slot.schedule_pinned") and self.schedule_rule is None:
+            raise Refuse("schedule_not_configured")
+        if self.on("slot.identity_rule") and (
+            rule["contract"] != "contract: recurrence/v0"
+            or (self.schedule_rule and rule["digest"] != self.schedule_rule)
         ):
             raise Refuse("slot_identity_mismatch")
+
+    def _plan_slot(self, s_, label, defname):
+        instant, lo, hi = self._slot_entry(s_)
+        digest = s_["rule"]["digest"]
+        self._check_rule(s_["rule"])
         scope = s_["scope"]
         ident = (scope, instant)
         prev = self.slots.get(ident)
@@ -1245,15 +1759,52 @@ class Model:
         exists = (scope, key) in self.identity
         if not exists and self.on("slot.window_clock") and self.clock >= hi:
             raise Refuse("slot_outside_window")
-        tid, created = self._register(
-            label, scope, key, defname, derived=True, anchor_us=lo
-        )
-        self.slots[ident] = {"rule": digest, "window": s_["window"]}
-        if created:
-            self.tasks[label].update(
-                slot_lo=lo, slot_hi=hi, slot_instant=parse_instant_us(instant)
+        if exists:
+            tid = dig({"authority": scope, "invocation_key": key, "v": 0})
+            self._register(
+                self.ids[tid], scope, key, defname, derived=True, anchor_us=lo
             )
-        return key, lo <= self.clock < hi
+        else:
+            self._register(
+                label, scope, key, defname, derived=True, anchor_us=lo, dry=True
+            )
+        return {
+            "ident": ident,
+            "scope": scope,
+            "key": key,
+            "instant": instant,
+            "lo": lo,
+            "hi": hi,
+            "digest": digest,
+            "window": s_["window"],
+            "label": label,
+            "defname": defname,
+            "exists": exists,
+        }
+
+    def _commit_slot(self, plan):
+        created = False
+        if not plan["exists"]:
+            _tid, created = self._register(
+                plan["label"],
+                plan["scope"],
+                plan["key"],
+                plan["defname"],
+                derived=True,
+                anchor_us=plan["lo"],
+            )
+        if created:
+            self.slots[plan["ident"]] = {
+                "rule": plan["digest"],
+                "window": plan["window"],
+            }
+            self.tasks[plan["label"]].update(
+                slot_lo=plan["lo"],
+                slot_hi=plan["hi"],
+                slot_instant=parse_instant_us(plan["instant"]),
+                slot_key=plan["key"],
+            )
+        return plan["key"], plan["lo"] <= self.clock < plan["hi"]
 
     def op_supply_slot(self, a):
         if "coverage" in a:
@@ -1261,15 +1812,21 @@ class Model:
             return {}
         if "occurrence_set" in a:
             labels = a["as"] if isinstance(a["as"], list) else [a["as"]]
-            if len(labels) != len(a["occurrence_set"]):
+            plans = [
+                self._plan_slot(s_, label, a["definition"])
+                for s_, label in zip(a["occurrence_set"], labels)
+            ]
+            keys = [p["key"] for p in plans]
+            if len(set(keys)) != len(keys) and self.on("slot.set_unique"):
                 raise Refuse("malformed")
             ids, elig = [], []
-            for s_, label in zip(a["occurrence_set"], labels):
-                sid, e = self._one_slot(s_, label, a["definition"])
+            for p in plans:
+                self._batch_fault(len(ids))
+                sid, e = self._commit_slot(p)
                 ids.append(sid)
                 elig.append(e)
             return {"slot_ids": ids, "eligible": all(elig)}
-        sid, e = self._one_slot(a["slot"], a["as"], a["definition"])
+        sid, e = self._commit_slot(self._plan_slot(a["slot"], a["as"], a["definition"]))
         return {"slot_id": sid, "eligible": e}
 
     def op_evaluate_slots(self, a):
@@ -1279,30 +1836,27 @@ class Model:
             return {"missed": []}
         cov = a["coverage"]
         digest = cov["rule"]["digest"]
-        if (
-            self.on("slot.coverage_rule")
-            and self.schedule_rule
-            and digest != self.schedule_rule
-        ):
-            raise Refuse("slot_identity_mismatch")
+        self._check_rule(cov["rule"])
         expected = cov.get("expected")
         if self.on("slot.coverage_bounds") and expected is None:
             raise Refuse("coverage_invalid")
-        frm = parse_instant_us(cov["from"]) if cov.get("from") else 0
-        to = parse_instant_us(cov["to"]) if cov.get("to") else 0
+        frm = parse_instant_us(cov["from"])
+        to = parse_instant_us(cov["to"])
         if self.on("slot.coverage_bounds") and (not frm < to or to > self.clock):
             raise Refuse("coverage_invalid")
-        entries = []
+        scope = cov["scope"]
+        plan = []
+        seen = set()
         for e in expected or []:
             inst, lo, hi = self._slot_entry(e, whole_window_checks=False)
             if self.on("slot.coverage_bounds") and not (
                 frm <= parse_instant_us(inst) < to
             ):
                 raise Refuse("coverage_invalid")
-            entries.append((inst, e["window"], hi))
-        missed = []
-        for inst, win, hi in entries:
-            scope = cov["scope"]
+            if inst in seen and self.on("slot.set_unique"):
+                raise Refuse("malformed")
+            seen.add(inst)
+            win = e["window"]
             prev = self.slots.get((scope, inst))
             if (
                 prev
@@ -1311,14 +1865,44 @@ class Model:
             ):
                 raise Refuse("slot_identity_mismatch")
             key = self._slot_key(scope, inst, digest)
+            label = a["labels"].get(inst)
+            if label is None:
+                raise Refuse("malformed")
             if (scope, key) in self.identity:
-                self._register(
-                    a["labels"][inst], scope, key, a["definition"], derived=True
-                )
+                tid = dig({"authority": scope, "invocation_key": key, "v": 0})
+                self._register(self.ids[tid], scope, key, a["definition"], derived=True)
+                plan.append(("existing", self.ids[tid], inst, hi))
                 continue
             if self.clock < hi:
                 continue  # a past instant whose window is still open is not missed
-            label = a["labels"][inst]
+            self._register(
+                label,
+                scope,
+                key,
+                a["definition"],
+                derived=True,
+                anchor_us=parse_instant_us(win["not_before"]),
+                dry=True,
+            )
+            plan.append(("new", label, inst, win, key))
+        missed = []
+        for item in plan:
+            self._batch_fault(len(missed))
+            if item[0] == "existing":
+                _k, label, inst, hi = item
+                t = self.tasks[label]
+                if (
+                    self.on("coverage.marks_existing")
+                    and t["state"] in ("pending", "waiting")
+                    and t["started"] == 0
+                    and not t["cancel_req"]
+                    and t.get("slot_hi") is not None
+                    and self.clock >= t["slot_hi"]
+                ):
+                    self._commit(label, "missed", None)
+                    missed.append(inst)
+                continue
+            _k, label, inst, win, key = item
             self._register(
                 label,
                 scope,
@@ -1328,7 +1912,7 @@ class Model:
                 anchor_us=parse_instant_us(win["not_before"]),
             )
             self.slots[(scope, inst)] = {"rule": digest, "window": win}
-            self.tasks[label].update(slot_instant=parse_instant_us(inst))
+            self.tasks[label].update(slot_instant=parse_instant_us(inst), slot_key=key)
             self._commit(label, "missed", None)
             missed.append(inst)
         return {"missed": missed}
@@ -1339,14 +1923,15 @@ class Model:
             raise Refuse("missed_not_terminal")
         if self.on("catchup.permitted") and self.max_lag_us is None:
             raise Refuse("catch_up_not_permitted")
+        key = "catchup:" + dig({"catch_up_of": m["id"], "domain": "catch_up", "v": 0})
         lag = self.clock - m.get("slot_instant", self.clock)
         if (
-            self.on("catchup.lag")
+            (m["authority"], key) not in self.identity
+            and self.on("catchup.lag")
             and self.max_lag_us is not None
             and not (0 <= lag <= self.max_lag_us)
         ):
             raise Refuse("lag_exceeded")
-        key = "catchup:" + dig({"catch_up_of": m["id"], "domain": "catch_up", "v": 0})
         tid, created = self._register(
             a["as"], m["authority"], key, a["definition"], derived=True
         )
@@ -1365,26 +1950,61 @@ def match(expect_ok: dict, got: dict) -> bool:
     return all(k in got and got[k] == v for k, v in expect_ok.items())
 
 
-def run_vector(vector: dict, golden: dict, disabled: set[str]) -> list[str]:
+class Driver:
+    """The trusted adapter: it attaches the authority handle it acquired to each
+    committing operation. The handle changes only when this adapter's own recovery
+    succeeds; it is never looked up from the model at commit time, so a handle that
+    another owner has superseded is refused as stale. Harness meta keys (not part of
+    the contract): `authority_handle: null` on a vector or `no_handle` on an op
+    presents no generation; `other_owner` on a recover means a different process
+    took the claim, so this adapter keeps its old handle."""
+
+    META = ("no_handle", "other_owner")
+
+    def __init__(self, vector, golden, disabled, seen=None):
+        self.m = Model(vector, golden, disabled)
+        self.m.seen = seen
+        h = vector.get("authority_handle", {"generation": 1})
+        self.handle = None if h is None else h["generation"]
+
+    def step(self, op):
+        a = {k: v for k, v in op.items() if k not in self.META}
+        if (
+            a["op"] in Model.GEN_OPS
+            and self.handle is not None
+            and not op.get("no_handle")
+            and "generation" not in a
+        ):
+            a["generation"] = self.handle
+        self.m.preflight(a["op"], a)
+        result = getattr(self.m, "op_" + a["op"])(a)
+        if a["op"] == "recover" and not op.get("other_owner"):
+            self.handle = a["generation"]
+        return result
+
+
+def run_vector(
+    vector: dict, golden: dict, disabled: set[str], seen: set[str] | None = None
+) -> list[str]:
     errs: list[str] = []
-    m = Model(vector, golden, disabled)
+    drv = Driver(vector, golden, disabled, seen)
+    m = drv.m
     for i, op in enumerate(vector["ops"]):
         name = op["op"]
-        fn = getattr(m, f"op_{name}", None)
         exp = op["expect"]
-        if fn is not None:
-            _orig = fn
-
-            def fn(a, _orig=_orig, _name=name):
-                m.preflight(_name)
-                return _orig(a)
-
-        if fn is None:
+        if not hasattr(m, f"op_{name}"):
             errs.append(f"op {i}: unknown op {name}")
             continue
         try:
-            got = fn(op)
-        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            got = drv.step(op)
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            IndexError,
+            OverflowError,
+            AttributeError,
+        ) as exc:
             errs.append(
                 f"op {i} {name}: model could not execute ({type(exc).__name__}: {exc})"
             )

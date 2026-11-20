@@ -135,8 +135,12 @@ persisted in the recovery transition, so a replayed or repeated recovery reads
 it and cannot move the anchor or draw again. The same feasible-band
 intersection and every deadline, horizon, slot, lag and admission bound apply,
 and an immediate retry is legal only when the pinned backoff permits a zero
-delay. If no retry is feasible, the task is `abandoned`. Otherwise the task is
-`abandoned`. A `pending` task
+delay. If no retry is feasible, the task is `abandoned`. A direct finish that
+carries an abandoned result may target only terminal `abandoned` (retaining any
+unresolved-effect evidence, and asserting neither quiescence nor permission for a
+replacement effect); the move from abandonment to `waiting` exists only through
+recovery. A terminal `failed` finish requires effects `none` or `resolved`.
+A `pending` task
 fails only on a terminal pre-execution refusal or an elapsed task deadline,
 and a waiting task fails only when retries or the deadline are exhausted.
 Normal slot expiry before any attempt is `missed`, never a generic failure. A
@@ -250,6 +254,22 @@ rule cannot be satisfied on one path and bypassed on another.
   registration, and does not inherit the missed slot's expired window.
 - **Crash.** After a runner crash and before recovery, every runner operation
   except replay and the recovery itself is refused.
+- **Authority handle.** Every operation that can create history or dispatch
+  effects (submit, supplied slot or occurrence set, coverage, catch-up, transition,
+  cancellation request and confirmation, checkpoint) presents the generation bound
+  to the authority context its adapter acquired. It must equal the active claim:
+  lower is `generation_stale`, higher is `generation_unclaimed`, and a missing one
+  is `generation_required`. A trusted adapter attaches its already acquired handle
+  and never looks up the current generation at commit time. Equality is evidence
+  only, not authentication or proof of predecessor quiescence. Only recovery
+  advances the claim, and exact keyed replay or read-only inspection that returns
+  an existing result creates no commit.
+- **Batches.** An occurrence set or coverage evaluation validates the whole batch
+  (including conflicts between its own items) before its first write, then commits
+  per item in a deterministic order with stable identities. It stops at the first
+  failed or indeterminate commit and reports the committed prefix, the unresolved
+  item and the unattempted suffix; it makes no all-or-none claim and rolls nothing
+  back, and a retry reconciles per item.
 - **Boundary.** Wire tokens, integers and civil times are validated as written,
   and an unrecognized predecessor-proof or effects value fails closed. A supplied
   slot repeated after its window closed observes the existing task and keeps the
@@ -393,7 +413,12 @@ implementation validates occurrence membership, including DST, against the
 pinned recurrence semantics within declared bounds, or reports unavailable, and
 never accepts a rule pin alone as proof. `missed` is terminal, and a catch-up is
 a separate task linked to it, allowed only within the kind's pinned maximum lag.
-The lag is computed from the clock and the stored missed instant and is never
+The lag end is the missed occurrence plus the pinned maximum lag and is
+inclusive: a start is eligible at that instant and not after it, and in retry
+feasibility the lag contributes `end - t` to the upper delay (the other bounds
+contribute their exclusive end minus `t` minus one microsecond). A repeat
+catch-up after the lag expires observes the existing derived task without new
+work. The lag is computed from the clock and the stored missed instant and is never
 supplied by the caller, and neither a caller nor a new policy pin silently
 resets the missed task's identity or history. `requires` checks pins and never
 schedules an edge.

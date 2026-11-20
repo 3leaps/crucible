@@ -1,0 +1,47 @@
+{
+  "v": 0,
+  "id": "profile-identity-history-unknown-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.store-window"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "forgotten"
+      },
+      "expect": {
+        "refused": "profile_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "windows and the store window are valid and nothing else is claimed; only the identity history is outside retained, reconstructable and discarded, so retention is never guessed"
+    }
+  ]
+}

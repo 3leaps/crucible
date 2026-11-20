@@ -60,7 +60,8 @@
           },
           "executed_effects": 0
         }
-      }
+      },
+      "owner": "owner-2"
     },
     {
       "op": "advance_clock",
@@ -99,7 +100,8 @@
       "next_eligible_at": "2026-01-02T00:02:00.000000Z",
       "expect": {
         "refused": "backoff_out_of_band"
-      }
+      },
+      "owner": "owner-3"
     }
   ],
   "expected": {

@@ -55,7 +55,8 @@
       "next_eligible_at": "2026-01-02T00:00:44.000000Z",
       "expect": {
         "refused": "backoff_out_of_band"
-      }
+      },
+      "owner": "owner-2"
     }
   ],
   "expected": {
