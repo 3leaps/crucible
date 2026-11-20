@@ -27,6 +27,7 @@ Asserts:
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import pathlib
@@ -35,6 +36,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASE = ROOT / "schemas/durable-runner/v0"
@@ -492,7 +494,6 @@ with tempfile.TemporaryDirectory(prefix="drv-prof2-") as tmp:
 
 
 print("    durable-runner: source-level mutants (arithmetic, anchors, boundaries)...")
-import types
 
 SRC = TOOL.read_text(encoding="utf-8")
 SOURCE_MUTANTS = [
@@ -574,15 +575,12 @@ for name, old, new in SOURCE_MUTANTS:
         exec(compile(SRC.replace(old, new, 1), str(TOOL), "exec"), mod.__dict__)
         golden_m = mod.load_golden()
         killed = any(mod.run_vector(vec, golden_m, set()) for _vid, vec in _mut_vectors)
-    except (
-        Exception
-    ) as exc:  # a mutant that crashes the whole checker is still a kill, but say so
+    except Exception:  # a mutant that crashes the whole checker is still a kill
         killed = True
     if not killed:
         fail(f"source mutant {name}: SURVIVES, every vector still passes")
 
 print("    durable-runner: type-fuzz of every operation's arguments...")
-import copy as _copy
 
 FUZZ_JUNK = {
     bool: ["false", "true", 1, 0, None, []],
@@ -610,7 +608,7 @@ def _sites(op):
 
 
 def _set(op, site, val):
-    o = _copy.deepcopy(op)
+    o = copy.deepcopy(op)
     cur = o
     for k in site[:-1]:
         cur = cur[k]
