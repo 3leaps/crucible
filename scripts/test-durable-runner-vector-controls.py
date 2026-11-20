@@ -18,6 +18,8 @@ Asserts:
     every declared guard is used
   - every definition a vector submits successfully, or refuses for a reason
     other than definition_invalid, is valid against the task-definition schema
+  - every slot, occurrence set and coverage a vector supplies is valid against
+    the supplied-slot schema
   - schema-shaped runner profiles are admitted or refused by the same
     semantic rules: examples admit; schema-valid but semantically wrong
     profiles are refused for their labeled reason
@@ -204,6 +206,30 @@ with tempfile.TemporaryDirectory(prefix="drv-defs-") as tmp:
         if not valid_schema("task-definition.schema.json", f):
             fail(
                 f"{vid}: a definition submitted by this vector is not valid against task-definition.schema.json"
+            )
+
+print("    durable-runner: supplied slots and coverage are schema-valid...")
+supplied: dict[str, tuple[dict, str]] = {}
+for vid, d in sorted(vectors.items()):
+    for op in d["ops"]:
+        docs = []
+        if "slot" in op:
+            docs.append({"v": 0, "kind": "slot", "slot": op["slot"]})
+        if "occurrence_set" in op:
+            docs.append(
+                {"v": 0, "kind": "occurrence_set", "slots": op["occurrence_set"]}
+            )
+        if op.get("coverage"):
+            docs.append({"v": 0, "kind": "coverage", "coverage": op["coverage"]})
+        for doc in docs:
+            supplied.setdefault(model.dig(doc), (doc, vid))
+with tempfile.TemporaryDirectory(prefix="drv-slots-") as tmp:
+    for i, (_dg, (doc, vid)) in enumerate(sorted(supplied.items())):
+        f = pathlib.Path(tmp) / f"supplied-{i}.json"
+        f.write_text(json.dumps(doc), encoding="utf-8")
+        if not valid_schema("supplied-slot.schema.json", f):
+            fail(
+                f"{vid}: a supplied {doc['kind']} is not valid against supplied-slot.schema.json"
             )
 
 print("    durable-runner: profile documents are admitted by the same rules...")

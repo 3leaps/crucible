@@ -103,6 +103,11 @@
       },
       {
         "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
         "to": "cancelled",
         "attempt": {
           "n": 1,

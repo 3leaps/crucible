@@ -18,7 +18,8 @@
     "cancel-quiescence-not-established-refused",
     "cancel-confirm-without-request-refused",
     "cancel-direct-transition-unconfirmed-refused",
-    "cancel-confirm-on-terminal-task-refused"
+    "cancel-confirm-on-terminal-task-refused",
+    "cancel-confirm-pending-immediate-accepted"
   ],
   "cancel.race": [
     "cancel-request-recorded-keeps-running",
@@ -26,7 +27,9 @@
     "cancel-first-then-late-success-refused",
     "cancel-on-cancelled-task-refused",
     "cancel-requested-then-success-refused",
-    "cancel-requested-then-start-refused"
+    "cancel-requested-then-start-refused",
+    "slot-missed-after-cancel-request-refused",
+    "cancel-request-repeat-is-idempotent"
   ],
   "checkpoint.ordering": [
     "crash-uncommitted-cursor-not-checkpointable",
@@ -65,13 +68,16 @@
     "recover-does-not-reset-deadline-refused",
     "recover-within-deadline-accepted",
     "retry-start-at-task-deadline-refused",
-    "retry-start-before-task-deadline-accepted"
+    "retry-start-before-task-deadline-accepted",
+    "slot-expired-never-started-failed-refused-missed-wins",
+    "slot-deadline-while-slot-open-failed-accepted"
   ],
   "generation.stale": [
     "generation-stale-refused",
     "generation-current-accepted",
     "recover-generation-not-increasing-refused",
-    "recover-generation-counter-exhausted-refused"
+    "recover-generation-counter-exhausted-refused",
+    "recover-same-owner-repeat-accepted"
   ],
   "hold.retirement": [
     "retire-output-hold-active-refused",
@@ -90,7 +96,9 @@
     "identity-expired-key-reconstructable-observed"
   ],
   "identity.invalid-definition": [
-    "identity-definition-invalid-refused"
+    "identity-definition-invalid-refused",
+    "identity-backoff-initial-above-max-refused",
+    "identity-backoff-initial-equals-max-accepted"
   ],
   "identity.reuse-conflict": [
     "identity-digest-conflict-refused",
@@ -218,7 +226,12 @@
     "retry-start-at-horizon-expiry-refused",
     "retry-start-before-horizon-expiry-accepted",
     "retry-start-at-task-deadline-refused",
-    "retry-start-before-task-deadline-accepted"
+    "retry-start-before-task-deadline-accepted",
+    "backoff-draw-at-feasibility-cap-accepted",
+    "backoff-draw-beyond-feasibility-cap-refused",
+    "retryable-failure-no-feasible-attempt-failed-accepted",
+    "slot-retry-wait-beyond-window-end-refused",
+    "slot-retry-wait-inside-window-accepted"
   ],
   "retry.limits": [
     "attempt-limit-single-attempt-refused",
@@ -231,14 +244,28 @@
     "resume-attempts-exhausted-refused",
     "retryable-failure-with-attempts-exhausted-failed-accepted",
     "transition-running-to-waiting-abandoned-not-permitted-refused",
-    "transition-running-to-waiting-abandoned-permitted-accepted"
+    "transition-running-to-waiting-abandoned-permitted-accepted",
+    "retryable-failure-no-feasible-attempt-failed-accepted",
+    "slot-waiting-after-attempt-slot-ended-failed-accepted"
   ],
   "retry.persisted-jitter": [
     "retry-wait-then-second-attempt-succeeds",
     "retry-jitter-not-persisted-refused",
     "retry-start-before-next-eligible-refused",
     "replay-preserves-persisted-next-eligible",
-    "retry-next-eligible-in-past-refused"
+    "retry-next-eligible-in-past-refused",
+    "backoff-delay-at-lower-bound-accepted",
+    "backoff-delay-below-lower-bound-refused",
+    "backoff-delay-at-upper-bound-accepted",
+    "backoff-delay-above-upper-bound-refused",
+    "backoff-band-shifts-with-attempt-number-refused",
+    "backoff-band-shifts-with-attempt-number-accepted",
+    "backoff-ceiling-delay-at-max-accepted",
+    "backoff-ceiling-delay-over-max-refused",
+    "backoff-fixed-mode-delay-constant-accepted",
+    "backoff-fixed-mode-delay-grows-refused",
+    "backoff-draw-at-feasibility-cap-accepted",
+    "backoff-draw-beyond-feasibility-cap-refused"
   ],
   "retry.reason": [
     "retry-reason-not-permitted-refused",
@@ -276,7 +303,16 @@
     "transition-waiting-to-missed-no-attempt",
     "transition-waiting-to-missed-after-attempt-refused",
     "terminal-resurrection-missed-refused",
-    "slot-start-after-window-refused"
+    "slot-start-after-window-refused",
+    "slot-start-at-window-end-refused",
+    "slot-missed-at-window-end-accepted",
+    "slot-missed-one-microsecond-before-window-end-refused",
+    "slot-missed-after-cancel-request-refused",
+    "slot-expired-never-started-failed-refused-missed-wins",
+    "slot-waiting-after-attempt-slot-ended-failed-accepted",
+    "slot-retry-wait-beyond-window-end-refused",
+    "slot-retry-wait-inside-window-accepted",
+    "slot-start-one-microsecond-before-window-end-accepted"
   ],
   "schedule.supplied-coverage": [
     "profile-scheduled-admitted",
@@ -295,7 +331,14 @@
     "slot-instant-outside-own-window-refused",
     "coverage-rule-mismatch-refused",
     "coverage-span-in-future-refused",
-    "coverage-expected-outside-span-refused"
+    "coverage-expected-outside-span-refused",
+    "slot-start-at-window-end-refused",
+    "slot-start-one-microsecond-before-window-end-accepted",
+    "slot-window-empty-refused",
+    "slot-instant-at-window-end-refused",
+    "coverage-past-instant-open-window-not-missed",
+    "coverage-expected-at-span-end-refused",
+    "coverage-entry-window-empty-refused"
   ],
   "time.duration-bounds": [
     "duration-day-microseconds",

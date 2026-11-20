@@ -325,6 +325,34 @@
     },
     {
       "if": {
+        "required": [
+          "cancellation"
+        ],
+        "properties": {
+          "cancellation": {
+            "const": "requested"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_state": {
+            "enum": [
+              "pending",
+              "waiting",
+              "running"
+            ]
+          },
+          "prior": {
+            "not": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
         "properties": {
           "to_state": {
             "const": "missed"

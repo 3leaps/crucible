@@ -82,6 +82,11 @@
           "n": 1,
           "phase": "start"
         }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
       }
     ]
   },

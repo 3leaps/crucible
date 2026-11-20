@@ -147,18 +147,52 @@ next-eligible instant is persisted so replay never draws jitter again.
 Core timeouts are attempt, task deadline and termination grace. Named phases
 are closed by the kind profile. In this release an omitted whole-attempt timeout
 requires a finite task deadline; a kind profile may later name other controlling
-bounds. A failure whose mapped reason is retryable is not final while attempts
-remain and the horizon and deadline are open, so it moves to `waiting`; `failed`
-is legal only for a non-retryable mapped failure or when retry is exhausted.
-A retry's persisted next-eligible instant is not before the clock. Elapsed
-timers use monotonic time, and recovery rechecks persisted deadlines without
-resetting elapsed budgets.
+bounds. Retry disposition is policy, not caller preference. With no prior
+cancellation, a safely finished failure for which retry is enabled, permitted
+and still feasible leads to `waiting` (possibly with an admission or hold
+reason); terminal `failed` is for a non-retryable outcome, disabled or exhausted
+retry, or no feasible next attempt before the deadline, horizon or slot end. A
+caller that selects `failed` while retry is admitted is refused `retry_required`,
+the opposite direction being `retry_not_permitted`. Unresolved effects follow
+abandonment and reconciliation, never ordinary retry.
 
-**Cancellation** is a durable request before an intentional stop, and it
-becomes terminal `cancelled` only after quiescence is established. If final
-success commits first, cancellation is too late. If cancellation commits first,
-later success evidence cannot produce `succeeded`. A journal failure does not
-forbid emergency process termination, and the runner reports the unresolved
+Backoff is bounded by the contract and measured in integer microseconds. Let
+`I` be the initial delay, `C` the maximum (`0 <= I <= C`), `m >= 1` the
+multiplier and `0 <= j <= 1` the jitter fraction, with `m` and `j` read as exact
+decimal rationals and never as binary floats. For a retry after attempt
+`n >= 1` the nominal delay is `B = min(C, ceil(I * m^(n-1)))`, computed from the
+original `I` (fixed backoff omits `m` or sets 1, so `B = I`). The admissible
+selected delay `d` satisfies `L <= d <= U` with `L = ceil(B * (1 - j))` and
+`U = min(C, floor(B * (1 + j)))`; a pinned kind may narrow the band. The same
+transition records the decision instant `t` (the validated evaluation clock) and
+`next_eligible_at = t + d`, never anchored to a caller-supplied finish time. The
+draw is persisted and replay never redraws it. Before drawing, the band is
+intersected with `[0, E - t - 1]` microseconds, where `E` is the earliest
+applicable exclusive bound (task deadline, retry horizon or slot end): if the
+intersection is empty, retry is infeasible and terminal failure is permitted,
+and a draw above it is refused so a caller cannot overshoot a bound to evade a
+required retry. A delay that lands at or after an exclusive bound cannot
+authorize a start. The runtime supplies the draw, and the model verifies the
+band and the exact arithmetic; no distribution is claimed. Elapsed timers use
+monotonic time, and recovery rechecks persisted deadlines without resetting
+elapsed budgets.
+
+**Cancellation** is a committed, state-preserving request fact: an explicit
+transition record that keeps the current nonterminal state and attempt identity
+(it is not a general self-transition). Once it commits, every new attempt start
+and every running-to-waiting retry is refused (`cancellation_precedes_start`),
+`missed` is refused, and a normal succeeded or failed finish is audit evidence
+only, because cancellation won (`cancellation_precedes_success`,
+`cancellation_precedes_failure`). Quiescence then becomes terminal `cancelled`;
+if effects or cleanup cannot be resolved the task is explicitly `abandoned`.
+Confirmation for a pending or waiting task with no live work may be immediate
+but remains explicit evidence. A request against a succeeded task is a no-op
+`too_late`, and against any other terminal task is refused `task_terminal`; a
+confirmation never resurrects a terminal task, and an exact repeat of a recorded
+request returns the original result. If final success commits first,
+cancellation is too late. A lost or indeterminate cancellation-write reply
+requires reconciliation before either order is assumed. A journal failure does
+not forbid emergency process termination, and the runner reports the unresolved
 evidence instead of falsely claiming durable cancellation.
 
 ## Journal, authority and recovery
@@ -196,7 +230,11 @@ The initial authority is **one host per execution stream**, held through a
 process-shared exclusive lock spanning recovery, child containment, execution,
 effects, orphan cleanup and publication. An append lock alone does not
 establish that lifetime. The authority generation is evidence only and does not
-claim to fence a running child or remote request. Before a successor
+claim to fence a running child or remote request. It is strictly increasing for
+each new execution-authority owner or run; a repeated reconciliation of an
+already recorded claim by the same owner may retain it, and a different owner
+cannot be granted a generation already held. The claim is persisted and
+exhaustion of the safe-integer range refuses. Before a successor
 dispatches, it establishes predecessor quiescence or applies an explicit
 verified task-kind reconciliation rule; otherwise it blocks or abandons rather
 than execute concurrently. Automatic multi-host takeover and advisory-only
@@ -226,8 +264,11 @@ failure-model value.
 | `remote_sealed_coverage` | `none`. A detached record seal or a bucket copy does not upgrade it. |
 | `replication` | `none`. It means no contract claim, not that infrastructure has no replicas. |
 
-The acknowledgement property is bound to the actual v1 stratum failure model,
-and `commit_strategy` alone grants nothing. Bodies required for success or for
+The acknowledgement property is bound to the actual v1 stratum failure model:
+`attempt_journal_ack` must not exceed the journal stratum's `failure_model`
+(none < survives_process_loss < survives_power_loss, within this property only),
+or the profile is refused `journal_ack_exceeds_failure_model`. Receipt and
+configuration evidence must agree, and `commit_strategy` alone grants nothing. Bodies required for success or for
 checkpoint reuse must meet the task's declared durability as well as digest
 verification, and a record receipt cannot certify weaker external-body
 storage. A valid task that requires remote sealed coverage or replication is refused as
@@ -266,17 +307,36 @@ re-execution.
 `recurrence/v0` owns rule normalization, expansion and tzdb identity. The
 caller supplies one slot or a bounded occurrence set with exact rule, scope,
 instant and window pins, and the executor validates identity and eligibility
-without discovering unspecified slots. A task created from a slot may start only
-inside its window (not before `not_before`, not after `not_after`), and after
-the window the only exit is `missed`. A reconciliation invocation may supply
-past expected slots so missed work can be recorded: its rule pin must be the
-profile's, its expected instants must lie inside the supplied span and the span
-must lie wholly in the past. No claim of detecting all misses exists without
-that supplied coverage. A DST-skipped candidate is a non-slot. `missed` is
-terminal, and a catch-up is a separate task linked to it, allowed only within
-the kind's configured maximum lag. The lag is computed from the clock and the
-stored missed instant and is never supplied by the caller. `requires` checks
-pins and never schedules an edge.
+without discovering unspecified slots. A supplied slot carries, or
+deterministically derives from pinned policy, a window with `not_before <
+not_after`, and missing or ambiguous window information is refused rather than
+guessed. A task created from a slot may start only when `not_before <= now <
+not_after` in addition to its next-eligible, deadline and horizon checks; a
+slot that has not opened waits. At or after `not_after` a never-started task
+may become `missed`, but a task with a prior attempt does not: if no further
+start is feasible it finishes `failed`, or follows cancellation or abandonment.
+A running attempt is not made `missed` when the slot closes, because attempt and
+task deadlines govern it; a kind that requires completion within a slot binds
+its task deadline accordingly. For a never-started slot already expired, `missed`
+takes precedence over a coincident generic deadline failure, while a deadline
+reached with the slot still open produces a pre-execution failure. A
+reconciliation invocation may supply past expected occurrences so missed work
+can be recorded. Coverage describes which occurrences were supplied over the
+half-open span `[from, to)` and does not replace slot windows. It requires `to <=
+now`, its rule pin must be the profile's, and each expected occurrence must lie
+inside the span and carry its window. An occurrence is marked `missed` only when
+`now >= not_after`, no attempt has started and no cancellation or terminal result
+already wins; a past instant whose window is still open stays eligible. No claim
+of detecting all misses exists without that supplied coverage. A DST-skipped
+candidate is a non-slot. The harness checks a fixture-limited zone table; a real
+implementation validates occurrence membership, including DST, against the
+pinned recurrence semantics within declared bounds, or reports unavailable, and
+never accepts a rule pin alone as proof. `missed` is terminal, and a catch-up is
+a separate task linked to it, allowed only within the kind's pinned maximum lag.
+The lag is computed from the clock and the stored missed instant and is never
+supplied by the caller, and neither a caller nor a new policy pin silently
+resets the missed task's identity or history. `requires` checks pins and never
+schedules an edge.
 
 ## Reserved: sealed
 

@@ -53,7 +53,8 @@
       "effects": "none",
       "expect": {
         "refused": "generation_stale"
-      }
+      },
+      "owner": "owner-b"
     }
   ],
   "expected": {
@@ -86,7 +87,7 @@
   },
   "notes": [
     {
-      "competing": "predecessor quiescence is proved; only the generation (1) does not exceed the current one (1)"
+      "competing": "predecessor quiescence is proved; a different owner presents generation 1, which another owner already holds"
     }
   ]
 }

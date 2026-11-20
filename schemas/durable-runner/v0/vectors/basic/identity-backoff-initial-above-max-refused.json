@@ -1,0 +1,39 @@
+{
+  "v": 0,
+  "id": "identity-backoff-initial-above-max-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "retry.backoff": {
+        "initial": "PT10S",
+        "max": "PT5S",
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "max_attempts is 1 and every other field is valid; only the initial delay (10s) exceeds the maximum (5s)"
+    }
+  ]
+}

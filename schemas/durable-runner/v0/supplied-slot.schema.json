@@ -26,7 +26,6 @@
       "required": [
         "rule",
         "scope",
-        "instant",
         "window"
       ],
       "properties": {
@@ -39,6 +38,15 @@
         },
         "instant": {
           "$ref": "#/$defs/instant"
+        },
+        "local": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$",
+          "description": "A civil-time candidate, used with tz instead of instant. A candidate that does not exist in its zone (a DST gap) is a non-slot."
+        },
+        "tz": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
         },
         "window": {
           "type": "object",
@@ -56,12 +64,40 @@
             }
           },
           "description": "Semantic rule: not_before <= instant <= not_after."
-        },
-        "dst_skipped": {
-          "const": false,
-          "description": "A DST-skipped candidate is a non-slot and is not representable as a slot."
         }
-      }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "instant"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "local"
+                ]
+              },
+              {
+                "required": [
+                  "tz"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "local",
+            "tz"
+          ],
+          "not": {
+            "required": [
+              "instant"
+            ]
+          }
+        }
+      ]
     },
     "slots": {
       "type": "array",
@@ -73,7 +109,6 @@
         "required": [
           "rule",
           "scope",
-          "instant",
           "window"
         ],
         "properties": {
@@ -86,6 +121,15 @@
           },
           "instant": {
             "$ref": "#/$defs/instant"
+          },
+          "local": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$",
+            "description": "A civil-time candidate, used with tz instead of instant. A candidate that does not exist in its zone (a DST gap) is a non-slot."
+          },
+          "tz": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
           },
           "window": {
             "type": "object",
@@ -103,12 +147,40 @@
               }
             },
             "description": "Semantic rule: not_before <= instant <= not_after."
-          },
-          "dst_skipped": {
-            "const": false,
-            "description": "A DST-skipped candidate is a non-slot and is not representable as a slot."
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "instant"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "local"
+                  ]
+                },
+                {
+                  "required": [
+                    "tz"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "local",
+              "tz"
+            ],
+            "not": {
+              "required": [
+                "instant"
+              ]
+            }
+          }
+        ]
       }
     },
     "coverage": {
@@ -138,11 +210,77 @@
           "type": "array",
           "maxItems": 1024,
           "items": {
-            "$ref": "#/$defs/instant"
-          }
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "window"
+            ],
+            "properties": {
+              "instant": {
+                "$ref": "#/$defs/instant"
+              },
+              "local": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$"
+              },
+              "tz": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
+              },
+              "window": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "not_before",
+                  "not_after"
+                ],
+                "properties": {
+                  "not_before": {
+                    "$ref": "#/$defs/instant"
+                  },
+                  "not_after": {
+                    "$ref": "#/$defs/instant"
+                  }
+                }
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "instant"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "local"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "tz"
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "local",
+                  "tz"
+                ],
+                "not": {
+                  "required": [
+                    "instant"
+                  ]
+                }
+              }
+            ]
+          },
+          "description": "Expected occurrences, each with its own window. A past instant whose window is still open is not missed."
         }
       },
-      "description": "Reconciliation: expected slots over [from, to] supplied by the caller."
+      "description": "Reconciliation over the half-open span [from, to): expected occurrences supplied by the caller. Coverage describes what was supplied; it does not replace slot windows."
     },
     "catch_up": {
       "type": "object",

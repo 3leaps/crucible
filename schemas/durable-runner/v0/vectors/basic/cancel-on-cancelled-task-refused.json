@@ -65,6 +65,11 @@
       },
       {
         "task": "t1",
+        "to": "pending",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
         "to": "cancelled"
       }
     ]

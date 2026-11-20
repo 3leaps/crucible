@@ -18,6 +18,8 @@ Standard library only; identity digests reuse scripts/rfc8785-canonicalize.py.
 from __future__ import annotations
 
 import argparse
+from fractions import Fraction
+import math
 import copy
 import hashlib
 import importlib.util
@@ -118,6 +120,15 @@ GUARDS = [
     "retry.next_eligible_future",
     "counters.safe_integer",
     "recover.generation_monotonic",
+    "cancel.committed_fact",
+    "cancel.blocks_failure",
+    "cancel.blocks_missed",
+    "retry.backoff_band",
+    "retry.slot_end",
+    "slot.window_valid",
+    "slot.coverage_window",
+    "slot.missed_precedence",
+    "identity.backoff_valid",
 ]
 
 
@@ -213,6 +224,7 @@ class Model:
         self.identity: dict[tuple, dict] = {}
         self.history: list[dict] = []
         self.generation = 1
+        self.owner = "owner-1"
         self.store_window_us = parse_duration_us("P35D")
         self.kind_min_us, self.kind_max_us = (
             parse_duration_us("P7D"),
@@ -265,6 +277,13 @@ class Model:
                 except Refuse:
                     raise Refuse("definition_invalid")
         if d["retry"]["max_attempts"] < 1:
+            raise Refuse("definition_invalid")
+        bo = d["retry"].get("backoff")
+        if (
+            bo is not None
+            and self.on("identity.backoff_valid")
+            and parse_duration_us(bo["initial"]) > parse_duration_us(bo["max"])
+        ):
             raise Refuse("definition_invalid")
         w = d.get("idempotency_window")
         if w is not None:
@@ -502,8 +521,10 @@ class Model:
             raise Refuse("illegal_transition")
         if to == "missed" and self.on("transition.table"):
             hi = t.get("slot_hi")
-            if t["started"] > 0 or hi is None or self.clock <= hi:
+            if t["started"] > 0 or hi is None or self.clock < hi:
                 raise Refuse("illegal_transition")
+        if to == "missed" and t["cancel_req"] and self.on("cancel.blocks_missed"):
+            raise Refuse("illegal_transition")
         if to == "cancelled" and self.on("cancel.confirmed"):
             raise Refuse("cancellation_not_confirmed")
         if cur == "running" and at is None and self.on("transition.attempt_required"):
@@ -516,20 +537,35 @@ class Model:
             raise Refuse("cancellation_precedes_start")
         if (
             to == "failed"
+            and cur == "running"
+            and t["cancel_req"]
+            and self.on("cancel.blocks_failure")
+        ):
+            raise Refuse("cancellation_precedes_failure")
+        if (
+            to == "failed"
             and cur in ("pending", "waiting")
             and self.on("transition.failed_gate")
         ):
             r = a.get("reason")
             mx = d["retry"]["max_attempts"]
+            hi_s = t.get("slot_hi")
+            slot_over = hi_s is not None and self.clock >= hi_s
             ok = (
                 (r == "pre_execution_refusal" and cur == "pending")
                 or (r == "deadline_expired" and self._past_deadline(t, d))
                 or (
                     r == "retry_exhausted"
                     and cur == "waiting"
-                    and (t["started"] >= mx or self._past_horizon(t, d, self.clock))
+                    and (
+                        t["started"] >= mx
+                        or self._past_horizon(t, d, self.clock)
+                        or (t["started"] > 0 and slot_over)
+                    )
                 )
             )
+            if self.on("slot.missed_precedence") and slot_over and t["started"] == 0:
+                ok = False
             if not ok:
                 raise Refuse("illegal_transition")
         retry_cfg = d["retry"]
@@ -539,7 +575,7 @@ class Model:
                 raise Refuse("attempt_required")
             lo_s, hi_s = t.get("slot_lo"), t.get("slot_hi")
             if lo_s is not None and self.on("slot.start_window"):
-                if self.clock < lo_s or self.clock > hi_s:
+                if self.clock < lo_s or self.clock >= hi_s:
                     raise Refuse("illegal_transition")
             n = at["n"]
             if self.on("attempt.contiguous") and n != t["started"] + 1:
@@ -625,8 +661,7 @@ class Model:
                 if (
                     m_reason in retry_cfg["retryable_reasons"]
                     and t["started"] < retry_cfg["max_attempts"]
-                    and not self._past_deadline(t, d)
-                    and not self._past_horizon(t, d, self.clock)
+                    and self._retry_band(t, d, at["n"])[2]
                 ):
                     raise Refuse("retry_required")
             if to == "waiting":
@@ -655,10 +690,17 @@ class Model:
                     neu = parse_instant_us(ne)
                     if self.on("retry.next_eligible_future") and neu < self.clock:
                         raise Refuse("next_eligible_in_past")
-                    if self.on("retry.deadline") and self._past_deadline(t, d, neu):
-                        raise Refuse("deadline_exceeded")
-                    if self.on("retry.horizon") and self._past_horizon(t, d, neu):
-                        raise Refuse("horizon_exceeded")
+                    lo_b, hi_b, feasible, binding = self._retry_band(t, d, at["n"])
+                    if not feasible:
+                        if self.on("retry.deadline") and binding == "deadline":
+                            raise Refuse("deadline_exceeded")
+                        if self.on("retry.horizon") and binding == "horizon":
+                            raise Refuse("horizon_exceeded")
+                        if self.on("retry.slot_end") and binding == "slot":
+                            raise Refuse("illegal_transition")
+                    delay = neu - self.clock
+                    if self.on("retry.backoff_band") and not (lo_b <= delay <= hi_b):
+                        raise Refuse("backoff_out_of_band")
                     t["next_eligible"] = neu
             att["result"] = at.get(
                 "result",
@@ -694,13 +736,71 @@ class Model:
             return False
         return at_us - t["first_start_us"] >= parse_duration_us(hz)
 
+    def _bound_end(self, t, d):
+        """Earliest exclusive execution bound as (end_us, name), or (None, None)."""
+        cands = []
+        tl = d["timeouts"].get("task_deadline")
+        if tl is not None:
+            cands.append((t["accepted_us"] + parse_duration_us(tl), "deadline"))
+        hz = d["retry"].get("horizon")
+        if hz is not None and t["first_start_us"] is not None:
+            cands.append((t["first_start_us"] + parse_duration_us(hz), "horizon"))
+        if t.get("slot_hi") is not None:
+            cands.append((t["slot_hi"], "slot"))
+        if not cands:
+            return None, None
+        return min(cands, key=lambda c: c[0])
+
+    def _retry_band(self, t, d, n):
+        """Exact integer-microsecond backoff band for a retry after attempt n,
+        intersected with the feasibility cap. Returns (lo, hi, feasible, binding)."""
+        bo = d["retry"].get("backoff")
+        if bo is None:
+            initial = ceiling = 0
+            m = Fraction(1)
+            j = Fraction(0)
+        else:
+            initial = parse_duration_us(bo["initial"])
+            ceiling = parse_duration_us(bo["max"])
+            m = Fraction(bo.get("multiplier_milli", 1000), 1000)
+            j = Fraction(bo["jitter_milli"], 1000)
+        val = Fraction(initial)
+        for _ in range(max(n - 1, 0)):
+            val *= m
+            if val >= ceiling:
+                val = Fraction(ceiling)
+                break
+        nominal = min(ceiling, math.ceil(val))
+        lo = math.ceil(nominal * (1 - j))
+        hi = min(ceiling, math.floor(nominal * (1 + j)))
+        end, name = self._bound_end(t, d)
+        if end is not None:
+            cap = end - self.clock - 1
+            hi_f = min(hi, cap)
+        else:
+            hi_f = hi
+        feasible = lo <= hi_f and hi_f >= 0
+        return (
+            lo,
+            hi_f,
+            feasible,
+            (name if (end is not None and not feasible) else None),
+        )
+
     def op_request_cancel(self, a):
         t = self.tasks[a["task"]]
         if t["state"] in TERMINAL:
             if t["state"] == "succeeded":
                 return {"effect": "too_late"}
             raise Refuse("task_terminal")
+        if t["cancel_req"]:
+            return {"effect": "recorded"}
         t["cancel_req"] = True
+        if self.on("cancel.committed_fact"):
+            self.history.append(
+                {"task": a["task"], "to": t["state"], "cancellation": "requested"}
+            )
+            t["rev"] += 1
         return {"effect": "recorded"}
 
     def op_confirm_cancel(self, a):
@@ -709,7 +809,8 @@ class Model:
             raise Refuse("task_terminal")
         if self.on("cancel.confirmed") and not t["cancel_req"]:
             raise Refuse("cancel_not_requested")
-        if self.on("cancel.confirmed") and not a.get("quiescent", False):
+        live = bool(t["attempts"]) and t["attempts"][-1]["result"] == "running"
+        if self.on("cancel.confirmed") and live and not a.get("quiescent", False):
             raise Refuse("quiescence_not_established")
         att = None
         if t["attempts"] and t["attempts"][-1]["result"] == "running":
@@ -738,14 +839,18 @@ class Model:
         pred = a["predecessor"]
         if self.on("counters.safe_integer") and a["generation"] > SAFE_MAX:
             raise Refuse("counter_exhausted")
+        owner = a.get("owner", f"owner-{a['generation']}")
+        same_claim = a["generation"] == self.generation and owner == self.owner
         if (
             self.on("recover.generation_monotonic")
             and a["generation"] <= self.generation
+            and not same_claim
         ):
             raise Refuse("generation_stale")
         if self.on("recover.quiescence") and pred == "unproven":
             raise Refuse("predecessor_not_quiescent")
         self.generation = a["generation"]
+        self.owner = owner
         self.crashed = False
         out = {}
         for label, t in self.tasks.items():
@@ -755,9 +860,8 @@ class Model:
                 att["result"] = "abandoned"
                 att["effects"] = eff
                 rc = t["def"]["retry"]
-                expired = self._past_deadline(t, t["def"]) or self._past_horizon(
-                    t, t["def"], self.clock
-                )
+                end_b, _nm = self._bound_end(t, t["def"])
+                expired = end_b is not None and self.clock >= end_b
                 can_wait = (
                     eff != "unknown"
                     and t["started"] < rc["max_attempts"]
@@ -934,6 +1038,8 @@ class Model:
             parse_instant_us(s["window"]["not_after"]),
             parse_instant_us(instant),
         )
+        if self.on("slot.window_valid") and not lo < hi:
+            raise Refuse("slot_window_invalid")
         ident = (s["scope"], instant)
         prev = self.slots.get(ident)
         if (
@@ -942,9 +1048,9 @@ class Model:
             and (prev["rule"] != digest or prev["window"] != s["window"])
         ):
             raise Refuse("slot_identity_mismatch")
-        if self.on("slot.window_instant") and not (lo <= at <= hi):
+        if self.on("slot.window_instant") and not (lo <= at < hi):
             raise Refuse("slot_outside_window")
-        if self.on("slot.window_clock") and self.clock > hi:
+        if self.on("slot.window_clock") and self.clock >= hi:
             raise Refuse("slot_outside_window")
         key_obj = {
             "domain": "slot",
@@ -985,13 +1091,32 @@ class Model:
             and digest != self.schedule_rule
         ):
             raise Refuse("slot_identity_mismatch")
-        if self.on("slot.coverage_bounds") and cov.get("expected"):
-            frm, to = parse_instant_us(cov["from"]), parse_instant_us(cov["to"])
-            inside = all(frm <= parse_instant_us(i) <= to for i in cov["expected"])
-            if not inside or to > self.clock:
+        frm = parse_instant_us(cov["from"]) if cov.get("from") else 0
+        to = parse_instant_us(cov["to"]) if cov.get("to") else 0
+        if self.on("slot.coverage_bounds") and cov.get("expected") and to > self.clock:
+            raise Refuse("coverage_invalid")
+        entries = []
+        for e in cov["expected"]:
+            if "local" in e:
+                inst = self._local_to_utc(
+                    e["local"], e["tz"], check_gap=self.on("slot.dst")
+                )
+            else:
+                inst = e["instant"]
+            win = e.get("window")
+            if self.on("slot.coverage_window") and (
+                not win
+                or not parse_instant_us(win["not_before"])
+                < parse_instant_us(win["not_after"])
+            ):
                 raise Refuse("coverage_invalid")
+            if self.on("slot.coverage_bounds") and not (
+                frm <= parse_instant_us(inst) < to
+            ):
+                raise Refuse("coverage_invalid")
+            entries.append((inst, win))
         missed = []
-        for inst in cov["expected"]:
+        for inst, win in entries:
             key_obj = {
                 "domain": "slot",
                 "instant": inst,
@@ -999,10 +1124,10 @@ class Model:
                 "scope": cov["scope"],
                 "v": 0,
             }
-            if (cov["scope"], dig(key_obj)) in self.identity or parse_instant_us(
-                inst
-            ) > self.clock:
+            if (cov["scope"], dig(key_obj)) in self.identity:
                 continue
+            if win and self.clock < parse_instant_us(win["not_after"]):
+                continue  # a past instant whose window is still open is not missed
             label = a["labels"][inst]
             self._create(label, cov["scope"], key_obj, self.defs[a["definition"]])
             self.tasks[label]["slot_instant"] = parse_instant_us(inst)

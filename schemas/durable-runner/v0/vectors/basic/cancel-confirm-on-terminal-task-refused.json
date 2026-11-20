@@ -57,13 +57,28 @@
         "n": 1,
         "phase": "finish",
         "dispatch": "confirmed",
-        "effects": "none",
         "result": "failed",
-        "outcome": "integrity_mismatch"
+        "outcome": "integrity_mismatch",
+        "effects": "none"
+      },
+      "expect": {
+        "refused": "cancellation_precedes_failure"
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "abandoned",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "dispatch": "confirmed",
+        "result": "abandoned",
+        "effects": "unknown"
       },
       "expect": {
         "ok": {
-          "state": "failed"
+          "state": "abandoned"
         }
       }
     },
@@ -79,12 +94,12 @@
   "expected": {
     "tasks": {
       "t1": {
-        "state": "failed",
+        "state": "abandoned",
         "attempts": [
           {
             "n": 1,
-            "result": "failed",
-            "effects": "none",
+            "result": "abandoned",
+            "effects": "unknown",
             "dispatch": "confirmed"
           }
         ]
@@ -105,18 +120,23 @@
       },
       {
         "task": "t1",
-        "to": "failed",
+        "to": "running",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
         "attempt": {
           "n": 1,
           "phase": "finish",
-          "result": "failed"
+          "result": "abandoned"
         }
       }
     ]
   },
   "notes": [
     {
-      "competing": "a cancel request was recorded and quiescence is asserted; only the terminal state applies, and no cancellation operation resurrects a task"
+      "competing": "a cancellation request committed first, so an ordinary failed finish is refused and only abandonment can end the unresolved attempt; the final confirm_cancel has quiescence asserted and a recorded request, so only the terminal state applies"
     }
   ]
 }

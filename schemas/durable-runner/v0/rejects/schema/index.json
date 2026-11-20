@@ -8,6 +8,9 @@
   "checkpoint-unverified": {
     "schema": "checkpoint.schema.json"
   },
+  "coverage-expected-without-window": {
+    "schema": "supplied-slot.schema.json"
+  },
   "definition-abandonment-permission-not-boolean": {
     "schema": "task-definition.schema.json"
   },
@@ -95,13 +98,16 @@
   "slot-coverage-no-range": {
     "schema": "supplied-slot.schema.json"
   },
-  "slot-dst-skipped": {
-    "schema": "supplied-slot.schema.json"
-  },
   "slot-empty-set": {
     "schema": "supplied-slot.schema.json"
   },
+  "slot-instant-with-local": {
+    "schema": "supplied-slot.schema.json"
+  },
   "slot-kind-mismatch": {
+    "schema": "supplied-slot.schema.json"
+  },
+  "slot-neither-instant-nor-civil-time": {
     "schema": "supplied-slot.schema.json"
   },
   "slot-window-missing-bound": {
@@ -120,6 +126,9 @@
     "schema": "transition.schema.json"
   },
   "transition-blocked-state": {
+    "schema": "transition.schema.json"
+  },
+  "transition-cancellation-requested-on-terminal": {
     "schema": "transition.schema.json"
   },
   "transition-cancelled-request-only": {

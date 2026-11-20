@@ -243,7 +243,6 @@
               "required": [
                 "initial",
                 "max",
-                "multiplier_milli",
                 "jitter_milli"
               ],
               "properties": {
@@ -257,13 +256,13 @@
                   "type": "integer",
                   "minimum": 1000,
                   "maximum": 10000,
-                  "description": "Multiplier in thousandths, so identity input never carries a float."
+                  "description": "Multiplier m in thousandths (exact rational m = value/1000); omitted or 1000 is fixed backoff. Identity input never carries a float."
                 },
                 "jitter_milli": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1000,
-                  "description": "Jitter fraction in thousandths. The drawn next-eligible instant is persisted; replay never draws again."
+                  "description": "Jitter fraction j in thousandths (exact rational). The delay is drawn from the band the standard defines, recorded with its decision instant and persisted; replay never draws again."
                 }
               }
             },
