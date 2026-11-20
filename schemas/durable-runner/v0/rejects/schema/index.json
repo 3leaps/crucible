@@ -8,6 +8,9 @@
   "checkpoint-unverified": {
     "schema": "checkpoint.schema.json"
   },
+  "definition-abandonment-permission-not-boolean": {
+    "schema": "task-definition.schema.json"
+  },
   "definition-calendar-duration": {
     "schema": "task-definition.schema.json"
   },

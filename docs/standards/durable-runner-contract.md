@@ -109,18 +109,32 @@ Task states are `pending`, `waiting`, `running`, `succeeded`, `failed`,
 An operator retry of a terminal task creates a new task that refers to the old
 one. Each attempt is running after start intent, then exactly one of
 succeeded, failed, cancelled or abandoned. An abandoned attempt may leave the
-task `waiting` only if recovery proves no outstanding conflicting effects and
-the task-kind policy permits retry; otherwise the task is `abandoned`. A
+task `waiting` only if every one of these holds: effects are safely reconciled
+(conflicting outstanding effects are excluded and completed effects are
+accounted for by the checkpoint or reconciliation rule, not merely known),
+attempts remain, the retry horizon and task deadline have not expired, and the
+pinned task-kind profile grants `retry_after_abandonment` (default false).
+No failure code is required for an abandonment, and the absence of one never
+bypasses retry policy. Otherwise the task is `abandoned`. A `pending` task
+fails only on a terminal pre-execution refusal or an elapsed task deadline,
+and a waiting task fails only when retries or the deadline are exhausted.
+Normal slot expiry before any attempt is `missed`, never a generic failure. A
 timeout is a failed-attempt reason. An **unknown external effect is not a
 routine retryable error**. Admission refusal consumes no attempt, and once a
 launch intent commits that attempt counts even if dispatch is later found not
 to have occurred.
 
 Outcome codes and their success or failure mapping are closed by the pinned
-task-kind schema, and an unknown code fails closed. A measured provider failure
+task-kind schema. An unknown code fails closed, and a known code that
+contradicts the claimed success or failure class is refused; neither mutates
+state, and mapping success cannot bypass required output evidence. A measured provider failure
 may map to task success, while an integrity failure does not. `max_attempts`
 includes the first attempt. A retry additionally requires a permitted reason,
-remaining attempts, the retry horizon and the task deadline. The selected
+remaining attempts, the retry horizon and the task deadline. The horizon is
+anchored at the first committed attempt-start intent, even if dispatch never
+occurred, and persists across restarts. Admission or acceptance waiting does
+not consume it, though the independent task deadline still applies. Both
+bounds are exclusive: no new attempt starts at or after either expiry. The selected
 next-eligible instant is persisted so replay never draws jitter again.
 Core timeouts are attempt, task deadline and termination grace. Named phases
 are closed by the kind profile, and an omitted whole-attempt timeout requires a
@@ -153,6 +167,17 @@ and an unreferenced body is not a checkpoint. A crash exposes the previous
 complete record or an indeterminate or damaged state, never a fabricated
 committed cursor. Existing v1 receipts, recovery, holds, retirement and
 reconciliation apply unchanged.
+
+**Resume** is not a separate operation. Authorized resumption passes the
+existing gates: validate retained history and the exact task and
+specification, reconcile outstanding commits, effects and predecessor
+authority, verify the checkpoint, its body and any restrictions, preserve rate
+debt and retry limits, and then explicitly start a next attempt. Replay alone
+grants no such authorization. A retried execution after a lost process gets a
+new attempt identity, and it may consume an eligible predecessor checkpoint
+(verified, on the chain, written by an earlier attempt, body not held) without
+rewriting the earlier attempt. A refused start, recovery or checkpoint commits
+nothing, preserves `running` and its facts, and dispatches no effect.
 
 The initial authority is **one host per execution stream**, held through a
 process-shared exclusive lock spanning recovery, child containment, execution,
@@ -192,13 +217,18 @@ The acknowledgement property is bound to the actual v1 stratum failure model,
 and `commit_strategy` alone grants nothing. Bodies required for success or for
 checkpoint reuse must meet the task's declared durability as well as digest
 verification, and a record receipt cannot certify weaker external-body
-storage. Tasks requiring remote sealed coverage or replication are refused.
+storage. A valid task that requires remote sealed coverage or replication is refused as
+an unsupported requirement.
 
 ## Time
 
 Operational instants use the v1 canonical UTC spelling with exactly six
 fractional digits. A value that is not representable is refused, never
-rounded, and padding for serialization claims no finer observation. Source
+rounded. Wire strings are validated as written: an absent or short fraction
+and a non-UTC offset are refused, and a harness never normalizes incoming
+strings or digested bytes. A typed instant that is exactly representable may be
+formatted to the canonical spelling before a contract document is built, and
+that formatting claims no finer observation. Source
 precision is independent provenance, and its interval comparison yields
 before, after or overlapping. Exact deadlines are operational instants.
 
@@ -210,8 +240,11 @@ meaning.
 
 Idempotency windows belong to the task-kind profile, not to durability. The
 acquisition kind's minimum, default and maximum are `P7D`, `P14D` and `P35D`. A
-runner profile admits a store window that covers the configured window and the
-retry horizon, and supplied policy outside the applicable range is refused.
+runner profile selects an effective window within the kind's range (the range
+default when omitted) and admits a store window that covers that effective
+window and the retry horizon. The kind's maximum is a ceiling on configuration,
+not the required store setting, and a window is never silently reduced to fit
+the store. Supplied policy outside the applicable range is refused.
 Expiry falls back to retained replay or reconciliation, never to blind
 re-execution.
 

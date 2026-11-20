@@ -83,7 +83,6 @@ GUARDS = [
     "admission.shared",
     "admission.unsettled",
     "time.duration",
-    "time.instant",
     "slot.identity",
     "slot.window",
     "slot.dst",
@@ -91,8 +90,17 @@ GUARDS = [
     "catchup.lag",
     "catchup.permitted",
     "catchup.terminal",
-    "resume.authorized",
     "mode.supported",
+    "outcome.class_match",
+    "requirement.supported",
+    "wire.instant_strict",
+    "time.typed_format",
+    "transition.failed_gate",
+    "start.horizon",
+    "recover.abandon_gate",
+    "checkpoint.eligible",
+    "checkpoint.held_body",
+    "profile.effective_window",
 ]
 
 
@@ -150,7 +158,10 @@ def parse_instant_us(text: str, on: bool = True) -> int:
     frac = frac or ""
     if len(frac) > 6:
         raise Refuse("nonrepresentable")
-    frac = (frac + "000000")[:6]
+    if len(frac) < 6:
+        if on:
+            raise Refuse("format")
+        frac = (frac + "000000")[:6]
     if int(s) > 59 or int(h) > 23 or int(mi) > 59:
         raise Refuse("nonrepresentable")
     try:
@@ -219,6 +230,12 @@ class Model:
         return d
 
     def _validate_def(self, d: dict):
+        dur = d.get("durability", {})
+        if self.on("requirement.supported") and (
+            dur.get("remote_sealed_coverage", "none") != "none"
+            or dur.get("replication", "none") != "none"
+        ):
+            raise Refuse("unsupported_requirement")
         if not self.on("identity.definition_valid"):
             return
         t = d.get("timeouts", {})
@@ -240,12 +257,6 @@ class Model:
                 raise Refuse("definition_invalid")
             if not (self.kind_min_us <= wu <= self.kind_max_us):
                 raise Refuse("definition_invalid")
-        dur = d.get("durability", {})
-        if (
-            dur.get("remote_sealed_coverage", "none") != "none"
-            or dur.get("replication", "none") != "none"
-        ):
-            raise Refuse("definition_invalid")
         if not d.get("outcome_mapping"):
             raise Refuse("definition_invalid")
 
@@ -286,12 +297,28 @@ class Model:
         if win:
             lo, df, hi = (parse_duration_us(win[k]) for k in ("min", "default", "max"))
             rng = p.get("task_kind_window_range")
+            klo, khi = (
+                (parse_duration_us(rng["min"]), parse_duration_us(rng["max"]))
+                if rng
+                else (0, SAFE_MAX)
+            )
             if self.on("profile.window_range") and rng:
-                klo, khi = parse_duration_us(rng["min"]), parse_duration_us(rng["max"])
                 if lo < klo or hi > khi or not (lo <= df <= hi):
                     raise Refuse("window_out_of_range")
             sw = p.get("store_window")
-            if self.on("profile.store_window") and sw and parse_duration_us(sw) < hi:
+            eff = (
+                parse_duration_us(p["effective_window"])
+                if p.get("effective_window")
+                else df
+            )
+            if self.on("profile.effective_window") and rng:
+                if not (klo <= eff <= khi):
+                    raise Refuse("window_out_of_range")
+            need = max(
+                eff,
+                parse_duration_us(p["retry_horizon"]) if p.get("retry_horizon") else 0,
+            )
+            if self.on("profile.store_window") and sw and parse_duration_us(sw) < need:
                 raise Refuse("store_window_too_short")
         sw = p.get("store_window")
         if sw:
@@ -315,7 +342,6 @@ class Model:
     OP_MODE = {
         "recover": "journaled",
         "replay": "journaled",
-        "resume": "journaled",
         "checkpoint": "journaled",
         "reconcile": "journaled",
         "crash": "journaled",
@@ -411,6 +437,24 @@ class Model:
                 raise Refuse("illegal_transition")
         if to == "cancelled" and self.on("cancel.confirmed"):
             raise Refuse("cancellation_not_confirmed")
+        if (
+            to == "failed"
+            and cur in ("pending", "waiting")
+            and self.on("transition.failed_gate")
+        ):
+            r = a.get("reason")
+            mx = d["retry"]["max_attempts"]
+            ok = (
+                (r == "pre_execution_refusal" and cur == "pending")
+                or (r == "deadline_expired" and self._past_deadline(t, d))
+                or (
+                    r == "retry_exhausted"
+                    and cur == "waiting"
+                    and (t["started"] >= mx or self._past_horizon(t, d, self.clock))
+                )
+            )
+            if not ok:
+                raise Refuse("illegal_transition")
         retry_cfg = d["retry"]
         mapping = {m["code"]: m for m in d["outcome_mapping"]}
         if to == "running":
@@ -421,6 +465,21 @@ class Model:
                 raise Refuse("attempt_limit_exhausted")
             if self.on("retry.deadline") and self._past_deadline(t, d):
                 raise Refuse("deadline_exceeded")
+            if self.on("start.horizon") and self._past_horizon(t, d, self.clock):
+                raise Refuse("horizon_exceeded")
+            cp = at.get("checkpoint")
+            if cp is not None:
+                rec = (
+                    self.checkpoints[cp - 1]
+                    if 1 <= cp <= len(self.checkpoints)
+                    else None
+                )
+                if self.on("checkpoint.eligible") and (
+                    rec is None or rec["task"] != a["task"] or rec["attempt"] >= n
+                ):
+                    raise Refuse("checkpoint_not_eligible")
+                if self.on("checkpoint.held_body") and rec is not None and rec["held"]:
+                    raise Refuse("checkpoint_body_held")
             if (
                 t["next_eligible"] is not None
                 and self.clock < t["next_eligible"]
@@ -450,6 +509,16 @@ class Model:
                 and self.on("outcome.known_code")
             ):
                 raise Refuse("unknown_outcome_code")
+            if code in mapping and self.on("outcome.class_match"):
+                claimed_ok = at.get("result") == "succeeded" or (
+                    at.get("result") is None and to == "succeeded"
+                )
+                claimed_bad = at.get("result") == "failed" or (
+                    at.get("result") is None and to in ("failed", "waiting")
+                )
+                is_ok = mapping[code]["result"] == "success"
+                if (claimed_ok and not is_ok) or (claimed_bad and is_ok):
+                    raise Refuse("outcome_mapping_mismatch")
             if to == "succeeded":
                 if self.on("success.after_cancel") and t["cancel_req"]:
                     raise Refuse("cancellation_precedes_success")
@@ -478,16 +547,7 @@ class Model:
                     neu = parse_instant_us(ne)
                     if self.on("retry.deadline") and self._past_deadline(t, d, neu):
                         raise Refuse("deadline_exceeded")
-                    hz = (
-                        parse_duration_us(retry_cfg["horizon"])
-                        if "horizon" in retry_cfg
-                        else None
-                    )
-                    if (
-                        self.on("retry.horizon")
-                        and hz is not None
-                        and neu - t["first_start_us"] > hz
-                    ):
+                    if self.on("retry.horizon") and self._past_horizon(t, d, neu):
                         raise Refuse("horizon_exceeded")
                     t["next_eligible"] = neu
             att["result"] = at.get(
@@ -516,7 +576,13 @@ class Model:
         if tl is None:
             return False
         when = self.clock if at_us is None else at_us
-        return when - t["accepted_us"] > parse_duration_us(tl)
+        return when - t["accepted_us"] >= parse_duration_us(tl)
+
+    def _past_horizon(self, t, d, at_us):
+        hz = d["retry"].get("horizon")
+        if hz is None or t["first_start_us"] is None:
+            return False
+        return at_us - t["first_start_us"] >= parse_duration_us(hz)
 
     def op_request_cancel(self, a):
         t = self.tasks[a["task"]]
@@ -569,25 +635,26 @@ class Model:
                 att = t["attempts"][-1]
                 att["result"] = "abandoned"
                 att["effects"] = eff
-                if eff == "unknown":
-                    self._commit(
-                        label,
-                        "abandoned",
-                        {"n": att["n"], "phase": "finish", "result": "abandoned"},
+                rc = t["def"]["retry"]
+                expired = self._past_deadline(t, t["def"]) or self._past_horizon(
+                    t, t["def"], self.clock
+                )
+                can_wait = (
+                    eff != "unknown"
+                    and t["started"] < rc["max_attempts"]
+                    and (
+                        not self.on("recover.abandon_gate")
+                        or (rc.get("retry_after_abandonment", False) and not expired)
                     )
-                else:
-                    nxt = (
-                        "waiting"
-                        if t["started"] < t["def"]["retry"]["max_attempts"]
-                        else "abandoned"
-                    )
-                    self._commit(
-                        label,
-                        nxt,
-                        {"n": att["n"], "phase": "finish", "result": "abandoned"},
-                    )
-                    if nxt == "waiting":
-                        t["next_eligible"] = self.clock
+                )
+                nxt = "waiting" if can_wait else "abandoned"
+                self._commit(
+                    label,
+                    nxt,
+                    {"n": att["n"], "phase": "finish", "result": "abandoned"},
+                )
+                if nxt == "waiting":
+                    t["next_eligible"] = self.clock
             out[label] = t["state"]
         return {"task_states": out, "executed_effects": 0}
 
@@ -609,14 +676,6 @@ class Model:
             },
         }
 
-    def op_resume(self, a):
-        t = self.tasks[a["task"]]
-        if t["state"] in TERMINAL:
-            raise Refuse("task_terminal")
-        if self.on("resume.authorized") and not a.get("authorized", False):
-            raise Refuse("resume_not_authorized")
-        return {"state": t["state"]}
-
     def op_checkpoint(self, a):
         t = self.tasks[a["task"]]
         body = a["body"]
@@ -626,7 +685,14 @@ class Model:
             raise Refuse("body_unverified")
         if self.on("checkpoint.ordering") and body.get("staged") != "before_record":
             raise Refuse("body_after_record")
-        self.checkpoints.append({"task": a["task"], "rev": a["cursor_revision"]})
+        self.checkpoints.append(
+            {
+                "task": a["task"],
+                "rev": a["cursor_revision"],
+                "held": bool(body.get("held")),
+                "attempt": t["started"],
+            }
+        )
         return {"checkpoint_id": len(self.checkpoints)}
 
     def op_reconcile(self, a):
@@ -673,15 +739,16 @@ class Model:
         return {"us": parse_duration_us(a["text"], a.get("target", "us"))}
 
     def op_parse_instant(self, a):
-        if not self.on("time.instant"):
-            return {"canonical": a["text"]}
-        us = parse_instant_us(a["text"])
+        us = parse_instant_us(a["text"], on=self.on("wire.instant_strict"))
         return {"canonical": fmt_instant(us)}
 
-    _NY = (
-        datetime(2026, 3, 8, 7, 0, tzinfo=timezone.utc),
-        datetime(2026, 11, 1, 6, 0, tzinfo=timezone.utc),
-    )
+    def op_format_instant(self, a):
+        """Typed path: an exactly representable typed instant formats canonically."""
+        if "unix_ns" in a:
+            if a["unix_ns"] % 1000 and self.on("time.typed_format"):
+                raise Refuse("nonrepresentable")
+            return {"canonical": fmt_instant(a["unix_ns"] // 1000)}
+        return {"canonical": fmt_instant(a["unix_us"])}
 
     def _local_to_utc(self, local: str, tz: str, check_gap: bool = True) -> str:
         """Fixture-limited tz table: America/New_York, 2026 (spring gap 02:00-03:00 on 2026-03-08)."""

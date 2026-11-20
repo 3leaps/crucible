@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "instant-typed-format-canonical",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "format_instant",
+      "unix_us": 1767312000500000,
+      "expect": {
+        "ok": {
+          "canonical": "2026-01-02T00:00:00.500000Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "typed path: an exactly representable typed instant formats to the canonical spelling before a document is built; this does not claim finer source precision"
+    }
+  ]
+}

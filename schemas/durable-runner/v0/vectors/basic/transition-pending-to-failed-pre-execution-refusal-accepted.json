@@ -1,0 +1,62 @@
+{
+  "v": 0,
+  "id": "transition-pending-to-failed-pre-execution-refusal-accepted",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "reason": "pre_execution_refusal",
+      "expect": {
+        "ok": {
+          "state": "failed"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "failed",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "failed"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the generic refusal with a terminal pre-execution refusal reason"
+    }
+  ]
+}

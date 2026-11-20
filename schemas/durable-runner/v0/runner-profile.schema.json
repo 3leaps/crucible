@@ -239,6 +239,13 @@
             "store_window": {
               "$ref": "#/$defs/duration"
             },
+            "effective_window": {
+              "$ref": "#/$defs/duration",
+              "description": "The configured window, within the kind's range; the range default when omitted. The store window must cover it and the retry horizon. Never silently downgraded to fit the store."
+            },
+            "retry_horizon": {
+              "$ref": "#/$defs/duration"
+            },
             "identity_history": {
               "enum": [
                 "retained",

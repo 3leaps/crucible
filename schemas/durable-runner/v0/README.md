@@ -56,11 +56,11 @@ bind labels with `as` or `labels` and pick a definition.
 | Op | Result members | Refusals |
 | --- | --- | --- |
 | `profile_admit` | | `sealed_mode_reserved`, `mode_not_cumulative`, `remote_coverage_claimed`, `replication_claimed`, `journal_ack_insufficient`, `journal_contract_not_v1`, `authority_scope_unsupported`, `store_window_too_short`, `window_out_of_range` |
-| `submit` | `disposition`, `task_id`, `state` | `identity_conflict`, `identity_unresolved`, `definition_invalid`, `mode_unsupported` |
-| `transition` | `revision`, `state` | `predecessor_mismatch`, `first_not_pending`, `illegal_transition`, `terminal_resurrection`, `attempt_not_contiguous`, `attempt_limit_exhausted`, `retry_not_permitted`, `unknown_outcome_code`, `unknown_effects_not_retryable`, `success_unverified_outputs`, `cancellation_not_confirmed`, `cancellation_precedes_success`, `generation_stale`, `deadline_exceeded`, `horizon_exceeded`, `jitter_not_persisted` |
+| `submit` | `disposition`, `task_id`, `state` | `identity_conflict`, `identity_unresolved`, `definition_invalid`, `unsupported_requirement`, `mode_unsupported` |
+| `transition` | `revision`, `state` | `predecessor_mismatch`, `first_not_pending`, `illegal_transition`, `terminal_resurrection`, `attempt_not_contiguous`, `attempt_limit_exhausted`, `retry_not_permitted`, `unknown_outcome_code`, `outcome_mapping_mismatch`, `unknown_effects_not_retryable`, `success_unverified_outputs`, `cancellation_not_confirmed`, `cancellation_precedes_success`, `generation_stale`, `deadline_exceeded`, `horizon_exceeded`, `jitter_not_persisted` |
 | `request_cancel`, `confirm_cancel` | `effect`, `state` | `task_terminal`, `quiescence_not_established`, `cancel_not_requested` |
-| `advance_clock`, `parse_duration`, `parse_instant` | `now`, `us`, `canonical` | `duration_invalid`, `syntax`, `overflow`, `fractional_loss`, `format`, `nonrepresentable` |
-| `crash`, `recover`, `replay`, `resume`, `checkpoint`, `reconcile`, `retire_output` | `task_states`, `heads`, `outcomes`, `effects_performed`, `status` | `mode_unsupported`, `predecessor_not_quiescent`, `resume_not_authorized`, `body_unverified`, `body_after_record`, `cursor_not_in_chain`, `hold_active`, `retirement_refused` |
+| `advance_clock`, `parse_duration`, `parse_instant`, `format_instant` | `now`, `us`, `canonical` | `duration_invalid`, `syntax`, `overflow`, `fractional_loss`, `format`, `nonrepresentable` |
+| `crash`, `recover`, `replay`, `checkpoint`, `reconcile`, `retire_output` | `task_states`, `heads`, `outcomes`, `effects_performed`, `status` | `mode_unsupported`, `predecessor_not_quiescent`, `body_unverified`, `body_after_record`, `cursor_not_in_chain`, `checkpoint_not_eligible`, `checkpoint_body_held`, `hold_active`, `retirement_refused` |
 | `admission` | `reserved` | `rate_denied`, `shared_quota_needs_shared_authority`, `unsettled_reservation` |
 | `supply_slot`, `evaluate_slots`, `catch_up` | `slot_id`, `eligible`, `missed`, `task_id` | `mode_unsupported`, `slot_identity_mismatch`, `slot_outside_window`, `dst_non_slot`, `coverage_not_supplied`, `lag_exceeded`, `catch_up_not_permitted`, `missed_not_terminal` |
 

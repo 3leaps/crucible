@@ -1,0 +1,56 @@
+{
+  "v": 0,
+  "id": "transition-pending-to-failed-generic-refused",
+  "mode": "basic",
+  "covers": [
+    "transition.illegal"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "reason": "operator_gave_up",
+      "expect": {
+        "refused": "illegal_transition"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "no terminal pre-execution refusal and the task deadline has not elapsed; the only applicable rule is the failed gate"
+    }
+  ]
+}

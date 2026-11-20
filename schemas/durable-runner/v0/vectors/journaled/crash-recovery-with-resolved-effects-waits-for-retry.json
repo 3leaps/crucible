@@ -12,7 +12,8 @@
         "max": "PT30M",
         "multiplier_milli": 2000,
         "jitter_milli": 0
-      }
+      },
+      "retry.retry_after_abandonment": true
     }
   },
   "ops": [

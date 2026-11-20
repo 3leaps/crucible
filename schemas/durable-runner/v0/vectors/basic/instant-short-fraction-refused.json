@@ -1,6 +1,6 @@
 {
   "v": 0,
-  "id": "instant-pads-to-six-digits",
+  "id": "instant-short-fraction-refused",
   "mode": "basic",
   "covers": [
     "time.exact-instant"
@@ -11,18 +11,21 @@
       "op": "parse_instant",
       "text": "2026-01-02T00:00:00Z",
       "expect": {
-        "ok": {
-          "canonical": "2026-01-02T00:00:00.000000Z"
-        }
+        "refused": "format"
       }
     },
     {
       "op": "parse_instant",
       "text": "2026-01-02T00:00:00.5Z",
       "expect": {
-        "ok": {
-          "canonical": "2026-01-02T00:00:00.500000Z"
-        }
+        "refused": "format"
+      }
+    },
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.500000+01:00",
+      "expect": {
+        "refused": "format"
       }
     }
   ],
@@ -32,7 +35,7 @@
   },
   "notes": [
     {
-      "competing": "both values are exactly representable; padding does not claim extra precision"
+      "competing": "wire strings are never normalized: an absent or short fraction and a non-UTC offset are each format refusals, and none is a nonrepresentable value"
     }
   ]
 }

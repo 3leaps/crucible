@@ -2,7 +2,7 @@
   "v": 0,
   "authority": "example-authority",
   "task_id": "sha256:08d8cc7a13646231f339d510a6148aa70690def0a58abd141bb7be864a939579",
-  "task_spec_digest": "sha256:c6a5bc655dc195dc8e6df358aa2c34f096ef98fe9d81a3f02d6a6fc46fefd434",
+  "task_spec_digest": "sha256:54277f3c1758c0541ff27c24a8ace73af5b5b9097b221867174bc7a96fbd6974",
   "definition": {
     "v": 0,
     "task_kind": {
@@ -67,7 +67,8 @@
         "multiplier_milli": 2000,
         "jitter_milli": 250
       },
-      "horizon": "PT6H"
+      "horizon": "PT6H",
+      "retry_after_abandonment": false
     },
     "idempotency_window": "P14D"
   }

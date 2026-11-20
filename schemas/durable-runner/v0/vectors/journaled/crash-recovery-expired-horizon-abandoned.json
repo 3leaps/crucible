@@ -1,18 +1,15 @@
 {
   "v": 0,
-  "id": "resume-not-authorized-refused",
+  "id": "crash-recovery-expired-horizon-abandoned",
   "mode": "journaled",
   "covers": [
-    "resume.authorization"
+    "crash.after-effect-before-finish",
+    "retry.horizon-deadline"
   ],
   "definitions": {
     "d1": {
-      "retry.backoff": {
-        "initial": "PT1M",
-        "max": "PT30M",
-        "multiplier_milli": 2000,
-        "jitter_milli": 0
-      }
+      "retry.retry_after_abandonment": true,
+      "retry.horizon": "PT1H"
     }
   },
   "ops": [
@@ -45,63 +42,43 @@
       }
     },
     {
-      "op": "advance_clock",
-      "by": "PT5M",
+      "op": "crash",
+      "at": "after_effect_before_finish",
       "expect": {
         "ok": {}
       }
     },
     {
-      "op": "transition",
-      "task": "t1",
-      "to": "waiting",
-      "attempt": {
-        "n": 1,
-        "phase": "finish",
-        "result": "failed",
-        "effects": "none",
-        "dispatch": "confirmed",
-        "reason": "source_unavailable",
-        "outcome": "source_unavailable"
-      },
+      "op": "advance_clock",
+      "by": "PT2H",
       "expect": {
-        "ok": {
-          "state": "waiting"
-        }
-      },
-      "next_eligible_at": "2026-01-02T00:06:00.000000Z",
-      "reason": "retry_scheduled"
-    },
-    {
-      "op": "replay",
-      "expect": {
-        "ok": {
-          "heads": {
-            "t1": "waiting"
-          },
-          "effects_performed": 0
-        }
+        "ok": {}
       }
     },
     {
-      "op": "resume",
-      "task": "t1",
-      "authorized": false,
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
       "expect": {
-        "refused": "resume_not_authorized"
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
       }
     }
   ],
   "expected": {
     "tasks": {
       "t1": {
-        "state": "waiting",
+        "state": "abandoned",
         "attempts": [
           {
             "n": 1,
-            "result": "failed",
-            "effects": "none",
-            "dispatch": "confirmed"
+            "result": "abandoned",
+            "effects": "resolved"
           }
         ]
       }
@@ -121,18 +98,18 @@
       },
       {
         "task": "t1",
-        "to": "waiting",
+        "to": "abandoned",
         "attempt": {
           "n": 1,
           "phase": "finish",
-          "result": "failed"
+          "result": "abandoned"
         }
       }
     ]
   },
   "notes": [
     {
-      "competing": "task non-terminal; only the authorization flag"
+      "competing": "retry after abandonment is permitted, effects resolved, attempts remain, and the task deadline (PT6H) is still open; only the retry horizon (PT1H from the first start) has expired"
     }
   ]
 }

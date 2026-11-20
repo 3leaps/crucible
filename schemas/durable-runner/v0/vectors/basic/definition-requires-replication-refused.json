@@ -19,7 +19,7 @@
       "key": "k1",
       "definition": "d1",
       "expect": {
-        "refused": "definition_invalid"
+        "refused": "unsupported_requirement"
       }
     }
   ],

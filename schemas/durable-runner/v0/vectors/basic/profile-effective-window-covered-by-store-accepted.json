@@ -1,0 +1,48 @@
+{
+  "v": 0,
+  "id": "profile-effective-window-covered-by-store-accepted",
+  "mode": "basic",
+  "covers": [
+    "profile.store-window"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P14D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "retry_horizon": "P1D"
+      },
+      "expect": {
+        "ok": {}
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "effective window defaults to P14D, store P14D covers it and the P1D retry horizon, and the kind maximum P35D is only a ceiling"
+    }
+  ]
+}

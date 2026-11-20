@@ -31,12 +31,16 @@
     "checkpoint-accepted",
     "checkpoint-body-unverified-refused",
     "checkpoint-body-after-record-refused",
-    "checkpoint-cursor-not-in-chain-refused"
+    "checkpoint-cursor-not-in-chain-refused",
+    "resume-consumes-eligible-checkpoint-accepted",
+    "resume-checkpoint-from-same-attempt-refused"
   ],
   "crash.after-effect-before-finish": [
     "crash-after-effect-before-finish-unknown-effects-abandoned",
     "crash-after-effect-before-finish-resolved-abandoned-when-exhausted",
-    "crash-recovery-with-resolved-effects-waits-for-retry"
+    "crash-recovery-with-resolved-effects-waits-for-retry",
+    "crash-recovery-abandonment-retry-not-permitted-abandoned",
+    "crash-recovery-expired-horizon-abandoned"
   ],
   "crash.after-start-before-dispatch": [
     "orphan-unproven-predecessor-refused",
@@ -57,7 +61,9 @@
     "retry-deadline-within-accepted",
     "transition-waiting-to-failed-after-retry-deadline",
     "recover-does-not-reset-deadline-refused",
-    "recover-within-deadline-accepted"
+    "recover-within-deadline-accepted",
+    "retry-start-at-task-deadline-refused",
+    "retry-start-before-task-deadline-accepted"
   ],
   "generation.stale": [
     "generation-stale-refused",
@@ -66,7 +72,8 @@
   "hold.retirement": [
     "retire-output-hold-active-refused",
     "retire-output-accepted",
-    "retire-output-not-terminal-refused"
+    "retire-output-not-terminal-refused",
+    "resume-held-checkpoint-body-refused"
   ],
   "identity.accept": [
     "identity-created-pending"
@@ -104,7 +111,9 @@
     "transition-running-to-failed-terminal-mapping",
     "outcome-unknown-code-refused",
     "outcome-provider-failure-maps-to-success",
-    "success-unverified-outputs-refused"
+    "success-unverified-outputs-refused",
+    "outcome-success-claimed-with-failure-code-refused",
+    "outcome-failure-claimed-with-success-code-refused"
   ],
   "predecessor.chain-conflict": [
     "predecessor-stale-refused",
@@ -152,7 +161,10 @@
   ],
   "profile.store-window": [
     "profile-basic-admitted",
-    "profile-store-window-too-short-refused"
+    "profile-store-window-too-short-refused",
+    "profile-effective-window-covered-by-store-accepted",
+    "profile-effective-window-above-store-refused",
+    "profile-store-shorter-than-retry-horizon-refused"
   ],
   "profile.unsupported-task-durability": [
     "definition-requires-remote-coverage-refused",
@@ -161,7 +173,8 @@
   "profile.window-range": [
     "profile-basic-admitted",
     "profile-window-min-out-of-range-refused",
-    "profile-window-max-out-of-range-refused"
+    "profile-window-max-out-of-range-refused",
+    "profile-effective-window-outside-kind-range-refused"
   ],
   "reconcile.unknown-receipt": [
     "reconcile-receipt-missing",
@@ -172,18 +185,30 @@
     "crash-before-record-commit-previous-state-visible",
     "replay-folds-to-same-heads-zero-effects",
     "replay-after-crash-does-not-resume",
-    "replay-preserves-persisted-next-eligible"
+    "replay-preserves-persisted-next-eligible",
+    "replay-after-recovery-starts-no-attempt"
   ],
   "resume.authorization": [
     "replay-after-crash-does-not-resume",
-    "resume-not-authorized-refused",
-    "resume-terminal-task-refused"
+    "resume-after-recovery-new-attempt-accepted",
+    "resume-consumes-eligible-checkpoint-accepted",
+    "resume-checkpoint-from-same-attempt-refused",
+    "resume-held-checkpoint-body-refused",
+    "resume-after-horizon-expiry-refused",
+    "resume-attempts-exhausted-refused",
+    "replay-after-recovery-starts-no-attempt"
   ],
   "retry.horizon-deadline": [
     "retry-horizon-exceeded-refused",
     "retry-horizon-within-accepted",
     "retry-deadline-exceeded-refused",
-    "retry-deadline-within-accepted"
+    "retry-deadline-within-accepted",
+    "crash-recovery-expired-horizon-abandoned",
+    "resume-after-horizon-expiry-refused",
+    "retry-start-at-horizon-expiry-refused",
+    "retry-start-before-horizon-expiry-accepted",
+    "retry-start-at-task-deadline-refused",
+    "retry-start-before-task-deadline-accepted"
   ],
   "retry.limits": [
     "attempt-limit-single-attempt-refused",
@@ -191,7 +216,9 @@
     "retry-limit-exhausted-refused",
     "retry-limit-not-reached-accepted",
     "attempt-start-skipping-number-refused",
-    "attempt-start-repeating-number-refused"
+    "attempt-start-repeating-number-refused",
+    "crash-recovery-abandonment-retry-not-permitted-abandoned",
+    "resume-attempts-exhausted-refused"
   ],
   "retry.persisted-jitter": [
     "retry-wait-then-second-attempt-succeeds",
@@ -255,10 +282,13 @@
     "advance-clock-valid"
   ],
   "time.exact-instant": [
-    "instant-pads-to-six-digits",
     "instant-six-digits-accepted",
     "instant-seven-digits-nonrepresentable-refused",
-    "instant-malformed-refused"
+    "instant-malformed-refused",
+    "instant-short-fraction-refused",
+    "instant-canonical-wire-accepted",
+    "instant-typed-format-canonical",
+    "instant-typed-submicrosecond-refused"
   ],
   "transition.first-not-pending": [
     "first-transition-not-pending-refused"
@@ -271,7 +301,9 @@
     "illegal-running-to-pending",
     "second-start-while-running-refused",
     "transition-pending-to-missed-before-window-end-refused",
-    "transition-waiting-to-missed-after-attempt-refused"
+    "transition-waiting-to-missed-after-attempt-refused",
+    "transition-pending-to-failed-generic-refused",
+    "transition-waiting-to-failed-generic-refused"
   ],
   "transition.permitted": [
     "identity-created-pending",
@@ -288,7 +320,8 @@
     "retry-wait-then-second-attempt-succeeds",
     "transition-waiting-to-failed-after-retry-deadline",
     "transition-pending-to-missed-after-window",
-    "transition-waiting-to-missed-no-attempt"
+    "transition-waiting-to-missed-no-attempt",
+    "transition-pending-to-failed-pre-execution-refusal-accepted"
   ],
   "transition.terminal-resurrection": [
     "terminal-resurrection-succeeded-refused",

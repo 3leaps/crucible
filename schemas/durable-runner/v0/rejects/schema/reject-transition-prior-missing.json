@@ -2,7 +2,7 @@
   "v": 0,
   "kind": "task_transition",
   "task_id": "sha256:08d8cc7a13646231f339d510a6148aa70690def0a58abd141bb7be864a939579",
-  "task_spec_digest": "sha256:c6a5bc655dc195dc8e6df358aa2c34f096ef98fe9d81a3f02d6a6fc46fefd434",
+  "task_spec_digest": "sha256:54277f3c1758c0541ff27c24a8ace73af5b5b9097b221867174bc7a96fbd6974",
   "to_state": "running",
   "attempt": {
     "attempt_n": 1,

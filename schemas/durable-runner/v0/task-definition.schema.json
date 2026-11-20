@@ -195,6 +195,10 @@
         },
         "horizon": {
           "$ref": "#/$defs/duration"
+        },
+        "retry_after_abandonment": {
+          "type": "boolean",
+          "description": "Task-kind permission for an abandoned attempt to return the task to waiting. Default false when absent; absence of a failure code never bypasses retry policy."
         }
       }
     },

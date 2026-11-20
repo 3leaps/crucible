@@ -1,0 +1,27 @@
+{
+  "v": 0,
+  "id": "instant-typed-submicrosecond-refused",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "format_instant",
+      "unix_ns": 1767312000500000001,
+      "expect": {
+        "refused": "nonrepresentable"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "one nanosecond beyond microsecond resolution is not representable and is refused, never rounded"
+    }
+  ]
+}

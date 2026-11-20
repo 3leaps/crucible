@@ -62,7 +62,8 @@
       "multiplier_milli": 1500.5,
       "jitter_milli": 250
     },
-    "horizon": "PT6H"
+    "horizon": "PT6H",
+    "retry_after_abandonment": false
   },
   "idempotency_window": "P14D"
 }
