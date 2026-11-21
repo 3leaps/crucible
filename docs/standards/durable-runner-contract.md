@@ -8,7 +8,16 @@ lastUpdated: "2026-11-20"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
-tags: ["runner", "execution", "journal", "idempotency", "recovery", "contract", "interoperability"]
+tags:
+  [
+    "runner",
+    "execution",
+    "journal",
+    "idempotency",
+    "recovery",
+    "contract",
+    "interoperability",
+  ]
 content_license: "CC0"
 relatedDocs:
   - "docs/standards/durable-record-v1-contract.md"
@@ -47,12 +56,12 @@ Decision record:
 Modes are cumulative prefixes, and an implementation declares and passes every
 mode it claims.
 
-| Mode | Adds | Without it |
-| --- | --- | --- |
-| `basic` | One attempt per task | |
-| `retrying` | Policy-controlled attempts | |
+| Mode        | Adds                                        | Without it                                |
+| ----------- | ------------------------------------------- | ----------------------------------------- |
+| `basic`     | One attempt per task                        |                                           |
+| `retrying`  | Policy-controlled attempts                  |                                           |
 | `journaled` | durable-record/v1 journal, recovery, replay | No crash-recovery or durable-replay claim |
-| `scheduled` | Supplied-slot semantics | No scheduled-task claim |
+| `scheduled` | Supplied-slot semantics                     | No scheduled-task claim                   |
 
 No mode implies a scheduler or a distributed worker service. A mode that
 vectors do not exercise cannot be advertised. A profile that advertises a mode
@@ -83,10 +92,10 @@ over the network.
 - Scheduled invocation keys are a reserved prefix plus the digest of a
   domain-tagged canonical object. A slot key is `slot:` followed by
   `sha256(JCS({"domain": "slot", "instant": I, "rule": R, "scope": S, "v":
-  0}))`, where `R` is the rule pin digest, `S` the task scope and `I` the
+0}))`, where `R` is the rule pin digest, `S` the task scope and `I` the
   occurrence instant, and the authority namespace is `S`. A catch-up key is
   `catchup:` followed by `sha256(JCS({"catch_up_of": M, "domain": "catch_up",
-  "v": 0}))`, where `M` is the missed task's `task_id`, in the missed task's
+"v": 0}))`, where `M` is the missed task's `task_id`, in the missed task's
   authority namespace. The `slot:` and `catchup:` prefixes are reserved: an
   ordinary caller registration in that space is refused (`reserved_key`), so a
   caller cannot squat a derived identity, while inspecting or reconciling an
@@ -111,13 +120,13 @@ Task states are `pending`, `waiting`, `running`, `succeeded`, `failed`,
 `cancelled`, `abandoned` and `missed`. `blocked` is a reason on `pending` or
 `waiting`, never a state.
 
-| From | Permitted next state and condition |
-| --- | --- |
-| New | `pending` on validated acceptance; an invalid submission creates no executable task |
-| pending | `waiting` for admission or a slot; `running` on authorized start; `cancelled`; `failed` on terminal pre-execution refusal or deadline; `missed` for an expired eligible slot with no attempt |
-| waiting | `running` on an eligible next start; `cancelled`; `failed` when retry or deadline is exhausted; `missed` only if no attempt ever started |
-| running | `succeeded` on mapped success with verified required outputs; `failed` on terminal mapped failure; `waiting` after a finished failed attempt when retry is allowed and safe; `cancelled` after cancellation and confirmed quiescence; `abandoned` when lost authority leaves effects unresolved and safe continuation cannot be proved |
-| Terminal | No further task-state transition; late evidence stays audit evidence and never changes the terminal result |
+| From     | Permitted next state and condition                                                                                                                                                                                                                                                                                                     |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New      | `pending` on validated acceptance; an invalid submission creates no executable task                                                                                                                                                                                                                                                    |
+| pending  | `waiting` for admission or a slot; `running` on authorized start; `cancelled`; `failed` on terminal pre-execution refusal or deadline; `missed` for an expired eligible slot with no attempt                                                                                                                                           |
+| waiting  | `running` on an eligible next start; `cancelled`; `failed` when retry or deadline is exhausted; `missed` only if no attempt ever started                                                                                                                                                                                               |
+| running  | `succeeded` on mapped success with verified required outputs; `failed` on terminal mapped failure; `waiting` after a finished failed attempt when retry is allowed and safe; `cancelled` after cancellation and confirmed quiescence; `abandoned` when lost authority leaves effects unresolved and safe continuation cannot be proved |
+| Terminal | No further task-state transition; late evidence stays audit evidence and never changes the terminal result                                                                                                                                                                                                                             |
 
 An operator retry of a terminal task creates a new task that refers to the old
 one. Each attempt is running after start intent, then exactly one of
@@ -346,11 +355,11 @@ checkpoints and unresolved output restrictions are refused before reliance.
 Durability is independent properties. There is no global rank and no new
 failure-model value.
 
-| Property | Rule in this release |
-| --- | --- |
-| `attempt_journal_ack` | `none`, `survives_process_loss`, `survives_power_loss`. `journaled` requires at least process-loss survival. A stronger value may substitute only within this property. |
-| `remote_sealed_coverage` | `none`. A detached record seal or a bucket copy does not upgrade it. |
-| `replication` | `none`. It means no contract claim, not that infrastructure has no replicas. |
+| Property                 | Rule in this release                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attempt_journal_ack`    | `none`, `survives_process_loss`, `survives_power_loss`. `journaled` requires at least process-loss survival. A stronger value may substitute only within this property. |
+| `remote_sealed_coverage` | `none`. A detached record seal or a bucket copy does not upgrade it.                                                                                                    |
+| `replication`            | `none`. It means no contract claim, not that infrastructure has no replicas.                                                                                            |
 
 The acknowledgement property is bound to the actual v1 stratum failure model:
 `attempt_journal_ack` must not exceed the journal stratum's `failure_model`
@@ -469,5 +478,6 @@ state stays separate from caller knowledge.
 oracle for an implementation. Runtime proof, crash and power-loss behavior on
 real storage, cloud qualification and language parity need adopter tests. The
 model does not enforce attempt-timeout or deadline expiry while an attempt is
-running, does not bind admission to a task, and does not bound the backoff
-draw; those are runtime behaviors.
+running, does not bind admission to a task, does not bound supplied instants to the exact-integer microsecond range (the wire pattern admits years the arithmetic cannot represent; sums that cross it refuse `counter_exhausted`), and does not draw the backoff (the runtime
+supplies and persists its choice; the model only verifies a supplied draw lies inside
+the band); those are runtime behaviors.

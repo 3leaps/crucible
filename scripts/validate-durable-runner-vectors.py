@@ -1072,7 +1072,11 @@ class Model:
         self, label, authority, key, defname, derived=False, anchor_us=None, dry=False
     ):
         """The one path that creates a task: submit, slot, coverage-missed and catch-up."""
-        d = self.defs[defname]
+        d = self.defs.get(defname)
+        if d is None:
+            raise Refuse(
+                "malformed"
+            )  # an unknown definition name is a controlled refusal
         self._validate_def(d)
         if d["retry"]["max_attempts"] > 1:
             self._need("retrying")
@@ -1736,7 +1740,7 @@ class Model:
     def op_retire_output(self, a):
         if self.on("retire.hold") and a.get("hold") == "active":
             raise Refuse("hold_active")
-        if self.tasks[a["task"]]["state"] not in TERMINAL and self.on(
+        if self._task(a["task"])["state"] not in TERMINAL and self.on(
             "retire.terminal_only"
         ):
             raise Refuse("retirement_refused")
@@ -2050,9 +2054,15 @@ class Model:
         m = self.tasks.get(a["missed_task"])
         if self.on("catchup.terminal") and (m is None or m["state"] != "missed"):
             raise Refuse("missed_not_terminal")
-        if self.on("catchup.permitted") and self.max_lag_us is None:
-            raise Refuse("catch_up_not_permitted")
         key = "catchup:" + dig({"catch_up_of": m["id"], "domain": "catch_up", "v": 0})
+        # The current profile governs new registration only; an exact existing
+        # catch-up is observed whatever the profile now says.
+        if (
+            self.on("catchup.permitted")
+            and self.max_lag_us is None
+            and (m["authority"], key) not in self.identity
+        ):
+            raise Refuse("catch_up_not_permitted")
         lag = self.clock - m.get("slot_instant", self.clock)
         if (
             (m["authority"], key) not in self.identity

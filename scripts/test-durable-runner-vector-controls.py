@@ -177,6 +177,7 @@ ISOLATION_EXEMPT = {
     "coverage-duplicate-label-refused-commits-nothing",
     "definition-missing-retry-refused",  # no accepting behavior exists for a missing key
     "request-cancel-unknown-task-refused",  # no task exists to accept the request on
+    "submit-unknown-definition-refused",  # no definition exists to accept the submit on
     # The first refusal is a grammar refusal (syntax); the others are isolated only by the
     # atomicity guard, whose mutation is observed through the committed configuration.
     "profile-admit-refused-installs-nothing",

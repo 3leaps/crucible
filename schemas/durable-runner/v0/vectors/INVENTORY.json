@@ -198,7 +198,8 @@
     "slot-resupplied-after-window-closed-observed",
     "slot-resupply-does-not-reset-deadline",
     "catch-up-repeat-after-lag-expiry-observed",
-    "slot-key-derivation-pinned"
+    "slot-key-derivation-pinned",
+    "catch-up-repeat-after-profile-update-observed"
   ],
   "identity.timeout-bound": [
     "identity-attempt-timeout-omitted-accepted",
@@ -436,7 +437,8 @@
     "catch-up-repeat-after-lag-expiry-observed",
     "catch-up-key-derivation-pinned",
     "catch-up-without-generation-refused",
-    "catch-up-lag-pinned-at-registration-ignores-readmission"
+    "catch-up-lag-pinned-at-registration-ignores-readmission",
+    "catch-up-repeat-after-profile-update-observed"
   ],
   "schedule.dst-non-slot": [
     "dst-gap-candidate-non-slot-refused",
@@ -606,7 +608,8 @@
   "identity.definition-valid": [
     "definition-string-permission-refused",
     "definition-missing-retry-refused",
-    "definition-unknown-version-refused"
+    "definition-unknown-version-refused",
+    "submit-unknown-definition-refused"
   ],
   "time.instant": [
     "advance-clock-refused-moves-nothing"
