@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "definition-unknown-version-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.definition-valid"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "v": 99
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "everything else in the definition is valid; only the version is not 0"
+    }
+  ]
+}

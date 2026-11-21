@@ -1,0 +1,61 @@
+{
+  "v": 0,
+  "id": "transition-start-with-finish-phase-refused",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "succeeded",
+        "effects": "resolved"
+      },
+      "expect": {
+        "refused": "attempt_mismatch"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the attempt number is contiguous; the attempt is a finish fact attached to a start"
+    }
+  ]
+}

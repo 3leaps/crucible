@@ -134,6 +134,9 @@
   "transition-abandoned-with-outcome-code": {
     "schema": "transition.schema.json"
   },
+  "transition-abandoned-without-attempt": {
+    "schema": "transition.schema.json"
+  },
   "transition-attempt-n-zero": {
     "schema": "transition.schema.json"
   },
@@ -167,6 +170,9 @@
   "transition-failed-with-succeeded-result": {
     "schema": "transition.schema.json"
   },
+  "transition-failed-without-code-or-reason": {
+    "schema": "transition.schema.json"
+  },
   "transition-first-not-pending": {
     "schema": "transition.schema.json"
   },
@@ -174,6 +180,9 @@
     "schema": "transition.schema.json"
   },
   "transition-generation-zero": {
+    "schema": "transition.schema.json"
+  },
+  "transition-instant-before-epoch": {
     "schema": "transition.schema.json"
   },
   "transition-instant-five-digits": {

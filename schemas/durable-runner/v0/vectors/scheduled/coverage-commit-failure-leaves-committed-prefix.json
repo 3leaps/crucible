@@ -91,7 +91,14 @@
       "op": "inject_fault",
       "after": 1,
       "expect": {
-        "ok": {}
+        "ok": {},
+        "detail": {
+          "committed": [
+            "m0"
+          ],
+          "unresolved": "m1",
+          "unattempted": []
+        }
       }
     },
     {

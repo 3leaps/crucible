@@ -60,7 +60,16 @@
       "op": "inject_fault",
       "after": 1,
       "expect": {
-        "ok": {}
+        "ok": {},
+        "detail": {
+          "committed": [
+            "a"
+          ],
+          "unresolved": "b",
+          "unattempted": [
+            "c"
+          ]
+        }
       }
     },
     {

@@ -1,0 +1,63 @@
+{
+  "v": 0,
+  "id": "start-horizon-overflow-refused-before-commit",
+  "mode": "basic",
+  "covers": [
+    "time.overflow"
+  ],
+  "requires_clock": "2255-06-05T23:47:33.740991Z",
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "timeouts.task_deadline": null,
+      "retry.horizon": "P1D"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "refused": "counter_exhausted"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the horizon is positive and within the store window; only its first-start endpoint exceeds the safe maximum"
+    }
+  ]
+}

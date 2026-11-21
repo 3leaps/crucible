@@ -136,7 +136,9 @@ it and cannot move the anchor or draw again. The same feasible-band
 intersection and every deadline, horizon, slot, lag and admission bound apply,
 and an immediate retry is legal only when the pinned backoff permits a zero
 delay. If no retry is feasible, the task is `abandoned`. A direct finish that
-carries an abandoned result may target only terminal `abandoned` (retaining any
+carries an abandoned result may target only terminal `abandoned`, and only with effects
+`unknown` (otherwise it is refused `abandonment_needs_unresolved_effects`: resolved or
+absent effects follow the retry rules or finish `cancelled`), retaining the
 unresolved-effect evidence, and asserting neither quiescence nor permission for a
 replacement effect); the move from abandonment to `waiting` exists only through
 recovery. A terminal `failed` finish requires effects `none` or `resolved`.
@@ -209,7 +211,8 @@ confirmed cancellation remain allowed. A valid, authorized recovery that proves
 quiescence and effects none or resolved records the confirming fact itself and
 finishes `cancelled`, with no second confirmation call and never returning to
 `waiting`; a recovery with unresolved effects commits an abandonment only when
-the operation explicitly selects it with the required authority, and a refused,
+the operation explicitly selects it with the required authority (naming `abandon`
+with resolved effects changes nothing: the retry and cancellation rules decide), and a refused,
 malformed, stale or unauthorized recovery commits nothing. Confirmation for a
 pending or waiting task with no live work may be immediate but remains explicit
 evidence. A request against a succeeded task is a no-op
@@ -253,10 +256,11 @@ rule cannot be satisfied on one path and bypassed on another.
   task is also bound to its lag at every new attempt start, not only at
   registration, and does not inherit the missed slot's expired window.
 - **Crash.** After a runner crash and before recovery, every runner operation
-  except replay and the recovery itself is refused.
+  (including profile admission) except replay and the recovery itself is refused.
 - **Authority handle.** Every operation that can create history or dispatch
   effects (submit, supplied slot or occurrence set, coverage, catch-up, transition,
-  cancellation request and confirmation, checkpoint) presents the generation bound
+  cancellation request and confirmation, checkpoint, admission reservation and
+  settlement) presents the generation bound
   to the authority context its adapter acquired. It must equal the active claim:
   lower is `generation_stale`, higher is `generation_unclaimed`, and a missing one
   is `generation_required`. A trusted adapter attaches its already acquired handle
@@ -267,9 +271,13 @@ rule cannot be satisfied on one path and bypassed on another.
 - **Batches.** An occurrence set or coverage evaluation validates the whole batch
   (including conflicts between its own items) before its first write, then commits
   per item in a deterministic order with stable identities. It stops at the first
-  failed or indeterminate commit and reports the committed prefix, the unresolved
-  item and the unattempted suffix; it makes no all-or-none claim and rolls nothing
+  failed or indeterminate commit and reports to the caller the committed prefix, the
+  unresolved item and the unattempted suffix; it makes no all-or-none claim and rolls nothing
   back, and a retry reconciles per item.
+- **Profile admission** is atomic: a refused or malformed profile changes no setting,
+  and a catch-up task keeps the lag bound pinned when it was registered, so a later
+  profile cannot widen it for existing work. A task's idempotency window (inside the
+  kind range) and retry horizon must fit the admitted store window.
 - **Boundary.** Wire tokens, integers and civil times are validated as written,
   and an unrecognized predecessor-proof or effects value fails closed. A supplied
   slot repeated after its window closed observes the existing task and keeps the

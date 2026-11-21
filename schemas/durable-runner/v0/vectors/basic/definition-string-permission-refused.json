@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "definition-string-permission-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.definition-valid"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "retry.retry_after_abandonment": "false"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the identity is fresh and every other field is valid; the permission is a string, not a boolean"
+    }
+  ]
+}

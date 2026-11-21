@@ -45,7 +45,10 @@
     "cancel-waiting-then-failed-refused",
     "coverage-existing-cancel-requested-slot-task-not-missed",
     "request-cancel-without-generation-refused",
-    "confirm-cancel-without-generation-refused"
+    "confirm-cancel-without-generation-refused",
+    "recover-abandon-disposition-resolved-effects-after-cancel-cancelled",
+    "transition-abandoned-finish-after-cancel-safe-effects-refused",
+    "request-cancel-unknown-task-refused"
   ],
   "checkpoint.ordering": [
     "crash-uncommitted-cursor-not-checkpointable",
@@ -77,7 +80,8 @@
     "crash-recovery-retry-without-persisted-eligibility-refused",
     "crash-recovery-second-abandonment-uses-attempt-number-accepted",
     "crash-recovery-second-abandonment-uses-attempt-number-refused",
-    "recover-explicit-abandon-with-resolved-effects-abandoned"
+    "recover-abandon-disposition-resolved-effects-follows-retry-rules",
+    "crash-then-profile-admit-refused"
   ],
   "crash.after-start-before-dispatch": [
     "orphan-unproven-predecessor-refused",
@@ -138,7 +142,9 @@
     "supply-slot-without-generation-refused",
     "evaluate-slots-without-generation-refused",
     "catch-up-without-generation-refused",
-    "superseded-handle-transition-refused"
+    "superseded-handle-transition-refused",
+    "admission-reserve-without-generation-refused",
+    "admission-settle-superseded-handle-refused"
   ],
   "hold.retirement": [
     "retire-output-hold-active-refused",
@@ -207,8 +213,10 @@
     "recover-unresolved-effects-without-disposition-refused",
     "recover-missing-effects-refused",
     "recover-unrecognized-disposition-refused",
-    "recover-explicit-abandon-with-resolved-effects-abandoned",
-    "superseded-handle-transition-refused"
+    "superseded-handle-transition-refused",
+    "recover-abandon-disposition-resolved-effects-follows-retry-rules",
+    "recover-abandon-disposition-resolved-effects-after-cancel-cancelled",
+    "admission-settle-superseded-handle-refused"
   ],
   "outcome.mapping": [
     "transition-running-to-succeeded",
@@ -427,7 +435,8 @@
     "catch-up-retry-wait-inside-lag-accepted",
     "catch-up-repeat-after-lag-expiry-observed",
     "catch-up-key-derivation-pinned",
-    "catch-up-without-generation-refused"
+    "catch-up-without-generation-refused",
+    "catch-up-lag-pinned-at-registration-ignores-readmission"
   ],
   "schedule.dst-non-slot": [
     "dst-gap-candidate-non-slot-refused",
@@ -505,7 +514,9 @@
     "coverage-second-entry-conflict-commits-nothing",
     "occurrence-set-commit-failure-reports-partial-progress",
     "occurrence-set-failure-after-first-item-leaves-prefix",
-    "coverage-commit-failure-leaves-committed-prefix"
+    "coverage-commit-failure-leaves-committed-prefix",
+    "profile-admit-refused-installs-nothing",
+    "coverage-duplicate-label-refused-commits-nothing"
   ],
   "time.duration-bounds": [
     "duration-day-microseconds",
@@ -570,7 +581,11 @@
     "transition-pending-to-missed-after-window",
     "transition-waiting-to-missed-no-attempt",
     "transition-pending-to-failed-pre-execution-refusal-accepted",
-    "transition-abandoned-finish-unknown-effects-accepted"
+    "transition-abandoned-finish-unknown-effects-accepted",
+    "transition-abandoned-finish-resolved-effects-refused",
+    "transition-abandoned-finish-after-cancel-safe-effects-refused",
+    "transition-start-with-finish-phase-refused",
+    "transition-finish-with-start-phase-refused"
   ],
   "transition.terminal-resurrection": [
     "terminal-resurrection-succeeded-refused",
@@ -587,5 +602,21 @@
     "mode-retrying-multiple-attempts-accepted",
     "mode-basic-journaled-op-refused",
     "mode-retrying-scheduled-op-refused"
+  ],
+  "identity.definition-valid": [
+    "definition-string-permission-refused",
+    "definition-missing-retry-refused",
+    "definition-unknown-version-refused"
+  ],
+  "time.instant": [
+    "advance-clock-refused-moves-nothing"
+  ],
+  "time.overflow": [
+    "start-horizon-overflow-refused-before-commit"
+  ],
+  "identity.window": [
+    "submit-idempotency-window-above-store-window-refused",
+    "submit-retry-horizon-above-store-window-refused",
+    "profile-admit-refused-keeps-kind-range"
   ]
 }

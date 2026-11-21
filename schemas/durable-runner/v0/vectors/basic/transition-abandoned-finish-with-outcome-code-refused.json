@@ -48,7 +48,7 @@
         "phase": "finish",
         "dispatch": "confirmed",
         "result": "abandoned",
-        "effects": "none",
+        "effects": "unknown",
         "outcome": "captured_verified"
       },
       "expect": {
@@ -86,7 +86,7 @@
   },
   "notes": [
     {
-      "competing": "abandonment is a lifecycle disposition with none effects; only it carries a domain outcome code, which it never fabricates"
+      "competing": "abandonment retains unresolved-effect evidence; only the attempt carries a domain outcome code, which it never fabricates"
     }
   ]
 }

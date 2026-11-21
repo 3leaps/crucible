@@ -172,6 +172,14 @@ ISOLATION_EXEMPT = {
     "recover-missing-owner-refused",
     "recover-unrecognized-disposition-refused",
     "occurrence-set-label-count-mismatch-refused",
+    # Removing the check leaves a later, unconditional label-collision refusal; the guard
+    # only moves it ahead of the first commit, which the mutation control observes.
+    "coverage-duplicate-label-refused-commits-nothing",
+    "definition-missing-retry-refused",  # no accepting behavior exists for a missing key
+    "request-cancel-unknown-task-refused",  # no task exists to accept the request on
+    # The first refusal is a grammar refusal (syntax); the others are isolated only by the
+    # atomicity guard, whose mutation is observed through the committed configuration.
+    "profile-admit-refused-installs-nothing",
 }
 
 
@@ -337,6 +345,8 @@ def _wire_doc(mo, op, entry, idx):
                 att["outputs_verified"] = op_att["outputs_verified"]
             if op_att.get("outcome"):
                 att["outcome_code"] = op_att["outcome"]
+            if op_att.get("reason") and not op_att.get("outcome"):
+                att["failure_reason"] = op_att["reason"]
         doc["attempt"] = att
     if entry.get("cancellation") == "requested":
         doc["cancellation"] = "requested"
@@ -512,8 +522,8 @@ SOURCE_MUTANTS = [
     ),
     (
         "catch-up-start-lag-exclusive",
-        "0 <= self.clock - cu <= self.max_lag_us",
-        "0 <= self.clock - cu < self.max_lag_us",
+        "0 <= self.clock - cu <= self._lag_limit(t)",
+        "0 <= self.clock - cu < self._lag_limit(t)",
     ),
     (
         "horizon-anchored-at-acceptance",
@@ -672,6 +682,92 @@ for opname, (vid, idx, _n) in sorted(reps.items()):
                     f"fuzz {opname}.{label} = {junk!r}: model raised {res} instead of refusing ({vid})"
                 )
 print(f"    durable-runner: {trials} fuzz trials over {len(reps)} operations")
+
+print(
+    "    durable-runner: malformed input is refused without crashes or side effects..."
+)
+_base_vec = vectors["slot-supplied-eligible"]
+
+
+def _drv():
+    return model.Driver(copy.deepcopy(_base_vec), golden, set())
+
+
+_bad_defs = [
+    {"retry.retry_after_abandonment": "false"},
+    {"retry.retry_after_abandonment": 1},
+    {"v": 99},
+    {"retry": None},
+    {"retry.backoff": {}},
+    {"outcome_mapping": [{"code": "x"}]},
+    {"outcome_mapping": "x"},
+    {"timeouts": []},
+]
+for _spec in _bad_defs:
+    _d = _drv()
+    _d.m.defs = {"d1": _d.m._build_def(_spec)}
+    try:
+        _d.step(
+            {
+                "op": "submit",
+                "as": "t",
+                "authority": "a",
+                "key": "k",
+                "definition": "d1",
+            }
+        )
+        fail(f"malformed definition {_spec!r} was accepted")
+    except model.Refuse as _r:
+        if _r.reason != "definition_invalid":
+            fail(
+                f"malformed definition {_spec!r}: refused {_r.reason!r}, want definition_invalid"
+            )
+    except Exception as _e:  # noqa: BLE001 - any crash is the finding
+        fail(f"malformed definition {_spec!r} crashed the model: {type(_e).__name__}")
+
+
+def _cfg(m_):
+    return {k: getattr(m_, k) for k in m_.CONFIG}
+
+
+for _prof in (
+    {
+        "modes": ["basic"],
+        "task_kind_window_range": {"min": "P1D", "max": "P40D"},
+        "window": {"min": "P7D"},
+    },
+    {
+        "modes": ["basic"],
+        "schedule": {
+            "rule_contract": {"digest": "sha256:" + "0" * 64},
+            "max_lag": "bad",
+        },
+    },
+    {"modes": ["basic"], "schedule": {"max_lag": "PT1H"}},
+):
+    _d = _drv()
+    _before = _cfg(_d.m)
+    try:
+        _d.step({"op": "profile_admit", "profile": _prof})
+        fail(f"malformed profile {_prof!r} was admitted")
+    except model.Refuse:
+        pass
+    except Exception as _e:  # noqa: BLE001
+        fail(f"malformed profile {_prof!r} crashed the model: {type(_e).__name__}")
+    if _cfg(_d.m) != _before:
+        fail(f"a refused profile {_prof!r} changed the configuration")
+with tempfile.TemporaryDirectory() as _td:
+    _dup = pathlib.Path(_td) / "dup.json"
+    _dup.write_text('{"v": 0, "v": 0, "id": "dup", "mode": "basic"}', encoding="utf-8")
+    _res = subprocess.run(
+        [sys.executable, "-B", str(TOOL), "--file", str(_dup)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if _res.returncode == 0:
+        fail("a vector with a duplicate JSON member was accepted")
 
 if failures:
     print(
