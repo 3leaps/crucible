@@ -475,7 +475,10 @@ replay with zero effects; and unsupported sealed and replication claims. Stored
 state stays separate from caller knowledge.
 
 **Assurance boundary.** The model checks fixtures; it is not a conformance
-oracle for an implementation. Runtime proof, crash and power-loss behavior on
+oracle for an implementation. Passing every vector does not cover the rules this
+standard states for reconciliation after a lost cancellation-write reply, keyed
+cancel-request idempotency across retries, and an audit-evidence operation: they
+are normative here and carry no vector in this release. Runtime proof, crash and power-loss behavior on
 real storage, cloud qualification and language parity need adopter tests. The
 model does not enforce attempt-timeout or deadline expiry while an attempt is
 running, does not bind admission to a task, does not bound supplied instants to the exact-integer microsecond range (the wire pattern admits years the arithmetic cannot represent; sums that cross it refuse `counter_exhausted`), and does not draw the backoff (the runtime
