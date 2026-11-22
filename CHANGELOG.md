@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-11-22
+
+### Added
+
+- Add the proposed, experimental `durable-runner/v0` contract: task identity,
+  closed task and attempt transitions, single-authority journaled recovery,
+  supplied schedules and catch-up, with the `basic`, `retrying`, `journaled`
+  and `scheduled` modes. The `sealed` mode is reserved and refused. Includes
+  six schemas, examples, schema and semantic rejects, 413 behavioral vectors,
+  a reference model and mutation, isolation, fuzz and wire controls
+  ([ADR-0021](docs/decisions/ADR-0021-durable-runner-contract.md)).
+- Add the proposed process decision PDR-0012 for publishing qualification
+  claims from presser evidence, with provisional fuzz reporting guidance
+  ([PDR-0012](docs/decisions/PDR-0012-publishing-qualification-claims-from-presser-evidence.md)).
+
+### Fixed
+
+- Load the canonicalizer in contract scripts with `importlib.util` so the
+  checks run on Python 3.15.
+
 ## [0.2.12] - 2026-11-14
 
 ### Added
@@ -1826,7 +1846,8 @@ PDR, EPR}` — as a shared standard, with a thin mandate (type set + naming)
 - Getting started guide for multiple user personas (new repo, existing repo, adopting org)
 - Migration guidance for 3leaps and adopting ecosystems
 
-[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.12...HEAD
+[unreleased]: https://github.com/3leaps/crucible/compare/v0.2.13...HEAD
+[0.2.13]: https://github.com/3leaps/crucible/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/3leaps/crucible/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/3leaps/crucible/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/3leaps/crucible/compare/v0.2.9...v0.2.10

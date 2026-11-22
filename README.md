@@ -1,6 +1,6 @@
 # 3leaps Crucible
 
-![Version: 0.2.12](https://img.shields.io/badge/version-0.2.12-blue)
+![Version: 0.2.13](https://img.shields.io/badge/version-0.2.13-blue)
 ![Lifecycle: Beta](https://img.shields.io/badge/lifecycle-beta-blue)
 ![License: MIT + CC0](https://img.shields.io/badge/license-MIT%20%2B%20CC0-blue)
 ![Check](https://github.com/3leaps/crucible/actions/workflows/check.yml/badge.svg)
@@ -117,9 +117,10 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── data-acquisition/v0/   # Source policy, acquisition scope and registration (proposed)
 │   ├── durable-index/v0/      # Object-inventory snapshots, observation plans (proposed)
 │   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
-│   ├── durable-runner/v0/     # Task identity, transitions, journaled recovery profile (proposed)
 │   ├── durable-record/v0/     # Revisioned record, journal, receipt, stratum profile (proposed)
 │   ├── durable-record/v1/     # Retained records with use restrictions (proposed)
+│   ├── durable-runner/v0/     # Task identity, transitions, journaled recovery profile (proposed)
+│   ├── filesystem-access/v0/  # Held-root access, containment profiles, capability reports (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
 │   ├── foundation/v0/         # Lifecycle phases, release phases, types
 │   ├── identity-evidence/v0/  # Scoped identity observations, assessments and wire profiles (proposed)
@@ -128,6 +129,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── recurrence/v0/         # RFC 5545 recurrence rule subset and corpus (proposed)
 │   ├── project-work/v0/       # Ready packets, project state, work ledger (draft)
 │   ├── seat-spheres/v0/       # Seat function and per-subject spheres rolled into one seat view (draft)
+│   ├── review-journal/v0/     # Relied-upon review evidence (draft)
 │   ├── segmented-snapshot/v0/ # Immutable snapshot publication and verification (proposed)
 │   └── service-job/v0/        # Portable service job contract
 ├── keys/                      # Fingerprints of the release public keys
