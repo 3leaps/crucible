@@ -1,0 +1,47 @@
+{
+  "v": 0,
+  "id": "profile-window-max-out-of-range-refused",
+  "mode": "basic",
+  "covers": [
+    "profile.window-range"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P60D"
+        },
+        "store_window": "P60D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "refused": "window_out_of_range"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "store_window raised to P60D so it covers the configured max and store_window_too_short cannot fire"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "v": 0,
+  "id": "profile-admit-refused-keeps-kind-range",
+  "mode": "basic",
+  "covers": [
+    "identity.window"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "idempotency_window": "P20D"
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P25D",
+          "default": "P30D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "advisory_only",
+        "task_kind_window_range": {
+          "min": "P25D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "refused": "authority_scope_unsupported"
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the refused profile narrowed the kind range to 25 days or more; had it been installed, a 20 day window would be invalid"
+    }
+  ]
+}

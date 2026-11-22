@@ -1,0 +1,30 @@
+{
+  "v": 0,
+  "id": "duration-fractional-microseconds-accepted",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "PT0.0005S",
+      "target": "us",
+      "expect": {
+        "ok": {
+          "us": 500
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "500 microseconds exact on the microsecond interface"
+    }
+  ]
+}

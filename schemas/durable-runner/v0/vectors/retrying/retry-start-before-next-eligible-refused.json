@@ -1,0 +1,132 @@
+{
+  "v": 0,
+  "id": "retry-start-before-next-eligible-refused",
+  "mode": "retrying",
+  "covers": [
+    "retry.persisted-jitter"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT5M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "reason": "source_unavailable",
+        "outcome": "source_unavailable"
+      },
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      },
+      "next_eligible_at": "2026-01-02T00:06:00.000000Z",
+      "reason": "retry_scheduled"
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "refused": "illegal_transition"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "clock is at 00:05, next_eligible_at 00:06; attempt 2 is contiguous and within limits"
+    }
+  ]
+}

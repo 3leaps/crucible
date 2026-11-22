@@ -1,0 +1,51 @@
+{
+  "v": 0,
+  "id": "identity-mapping-duplicate-code-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "outcome_mapping": [
+        {
+          "code": "captured_verified",
+          "result": "success"
+        },
+        {
+          "code": "integrity_mismatch",
+          "result": "failure",
+          "reason": "integrity_failure"
+        },
+        {
+          "code": "captured_verified",
+          "result": "failure",
+          "reason": "x"
+        }
+      ],
+      "retry.retryable_reasons": []
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "every other field is valid; only one outcome code is mapped twice with conflicting classes"
+    }
+  ]
+}

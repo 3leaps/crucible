@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-runner/v0/checkpoint.schema.json",
+  "title": "Durable Runner Checkpoint",
+  "description": "Experimental durable-runner/v0 companion. One payload binds the journal cursor and the exact verified state body pin. Bodies are staged and verified before the referencing record; an unreferenced body is not a checkpoint. verified is always true: a checkpoint of unverified state is not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "kind",
+    "task_id",
+    "cursor",
+    "state",
+    "verified",
+    "at"
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "kind": {
+      "const": "task_checkpoint"
+    },
+    "task_id": {
+      "$ref": "#/$defs/digest"
+    },
+    "cursor": {
+      "$ref": "#/$defs/revisionPin"
+    },
+    "state": {
+      "$ref": "#/$defs/bodyPin",
+      "description": "Verified state body pin."
+    },
+    "verified": {
+      "const": true
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(19[7-9][0-9]|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9]\\.[0-9]{6}Z$",
+      "description": "Canonical v1 operational instant: UTC, Z, exactly six fractional digits. Any other spelling is refused, never rounded or padded."
+    },
+    "revisionPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "record_id",
+        "revision",
+        "digest"
+      ],
+      "description": "Exact durable-record/v1 revision pin.",
+      "properties": {
+        "stream": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "record_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "bodyPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "length"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

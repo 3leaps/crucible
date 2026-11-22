@@ -1,0 +1,32 @@
+{
+  "v": 0,
+  "id": "mode-basic-multiple-attempts-refused",
+  "mode": "basic",
+  "covers": [
+    "mode.gating"
+  ],
+  "definitions": {
+    "d1": {}
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "mode_unsupported"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "golden definition allows 3 attempts; every other field is valid, so only the basic one-attempt limit applies"
+    }
+  ]
+}

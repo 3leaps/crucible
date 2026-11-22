@@ -1,0 +1,121 @@
+{
+  "v": 0,
+  "id": "crash-uncommitted-cursor-not-checkpointable",
+  "mode": "journaled",
+  "covers": [
+    "crash.before-record-commit",
+    "checkpoint.ordering"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "before_record_commit",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      },
+      "owner": "owner-2"
+    },
+    {
+      "op": "checkpoint",
+      "task": "t1",
+      "cursor_revision": 4,
+      "body": {
+        "verified": true,
+        "staged": "before_record"
+      },
+      "expect": {
+        "refused": "cursor_not_in_chain"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "none",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "recovery has completed and the body is verified and staged before its record; only revision 4 does not exist (the chain holds revisions 1 to 3), so no cursor from the lost commit can be bound"
+    }
+  ]
+}

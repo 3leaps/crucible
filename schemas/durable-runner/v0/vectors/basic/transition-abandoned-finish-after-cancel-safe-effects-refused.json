@@ -1,0 +1,105 @@
+{
+  "v": 0,
+  "id": "transition-abandoned-finish-after-cancel-safe-effects-refused",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted",
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "abandoned",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "abandoned",
+        "effects": "none",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "refused": "abandonment_needs_unresolved_effects"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "after a committed cancel with safe effects the task finishes cancelled through quiescence, not abandoned"
+    }
+  ]
+}

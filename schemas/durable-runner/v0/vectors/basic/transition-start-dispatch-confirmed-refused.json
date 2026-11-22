@@ -1,0 +1,60 @@
+{
+  "v": 0,
+  "id": "transition-start-dispatch-confirmed-refused",
+  "mode": "basic",
+  "covers": [
+    "crash.after-start-before-dispatch"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "confirmed"
+      },
+      "expect": {
+        "refused": "dispatch_not_provable"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "attempt 1 is otherwise startable; a start record may not claim dispatch is confirmed"
+    }
+  ]
+}

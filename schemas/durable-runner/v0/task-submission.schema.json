@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-runner/v0/task-submission.schema.json",
+  "title": "Durable Runner Task Submission",
+  "description": "Experimental durable-runner/v0 companion. A caller's request to run a pinned definition under a stable invocation identity. task_id and task_spec_digest are derived values the checker recomputes; a mismatch is a refusal. Reusing authority and invocation_key with a different digest is a conflict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "authority",
+    "invocation_key",
+    "task_id",
+    "task_spec_digest",
+    "definition"
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "authority": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "invocation_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "not": {
+        "pattern": "^(slot|catchup):"
+      },
+      "description": "The slot: and catchup: prefixes are reserved for derived keys."
+    },
+    "task_id": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_spec_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "definition": {
+      "$ref": "#/$defs/taskDefinition"
+    },
+    "supersedes_task_id": {
+      "$ref": "#/$defs/digest",
+      "description": "Operator retry of a terminal task creates a new task naming the old one."
+    },
+    "catch_up_of": {
+      "$ref": "#/$defs/digest",
+      "description": "Original missed-task pin for a catch-up submission."
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^P(?:[0-9]+W|[0-9]+D(?:T(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+M(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+(?:\\.[0-9]{1,6})?S))?|T(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+M(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+(?:\\.[0-9]{1,6})?S))$",
+      "maxLength": 64,
+      "description": "Fixed-unit ISO 8601 subset (W, D, H, M, S; no years or months). Evaluated as exact integer microseconds; fractional loss and overflow past the safe-integer ceiling are refusals."
+    },
+    "contractToken": {
+      "type": "string",
+      "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$"
+    },
+    "contractPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "digest"
+      ],
+      "description": "A trusted local pin: the contract token and the digest of its canonical manifest or schema set. Never a retrieval address.",
+      "properties": {
+        "contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "taskDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "task_kind",
+        "parameters",
+        "outcome_mapping",
+        "timeouts",
+        "retry"
+      ],
+      "properties": {
+        "v": {
+          "const": 0
+        },
+        "task_kind": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract",
+            "schema_digest"
+          ],
+          "properties": {
+            "contract": {
+              "$ref": "#/$defs/contractToken"
+            },
+            "schema_digest": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "description": "The pinned task-kind schema. No network resolution from an instance."
+        },
+        "parameters": {
+          "type": "object",
+          "description": "I-JSON parameters validated by the pinned task-kind schema. Secrets are references only."
+        },
+        "requires": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "pin"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
+              "pin": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          },
+          "description": "Input pin checks. Never schedules or runs a predecessor."
+        },
+        "outcome_mapping": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "result"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
+              "result": {
+                "enum": [
+                  "success",
+                  "failure"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              }
+            }
+          },
+          "description": "Closed outcome vocabulary. An unknown code fails closed."
+        },
+        "policy_pins": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/contractPin"
+          }
+        },
+        "timeouts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grace"
+          ],
+          "properties": {
+            "attempt": {
+              "$ref": "#/$defs/duration"
+            },
+            "task_deadline": {
+              "$ref": "#/$defs/duration"
+            },
+            "grace": {
+              "$ref": "#/$defs/duration"
+            },
+            "phases": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": {
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/duration"
+              },
+              "description": "Named phases are closed by the task-kind profile; an unlisted phase is refused semantically."
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "attempt"
+              ]
+            },
+            {
+              "required": [
+                "task_deadline"
+              ]
+            }
+          ],
+          "description": "An omitted whole-attempt timeout requires a finite task deadline."
+        },
+        "retry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_attempts",
+            "retryable_reasons"
+          ],
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Includes the first attempt."
+            },
+            "retryable_reasons": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
+              "description": "Closed by the pinned task-kind schema. An unknown external effect is never a member."
+            },
+            "backoff": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "initial",
+                "max",
+                "jitter_milli"
+              ],
+              "properties": {
+                "initial": {
+                  "$ref": "#/$defs/duration"
+                },
+                "max": {
+                  "$ref": "#/$defs/duration"
+                },
+                "multiplier_milli": {
+                  "type": "integer",
+                  "minimum": 1000,
+                  "maximum": 10000,
+                  "description": "Multiplier m in thousandths (exact rational m = value/1000); omitted or 1000 is fixed backoff. Identity input never carries a float."
+                },
+                "jitter_milli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "description": "Jitter fraction j in thousandths (exact rational). The delay is drawn from the band the standard defines, recorded with its decision instant and persisted; replay never draws again."
+                }
+              }
+            },
+            "horizon": {
+              "$ref": "#/$defs/duration"
+            },
+            "retry_after_abandonment": {
+              "type": "boolean",
+              "description": "Task-kind permission for an abandoned attempt to return the task to waiting. Default false when absent; absence of a failure code never bypasses retry policy."
+            }
+          }
+        },
+        "idempotency_window": {
+          "$ref": "#/$defs/duration"
+        },
+        "durability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "remote_sealed_coverage": {
+              "enum": [
+                "none",
+                "required"
+              ]
+            },
+            "replication": {
+              "enum": [
+                "none",
+                "required"
+              ]
+            }
+          },
+          "description": "Durability the task requires of the runner. Anything other than none is a valid definition that this release refuses as an unsupported requirement."
+        }
+      },
+      "description": "Canonical task definition whose RFC 8785 digest is task_spec_digest. Excludes runtime identifiers, evidence timestamps and derived state."
+    }
+  }
+}

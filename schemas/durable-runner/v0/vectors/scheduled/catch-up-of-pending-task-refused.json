@@ -1,0 +1,109 @@
+{
+  "v": 0,
+  "id": "catch-up-of-pending-task-refused",
+  "mode": "scheduled",
+  "covers": [
+    "schedule.catch-up"
+  ],
+  "requires_clock": "2026-01-03T01:00:00.000000Z",
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "supply_slot",
+      "slot": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "instant": "2026-01-03T00:00:00.000000Z",
+        "window": {
+          "not_before": "2026-01-03T00:00:00.000000Z",
+          "not_after": "2026-01-03T06:00:00.000000Z"
+        }
+      },
+      "as": "m1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "eligible": true
+        }
+      }
+    },
+    {
+      "op": "catch_up",
+      "missed_task": "m1",
+      "as": "c1",
+      "definition": "d1",
+      "expect": {
+        "refused": "missed_not_terminal"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "m1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "m1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "lag within max_lag, catch-up configured; the referenced task is pending not missed"
+    }
+  ]
+}

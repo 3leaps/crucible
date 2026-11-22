@@ -1,0 +1,30 @@
+{
+  "v": 0,
+  "id": "duration-whole-milliseconds-accepted",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "PT0.5S",
+      "target": "ms_interface",
+      "expect": {
+        "ok": {
+          "us": 500000
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "500 ms is exact on the ms interface so no loss"
+    }
+  ]
+}

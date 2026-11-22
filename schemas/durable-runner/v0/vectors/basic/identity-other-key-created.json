@@ -1,0 +1,72 @@
+{
+  "v": 0,
+  "id": "identity-other-key-created",
+  "mode": "basic",
+  "covers": [
+    "identity.reuse-conflict"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    },
+    "d2": {
+      "retry.max_attempts": 1,
+      "idempotency_window": "P10D"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t2",
+      "authority": "a",
+      "key": "k2",
+      "definition": "d2",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      },
+      "t2": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t2",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "same authority, different key with a different digest: no binding exists for k2 so no conflict"
+    }
+  ]
+}

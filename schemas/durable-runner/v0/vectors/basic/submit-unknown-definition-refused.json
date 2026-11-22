@@ -1,0 +1,30 @@
+{
+  "v": 0,
+  "id": "submit-unknown-definition-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.definition-valid"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "nope",
+      "expect": {
+        "refused": "malformed"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the identity and generation are valid; only the definition name is unbound"
+    }
+  ]
+}

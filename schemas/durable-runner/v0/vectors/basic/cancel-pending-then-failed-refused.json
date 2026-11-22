@@ -1,0 +1,70 @@
+{
+  "v": 0,
+  "id": "cancel-pending-then-failed-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "reason": "pre_execution_refusal",
+      "expect": {
+        "refused": "cancellation_precedes_failure"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "pending",
+        "cancellation": "requested"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "a terminal pre-execution refusal is otherwise legal; only the committed cancellation request wins"
+    }
+  ]
+}

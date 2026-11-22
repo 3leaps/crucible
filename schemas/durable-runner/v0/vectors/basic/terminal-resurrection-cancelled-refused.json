@@ -1,0 +1,84 @@
+{
+  "v": 0,
+  "id": "terminal-resurrection-cancelled-refused",
+  "mode": "basic",
+  "covers": [
+    "transition.terminal-resurrection"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "expect": {
+        "ok": {
+          "state": "cancelled"
+        }
+      },
+      "effects": "none"
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "pending",
+      "expect": {
+        "refused": "terminal_resurrection"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "cancelled",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "pending",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
+        "to": "cancelled"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "no attempt arg; terminal rule only"
+    }
+  ]
+}

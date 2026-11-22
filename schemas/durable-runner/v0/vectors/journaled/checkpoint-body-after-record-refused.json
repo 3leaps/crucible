@@ -1,0 +1,88 @@
+{
+  "v": 0,
+  "id": "checkpoint-body-after-record-refused",
+  "mode": "journaled",
+  "covers": [
+    "checkpoint.ordering"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "checkpoint",
+      "task": "t1",
+      "cursor_revision": 2,
+      "body": {
+        "verified": true,
+        "staged": "after_record"
+      },
+      "expect": {
+        "refused": "body_after_record"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "body verified and cursor valid; only staging order differs from the accepted twin"
+    }
+  ]
+}

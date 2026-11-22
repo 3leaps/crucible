@@ -1,0 +1,35 @@
+{
+  "v": 0,
+  "id": "identity-deadline-zero-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "timeouts.task_deadline": "PT0S"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the attempt timeout is finite; only the task deadline is zero, so the task could never start"
+    }
+  ]
+}

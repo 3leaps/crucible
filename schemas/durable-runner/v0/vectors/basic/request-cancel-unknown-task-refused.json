@@ -1,0 +1,31 @@
+{
+  "v": 0,
+  "id": "request-cancel-unknown-task-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "request_cancel",
+      "task": "missing",
+      "expect": {
+        "refused": "malformed"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the generation is current; only the task is unknown"
+    }
+  ]
+}

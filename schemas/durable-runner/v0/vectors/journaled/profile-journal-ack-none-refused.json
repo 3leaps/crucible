@@ -1,0 +1,50 @@
+{
+  "v": 0,
+  "id": "profile-journal-ack-none-refused",
+  "mode": "journaled",
+  "covers": [
+    "profile.journal-ack"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1"
+      },
+      "expect": {
+        "refused": "journal_ack_insufficient"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "only the ack differs from the admitted baseline"
+    }
+  ]
+}

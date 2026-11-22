@@ -1,0 +1,70 @@
+{
+  "v": 0,
+  "id": "admission-settle-superseded-handle-refused",
+  "mode": "journaled",
+  "covers": [
+    "generation.stale",
+    "orphan.refusal"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 2,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "owner": "owner-2",
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "other_owner": true,
+      "expect": {
+        "ok": {
+          "task_states": {},
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "settle",
+      "limit": 2,
+      "expect": {
+        "refused": "generation_stale"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "another owner recovered with generation 2 and this adapter still holds generation 1; settling would otherwise be valid"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "v": 0,
+  "id": "transition-without-generation-refused",
+  "mode": "basic",
+  "covers": [
+    "generation.stale"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "no_handle": true,
+      "expect": {
+        "refused": "generation_required"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "an admission wait is otherwise permitted; only the operation presents no generation"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+# Durable runner schema family v0
+
+**Proposed / experimental.** The capability is `contract: durable-runner/v0`.
+Resolve it through a trusted, pinned `contract.json`; never treat
+instance-provided retrieval addresses as a schema registry. The normative
+companion is the
+[durable runner standard](../../../docs/standards/durable-runner-contract.md).
+Decision record:
+[ADR-0021](../../../docs/decisions/ADR-0021-durable-runner-contract.md).
+
+The contract is logical only. It admits the modes `basic`, `retrying`,
+`journaled` and `scheduled`, and reserves `sealed`, which no profile may
+advertise yet. Process supervision, storage layouts, schedulers and runtimes
+belong to adopting repositories.
+
+| Artifact                      | Responsibility                                                                                        |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `contract.json`               | Capability manifest; entry is the runner profile                                                      |
+| `runner-profile.schema.json`  | Discovery root: modes, authority, independent durability properties, journal pin, idempotency windows |
+| `task-definition.schema.json` | The immutable specification whose canonical digest is `task_spec_digest`                              |
+| `task-submission.schema.json` | Authority, invocation key and derived identities around one definition                                |
+| `transition.schema.json`      | Payload of one single-revision durable-record/v1 record: state change plus attempt fact               |
+| `checkpoint.schema.json`      | Journal cursor and verified state body pin as one payload                                             |
+| `supplied-slot.schema.json`   | Caller-supplied slot, occurrence set or coverage, and catch-up link                                   |
+| `examples/`                   | One golden per object, plus a governed-acquisition composition                                        |
+| `rejects/schema/`             | Baseline and reject pairs differing in exactly one field                                              |
+| `rejects/semantic/`           | Vectors with a deliberately wrong expectation; the checker must detect each with its labeled reason   |
+| `vectors/<mode>/`             | Behavioral vectors, by the lowest mode that must pass them; a mode's suite includes every lower mode  |
+| `vectors/INVENTORY.json`      | Minimum inventory topic to covering vector ids                                                        |
+
+`task-submission` embeds the task-definition schema under `$defs.taskDefinition`
+so it validates standalone; the controls fail if the copy drifts. Run
+`python3 scripts/test-durable-runner-controls.py`, also included in
+`make check`. It validates every example, recomputes `task_id`,
+`task_spec_digest` and `attempt_id` from RFC 8785 canonical bytes, and
+asserts each reject pair differs in exactly one field.
+
+## Vectors and the consistency model
+
+A vector is an ordered script of ops against a runner, with expectations
+authored by hand from the standard. Each op carries `expect`: `{"ok": {...}}`
+(listed members must match; unlisted result members are not asserted) or
+`{"refused": "<reason>"}` (an exact closed reason). A refused op changes no
+state. A vector also states the final projection (`expected.tasks`: state and
+attempts) and the exact committed history (`expected.history`: task, state and
+attempt fact). Refusal vectors name the competing limits they checked cannot
+fire, and each is paired with an acceptance twin that differs only in the
+guarded condition.
+
+`definitions` bind names to task definitions: each starts from the golden
+acquisition definition and applies a flat map of dotted paths to values (`null`
+deletes). The virtual clock starts at `requires_clock` and moves only with
+`advance_clock`. `submit` binds a task label with `as`; slot and catch-up ops
+bind labels with `as` or `labels` and pick a definition.
+A refusal may also carry `detail`; a batch commit failure (`commit_indeterminate`) reports `committed`, `unresolved` and `unattempted` task labels.
+
+| Op                                                                       | Result members                                                    | Refusals                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `profile_admit`                                                          |                                                                   | `sealed_mode_reserved`, `mode_not_cumulative`, `remote_coverage_claimed`, `replication_claimed`, `journal_ack_insufficient`, `journal_ack_exceeds_failure_model`, `journal_contract_not_v1`, `authority_scope_unsupported`, `store_window_too_short`, `window_out_of_range`, `recovery_required`, `malformed`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `submit`                                                                 | `disposition`, `task_id`, `state`                                 | `identity_conflict`, `identity_unresolved`, `definition_invalid`, `unsupported_requirement`, `reserved_key`, `counter_exhausted`, `mode_unsupported`, `recovery_required`, `store_window_too_short`, `generation_stale`, `generation_unclaimed`, `generation_required`, `malformed`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `transition`                                                             | `revision`, `state`                                               | `predecessor_mismatch`, `first_not_pending`, `illegal_transition`, `terminal_resurrection`, `attempt_not_contiguous`, `attempt_limit_exhausted`, `retry_not_permitted`, `unknown_outcome_code`, `outcome_mapping_mismatch`, `attempt_required`, `attempt_mismatch`, `outcome_required`, `result_state_mismatch`, `effects_required`, `dispatch_not_provable`, `lag_exceeded`, `recovery_required`, `retry_required`, `next_eligible_in_past`, `success_effects_unresolved`, `cancellation_precedes_start`, `cancellation_precedes_failure`, `backoff_out_of_band`, `unknown_effects_not_retryable`, `success_unverified_outputs`, `cancellation_not_confirmed`, `cancellation_precedes_success`, `generation_stale`, `generation_unclaimed`, `generation_required`, `unresolved_effects_not_failed`, `abandonment_needs_unresolved_effects`, `outcome_not_allowed`, `commit_indeterminate`, `deadline_exceeded`, `horizon_exceeded`, `jitter_not_persisted` |
+| `request_cancel`, `confirm_cancel`                                       | `effect`, `state`                                                 | `task_terminal`, `quiescence_not_established`, `cancel_not_requested`, `malformed` (unknown task)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `advance_clock`, `parse_duration`, `parse_instant`, `format_instant`     | `now`, `us`, `canonical`                                          | `duration_invalid`, `syntax`, `overflow`, `fractional_loss`, `format`, `nonrepresentable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `crash`, `recover`, `replay`, `checkpoint`, `reconcile`, `retire_output` | `task_states`, `heads`, `outcomes`, `effects_performed`, `status` | `mode_unsupported`, `recovery_required`, `recovery_disposition_required`, `effects_required`, `predecessor_not_quiescent`, `counter_exhausted`, `generation_stale`, `body_unverified`, `body_after_record`, `cursor_not_in_chain`, `checkpoint_not_eligible`, `checkpoint_body_held`, `hold_active`, `retirement_refused`, `malformed` (unknown task)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `admission`                                                              | `reserved`                                                        | `rate_denied`, `shared_quota_needs_shared_authority`, `unsettled_reservation`, `generation_stale`, `generation_unclaimed`, `generation_required`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `supply_slot`, `evaluate_slots`, `catch_up`                              | `slot_id`, `eligible`, `missed`, `task_id`                        | `mode_unsupported`, `slot_identity_mismatch`, `slot_window_invalid`, `slot_outside_window`, `zone_unavailable`, `ambiguous_local_time`, `dst_non_slot`, `coverage_not_supplied`, `coverage_invalid`, `identity_conflict`, `format`, `lag_exceeded`, `catch_up_not_permitted`, `missed_not_terminal`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+`scripts/validate-durable-runner-vectors.py` executes each script against a
+reference consistency model: an in-memory fold of the standard's rules under
+the virtual clock. It requires every authored result, the final projection and
+the exact history to match, so a fabricated receipt, an invented transition or
+a missing guard is a mismatch. Every rule it enforces is a named guard, and
+`--disable <guard>` removes one. Time-zone and recurrence validation use a fixture-limited table (America/New_York, 2026); anything the table cannot judge is refused as `zone_unavailable`, never guessed. `scripts/test-durable-runner-vector-controls.py`
+(in `make check`) runs the suite, disables each guard in turn and requires a
+checker verdict from at least one vector (a crash does not count), requires
+each `rejects/semantic/` fixture to fail for its labeled reason with its
+baseline passing, and checks the inventory. It also checks that every refusal is isolated (removing some single guard turns that refusal into acceptance, so a vector's `competing` note is true; grammar and boundary refusals are exempt because the parser itself refuses them), that every transition any vector commits is a valid `transition.schema.json` record, that every definition, slot, occurrence set and coverage a vector supplies is valid against its schema, and that schema-shaped runner profiles are admitted or refused by the same rules as the vectors.
+
+**Assurance boundary.** The model is a checker for fixtures. It is not a
+conformance oracle for an implementation, which is why the expected histories
+are authored independently of it. Its time-zone table is limited to the one
+zone the DST vectors use. The harness that runs these vectors against a real
+runner lives in the adopting repository.
+
+**Adopting these vectors.** A vector is an op script for the reference model; an
+adopter writes its own harness that drives its runner through the same ops.
+
+- _Runner behavior an adopter must map:_ `submit`, `transition`, `request_cancel`,
+  `confirm_cancel`, `recover`, `replay`, `checkpoint`, `reconcile`, `retire_output`,
+  `admission` (`reserve` and `settle`), `profile_admit`, `supply_slot`,
+  `evaluate_slots` and `catch_up`. Every committing op is driven with the generation
+  the adapter acquired; the harness attaches it, as the reference `Driver` does.
+- _Harness-only:_ `advance_clock`, `crash`, `inject_fault`, `admission` `restart`, and
+  the `no_handle` / `other_owner` / `authority_handle` markers. `parse_instant`,
+  `parse_duration` and `format_instant` exercise the adopter's own token grammar
+  rather than runner state.
+- _Required set:_ a runner claiming a mode must pass that mode's directory and every
+  directory before it (`basic`, then `retrying`, `journaled`, `scheduled`); `sealed` is
+  reserved and has none.
+- _Stability:_ the pinned contract surface is the six schemas and `contract.json`.
+  The vector document has no schema and its op arguments are not a pinned surface;
+  an adopter pins a release and that release's `vectors/INVENTORY.json`, and the
+  reference model's refusal reasons are the expected-result vocabulary of that release.
+
+Fixture data is synthetic. Identifiers are public-safe tokens.

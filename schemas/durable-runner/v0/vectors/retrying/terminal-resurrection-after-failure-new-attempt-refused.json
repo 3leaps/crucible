@@ -1,0 +1,123 @@
+{
+  "v": 0,
+  "id": "terminal-resurrection-after-failure-new-attempt-refused",
+  "mode": "retrying",
+  "covers": [
+    "transition.terminal-resurrection"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "reason": "integrity_failure",
+        "outcome": "integrity_mismatch"
+      },
+      "expect": {
+        "ok": {
+          "state": "failed"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "refused": "terminal_resurrection"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "failed",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "failed",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "only the terminal state applies; operator retry must be a new task"
+    }
+  ]
+}

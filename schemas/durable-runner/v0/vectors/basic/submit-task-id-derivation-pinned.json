@@ -1,0 +1,47 @@
+{
+  "v": 0,
+  "id": "submit-task-id-derivation-pinned",
+  "mode": "basic",
+  "covers": [
+    "identity.accept"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "task_id": "sha256:495a3946a7124c97baca0447f131d48bad29a8b6df781ce6704fdfbeb552b1d0"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the task identity is the digest of the canonical authority, invocation key and version, computed here independently of the model"
+    }
+  ]
+}

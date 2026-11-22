@@ -1,0 +1,111 @@
+{
+  "v": 0,
+  "id": "cancel-request-on-failed-task-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "dispatch": "confirmed",
+        "result": "failed",
+        "effects": "none",
+        "outcome": "integrity_mismatch"
+      },
+      "expect": {
+        "ok": {
+          "state": "failed"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "refused": "task_terminal"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "failed",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "failed",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "the task finished failed (terminal other than succeeded); a new cancellation request is refused, not too_late"
+    }
+  ]
+}

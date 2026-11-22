@@ -61,6 +61,7 @@ Examples:
 | [ADR-0018](ADR-0018-prims-multi-language-commitment.md)                    | Prims Carry a Multi-Language Commitment and May Depend on Sibling Prims     | proposed | 2026-10-25 |
 | [ADR-0019](ADR-0019-durable-record-tombstoning.md)                         | Durable Record Tombstoning with Retained Audit History                      | proposed | 2026-10-20 |
 | [ADR-0020](ADR-0020-filesystem-access-contract.md)                         | Filesystem Access Through Qualified Held-Root Profiles                      | proposed | 2026-11-13 |
+| [ADR-0021](ADR-0021-durable-runner-contract.md)                            | Durable Runner as a Portable Contract with a Core-First Mode Set            | proposed | 2026-11-20 |
 | [DDR-0001](DDR-0001-application-control-data-contract.md)                  | Application Control Data Contract                                           | proposed | 2026-09-06 |
 | [DDR-0002](DDR-0002-segmented-snapshot-identity-and-evidence.md)           | Segmented Snapshot Identity and Evidence                                    | proposed | 2026-09-30 |
 | [DDR-0003](DDR-0003-portable-path-serialization-at-tool-boundaries.md)     | Portable Path Serialization at Tool Boundaries                              | proposed | 2026-10-02 |

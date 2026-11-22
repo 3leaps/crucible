@@ -1,0 +1,120 @@
+{
+  "v": 0,
+  "id": "backoff-small-jitter-upper-exact-accepted",
+  "mode": "retrying",
+  "covers": [
+    "retry.persisted-jitter"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 6,
+      "retry.backoff": {
+        "initial": "PT0.001S",
+        "max": "PT1S",
+        "multiplier_milli": 1000,
+        "jitter_milli": 9
+      },
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T00:00:01.001009Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "B=1000us, j=0.009: U=floor(1009)=1009 exactly (a binary float yields 1008)"
+    }
+  ]
+}

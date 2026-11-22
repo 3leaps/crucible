@@ -1,0 +1,120 @@
+{
+  "v": 0,
+  "id": "coverage-expected-outside-span-refused",
+  "mode": "scheduled",
+  "covers": [
+    "schedule.supplied-coverage"
+  ],
+  "requires_clock": "2026-01-03T07:00:00.000000Z",
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic",
+          "retrying",
+          "journaled",
+          "scheduled"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "survives_power_loss",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained",
+        "journal_contract": "contract: durable-record/v1",
+        "schedule": {
+          "rule_contract": {
+            "contract": "contract: recurrence/v0",
+            "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+          },
+          "max_lag": "PT12H"
+        }
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "supply_slot",
+      "coverage": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "from": "2026-01-03T00:00:00.000000Z",
+        "to": "2026-01-03T06:00:00.000000Z",
+        "expected": [
+          {
+            "instant": "2026-01-02T12:00:00.000000Z",
+            "window": {
+              "not_before": "2026-01-02T12:00:00.000000Z",
+              "not_after": "2026-01-02T18:00:00.000000Z"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "evaluate_slots",
+      "coverage": {
+        "rule": {
+          "contract": "contract: recurrence/v0",
+          "digest": "sha256:bfbc0a15acc60e4f85825ae7a637020053a0d12c920e753cfbdd29fdca90e222"
+        },
+        "scope": "example-scope",
+        "from": "2026-01-03T00:00:00.000000Z",
+        "to": "2026-01-03T06:00:00.000000Z",
+        "expected": [
+          {
+            "instant": "2026-01-02T12:00:00.000000Z",
+            "window": {
+              "not_before": "2026-01-02T12:00:00.000000Z",
+              "not_after": "2026-01-02T18:00:00.000000Z"
+            }
+          }
+        ]
+      },
+      "labels": {
+        "2026-01-02T12:00:00.000000Z": "m1"
+      },
+      "definition": "d1",
+      "expect": {
+        "refused": "coverage_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "rule pin matches and the span is wholly past; only the expected instant lies before the span start"
+    }
+  ]
+}

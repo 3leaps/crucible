@@ -117,6 +117,7 @@ This is a **reference-based model**—we don't sync standards into repositories.
 │   ├── data-acquisition/v0/   # Source policy, acquisition scope and registration (proposed)
 │   ├── durable-index/v0/      # Object-inventory snapshots, observation plans (proposed)
 │   ├── durable-queue/v0/      # At-least-once queue envelope, ledger, profile (proposed)
+│   ├── durable-runner/v0/     # Task identity, transitions, journaled recovery profile (proposed)
 │   ├── durable-record/v0/     # Revisioned record, journal, receipt, stratum profile (proposed)
 │   ├── durable-record/v1/     # Retained records with use restrictions (proposed)
 │   ├── forge-infra/v0/        # Forge capabilities, provider profiles, authority bindings
@@ -354,6 +355,16 @@ operations, typed errors and per-operation capability claims. Its
 provide logical controls; runtime enforcement and adversarial platform
 qualification remain the responsibility of adopters. See
 [ADR-0020](docs/decisions/ADR-0020-filesystem-access-contract.md).
+
+### Experimental durable runner contract
+
+The [durable runner contract](docs/standards/durable-runner-contract.md)
+defines task identity, closed task and attempt transitions, single-authority
+journaled recovery, independent durability properties and supplied schedules.
+Its [schema bundle, reject pairs and vectors](schemas/durable-runner/v0/README.md)
+provide logical controls; runtime, cloud and sealed qualification remain the
+responsibility of adopters. See
+[ADR-0021](docs/decisions/ADR-0021-durable-runner-contract.md).
 
 ### Published schema assets
 

@@ -1,0 +1,52 @@
+{
+  "v": 0,
+  "id": "identity-backoff-initial-equals-max-accepted",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "retry.backoff": {
+        "initial": "PT5S",
+        "max": "PT5S",
+        "jitter_milli": 0
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the initial-above-max refusal: initial equals the maximum, which satisfies 0 <= I <= C"
+    }
+  ]
+}

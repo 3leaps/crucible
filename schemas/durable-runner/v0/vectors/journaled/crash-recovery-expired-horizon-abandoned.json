@@ -1,0 +1,116 @@
+{
+  "v": 0,
+  "id": "crash-recovery-expired-horizon-abandoned",
+  "mode": "journaled",
+  "covers": [
+    "crash.after-effect-before-finish",
+    "retry.horizon-deadline"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true,
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT2H",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      },
+      "owner": "owner-2"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "resolved"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "retry after abandonment is permitted, effects resolved, attempts remain, and the task deadline (PT6H) is still open; only the retry horizon (PT1H from the first start) has expired"
+    }
+  ]
+}

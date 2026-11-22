@@ -1,0 +1,37 @@
+{
+  "v": 0,
+  "id": "identity-phase-unlisted-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1,
+      "timeouts.phases": {
+        "unknown_phase": "PT1M"
+      }
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "refused": "definition_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "every other field is valid; only the named phase is not closed by the kind profile"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "v": 0,
+  "id": "duration-day-microseconds",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "P1D",
+      "target": "us",
+      "expect": {
+        "ok": {
+          "us": 86400000000
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "fixed-unit day assumed 86400 s"
+    }
+  ]
+}

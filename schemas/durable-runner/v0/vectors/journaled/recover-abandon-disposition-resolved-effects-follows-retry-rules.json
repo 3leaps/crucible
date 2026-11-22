@@ -1,0 +1,109 @@
+{
+  "v": 0,
+  "id": "recover-abandon-disposition-resolved-effects-follows-retry-rules",
+  "mode": "journaled",
+  "covers": [
+    "orphan.refusal",
+    "crash.after-effect-before-finish"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "owner": "owner-2",
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
+      "disposition": "abandon",
+      "next_eligible_at": "2026-01-02T00:01:00.000000Z",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "waiting"
+          },
+          "executed_effects": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "effects are resolved and retry after abandonment is granted and feasible, so recovery follows the retry gates although it named abandon; an explicit abandon is honored only for unresolved effects"
+    }
+  ]
+}

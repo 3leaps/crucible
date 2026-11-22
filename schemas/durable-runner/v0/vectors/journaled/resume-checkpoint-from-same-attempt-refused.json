@@ -1,0 +1,144 @@
+{
+  "v": 0,
+  "id": "resume-checkpoint-from-same-attempt-refused",
+  "mode": "journaled",
+  "covers": [
+    "resume.authorization",
+    "checkpoint.ordering"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "checkpoint",
+      "task": "t1",
+      "cursor_revision": 2,
+      "body": {
+        "verified": true,
+        "staged": "before_record"
+      },
+      "expect": {
+        "ok": {
+          "checkpoint_id": 1
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "waiting"
+          },
+          "executed_effects": 0
+        }
+      },
+      "next_eligible_at": "2026-01-02T00:01:00.000000Z",
+      "owner": "owner-2"
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended",
+        "checkpoint": 2
+      },
+      "expect": {
+        "refused": "checkpoint_not_eligible"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "resolved"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "attempt 2 is otherwise startable; the named checkpoint id does not exist, so no predecessor checkpoint is eligible"
+    }
+  ]
+}

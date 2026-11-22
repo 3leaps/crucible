@@ -1,0 +1,34 @@
+{
+  "v": 0,
+  "id": "instant-malformed-refused",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "not-a-time",
+      "expect": {
+        "refused": "format"
+      }
+    },
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02 00:00:00Z",
+      "expect": {
+        "refused": "format"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "no fractional digits involved"
+    }
+  ]
+}

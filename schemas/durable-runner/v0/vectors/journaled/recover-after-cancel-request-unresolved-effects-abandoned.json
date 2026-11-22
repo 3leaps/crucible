@@ -1,0 +1,124 @@
+{
+  "v": 0,
+  "id": "recover-after-cancel-request-unresolved-effects-abandoned",
+  "mode": "journaled",
+  "covers": [
+    "cancel.quiescence",
+    "crash.after-effect-before-finish"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "unknown",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "abandoned"
+          },
+          "executed_effects": 0
+        }
+      },
+      "disposition": "abandon",
+      "owner": "owner-2"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "unknown",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the cancelled recovery: effects are unknown, so cleanup cannot be resolved and the task is explicitly abandoned; the definition permits three attempts and retry after abandonment, so a return to waiting is possible and the committed cancellation request is what prevents it"
+    }
+  ]
+}

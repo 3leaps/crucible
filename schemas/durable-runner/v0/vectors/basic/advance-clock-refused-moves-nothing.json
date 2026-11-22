@@ -1,0 +1,37 @@
+{
+  "v": 0,
+  "id": "advance-clock-refused-moves-nothing",
+  "mode": "basic",
+  "covers": [
+    "time.instant"
+  ],
+  "requires_clock": "1969-12-31T23:00:00.000000Z",
+  "definitions": {},
+  "ops": [
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "refused": "nonrepresentable"
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1H",
+      "expect": {
+        "ok": {
+          "now": "1970-01-01T00:00:00.000000Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the one-hour advance lands exactly on the epoch only if the refused one-second advance moved nothing"
+    }
+  ]
+}

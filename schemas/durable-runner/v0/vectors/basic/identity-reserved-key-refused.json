@@ -1,0 +1,34 @@
+{
+  "v": 0,
+  "id": "identity-reserved-key-refused",
+  "mode": "basic",
+  "covers": [
+    "identity.invalid-definition"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "slot:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "definition": "d1",
+      "expect": {
+        "refused": "reserved_key"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the key is a valid token and the definition is valid; only the key is in the reserved derived-key space"
+    }
+  ]
+}

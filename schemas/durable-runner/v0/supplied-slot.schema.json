@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-runner/v0/supplied-slot.schema.json",
+  "title": "Durable Runner Supplied Slot",
+  "description": "Experimental durable-runner/v0 companion. The caller supplies one slot or a bounded occurrence set with exact rule, scope, instant and window pins. The executor validates supplied identity and eligibility; it never discovers unspecified slots. A coverage statement makes missed-slot recording possible for the supplied span only; there is no claim of detecting all misses without it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "kind"
+  ],
+  "properties": {
+    "v": {
+      "const": 0
+    },
+    "kind": {
+      "enum": [
+        "slot",
+        "occurrence_set",
+        "coverage"
+      ]
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "scope",
+        "window"
+      ],
+      "properties": {
+        "rule": {
+          "$ref": "#/$defs/contractPin"
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "instant": {
+          "$ref": "#/$defs/instant"
+        },
+        "local": {
+          "type": "string",
+          "pattern": "^(19[7-9][0-9]|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$",
+          "description": "A civil-time candidate, used with tz instead of instant. A candidate that does not exist in its zone (a DST gap) is a non-slot."
+        },
+        "tz": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "not_before",
+            "not_after"
+          ],
+          "properties": {
+            "not_before": {
+              "$ref": "#/$defs/instant"
+            },
+            "not_after": {
+              "$ref": "#/$defs/instant"
+            }
+          },
+          "description": "Half-open window [not_before, not_after). Semantic rules: not_before < not_after and not_before <= instant < not_after."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "instant"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "local"
+                ]
+              },
+              {
+                "required": [
+                  "tz"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "local",
+            "tz"
+          ],
+          "not": {
+            "required": [
+              "instant"
+            ]
+          }
+        }
+      ]
+    },
+    "slots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "scope",
+          "window"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/$defs/contractPin"
+          },
+          "scope": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+          },
+          "instant": {
+            "$ref": "#/$defs/instant"
+          },
+          "local": {
+            "type": "string",
+            "pattern": "^(19[7-9][0-9]|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$",
+            "description": "A civil-time candidate, used with tz instead of instant. A candidate that does not exist in its zone (a DST gap) is a non-slot."
+          },
+          "tz": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
+          },
+          "window": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "not_before",
+              "not_after"
+            ],
+            "properties": {
+              "not_before": {
+                "$ref": "#/$defs/instant"
+              },
+              "not_after": {
+                "$ref": "#/$defs/instant"
+              }
+            },
+            "description": "Half-open window [not_before, not_after). Semantic rules: not_before < not_after and not_before <= instant < not_after."
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "instant"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "local"
+                  ]
+                },
+                {
+                  "required": [
+                    "tz"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "local",
+              "tz"
+            ],
+            "not": {
+              "required": [
+                "instant"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "scope",
+        "from",
+        "to",
+        "expected"
+      ],
+      "properties": {
+        "rule": {
+          "$ref": "#/$defs/contractPin"
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "from": {
+          "$ref": "#/$defs/instant"
+        },
+        "to": {
+          "$ref": "#/$defs/instant"
+        },
+        "expected": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "window"
+            ],
+            "properties": {
+              "instant": {
+                "$ref": "#/$defs/instant"
+              },
+              "local": {
+                "type": "string",
+                "pattern": "^(19[7-9][0-9]|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$"
+              },
+              "tz": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_+./-]{0,63}$"
+              },
+              "window": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "not_before",
+                  "not_after"
+                ],
+                "properties": {
+                  "not_before": {
+                    "$ref": "#/$defs/instant"
+                  },
+                  "not_after": {
+                    "$ref": "#/$defs/instant"
+                  }
+                }
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "instant"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "local"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "tz"
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "local",
+                  "tz"
+                ],
+                "not": {
+                  "required": [
+                    "instant"
+                  ]
+                }
+              }
+            ]
+          },
+          "description": "Expected occurrences, each with its own window. A past instant whose window is still open is not missed."
+        }
+      },
+      "description": "Reconciliation over the half-open span [from, to): expected occurrences supplied by the caller. Coverage describes what was supplied; it does not replace slot windows."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "slot"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "slot"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "slots"
+              ]
+            },
+            {
+              "required": [
+                "coverage"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "occurrence_set"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "slots"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "slot"
+              ]
+            },
+            {
+              "required": [
+                "coverage"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "coverage"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "coverage"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "slot"
+              ]
+            },
+            {
+              "required": [
+                "slots"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(19[7-9][0-9]|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9]\\.[0-9]{6}Z$",
+      "description": "Canonical v1 operational instant: UTC, Z, exactly six fractional digits. Any other spelling is refused, never rounded or padded."
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "contractPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "digest"
+      ],
+      "description": "A trusted local pin: the contract token and the digest of its canonical manifest or schema set. Never a retrieval address.",
+      "properties": {
+        "contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

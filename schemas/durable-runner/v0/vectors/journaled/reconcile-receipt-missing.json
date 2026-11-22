@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "reconcile-receipt-missing",
+  "mode": "journaled",
+  "covers": [
+    "reconcile.unknown-receipt"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "reconcile",
+      "receipt": "missing",
+      "expect": {
+        "ok": {
+          "status": "indeterminate"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "single reconcile"
+    }
+  ]
+}

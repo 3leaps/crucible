@@ -1,0 +1,72 @@
+{
+  "v": 0,
+  "id": "confirm-cancel-future-generation-refused",
+  "mode": "basic",
+  "covers": [
+    "generation.stale",
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "effects": "none",
+      "generation": 5,
+      "expect": {
+        "refused": "generation_unclaimed"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "pending",
+        "cancellation": "requested"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "a pending task needs no quiescence and the request is recorded; only the named generation was never claimed"
+    }
+  ]
+}

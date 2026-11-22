@@ -1,0 +1,28 @@
+{
+  "v": 0,
+  "id": "duration-overflow-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "P99999999999999999999D",
+      "target": "us",
+      "expect": {
+        "refused": "overflow"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "syntactically valid; magnitude exceeds any 64-bit microsecond count"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "v": 0,
+  "kind": "task_transition",
+  "task_id": "sha256:08d8cc7a13646231f339d510a6148aa70690def0a58abd141bb7be864a939579",
+  "task_spec_digest": "sha256:54277f3c1758c0541ff27c24a8ace73af5b5b9097b221867174bc7a96fbd6974",
+  "prior": {
+    "stream": "runner-example",
+    "record_id": "task-transitions",
+    "revision": 2,
+    "digest": "sha256:fea6b55b4bcc47f0ff68227a12dc12542c1bb971e007149fdfc711a4606ccc5d"
+  },
+  "to_state": "succeeded",
+  "attempt": {
+    "attempt_n": 1,
+    "attempt_id": "sha256:b46080674cdbdb58819b7819c5aaf9b9f1fe7f36977925e6c979e1b0b33c219d",
+    "phase": "finish",
+    "dispatch": "confirmed",
+    "result": "succeeded",
+    "outcome_code": "captured_verified",
+    "effects": "resolved",
+    "outputs_verified": true
+  },
+  "authority_generation": 1,
+  "run_id": "run-0001",
+  "at": "2026-01-02T00:04:00.000000Z",
+  "evidence": [
+    {
+      "digest": "sha256:2441d09e7b930416b76eba2e338923c6cfa323d5ab38fd51e85700914953c9a9",
+      "length": 1024
+    }
+  ],
+  "cancellation": "requested"
+}

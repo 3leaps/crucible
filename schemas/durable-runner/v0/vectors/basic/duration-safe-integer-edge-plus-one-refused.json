@@ -1,0 +1,28 @@
+{
+  "v": 0,
+  "id": "duration-safe-integer-edge-plus-one-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "PT9007199254.740992S",
+      "target": "us",
+      "expect": {
+        "refused": "overflow"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "twin of the edge acceptance, one microsecond over the ceiling"
+    }
+  ]
+}

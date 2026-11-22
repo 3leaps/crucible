@@ -1,0 +1,97 @@
+{
+  "v": 0,
+  "id": "identity-expired-key-history-retained-observed",
+  "mode": "basic",
+  "covers": [
+    "identity.expired-key"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    },
+    "d2": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "profile_admit",
+      "profile": {
+        "modes": [
+          "basic"
+        ],
+        "window": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "store_window": "P35D",
+        "attempt_journal_ack": "none",
+        "remote_sealed_coverage": "none",
+        "replication": "none",
+        "authority_scope": "single_host_exclusive",
+        "task_kind_window_range": {
+          "min": "P7D",
+          "default": "P14D",
+          "max": "P35D"
+        },
+        "identity_history": "retained"
+      },
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "P40D",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d2",
+      "expect": {
+        "ok": {
+          "disposition": "observed",
+          "state": "pending"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "P40D is past the P35D store window but identity history is retained so identity is reconstructed, never fresh"
+    }
+  ]
+}

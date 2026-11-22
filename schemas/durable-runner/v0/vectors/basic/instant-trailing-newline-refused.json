@@ -1,0 +1,27 @@
+{
+  "v": 0,
+  "id": "instant-trailing-newline-refused",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.000000Z\n",
+      "expect": {
+        "refused": "format"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the text is otherwise the canonical wire spelling; a trailing newline is a non-canonical token and is never trimmed"
+    }
+  ]
+}

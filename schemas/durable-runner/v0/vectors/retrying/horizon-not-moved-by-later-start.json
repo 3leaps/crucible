@@ -1,0 +1,211 @@
+{
+  "v": 0,
+  "id": "horizon-not-moved-by-later-start",
+  "mode": "retrying",
+  "covers": [
+    "retry.horizon-deadline"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.backoff": {
+        "initial": "PT1M",
+        "max": "PT30M",
+        "multiplier_milli": 2000,
+        "jitter_milli": 0
+      },
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T00:01:01.000000Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT30M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 2,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT1S",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "attempt": {
+        "n": 2,
+        "phase": "finish",
+        "result": "failed",
+        "effects": "none",
+        "dispatch": "confirmed",
+        "outcome": "source_unavailable"
+      },
+      "next_eligible_at": "2026-01-02T00:32:02.000000Z",
+      "reason": "retry_scheduled",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT30M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 3,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "refused": "horizon_exceeded"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          },
+          {
+            "n": 2,
+            "result": "failed",
+            "effects": "none",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "failed"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 2,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 2,
+          "phase": "finish",
+          "result": "failed"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "attempt 3 starts about 61 minutes after the first start (the task deadline PT6H is open and the delay has elapsed); only the horizon anchored at the first start has expired, although attempt 2 began about 31 minutes before"
+    }
+  ]
+}

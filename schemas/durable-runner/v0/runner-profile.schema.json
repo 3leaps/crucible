@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:durable-runner/v0/runner-profile.schema.json",
+  "title": "Durable Runner Profile",
+  "description": "Experimental durable-runner/v0 companion. Discovery root for contract: durable-runner/v0. Modes are cumulative prefixes. sealed is reserved by the standard and is not admitted; a profile advertising it is a reject. Durability is independent properties, never one ordinal. conformance is none or benchmark_only: a schema harness is not runtime qualification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilities",
+    "origin",
+    "conformance",
+    "modes",
+    "build",
+    "runtime"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "contract: durable-runner/v0"
+      }
+    },
+    "origin": {
+      "enum": [
+        "harness",
+        "declared"
+      ],
+      "description": "declared is an unverified claim and is never conformance evidence."
+    },
+    "conformance": {
+      "enum": [
+        "benchmark_only",
+        "none"
+      ]
+    },
+    "modes": {
+      "type": "array",
+      "uniqueItems": true,
+      "oneOf": [
+        {
+          "const": [
+            "basic"
+          ]
+        },
+        {
+          "const": [
+            "basic",
+            "retrying"
+          ]
+        },
+        {
+          "const": [
+            "basic",
+            "retrying",
+            "journaled"
+          ]
+        },
+        {
+          "const": [
+            "basic",
+            "retrying",
+            "journaled",
+            "scheduled"
+          ]
+        }
+      ],
+      "description": "Each claimed mode must also pass its vector set. Modes not exercised cannot be advertised."
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_kinds",
+        "authority",
+        "durability",
+        "idempotency"
+      ],
+      "properties": {
+        "task_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/contractToken"
+          },
+          "uniqueItems": true
+        },
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope",
+            "spans"
+          ],
+          "properties": {
+            "scope": {
+              "const": "single_host_exclusive"
+            },
+            "spans": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "recovery",
+                  "child_containment",
+                  "execution",
+                  "effects",
+                  "orphan_cleanup",
+                  "publication"
+                ]
+              },
+              "allOf": [
+                {
+                  "contains": {
+                    "const": "recovery"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "child_containment"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "execution"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "effects"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "orphan_cleanup"
+                  }
+                }
+              ],
+              "description": "Must include recovery, child_containment, execution, effects and orphan_cleanup; an append lock alone is not an authority."
+            }
+          }
+        },
+        "durability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attempt_journal_ack",
+            "remote_sealed_coverage",
+            "replication"
+          ],
+          "properties": {
+            "attempt_journal_ack": {
+              "enum": [
+                "none",
+                "survives_process_loss",
+                "survives_power_loss"
+              ],
+              "description": "Bound to the actual v1 stratum failure model, not commit_strategy."
+            },
+            "remote_sealed_coverage": {
+              "const": "none"
+            },
+            "replication": {
+              "const": "none",
+              "description": "No contract claim; not a statement about infrastructure replicas."
+            }
+          }
+        },
+        "journal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_contract",
+            "failure_model"
+          ],
+          "properties": {
+            "record_contract": {
+              "$ref": "#/$defs/contractPin"
+            },
+            "failure_model": {
+              "enum": [
+                "none",
+                "survives_process_loss",
+                "survives_power_loss"
+              ]
+            },
+            "commit_strategy": {
+              "enum": [
+                "fsync_file_and_dir",
+                "fsync_file",
+                "backend_acknowledged",
+                "none"
+              ],
+              "description": "Information only; never upgrades attempt_journal_ack."
+            }
+          }
+        },
+        "idempotency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window",
+            "store_window"
+          ],
+          "properties": {
+            "window": {
+              "$ref": "#/$defs/durationRange"
+            },
+            "store_window": {
+              "$ref": "#/$defs/duration"
+            },
+            "effective_window": {
+              "$ref": "#/$defs/duration",
+              "description": "The configured window, within the kind's range; the range default when omitted. The store window must cover it and the retry horizon. Never silently downgraded to fit the store."
+            },
+            "retry_horizon": {
+              "$ref": "#/$defs/duration"
+            },
+            "identity_history": {
+              "enum": [
+                "retained",
+                "reconstructable",
+                "discarded"
+              ],
+              "description": "Expiry never grants a new execution; it falls back to retained replay or refusal."
+            }
+          }
+        },
+        "schedule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule_contract"
+          ],
+          "properties": {
+            "rule_contract": {
+              "$ref": "#/$defs/contractPin"
+            },
+            "max_lag": {
+              "$ref": "#/$defs/duration"
+            }
+          },
+          "description": "Required for scheduled mode. An absent max_lag means catch-up is not offered."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "modes": {
+            "contains": {
+              "const": "journaled"
+            }
+          }
+        },
+        "required": [
+          "modes"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "required": [
+              "journal"
+            ],
+            "properties": {
+              "durability": {
+                "properties": {
+                  "attempt_journal_ack": {
+                    "enum": [
+                      "survives_process_loss",
+                      "survives_power_loss"
+                    ]
+                  }
+                }
+              },
+              "journal": {
+                "properties": {
+                  "record_contract": {
+                    "properties": {
+                      "contract": {
+                        "const": "contract: durable-record/v1"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "modes": {
+            "contains": {
+              "const": "scheduled"
+            }
+          }
+        },
+        "required": [
+          "modes"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "required": [
+              "schedule"
+            ],
+            "properties": {
+              "schedule": {
+                "properties": {
+                  "rule_contract": {
+                    "properties": {
+                      "contract": {
+                        "const": "contract: recurrence/v0"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^P(?:[0-9]+W|[0-9]+D(?:T(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+M(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+(?:\\.[0-9]{1,6})?S))?|T(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+M(?:[0-9]+(?:\\.[0-9]{1,6})?S)?|[0-9]+(?:\\.[0-9]{1,6})?S))$",
+      "maxLength": 64,
+      "description": "Fixed-unit ISO 8601 subset (W, D, H, M, S; no years or months). Evaluated as exact integer microseconds; fractional loss and overflow past the safe-integer ceiling are refusals."
+    },
+    "durationRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "default",
+        "max"
+      ],
+      "description": "Semantic rule: microseconds(min) <= default <= max.",
+      "properties": {
+        "min": {
+          "$ref": "#/$defs/duration"
+        },
+        "default": {
+          "$ref": "#/$defs/duration"
+        },
+        "max": {
+          "$ref": "#/$defs/duration"
+        }
+      }
+    },
+    "contractToken": {
+      "type": "string",
+      "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$"
+    },
+    "contractPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "digest"
+      ],
+      "description": "A trusted local pin: the contract token and the digest of its canonical manifest or schema set. Never a retrieval address.",
+      "properties": {
+        "contract": {
+          "type": "string",
+          "pattern": "^contract: [a-z0-9][a-z0-9-]*/v[0-9]+$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

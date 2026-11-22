@@ -1,0 +1,31 @@
+{
+  "v": 0,
+  "id": "admission-stream-local-declared-quota-refused",
+  "mode": "basic",
+  "covers": [
+    "admission.denial"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "stream_local",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "refused": "shared_quota_needs_shared_authority"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "reservation count 0 under limit 1 so rate_denied cannot fire"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "v": 0,
+  "id": "advance-clock-overflow-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "advance_clock",
+      "by": "PT9007199254.740991S",
+      "expect": {
+        "refused": "counter_exhausted"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "the duration is valid on its own and the result is representable; only the clock plus it exceeds the safe-integer ceiling"
+    }
+  ]
+}

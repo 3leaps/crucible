@@ -1,0 +1,95 @@
+{
+  "v": 0,
+  "id": "replay-after-crash-does-not-resume",
+  "mode": "journaled",
+  "covers": [
+    "replay.zero-effects",
+    "resume.authorization"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_start_before_dispatch",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "replay",
+      "expect": {
+        "ok": {
+          "heads": {
+            "t1": "running"
+          },
+          "effects_performed": 0
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "running",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "running",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "replay never starts attempts or recovers; resume is a separate authorized action"
+    }
+  ]
+}

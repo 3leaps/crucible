@@ -1,0 +1,106 @@
+{
+  "v": 0,
+  "id": "transition-running-to-succeeded",
+  "mode": "basic",
+  "covers": [
+    "transition.permitted",
+    "outcome.mapping"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "succeeded",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "result": "succeeded",
+        "outcome": "captured_verified",
+        "effects": "resolved",
+        "dispatch": "confirmed",
+        "outputs_verified": true
+      },
+      "expect": {
+        "ok": {
+          "state": "succeeded"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "succeeded",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "succeeded",
+            "effects": "resolved",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "succeeded",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "succeeded"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "mapped success code with verified outputs"
+    }
+  ]
+}

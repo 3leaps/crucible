@@ -1,0 +1,28 @@
+{
+  "v": 0,
+  "id": "duration-trailing-newline-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "P1D\n",
+      "target": "us",
+      "expect": {
+        "refused": "syntax"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "P1D is a valid duration; only the trailing newline makes the token non-canonical"
+    }
+  ]
+}

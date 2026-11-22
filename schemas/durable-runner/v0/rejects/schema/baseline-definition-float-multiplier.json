@@ -1,0 +1,69 @@
+{
+  "v": 0,
+  "task_kind": {
+    "contract": "contract: data-acquisition/v0",
+    "schema_digest": "sha256:703213abc4dbf79ca4e3cb4c0e13d3163c5a9cf961ad986645dcd528bbe178af"
+  },
+  "parameters": {
+    "plan": {
+      "id": "example-plan",
+      "digest": "sha256:62e343a713cddc48b5a4e02727bd2d624e8ca544c0ea6d3618f6e36e1635052b"
+    },
+    "policy": {
+      "id": "example-policy",
+      "digest": "sha256:a050bb5826e3362fc05277d499049427e840ad95f8435dc1763bb2270e2a510f"
+    },
+    "target": "observations"
+  },
+  "requires": [
+    {
+      "name": "source_policy",
+      "pin": "sha256:a050bb5826e3362fc05277d499049427e840ad95f8435dc1763bb2270e2a510f"
+    }
+  ],
+  "outcome_mapping": [
+    {
+      "code": "captured_verified",
+      "result": "success"
+    },
+    {
+      "code": "source_unavailable",
+      "result": "failure",
+      "reason": "source_unavailable"
+    },
+    {
+      "code": "integrity_mismatch",
+      "result": "failure",
+      "reason": "integrity_failure"
+    }
+  ],
+  "policy_pins": [
+    {
+      "contract": "contract: data-acquisition/v0",
+      "digest": "sha256:a050bb5826e3362fc05277d499049427e840ad95f8435dc1763bb2270e2a510f"
+    }
+  ],
+  "timeouts": {
+    "attempt": "PT30M",
+    "task_deadline": "PT6H",
+    "grace": "PT30S",
+    "phases": {
+      "stall": "PT2M"
+    }
+  },
+  "retry": {
+    "max_attempts": 3,
+    "retryable_reasons": [
+      "source_unavailable"
+    ],
+    "backoff": {
+      "initial": "PT1M",
+      "max": "PT30M",
+      "multiplier_milli": 2000,
+      "jitter_milli": 250
+    },
+    "horizon": "PT6H",
+    "retry_after_abandonment": false
+  },
+  "idempotency_window": "P14D"
+}

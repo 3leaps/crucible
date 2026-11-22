@@ -1,0 +1,85 @@
+{
+  "v": 0,
+  "id": "request-cancel-current-generation-accepted",
+  "mode": "journaled",
+  "covers": [
+    "generation.stale",
+    "cancel.race"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "before_record_commit",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "owner": "owner-2",
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "pending"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "generation": 2,
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "pending",
+        "cancellation": "requested"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "twin of the stale-generation refusal: the request names the current generation 2"
+    }
+  ]
+}

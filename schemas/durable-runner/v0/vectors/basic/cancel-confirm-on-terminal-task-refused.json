@@ -1,0 +1,143 @@
+{
+  "v": 0,
+  "id": "cancel-confirm-on-terminal-task-refused",
+  "mode": "basic",
+  "covers": [
+    "cancel.quiescence",
+    "transition.terminal-resurrection"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "request_cancel",
+      "task": "t1",
+      "expect": {
+        "ok": {
+          "effect": "recorded"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "failed",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "dispatch": "confirmed",
+        "result": "failed",
+        "outcome": "integrity_mismatch",
+        "effects": "none"
+      },
+      "expect": {
+        "refused": "cancellation_precedes_failure"
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "abandoned",
+      "attempt": {
+        "n": 1,
+        "phase": "finish",
+        "dispatch": "confirmed",
+        "result": "abandoned",
+        "effects": "unknown"
+      },
+      "expect": {
+        "ok": {
+          "state": "abandoned"
+        }
+      }
+    },
+    {
+      "op": "confirm_cancel",
+      "task": "t1",
+      "quiescent": true,
+      "expect": {
+        "refused": "task_terminal"
+      },
+      "effects": "none"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "abandoned",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "unknown",
+            "dispatch": "confirmed"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "cancellation": "requested"
+      },
+      {
+        "task": "t1",
+        "to": "abandoned",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "a cancellation request committed first, so an ordinary failed finish is refused and only abandonment can end the unresolved attempt; the final confirm_cancel has quiescence asserted and a recorded request, so only the terminal state applies"
+    }
+  ]
+}

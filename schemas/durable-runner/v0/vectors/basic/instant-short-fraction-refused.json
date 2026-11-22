@@ -1,0 +1,41 @@
+{
+  "v": 0,
+  "id": "instant-short-fraction-refused",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00Z",
+      "expect": {
+        "refused": "format"
+      }
+    },
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.5Z",
+      "expect": {
+        "refused": "format"
+      }
+    },
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.500000+01:00",
+      "expect": {
+        "refused": "format"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "wire strings are never normalized: an absent or short fraction and a non-UTC offset are each format refusals, and none is a nonrepresentable value"
+    }
+  ]
+}

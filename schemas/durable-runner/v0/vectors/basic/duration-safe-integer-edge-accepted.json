@@ -1,0 +1,30 @@
+{
+  "v": 0,
+  "id": "duration-safe-integer-edge-accepted",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "PT9007199254.740991S",
+      "target": "us",
+      "expect": {
+        "ok": {
+          "us": 9007199254740991
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "exactly the safe-integer ceiling in microseconds"
+    }
+  ]
+}

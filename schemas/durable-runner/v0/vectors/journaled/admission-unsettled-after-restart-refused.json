@@ -1,0 +1,57 @@
+{
+  "v": 0,
+  "id": "admission-unsettled-after-restart-refused",
+  "mode": "journaled",
+  "covers": [
+    "admission.unsettled"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "restart",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    },
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "refused": "unsettled_reservation"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "shared scope, declared limit"
+    }
+  ]
+}

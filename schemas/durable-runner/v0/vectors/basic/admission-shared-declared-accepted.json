@@ -1,0 +1,33 @@
+{
+  "v": 0,
+  "id": "admission-shared-declared-accepted",
+  "mode": "basic",
+  "covers": [
+    "admission.denial"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "shared",
+      "limit_scope_declared": true,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "shared authority serves the declared shared quota; differs from the refused twin only in scope"
+    }
+  ]
+}

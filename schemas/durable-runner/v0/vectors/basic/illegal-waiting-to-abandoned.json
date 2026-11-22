@@ -1,0 +1,70 @@
+{
+  "v": 0,
+  "id": "illegal-waiting-to-abandoned",
+  "mode": "basic",
+  "covers": [
+    "transition.illegal"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "expect": {
+        "ok": {
+          "state": "waiting"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "abandoned",
+      "expect": {
+        "refused": "illegal_transition"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "waiting"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "abandoned is reachable only from running"
+    }
+  ]
+}

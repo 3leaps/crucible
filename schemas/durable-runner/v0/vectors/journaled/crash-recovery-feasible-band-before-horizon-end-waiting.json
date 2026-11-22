@@ -1,0 +1,118 @@
+{
+  "v": 0,
+  "id": "crash-recovery-feasible-band-before-horizon-end-waiting",
+  "mode": "journaled",
+  "covers": [
+    "retry.horizon-deadline",
+    "crash.after-effect-before-finish"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.retry_after_abandonment": true,
+      "retry.horizon": "PT1H"
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "expect": {
+        "ok": {
+          "state": "running"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "after_effect_before_finish",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "advance_clock",
+      "by": "PT58M",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "predecessor": "quiescent_proved",
+      "effects": "resolved",
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "waiting"
+          },
+          "executed_effects": 0
+        }
+      },
+      "next_eligible_at": "2026-01-02T00:59:00.000000Z",
+      "owner": "owner-2"
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "waiting",
+        "attempts": [
+          {
+            "n": 1,
+            "result": "abandoned",
+            "effects": "resolved",
+            "dispatch": "intended"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      },
+      {
+        "task": "t1",
+        "to": "running",
+        "attempt": {
+          "n": 1,
+          "phase": "start"
+        }
+      },
+      {
+        "task": "t1",
+        "to": "waiting",
+        "attempt": {
+          "n": 1,
+          "phase": "finish",
+          "result": "abandoned"
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "retry after abandonment is granted, effects are resolved and attempts remain; two minutes before the horizon end the exact 60s delay still fits inside the feasible band, so the task waits with a persisted eligibility"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "v": 0,
+  "id": "admission-stream-local-undeclared-accepted",
+  "mode": "basic",
+  "covers": [
+    "admission.denial"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "admission",
+      "source": "src1",
+      "scope": "stream_local",
+      "limit_scope_declared": false,
+      "action": "reserve",
+      "limit": 1,
+      "expect": {
+        "ok": {
+          "reserved": 1
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "a stream-local limiter that does not claim a global limit is allowed; differs from the refused twin only in limit_scope_declared"
+    }
+  ]
+}

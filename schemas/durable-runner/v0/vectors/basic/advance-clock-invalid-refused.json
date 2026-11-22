@@ -1,0 +1,27 @@
+{
+  "v": 0,
+  "id": "advance-clock-invalid-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "advance_clock",
+      "by": "PT1X",
+      "expect": {
+        "refused": "duration_invalid"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "malformed duration only"
+    }
+  ]
+}

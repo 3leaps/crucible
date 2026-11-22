@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "instant-six-digits-accepted",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.123456Z",
+      "expect": {
+        "ok": {
+          "canonical": "2026-01-02T00:00:00.123456Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "exactly six digits; twin of the seven-digit refusal"
+    }
+  ]
+}

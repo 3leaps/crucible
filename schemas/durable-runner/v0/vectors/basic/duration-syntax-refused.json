@@ -1,0 +1,36 @@
+{
+  "v": 0,
+  "id": "duration-syntax-refused",
+  "mode": "basic",
+  "covers": [
+    "time.duration-bounds"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_duration",
+      "text": "30 minutes",
+      "target": "us",
+      "expect": {
+        "refused": "syntax"
+      }
+    },
+    {
+      "op": "parse_duration",
+      "text": "PT",
+      "target": "us",
+      "expect": {
+        "refused": "syntax"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "both texts are not durations at all; no bound is involved"
+    }
+  ]
+}

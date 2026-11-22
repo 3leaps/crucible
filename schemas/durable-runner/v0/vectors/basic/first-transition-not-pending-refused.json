@@ -1,0 +1,38 @@
+{
+  "v": 0,
+  "id": "first-transition-not-pending-refused",
+  "mode": "basic",
+  "covers": [
+    "transition.first-not-pending"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "transition",
+      "task": "t9",
+      "to": "running",
+      "attempt": {
+        "n": 1,
+        "phase": "start",
+        "dispatch": "intended"
+      },
+      "prior": "absent",
+      "expect": {
+        "refused": "first_not_pending"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "label t9 was never accepted so no head exists; prior absent claims first transition"
+    }
+  ]
+}

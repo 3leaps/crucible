@@ -1,0 +1,80 @@
+{
+  "v": 0,
+  "id": "superseded-handle-transition-refused",
+  "mode": "journaled",
+  "covers": [
+    "generation.stale",
+    "orphan.refusal"
+  ],
+  "definitions": {
+    "d1": {
+      "retry.max_attempts": 1
+    }
+  },
+  "ops": [
+    {
+      "op": "submit",
+      "as": "t1",
+      "authority": "a",
+      "key": "k1",
+      "definition": "d1",
+      "expect": {
+        "ok": {
+          "disposition": "created",
+          "state": "pending"
+        }
+      }
+    },
+    {
+      "op": "crash",
+      "at": "before_record_commit",
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "op": "recover",
+      "generation": 2,
+      "owner": "owner-2",
+      "predecessor": "quiescent_proved",
+      "effects": "none",
+      "other_owner": true,
+      "expect": {
+        "ok": {
+          "task_states": {
+            "t1": "pending"
+          },
+          "executed_effects": 0
+        }
+      }
+    },
+    {
+      "op": "transition",
+      "task": "t1",
+      "to": "waiting",
+      "reason": "blocked",
+      "expect": {
+        "refused": "generation_stale"
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {
+      "t1": {
+        "state": "pending",
+        "attempts": []
+      }
+    },
+    "history": [
+      {
+        "task": "t1",
+        "to": "pending"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "competing": "owner-2 recovered with generation 2; this adapter still holds its acquired generation 1, which it attaches unchanged, so the transition is refused although nothing else is wrong"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "v": 0,
+  "kind": "task_checkpoint",
+  "task_id": "sha256:08d8cc7a13646231f339d510a6148aa70690def0a58abd141bb7be864a939579",
+  "cursor": {
+    "stream": "runner-example",
+    "record_id": "task-transitions",
+    "revision": 3
+  },
+  "state": {
+    "digest": "sha256:2441d09e7b930416b76eba2e338923c6cfa323d5ab38fd51e85700914953c9a9",
+    "length": 1024
+  },
+  "verified": true,
+  "at": "2026-01-02T00:04:01.000000Z"
+}

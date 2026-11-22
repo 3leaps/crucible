@@ -1,0 +1,29 @@
+{
+  "v": 0,
+  "id": "instant-canonical-wire-accepted",
+  "mode": "basic",
+  "covers": [
+    "time.exact-instant"
+  ],
+  "definitions": {},
+  "ops": [
+    {
+      "op": "parse_instant",
+      "text": "2026-01-02T00:00:00.500000Z",
+      "expect": {
+        "ok": {
+          "canonical": "2026-01-02T00:00:00.500000Z"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "tasks": {},
+    "history": []
+  },
+  "notes": [
+    {
+      "competing": "twin of the short-fraction refusal: exactly six fractional digits and Z"
+    }
+  ]
+}
