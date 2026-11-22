@@ -402,9 +402,12 @@ fi
 echo "    [ok] U+2028/U+2029 canonical UTF-8 bytes $want_lsps"
 python3 -c '
 import json, pathlib, struct, sys
-from importlib.machinery import SourceFileLoader
+import importlib.util
 
-jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+_spec = importlib.util.spec_from_file_location("jcs", "scripts/rfc8785-canonicalize.py")
+jcs = importlib.util.module_from_spec(_spec)
+sys.modules["jcs"] = jcs
+_spec.loader.exec_module(jcs)
 samples = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/ieee-samples.json").read_text(encoding="utf-8"))
 for row in samples:
     bits = int(row["ieee_hex"], 16)
@@ -417,9 +420,12 @@ print("    [ok] RFC 8785 IEEE hex samples")
 '
 python3 -c '
 import json, pathlib, sys
-from importlib.machinery import SourceFileLoader
+import importlib.util
 
-jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+_spec = importlib.util.spec_from_file_location("jcs", "scripts/rfc8785-canonicalize.py")
+jcs = importlib.util.module_from_spec(_spec)
+sys.modules["jcs"] = jcs
+_spec.loader.exec_module(jcs)
 cases = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/rfc8785/rejects.json").read_text(encoding="utf-8"))["cases"]
 for case in cases:
     try:
@@ -472,8 +478,11 @@ fi
 python3 -c '
 import json, hashlib, pathlib, sys
 sys.path.insert(0, "scripts")
-from importlib.machinery import SourceFileLoader
-jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+import importlib.util
+_spec = importlib.util.spec_from_file_location("jcs", "scripts/rfc8785-canonicalize.py")
+jcs = importlib.util.module_from_spec(_spec)
+sys.modules["jcs"] = jcs
+_spec.loader.exec_module(jcs)
 spec = json.loads(pathlib.Path("schemas/service-job/v0/examples/job_submit_request.example.json").read_text(encoding="utf-8"))["job_spec"]
 digest = hashlib.sha256(jcs.jcs_dumps(spec).encode("utf-8")).hexdigest()
 want = pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.sha256").read_text(encoding="utf-8").strip()
@@ -495,9 +504,12 @@ echo "    [ok] transcribe parameters validate; CLI-only keys are rejected"
 echo "    Digest-covered JobSpec components..."
 python3 -c '
 import copy, hashlib, json, pathlib, sys
-from importlib.machinery import SourceFileLoader
+import importlib.util
 
-jcs = SourceFileLoader("jcs", "scripts/rfc8785-canonicalize.py").load_module()
+_spec = importlib.util.spec_from_file_location("jcs", "scripts/rfc8785-canonicalize.py")
+jcs = importlib.util.module_from_spec(_spec)
+sys.modules["jcs"] = jcs
+_spec.loader.exec_module(jcs)
 spec = json.loads(pathlib.Path("schemas/service-job/v0/canonicalization/jobspec.input.json").read_text(encoding="utf-8"))
 base = hashlib.sha256(jcs.jcs_dumps(spec).encode("utf-8")).hexdigest()
 

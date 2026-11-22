@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -28,12 +29,14 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
-from importlib.machinery import SourceFileLoader
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-jcs = SourceFileLoader(
+_spec = importlib.util.spec_from_file_location(
     "jcs", os.path.join(HERE, "rfc8785-canonicalize.py")
-).load_module()
+)
+jcs = importlib.util.module_from_spec(_spec)
+sys.modules["jcs"] = jcs
+_spec.loader.exec_module(jcs)
 
 REQUIRED_VECTORS = {
     "core": [
