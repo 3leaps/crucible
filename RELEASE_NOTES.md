@@ -10,6 +10,29 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.13 (2026-11-22)
+
+**Adds the proposed, experimental `durable-runner/v0` contract for portable task execution with journaled recovery, and proposed PDR-0012 on publishing presser qualification claims.**
+
+- Defines task identity, closed task and attempt transitions, retry and
+  backoff bounds, single-authority recovery with generation handles, supplied
+  schedules with catch-up, and independent durability properties. Modes
+  `basic`, `retrying`, `journaled` and `scheduled` are specified; `sealed` is
+  reserved and refused.
+- Adds six schemas, examples, schema and semantic rejects, 413 behavioral
+  vectors, a reference model and mutation, refusal-isolation, type-fuzz and
+  wire-record controls. Contract scripts also run on Python 3.15.
+- Adds proposed PDR-0012, a reporting practice for published presser results
+  (what ran, expectations and scope, conclusions with evidence, verifiable
+  claims), with provisional fuzz guidance and no new schema or runner.
+
+The contract remains proposed/experimental. The reference model is a fixture
+checker: it qualifies no runtime, storage, cloud or language implementation.
+
+See [docs/releases/v0.2.13.md](docs/releases/v0.2.13.md).
+
+---
+
 ## v0.2.12 (2026-11-14)
 
 **Adds draft secret-surface boundaries and extends library implementation profiles and qualification-harness rules.**
@@ -45,29 +68,5 @@ and primitive availability do not qualify a production resolver or concurrent
 filesystem enforcement.
 
 See [docs/releases/v0.2.11.md](docs/releases/v0.2.11.md).
-
----
-
-## v0.2.10 (2026-11-11)
-
-**Adds a physical Parquet fixture corpus and complete independent logical reader for `durable-index/v0`, and tightens durable-record framing and schema validation controls.**
-
-- **Durable-index physical and logical evidence:** binds 26 Parquet fixtures and
-  six NDJSON twins with byte pins, signed and absent size annotations, both
-  codecs and page versions, row-group and ordered member boundaries. Baseline
-  controls check inventory, hashes, raw row schemas and logical parity; physical
-  decoding and R2/W1/W2/W3 qualification remain separate. Extends the
-  independent reader to all authored logical scenario categories and clarifies
-  literal-prefix plan discovery.
-- **Durable-record and validator controls:** refuses blank or whitespace-only
-  journal lines at ingest, adds ancestor-seal refusals, and preserves
-  schema-stage leap-second refusal alongside semantic timestamp checks. Updates
-  exact-number, format, Unicode and validator-report controls; pins Goneat
-  `v0.6.8` and the `v0.5.15` glibc runner.
-
-`durable-index/v0` remains experimental. These fixtures do not qualify a
-physical reader, writer, or storage runtime.
-
-See [docs/releases/v0.2.10.md](docs/releases/v0.2.10.md).
 
 ---
