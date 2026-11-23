@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   publication against the verified final archive, clarifying adoption-candidate
   status and separate binding scope for OIDC mechanisms
   ([PDR-0011](docs/decisions/PDR-0011-verified-package-registry-publication.md)).
+- Add the proposed process decision PDR-0013 for declaring byte-exact
+  repository data in `.gitattributes` and verifying effective attributes and
+  checked-out bytes with Git (Crucible itself is not yet covered)
+  ([PDR-0013](docs/decisions/PDR-0013-byte-exact-repository-data.md)).
 
 ### Changed
 
@@ -22,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binding, stable asset identity, lock scope, fixed-set declarations, and
   tag-only verification
   ([PDR-0010](docs/decisions/PDR-0010-verified-immutable-release-publication.md)).
+- Update `docs/operations/ci-baseline.md` and
+  `docs/knowledge/cicd/github-actions/windows-runners.md` to replace the
+  `core.autocrlf=false` recommendation with the proposed PDR-0013 declaration
+  and check, and distinguish byte-exact data from `* text=auto eol=lf`.
 - Check `package.json` and the README version badge in the release-surface
   guard, make `version-set` fail when `jq` is missing, and align the release
   checklist's rollback, verification and post-release text with the explicit

@@ -238,9 +238,17 @@ passes either way, so it never shows the bug.
 
 **Problem**: A Windows runner can rewrite text-file bytes, and it often has no `python3`.
 
-- Set `git config --global core.autocrlf false` **before** checkout when the
-  repository's bytes matter (digests, golden files, fixtures). Otherwise text
-  files arrive with CRLF line endings and every byte-level comparison fails.
+- Setting `git config --global core.autocrlf false` before checkout hides
+  line-ending conversion defects from CI while default Windows clones still
+  receive converted bytes ([EPR-0002](../decisions/EPR-0002-verification-gate-integrity.md)).
+  [PDR-0013](../decisions/PDR-0013-byte-exact-repository-data.md) (proposed;
+  adopted per repository from an explicit first covered revision) replaces that
+  workaround in order: (1) declare byte-exact paths in `.gitattributes`
+  (`-text -filter -ident -working-tree-encoding`), (2) add the two-assertion
+  Git check in a Windows job with `core.autocrlf=true` set explicitly
+  **before** checkout (isolated to that job), and (3) remove
+  `core.autocrlf=false` where it stood in for the check (unrelated jobs need
+  not be disturbed).
 - `python3` is often absent; `actions/setup-python` provides `python`. A small
   shim on `PATH` keeps shared scripts portable.
 - Shard long Windows jobs and add one aggregate job that requires every shard,

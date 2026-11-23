@@ -79,6 +79,7 @@ Examples:
 | [PDR-0010](PDR-0010-verified-immutable-release-publication.md)             | Verify staged assets before immutable release publication                   | proposed | 2026-10-23 |
 | [PDR-0011](PDR-0011-verified-package-registry-publication.md)              | Authorize package registry publication against the verified final archive   | proposed | 2026-10-23 |
 | [PDR-0012](PDR-0012-publishing-qualification-claims-from-presser-evidence.md) | Publishing qualification claims from presser evidence                    | proposed | 2026-11-22 |
+| [PDR-0013](PDR-0013-byte-exact-repository-data.md)                            | Byte-exact repository data is declared and verified by Git             | proposed | 2026-11-23 |
 | [EPR-0001](EPR-0001-published-artifact-dependency-integrity.md)            | Published Artifacts Carry an Integral Dependency Graph                      | accepted | 2026-07-22 |
 | [EPR-0002](EPR-0002-verification-gate-integrity.md)                        | Gates Assert on Resolved State and Are Proven Able to Fail                  | accepted | 2026-07-20 |
 | [EPR-0003](EPR-0003-claim-integrity.md)                                    | Durable Claims Assert on What Exists and Move When It Moves                 | proposed | 2026-07-27 |
