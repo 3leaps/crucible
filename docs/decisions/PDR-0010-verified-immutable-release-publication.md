@@ -3,7 +3,7 @@ id: "PDR-0010"
 title: "Verify staged assets before immutable release publication"
 status: "proposed"
 date: "2026-10-23"
-last_updated: "2026-10-23"
+last_updated: "2026-11-23"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -16,6 +16,7 @@ tags:
 relates-to:
   - "PDR-0004 (publication authority and the existing CI publication posture)"
   - "PDR-0008 (committed release identity and explicit ceremony inputs)"
+  - "PDR-0011 (separate package-registry publication profile)"
   - "EPR-0002 (verification of resolved state and discriminating negative controls)"
 ---
 
@@ -93,7 +94,8 @@ role, required or optional disposition and allowed multiplicity, and applicable
 manifest and signature coverage. Declared rules resolve to an exact asset set
 before publication; optionality does not permit arbitrary additions. A tag-only
 release explicitly resolves to zero attached assets; it does not manufacture
-signatures for nonexistent assets. A shared declaration schema may follow
+signatures for nonexistent assets. A minimal adopter may use a closed fixed-set
+declaration with no optional rules. A shared declaration schema may follow
 separately; adoption must supply a documented format and executable validation.
 
 Forge-generated source archives are identified separately from attached assets
@@ -103,11 +105,21 @@ built after that tag. Those belong in the verification record below, which
 avoids a circular requirement to commit output digests before the outputs exist.
 
 The maintainer-controlled ceremony creates a draft for the verified tag, uploads
-the declared set, and then checks the remote draft:
+the declared set, and then checks the remote draft. An existing draft may be
+resumed only for the same verified draft identity and matching intended metadata
+and bytes: missing declared assets may be added before the verification record
+is created, without replacing or clobbering existing attached assets. Any
+deliberate draft correction before the record is created requires a separate
+explicit recovery action with its own retained evidence rather than ordinary
+resume behavior.
+
+When checking the remote draft:
 
 - Enumerate its attached assets and reconcile them against the declaration in
   both directions. Missing required assets, duplicates, and unexpected assets
-  fail verification.
+  fail verification. Compare stable observed release and asset identity together
+  with verified downloaded-byte digests, not changing counters such as download
+  counts.
 - Read back the staged bytes. Verify payload digests and manifest signatures
   against the committed trust material from the verified tag's commit. Check
   the complete declared signature and manifest coverage; a key uploaded beside
@@ -115,23 +127,39 @@ the declared set, and then checks the remote draft:
 - Require applicable public-key assets to match their committed blobs, in
   addition to the fingerprint and signature checks.
 - Confirm the release is still a draft for the same tag object and commit,
-  with the intended prerelease setting and reviewed release notes. Carry the
-  declared latest-state choice into publication and verify it afterward.
+  binding release notes to the tagged UTF-8 blob and comparing the decoded
+  release-body value exactly (remote notes remain mutable after publication, so
+  the retained record is the evidence). Require explicit boolean `latest` and
+  `prerelease` intent with no implicit default, rejecting the combination where
+  both are true; carry the declared latest-state choice into publication and
+  verify it afterward. Both flags remain mutable observations, not permanent
+  trust anchors.
 
-Retain a pre-publication verification record bound to the verified tag object
-and commit, the declaration revision, the exact resolved asset names, sizes,
-SHA-256 digests, and applicable signature-verification results. Recheck against
-that record immediately before publication, and compare the post-publication
-downloaded bytes against the same record. Do not rebuild the expected digest set
-from the newly published assets. A mismatch is a failed verification, even if
-the replacement set is internally self-consistent.
+Retain the original pre-publication verification record outside the checkout in
+an operator-controlled location; reject symlinks, create the record exclusively,
+retain it durably, and never silently overwrite it. Bind it to the verified tag
+object and commit, the declaration revision, the exact resolved asset names,
+stable asset identities, sizes, SHA-256 digests, release notes and intent flags,
+and applicable signature-verification results. Recheck against that record
+immediately before publication, and compare the post-publication downloaded
+bytes against the same record. Do not rebuild the expected digest set from the
+newly published assets. Once a record exists, a mismatch is a refusal rather
+than permission to refresh the baseline, even if the replacement set is
+internally self-consistent; later observations are retained as separate
+evidence, never a replacement baseline. An ordinary external file is not
+claimed intrinsically immutable or a defense against a compromised operator
+account.
 
 Local files, upload success, and a release object's existence are insufficient
-evidence. Restrict draft write authority and concurrent publishers, then recheck
-the tag and asset identities immediately before the publication action. The
-record detects a swap within that window; it does not eliminate the window. Upload,
-verification, and publication are separate operations; this profile claims no
-atomic transaction across them and requires post-publication verification.
+evidence. Local exclusion and remote forge write-authority restriction are
+separate controls: a local lock identifies the publication target and does not
+restrict other writers on the forge, which is an access-control boundary
+evidenced separately. Restrict draft write authority and concurrent publishers,
+then recheck the tag and asset identities immediately before the publication
+action. The record detects a swap within that window; it does not eliminate the
+window. Upload, verification, and publication are separate operations; this
+profile claims no atomic transaction across them and requires post-publication
+verification.
 
 For GitHub CLI, explicitly retain the draft during verification. Supplying
 assets to `gh release create` without `--draft` can upload and publish in the
@@ -154,7 +182,9 @@ After publishing, independently read the published state and require:
   canonical tag. The immutable-release lock applies only to that associated tag.
   Companion tags require separate protection evidence and verification of their
   declared source-revision relationship; creating extra forge releases is not
-  implied.
+  implied. Companion-tag protection evidence evaluates the effective ruleset
+  against the concrete tag under forge pattern semantics, rather than merely
+  finding a pattern string.
 - The attached asset set and downloaded bytes match the pre-publication
   verification record, with the required digests and signatures valid.
 - The latest/prerelease state matches the declared release intent.
@@ -173,9 +203,16 @@ not claim that delaying a proxy check prevents distribution. Record and verify
 each surface separately, including partial publication; no surface's success
 implies another's. See [module proxy behavior][go-proxy].
 
+[PDR-0011](PDR-0011-verified-package-registry-publication.md) proposes the
+separate package-registry profile for verification isolation and final-archive
+publication authorization.
+
 `gh release verify` verifies the release attestation; it does not by itself
 verify a downloaded local file. Use the required digest/signature checks and,
 where applicable, `gh release verify-asset`, with explicit repository and tag.
+A tag-only adopter runs `gh release verify` with zero asset-verification calls
+while still enumerating the remote asset list and rejecting any unexpected
+attached asset.
 See [release verification][gh-verify] and [asset verification][gh-verify-asset].
 
 The ceremony reports a distinct outcome for staged-but-unpublished,
@@ -276,6 +313,7 @@ require new versions rather than replacing published bytes.
 
 - [PDR-0004: Release publication gate](PDR-0004-release-publication-gate.md)
 - [PDR-0008: Release public identity](PDR-0008-release-public-identity-in-tree.md)
+- [PDR-0011: Verified package registry publication](PDR-0011-verified-package-registry-publication.md)
 - [EPR-0002: Verification gate integrity](EPR-0002-verification-gate-integrity.md)
 - [Decision-record taxonomy](../repository/decision-records.md)
 
@@ -294,3 +332,4 @@ require new versions rather than replacing published bytes.
 | 2026-10-23 | proposed      | Declaration, record, surfaces, attestation and CI scope    | entarch    |
 | 2026-10-23 | proposed      | State that the profile is not build provenance             | cxotech    |
 | 2026-10-23 | proposed      | Order enablement before adoption; immutability evidence source | devlead    |
+| 2026-11-23 | proposed      | Link PDR-0011; clarify companion-tag ruleset evaluation and staging/record obligations | devlead |
