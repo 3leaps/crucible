@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add the non-normative adopter guide
+  `docs/guides/durable-record-timestamp-source-precision.md` with seconds,
+  milliseconds, and discarded-remainder (nanosecond) recipes for carrying
+  timestamp source precision in adopter-owned versioned payloads without
+  amending `durable-record/v1`.
 - Add the proposed, experimental `record-collection/v0` contract family
   (`schemas/record-collection/v0/`): `set` (canonical ascending pin order,
   no repeats) and `list` (stored order) collections of exact `durable-record/v1`
