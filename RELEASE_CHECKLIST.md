@@ -280,13 +280,42 @@ these items confirm CI did its job.
 exists but is still a draft is a failure, not a completed release: it is
 invisible to every consumer while the repository looks healthy.
 
+### Confirm the Release run started and succeeded
+
+Confirm that `release.yml` started for the pushed tag and that all three jobs
+(`verify`, `verify-signature`, `create-release`) completed with `success`. Filter
+by tag at the API (`--branch`) so older releases are not hidden behind the
+default result window, and treat a non-zero exit as a query error rather than
+"no run":
+
+```bash
+if runs="$(gh run list --workflow release.yml --event push \
+  --branch "${THREELEAPS_CRUCIBLE_RELEASE_TAG}" \
+  --json databaseId,headBranch,status,conclusion,url)"; then
+  printf '%s\n' "$runs" | jq '.'
+  run_id="$(printf '%s\n' "$runs" | jq -r '.[0].databaseId // empty')"
+  if [ -n "$run_id" ]; then
+    gh run view "$run_id" --json jobs \
+      --jq '.jobs[] | {name, status, conclusion}'
+  else
+    echo "no release.yml run found for ${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
+  fi
+else
+  echo "release.yml query failed (inspect gh error above; do not treat as no run)" >&2
+fi
+```
+
+Expected jobs: `verify`, `verify-signature`, and `create-release`, each with
+`status: "completed"` and `conclusion: "success"`.
+
 - [ ] Verify tag appears on GitHub: https://github.com/3leaps/crucible/tags
-- [ ] Verify the `release.yml` workflow succeeded (a failed `verify-signature`
-      job means publication was refused — investigate, do not publish by hand)
+- [ ] Verify the `release.yml` run for `${THREELEAPS_CRUCIBLE_RELEASE_TAG}`
+      started and all three jobs (`verify`, `verify-signature`,
+      `create-release`) succeeded
 - [ ] Verify the workflow's read-only ruleset check and signed policy
-      attestation both passed. The read-only check reports bypass actors as
-      not visible and not checked; the Pre-Release full check is the record
-      for them.
+      attestation both passed in `verify-signature`. The read-only check
+      reports bypass actors as not visible and not checked; the Pre-Release
+      full check is the record for them.
 - [ ] Verify the release is **published, not draft**, **immutable**, and — for a
       stable release — carries the **Latest** flag:
   ```bash
@@ -301,8 +330,27 @@ invisible to every consumer while the repository looks healthy.
 - [ ] Verify the published release is reachable and its notes render correctly:
       https://github.com/3leaps/crucible/releases/latest
 
-> If a release is sitting in draft, that is a defect in the publication path —
-> the fix is to repair the workflow, not to undraft it manually and move on.
+### Triage: no run, failed run, or draft release
+
+- **No run started**: confirm the tag ref exists on GitHub via the
+  repository-qualified API (`gh api "repos/3leaps/crucible/git/ref/tags/${THREELEAPS_CRUCIBLE_RELEASE_TAG}" --jq '{ref: .ref, type: .object.type, sha: .object.sha}'`),
+  matches `v*`, and GitHub Actions is enabled for the repository. Do not create
+  a release by hand; diagnose why the tag push did not trigger `release.yml`.
+- **Failed run**: inspect the failing job (`gh run view "$run_id" --log-failed`):
+  - `verify` failed: version, release notes, changelog, or `make check` failed
+    on the tagged commit. Fix on `main` and cut a corrective release (or follow
+    Rollback if no release was published).
+  - `verify-signature` failed: publication was refused because the pinned key,
+    anchors, read-only ruleset check, tag policy attestation, or GitHub tag
+    verification failed. Investigate the pin, key expiry, or ruleset — never
+    publish by hand.
+  - `create-release` failed: check whether a release object exists
+    (`gh release view "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"`) before taking any
+    action, then inspect the job logs.
+- **Draft release**: under PDR-0004, `release.yml` publishes with `draft: false`,
+  so a draft release is a workflow defect, not a staging step. Do **not**
+  undraft it manually — inspect the run logs, repair the workflow, and follow
+  Rollback.
 
 ### Verify tag signature (optional manual check)
 
