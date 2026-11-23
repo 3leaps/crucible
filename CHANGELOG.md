@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guard, make `version-set` fail when `jq` is missing, and align the release
   checklist's rollback, verification and post-release text with the explicit
   repository URL and the publication profile in force.
+- Add `release.yml` run/job confirmation commands and no-run, failed-run, and
+  draft-release triage guidance to `RELEASE_CHECKLIST.md`.
 
 ## [0.2.13] - 2026-11-22
 
