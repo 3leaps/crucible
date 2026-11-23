@@ -426,6 +426,8 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 		echo "    Durable-record controls..."; \
 		sh scripts/test-durable-record-controls.sh || exit 1; \
 		python3 scripts/test-durable-record-v1-controls.py || exit 1; \
+		echo "    Record-collection controls..."; \
+		python3 scripts/test-record-collection-controls.py || exit 1; \
 		echo "    Data-acquisition controls..."; \
 		python3 scripts/test-data-acquisition-controls.py || exit 1; \
 		echo "    Recurrence controls..."; \
@@ -440,6 +442,7 @@ lint-contracts-1: ## Contract controls for shard 1 and contract manifest validat
 			schemas/durable-queue/v0/contract.json \
 			schemas/durable-record/v0/contract.json \
 			schemas/durable-record/v1/contract.json \
+			schemas/record-collection/v0/contract.json \
 			schemas/data-acquisition/v0/contract.json \
 			schemas/recurrence/v0/contract.json \
 			schemas/durable-runner/v0/contract.json \

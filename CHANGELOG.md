@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add the proposed, experimental `record-collection/v0` contract family
+  (`schemas/record-collection/v0/`): `set` (canonical ascending pin order,
+  no repeats) and `list` (stored order) collections of exact `durable-record/v1`
+  revision pins, `member_count`, `append_only` extension rules,
+  `closure_claim`, body-backed evidence verification, examples, schema and
+  semantic rejects, 27 behavioral vectors, and offline controls.
 - Add the proposed process decision PDR-0011 for authorizing package registry
   publication against the verified final archive, clarifying adoption-candidate
   status and separate binding scope for OIDC mechanisms
