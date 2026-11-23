@@ -10,6 +10,31 @@ For detailed release content, see [docs/releases/](docs/releases/).
 
 ---
 
+## v0.2.14 (2026-11-23)
+
+**Adds the proposed, experimental `record-collection/v0` contract family, files proposed PDR-0011 and PDR-0013, refines proposed PDR-0010, adds a non-normative timestamp source-precision adopter guide, and strengthens release-surface guards and checklist triage.**
+
+- Adds sibling contract family `schemas/record-collection/v0/` (`set` and `list`
+  of exact `durable-record/v1` revision pins, `member_count`, `append_only`,
+  `closure_claim`, body-backed evidence verification, 6 examples, 14 schema
+  reject pairs, 27 behavioral vectors, 7 semantic rejects, and offline controls)
+  with zero changes to `durable-record/v1` or `project-work/v0`.
+- Files proposed PDR-0011 (package registry publication against verified final
+  archive) and proposed PDR-0013 (byte-exact repository data declared in
+  `.gitattributes` and verified with Git, plus CI/Windows guidance updates), and
+  refines proposed PDR-0010 obligations.
+- Adds the non-normative adopter guide
+  `docs/guides/durable-record-timestamp-source-precision.md` and strengthens
+  `RELEASE_CHECKLIST.md`, `version-set`, and `release-guard-release-surfaces`.
+
+`record-collection/v0` remains proposed/experimental, and PDR-0010, PDR-0011,
+and PDR-0013 remain proposed. Crucible stays on PDR-0004 for release publication
+and is not yet covered by PDR-0013.
+
+See [docs/releases/v0.2.14.md](docs/releases/v0.2.14.md).
+
+---
+
 ## v0.2.13 (2026-11-22)
 
 **Adds the proposed, experimental `durable-runner/v0` contract for portable task execution with journaled recovery, and proposed PDR-0012 on publishing presser qualification claims.**
@@ -49,24 +74,5 @@ class checks remain manual; these documentation changes do not qualify an
 existing product, binding or harness implementation.
 
 See [docs/releases/v0.2.12.md](docs/releases/v0.2.12.md).
-
----
-
-## v0.2.11 (2026-11-13)
-
-**Adds the proposed, experimental `filesystem-access/v0` contract for portable access relative to a held directory object.**
-
-- Defines root-relative name admission, `containment/v0` and `no-links/v0`
-  profiles, held-handle identity, bounded reads and directory listings, and
-  exclusive creation without final-link following.
-- Adds request/result schemas, per-operation capability reports, 62 declarative
-  recipe cases, and logical, schema, mutation and bounded native availability
-  controls.
-
-The contract remains proposed/experimental. Schema validity, logical agreement
-and primitive availability do not qualify a production resolver or concurrent
-filesystem enforcement.
-
-See [docs/releases/v0.2.11.md](docs/releases/v0.2.11.md).
 
 ---
