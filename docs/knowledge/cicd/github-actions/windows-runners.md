@@ -417,11 +417,27 @@ Git on Windows converts LF to CRLF on checkout by default. Format checkers (Biom
 Add `.gitattributes` to the repository root:
 
 ```
-# Force LF line endings on all platforms
+# Force LF line endings on all platforms for source formatting
 * text=auto eol=lf
 ```
 
 This must be committed **before** format checks run in CI. Existing Windows clones need a fresh checkout after the file is added.
+
+### Byte-Exact Data (Fixtures, Corpora, Vectors, Pinned Files)
+
+`* text=auto eol=lf` is right for source formatting, but **wrong for byte-exact
+data**: `text=auto` normalizes CRLF to LF on `git add` for files Git detects as
+text, and neither `eol=lf` nor `binary` (`-diff -merge -text`) unsets `filter`,
+`ident`, or `working-tree-encoding`. Declare byte-exact paths explicitly so all
+four conversion attributes are unset:
+
+```gitattributes
+/fixtures/** -text -filter -ident -working-tree-encoding
+```
+
+See [PDR-0013](../../../decisions/PDR-0013-byte-exact-repository-data.md)
+(proposed; adopted per repository from an explicit first covered revision) for
+the full declaration and Git verification requirements.
 
 ## TypeScript Native Binary Gaps on ARM64
 
