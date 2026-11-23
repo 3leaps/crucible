@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add the proposed process decision PDR-0011 for authorizing package registry
+  publication against the verified final archive, clarifying adoption-candidate
+  status and separate binding scope for OIDC mechanisms
+  ([PDR-0011](docs/decisions/PDR-0011-verified-package-registry-publication.md)).
+
 ### Changed
 
+- Refine proposed PDR-0010 with the PDR-0011 cross-link, concrete companion-tag
+  ruleset evaluation, and explicit obligations for external verification
+  records, draft resume without clobbering, release-notes and intent-flag
+  binding, stable asset identity, lock scope, fixed-set declarations, and
+  tag-only verification
+  ([PDR-0010](docs/decisions/PDR-0010-verified-immutable-release-publication.md)).
 - Check `package.json` and the README version badge in the release-surface
   guard, make `version-set` fail when `jq` is missing, and align the release
   checklist's rollback, verification and post-release text with the explicit
