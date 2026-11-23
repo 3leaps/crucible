@@ -583,11 +583,17 @@ version-set: ## Set version (usage: make version-set V=x.y.z)
 		echo "[!!] V not specified. Usage: make version-set V=x.y.z"; \
 		exit 1; \
 	fi
-	@echo "$(V)" > VERSION
-	@# Update package.json if jq available
-	@if [ -f "package.json" ] && command -v jq >/dev/null 2>&1; then \
-		jq '.version = "$(V)"' package.json > package.json.tmp && mv package.json.tmp package.json; \
+	@# package.json carries the version too: preflight jq and stage the new file
+	@# before VERSION changes, so a failure leaves the tree untouched
+	@if [ -f "package.json" ]; then \
+		if ! command -v jq >/dev/null 2>&1; then \
+			echo "[!!] jq is required to update package.json"; \
+			exit 1; \
+		fi; \
+		jq '.version = "$(V)"' package.json > package.json.tmp || { rm -f package.json.tmp; exit 1; }; \
 	fi
+	@echo "$(V)" > VERSION
+	@if [ -f "package.json.tmp" ]; then mv package.json.tmp package.json; fi
 	@$(MAKE) sync-version-badge
 	@$(MAKE) sync-changelog-links
 	@echo "[ok] Version set to $(V)"

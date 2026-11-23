@@ -129,6 +129,125 @@ large_changelog="$(
 expect_accepted "early matches in a large changelog" \
     "${version}" "${valid_release_notes}" "${large_changelog}" 1
 
+# Version carriers: package.json and the README badge.
+valid_readme='# Project
+
+![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue)
+'
+
+if ! validate_version_carriers "${version}" 1 "0.1.23" "${valid_readme}" >/dev/null 2>&1; then
+    echo "error: positive control was rejected: version carriers" >&2
+    exit 1
+fi
+echo "[ok] accepted: version carriers"
+
+if ! validate_version_carriers "${version}" 0 "" "${valid_readme}" >/dev/null 2>&1; then
+    echo "error: positive control was rejected: no package.json" >&2
+    exit 1
+fi
+echo "[ok] accepted: repository without package.json"
+
+commented_readme='# Project
+
+<!-- ![Version: 0.1.22](https://img.shields.io/badge/version-0.1.22-blue) -->
+![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue)
+'
+if ! validate_version_carriers "${version}" 1 "0.1.23" "${commented_readme}" >/dev/null 2>&1; then
+    echo "error: positive control was rejected: commented stale badge" >&2
+    exit 1
+fi
+echo "[ok] accepted: a commented-out badge is ignored"
+
+expect_carrier_rejected() {
+    local description="$1"
+    local expected="$2"
+    shift 2
+    local output
+    if output="$(validate_version_carriers "$@" 2>&1)"; then
+        echo "error: negative control was accepted: ${description}" >&2
+        exit 1
+    fi
+    if [[ "${output}" != *"${expected}"* ]]; then
+        echo "error: rejected for the wrong reason: ${description}" >&2
+        echo "  actual: ${output}" >&2
+        exit 1
+    fi
+    echo "[ok] rejected: ${description}"
+}
+
+expect_carrier_rejected "package.json carries the previous version" \
+    "package.json version is 0.1.22, expected 0.1.23" \
+    "${version}" 1 "0.1.22" "${valid_readme}"
+
+expect_carrier_rejected "package.json version is empty" \
+    "package.json version is , expected 0.1.23" \
+    "${version}" 1 "" "${valid_readme}"
+
+expect_carrier_rejected "package.json version is the literal dash" \
+    "package.json version is -, expected 0.1.23" \
+    "${version}" 1 "-" "${valid_readme}"
+
+expect_carrier_rejected "README badge names the previous version" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "$(mutate "${valid_readme}" 's/0\.1\.23/0.1.22/g')"
+
+expect_carrier_rejected "README has no badge" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "# Project"
+
+expect_carrier_rejected "only badge is commented out" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "# Project
+
+<!-- ![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue) -->"
+
+expect_carrier_rejected "stale visible badge beside a correct commented one" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "# Project
+
+![Version: 0.1.22](https://img.shields.io/badge/version-0.1.22-blue)
+<!-- ![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue) -->"
+
+expect_carrier_rejected "two visible badges, one stale" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "${valid_readme}
+![Version: 0.1.22](https://img.shields.io/badge/version-0.1.22-blue)"
+
+fence='```'
+expect_carrier_rejected "only badge sits inside a fenced example" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "# Project
+
+${fence}markdown
+![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue)
+${fence}"
+
+fenced_example_readme="${valid_readme}
+
+Example:
+
+${fence}markdown
+![Version: 0.1.22](https://img.shields.io/badge/version-0.1.22-blue)
+${fence}
+"
+if ! validate_version_carriers "${version}" 1 "0.1.23" "${fenced_example_readme}" >/dev/null 2>&1; then
+    echo "error: positive control was rejected: header badge plus a fenced example" >&2
+    exit 1
+fi
+echo "[ok] accepted: header badge with a fenced example below it"
+
+expect_carrier_rejected "badge appears only after prose" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "# Project
+
+Some prose first.
+
+![Version: 0.1.23](https://img.shields.io/badge/version-0.1.23-blue)"
+
+expect_carrier_rejected "badge colour changed" \
+    "exactly one version badge naming 0.1.23" \
+    "${version}" 1 "0.1.23" "$(mutate "${valid_readme}" 's/-blue/-red/')"
+
 # Guard inputs themselves.
 expect_rejected "empty version" \
     "VERSION is empty" \

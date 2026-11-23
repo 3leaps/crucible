@@ -81,9 +81,20 @@ Type the tag rather than computing it: the guard then checks the stated intent a
 - [ ] `docs/releases/vX.Y.Z.md` created
 - [ ] `RELEASE_NOTES.md` updated (keep only latest 3 entries)
 - [ ] `VERSION` matches the intended tag
-- [ ] README version badge updated to match VERSION
+- [ ] `package.json` `version` and the README version badge match VERSION
+      (`make version-set V=X.Y.Z` writes both and fails when `jq` is missing;
+      `make release-guard-release-surfaces` rejects a stale value)
 - [ ] All changes committed and pushed to main
-- [ ] CI passes on main branch
+- [ ] CI is green on main **for the exact commit you will tag**. Take the
+      commit from `git rev-parse HEAD` on an up-to-date `main` and require a
+      completed, successful `Check` push run for that commit. An empty result
+      means the run has not started or finished: the step stays pending.
+  ```bash
+  sha="$(git rev-parse HEAD)"
+  gh run list --workflow check.yml --branch main --event push --commit "${sha}" \
+    --json status,conclusion,headSha \
+    --jq '.[] | select(.status == "completed" and .conclusion == "success")'
+  ```
 - [ ] The live version-tag ruleset matches the **full** publication policy,
       including bypass actors (run with the maintainer credential used for
       release administration), and record the result. The release workflow
@@ -137,8 +148,9 @@ make release-guard-release-surfaces
 ```
 
 It checks that `RELEASE_NOTES.md` leads with the current version, that
-`docs/releases/vX.Y.Z.md` exists, and that `CHANGELOG.md` carries the version's
-section, defines its compare link, and points `[unreleased]` at it.
+`docs/releases/vX.Y.Z.md` exists, that `CHANGELOG.md` carries the version's
+section, defines its compare link, and points `[unreleased]` at it, that
+`package.json` carries the version, and that the README badge names it.
 
 What stays a manual review: **which** entries `RELEASE_NOTES.md` retains, and the
 content of what is kept. The guard asserts the surface is current, not that its
@@ -257,8 +269,12 @@ not apply. Stop, and check the ruleset before the release proceeds.
 
 Pushing the signed tag is the last manual act. `release.yml` verifies the
 signature and publishes the release; see
-[PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md). Nothing below
-requires a click — these items confirm CI did its job.
+[PDR-0004](docs/decisions/PDR-0004-release-publication-gate.md), the accepted
+publication profile in force here. [PDR-0010](docs/decisions/PDR-0010-verified-immutable-release-publication.md)
+(draft verification and maintainer-controlled publication) is proposed and not
+adopted; the immutability check below observes the repository's GitHub setting
+and does not mean that profile is in effect. Nothing below requires a click —
+these items confirm CI did its job.
 
 **Verify the release is published, not merely created.** A release object that
 exists but is still a draft is a failure, not a completed release: it is
@@ -296,7 +312,7 @@ diagnosis.
 **Local git** (most reliable):
 
 ```bash
-git fetch --tags origin
+git fetch https://github.com/3leaps/crucible.git 'refs/tags/*:refs/tags/*'
 git tag -v "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 # needs THREELEAPS_CRUCIBLE_DECERNOR_BIN (see Variables)
 ./scripts/verify-pinned-tag.sh "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
@@ -377,20 +393,23 @@ subkey — the one marked `[S]` — is what gates publication.
 
 ## Rollback
 
-Version tags are protected against deletion and update. Prefer a corrective
-release. If exceptional removal is required, an organization administrator must
-explicitly exercise the protected-tag bypass before running the remote-tag
-deletion below:
+Version tags are protected against deletion and update, and a published release
+is immutable: its tag is not moved, deleted or reused. Roll back by publishing a
+corrective release (a new patch version) that reverts the change:
 
 ```bash
-# Delete remote tag
-git push origin --delete "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
-
-# Delete local tag
-git tag -d "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
-
-# If VERSION file needs revert
 git revert <commit-hash>
+```
+
+Remote-tag deletion applies only to a tag whose release was never published
+(for example a publication that failed before the release became immutable).
+It needs an organization administrator to exercise the protected-tag bypass
+explicitly, and, like every remote call here, uses the explicit repository URL,
+never `origin`:
+
+```bash
+git push https://github.com/3leaps/crucible.git --delete "refs/tags/${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
+git tag -d "${THREELEAPS_CRUCIBLE_RELEASE_TAG}"
 ```
 
 ## Release Tooling Reference
