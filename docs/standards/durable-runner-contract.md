@@ -4,7 +4,7 @@ description: "Proposed task execution semantics: immutable specification, derive
 category: "standards"
 status: "draft"
 version: "0.0.0"
-lastUpdated: "2026-11-20"
+lastUpdated: "2026-11-28"
 maintainer: "core-standards"
 reviewers: ["architecture", "security", "data-engineering"]
 approvers: ["lead-maintainer"]
@@ -89,6 +89,16 @@ over the network.
   committed attempt-start intent. `attempt_id` is
   `sha256(JCS({"attempt_n": N, "task_id": T, "v": 0}))`. Start intent may
   commit before dispatch, and evidence must not claim dispatch is proven.
+  Note: `task_id` depends on both `authority` and `invocation_key`. Within one
+  runner history, reusing the same `(authority, invocation_key)` with the same
+  specification digest observes or reconciles existing work rather than
+  starting a second task. If two uncoordinated independent runs reuse both the
+  same static authority namespace (such as a document or plan digest) and the
+  same `invocation_key`, both derive identical `task_id` and `attempt_id`
+  (`attempt_n = 1`) values; independent executions that must remain distinct
+  require a distinct authority namespace or `invocation_key`, and a runner or
+  store must refuse merging conflicting independent histories rather than
+  silently folding them together.
 - Scheduled invocation keys are a reserved prefix plus the digest of a
   domain-tagged canonical object. A slot key is `slot:` followed by
   `sha256(JCS({"domain": "slot", "instant": I, "rule": R, "scope": S, "v":

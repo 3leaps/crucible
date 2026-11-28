@@ -5,7 +5,7 @@ author: "Claude"
 author_of_record: "Dave Thompson <dave.thompson@3leaps.net>"
 supervised_by: "@3leapsdave"
 date: "2026-01-29"
-last_updated: "2026-01-31"
+last_updated: "2026-11-28"
 status: "approved"
 tags: ["npm", "oidc", "trusted-publishing", "github-actions"]
 ---
@@ -23,7 +23,7 @@ OIDC trusted publishing creates a trust relationship between npm and GitHub Acti
 
 ## Prerequisites
 
-- **npm CLI >= 11.5.1** (required for trusted publishing support)
+- **npm CLI >= 11.5.1** (required for OIDC trusted publishing; **npm >= 11.15.0** is required for `npm trust` CLI management commands)
 - GitHub Actions workflow with OIDC enabled (`permissions: id-token: write`)
 - Package must already exist on npm (first publish requires manual/token approach)
 - `package.json` must include `repository.url` field
@@ -59,12 +59,19 @@ After the package exists:
 1. Navigate to `https://www.npmjs.com/package/@org/package/access`
 2. Find the **Trusted Publisher** section
 3. Click **GitHub Actions**
-4. Configure:
+4. Configure the four fields:
    - **Organization or user**: `your-org` (case-sensitive, match GitHub URL)
    - **Repository**: `your-repo`
-   - **Workflow filename**: `publish.yml` (filename only, include `.yml`, case-sensitive)
-   - **Environment name**: `publish-npm` (if using GitHub environments for protection)
-5. Click **Set up connection**
+   - **Workflow filename**: `publish.yml` (filename only, case-sensitive, include `.yml`)
+   - **Environment name**: `publish-npm` (optional, e.g., when using GitHub environments for protection)
+5. Tick **Allow npm publish** (required when workflows run `npm publish` directly rather than promoting staged publishes)
+6. Click **Set up connection**
+
+**CLI alternative (npm >= 11.15.0):**
+
+```bash
+npm trust github <pkg> --file <workflow>.yml --repo <org>/<repo> --env <env> --allow-publish -y
+```
 
 Repeat for each package in a multi-package publish (e.g., napi-rs platform packages).
 
@@ -83,8 +90,27 @@ npm will use token auth if any token is present, even with OIDC configured. The 
 After verifying OIDC works:
 
 1. Navigate to package Settings → Publishing access
-2. Select **"Require two-factor authentication and disallow tokens"**
+2. Select the recommended 2FA-only option that disallows token publishing (**"Require two-factor authentication and disallow tokens"** or **"Require two-factor authentication and disallow bypass 2fa tokens (recommended)"**, depending on the npmjs.com UI revision)
 3. Save changes
+
+Do **not** leave the bypass-2FA option (_"Require two-factor authentication or a granular access token with bypass 2fa enabled"_) selected. Although npm is progressively restricting bypass-2FA tokens (starting with account/governance actions and printing deprecation warnings during publish), a leftover bypass token can still direct-publish until removed and takes precedence over OIDC.
+
+OIDC trusted publishing is unaffected by this restriction. Break-glass and initial first-publish operations require an interactive `npm login` with 2FA.
+
+### 5. Renaming or Moving the Publish Workflow
+
+Each package's trusted publisher binds a single workflow filename. If you rename, move, or unify the publish workflow:
+
+1. Update the trusted-publisher entry on **every** package that uses the workflow, including every napi-rs platform package.
+2. Make these updates before the first release from the new workflow, ideally in the same PR window as the workflow change.
+3. Update via the website (delete and re-add the entry) or via the CLI (`npm >= 11.15.0`). Because `npm trust github` creates a publisher without replacing an existing one (and fails when one already exists), list and revoke the existing entry before creating the new one:
+   ```bash
+   npm trust list <pkg>
+   npm trust revoke --id=<id> <pkg>
+   npm trust github <pkg> --file <workflow>.yml --repo <org>/<repo> --env <env> --allow-publish -y
+   ```
+4. Expect HTTP 429 rate-limiting on `npmjs.com` when deleting and re-adding entries across many packages in the web UI; pace changes or use the CLI.
+5. **Pre-flight check before tagging:** confirm each package's npm trusted-publisher settings name the exact workflow filename present on the tagged commit.
 
 ## Workflow Configuration
 
@@ -155,6 +181,20 @@ This pattern:
 3. Forces npm to use OIDC for authentication
 
 ## Troubleshooting
+
+### `npm error code ENEEDAUTH` / "This command requires you to be logged in" under OIDC
+
+With npm >= 11.5.1, if the OIDC token exchange is refused, npm falls back to anonymous (no-auth) mode and reports that you need to log in (`ENEEDAUTH` / `npm adduser`) rather than stating that the trusted publisher did not match.
+
+**How to distinguish from other errors:**
+
+- Unlike _"Access token expired or revoked" + E404_, no stale token is present in the environment.
+- Unlike _404 without expired token_, npm fails before sending an authenticated PUT because the OIDC exchange itself did not succeed.
+
+**Checks:**
+
+1. Confirm the **workflow filename** (case-sensitive, with `.yml`) and **environment name** in each package's npm trusted-publisher entry match the workflow file on the tagged commit. This is the most common cause after renaming or unifying publish workflows.
+2. Confirm `permissions: id-token: write` is set on the publish job. Note that the `GITHUB_TOKEN Permissions` block printed in GitHub Actions job logs does **not** list `IdToken`, so do not treat its absence there as evidence that OIDC is misconfigured.
 
 ### "Access token expired or revoked" + E404
 
@@ -233,7 +273,7 @@ For napi-rs projects with platform packages:
 2. Configure trusted publisher for root package
 3. Publish platform packages first, then root package
 
-All packages must use the same workflow file.
+All packages must use the same workflow file. When the publish workflow filename changes, update all platform packages and the root package together, then re-run only the failed npm job; resumable publish scripts skip versions that are already published.
 
 **Important**: Each platform package (e.g., `@org/pkg-darwin-arm64`, `@org/pkg-linux-x64-gnu`) needs its own trusted publisher configuration on npmjs.com.
 

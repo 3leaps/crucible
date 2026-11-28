@@ -1,9 +1,9 @@
 ---
 id: "ADR-0018"
 title: "Prims carry a multi-language commitment and may depend on sibling prims"
-status: "proposed"
+status: "accepted"
 date: "2026-10-25"
-last_updated: "2026-11-13"
+last_updated: "2026-11-28"
 deciders:
   - "@3leapsdave"
   - "cxotech"
@@ -16,7 +16,7 @@ tags: ["repository", "prims", "bindings", "conformance", "dependencies"]
 
 ## Status
 
-Proposed. Companion to the repository-classes standard
+Accepted. Companion to the repository-classes standard
 (`docs/standards/repository-classes.md`), which carries the observable checks.
 
 ## Context

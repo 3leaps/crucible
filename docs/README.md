@@ -47,6 +47,7 @@ Run-books and adoption guides — the mechanics companion to the standards.
 - [using-the-forge-infrastructure-contract.md](guides/using-the-forge-infrastructure-contract.md) - Reader tour of `forge-infra/v0`: information model, seven lanes, and sibling contracts
 - [agentic-interface-adoption.md](guides/agentic-interface-adoption.md) - Adopting the role catalog and attribution baseline
 - [multi-org-github-cli-auth.md](guides/multi-org-github-cli-auth.md) - GitHub CLI auth across orgs
+- [per-tree-capability-boundary.md](guides/per-tree-capability-boundary.md) - Observable per-tree capability boundaries for Profile B libraries
 
 ### [SOP](sop/)
 
