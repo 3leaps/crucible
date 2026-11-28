@@ -58,7 +58,7 @@ Examples:
 | [ADR-0013](ADR-0013-durable-record-contract.md)                            | Durable Record as a Portable Contract with Declared Stratum Guarantees      | proposed | 2026-10-12 |
 | [ADR-0014](ADR-0014-data-acquisition-contract.md)                          | Data Acquisition Policy and Planning as a Portable Contract                 | proposed | 2026-10-17 |
 | [ADR-0017](ADR-0017-durable-index-contract.md)                             | Durable Object Inventories as a Segmented Snapshot Profile                  | proposed | 2026-10-18 |
-| [ADR-0018](ADR-0018-prims-multi-language-commitment.md)                    | Prims Carry a Multi-Language Commitment and May Depend on Sibling Prims     | proposed | 2026-10-25 |
+| [ADR-0018](ADR-0018-prims-multi-language-commitment.md)                    | Prims Carry a Multi-Language Commitment and May Depend on Sibling Prims     | accepted | 2026-10-25 |
 | [ADR-0019](ADR-0019-durable-record-tombstoning.md)                         | Durable Record Tombstoning with Retained Audit History                      | proposed | 2026-10-20 |
 | [ADR-0020](ADR-0020-filesystem-access-contract.md)                         | Filesystem Access Through Qualified Held-Root Profiles                      | proposed | 2026-11-13 |
 | [ADR-0021](ADR-0021-durable-runner-contract.md)                            | Durable Runner as a Portable Contract with a Core-First Mode Set            | proposed | 2026-11-20 |

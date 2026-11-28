@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add the non-normative adopter guide
+  `docs/guides/per-tree-capability-boundary.md` describing observable per-tree
+  capability boundaries for Profile B libraries and shipped bindings.
+
+### Changed
+
+- Accept `ADR-0018` (`Prims carry a multi-language commitment and may depend on
+sibling prims`) and update `docs/decisions/README.md`
+  ([ADR-0018](docs/decisions/ADR-0018-prims-multi-language-commitment.md)).
+- Update `docs/knowledge/cicd/registry/npm-oidc.md` with current npmjs.com
+  trusted-publisher settings, `npm trust github` CLI usage, 2FA token
+  restriction wording, workflow-rename guidance, and `ENEEDAUTH`
+  troubleshooting.
+- Add a non-normative note to `docs/standards/durable-runner-contract.md` on
+  independent first-run conflicts when `authority` is scoped to a static
+  document or plan digest.
+
 ## [0.2.14] - 2026-11-23
 
 ### Added

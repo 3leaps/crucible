@@ -171,6 +171,9 @@ tree ships the filesystem stratum and declares object storage as a Go-side gap u
 How that stratum is named on the wire belongs to the contract the prim implements (for durable-record, the
 `runtime.stratum` field of its stratum profile), not to this standard.
 
+For an accepted pattern implementing rule 3's explicit unsupported refusal and shared capability vectors, see the
+[observable per-tree capability boundaries guide](../guides/per-tree-capability-boundary.md).
+
 ### 4.2 Unsuffixed dual-surface toolkits
 
 An unsuffixed toolkit whose library is imported in-process across languages and whose `surfaces` include `library`
